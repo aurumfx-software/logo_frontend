@@ -1,7 +1,10 @@
 import React from 'react';
 import { HiOutlineMenu, HiOutlineSearch, HiOutlineBell, HiOutlineMoon } from 'react-icons/hi';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Header({ title, onToggleSidebar }) {
+  const { user } = useAuth();
+
   return (
     <header className="header">
       <div className="header-left">
@@ -26,8 +29,8 @@ export default function Header({ title, onToggleSidebar }) {
           <span className="badge"></span>
         </button>
 
-        <div className="header-avatar" title="Admin User">
-          A
+        <div className="header-avatar" title={user?.name || 'Admin User'}>
+          {user?.initials || 'A'}
         </div>
       </div>
     </header>

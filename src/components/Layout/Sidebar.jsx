@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   HiOutlineViewGrid,
   HiOutlineClipboardCheck,
@@ -13,6 +13,7 @@ import {
   HiOutlineChartBar,
   HiOutlineLogout,
 } from 'react-icons/hi';
+import { useAuth } from '../../context/AuthContext';
 
 const navSections = [
   {
@@ -44,6 +45,13 @@ const navSections = [
 
 export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -92,18 +100,41 @@ export default function Sidebar({ collapsed, onToggle }) {
         ))}
       </nav>
 
-      {/* Footer */}
-      {!collapsed && (
-        <div className="sidebar-footer">
-          <div className="sidebar-footer-user">
-            <div className="sidebar-footer-avatar">A</div>
+      {/* Footer with user info + logout */}
+      <div className="sidebar-footer">
+        {!collapsed && (
+          <div className="sidebar-footer-user" style={{ marginBottom: 8 }}>
+            <div className="sidebar-footer-avatar">
+              {user?.initials || 'A'}
+            </div>
             <div className="sidebar-footer-info">
-              <div className="sidebar-footer-name">Admin User</div>
-              <div className="sidebar-footer-role">Super Admin</div>
+              <div className="sidebar-footer-name">{user?.name || 'Admin User'}</div>
+              <div className="sidebar-footer-role">{user?.role || 'Super Admin'}</div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+        <button
+          onClick={handleLogout}
+          className="sidebar-link"
+          title={collapsed ? 'Logout' : undefined}
+          style={{
+            width: '100%',
+            color: '#EF4444',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <span className="sidebar-link-icon">
+            <HiOutlineLogout />
+          </span>
+          {!collapsed && <span>Logout</span>}
+        </button>
+      </div>
     </aside>
   );
 }
