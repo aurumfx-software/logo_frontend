@@ -25,6 +25,8 @@ import {
 } from 'recharts';
 import StatsCard from '../components/UI/StatsCard';
 import { dashboardStats, platformGrowthData, categoryDistribution, recentActivity } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import FieldStaffDashboard from './FieldStaffDashboard';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -51,6 +53,12 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
+  if (user?.role === 'Field Staff') {
+    return <FieldStaffDashboard />;
+  }
+
   return (
     <div>
       {/* Stats Grid */}

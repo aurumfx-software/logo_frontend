@@ -147,6 +147,7 @@ export default function Login() {
             >
               <option>Super Admin</option>
               <option>Admin</option>
+              <option>Field Staff</option>
               <option>Moderator</option>
               <option>Support</option>
             </select>

@@ -15,7 +15,7 @@ import {
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 
-const navSections = [
+const defaultNavSections = [
   {
     title: 'Overview',
     items: [
@@ -43,7 +43,25 @@ const navSections = [
   },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
+const fieldStaffNavSections = [
+  {
+    title: 'Field Desk',
+    items: [
+      { path: '/dashboard', icon: HiOutlineViewGrid, label: 'Field Dashboard' },
+      { path: '/merchants', icon: HiOutlineOfficeBuilding, label: 'My Merchants', badge: 28 },
+    ],
+  },
+  {
+    title: 'Field Directory',
+    items: [
+      { path: '/categories', icon: HiOutlineCollection, label: 'Categories' },
+      { path: '/geography', icon: HiOutlineGlobe, label: 'Assigned Zones' },
+      { path: '/reports', icon: HiOutlineChartBar, label: 'My Performance' },
+    ],
+  },
+];
+
+export default function Sidebar({ collapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -52,6 +70,8 @@ export default function Sidebar({ collapsed, onToggle }) {
     logout();
     navigate('/login', { replace: true });
   };
+
+  const navSections = user?.role === 'Field Staff' ? fieldStaffNavSections : defaultNavSections;
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
