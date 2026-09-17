@@ -7,15 +7,12 @@ import {
   HiChevronLeft,
   HiChevronRight,
   HiArrowUp,
-  HiExternalLink,
-  HiHome,
   HiMail,
   HiCheckCircle,
   HiX,
   HiInformationCircle,
   HiStar,
   HiQrcode,
-  HiSparkles,
 } from 'react-icons/hi';
 import {
   FaFacebookF,
@@ -727,6 +724,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   });
   const [selectedFeaturedCategory, setSelectedFeaturedCategory] = useState('Cleaning Machine');
   const [categoryPage, setCategoryPage] = useState(1);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   // Search & Filters
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
@@ -735,12 +733,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-
-  // Form State
-  const [contactTitle, setContactTitle] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
-  const [formSubmitted, setFormSubmitted] = useState(false);
 
   // Check route to auto-scroll if visited via /places or /categories
   useEffect(() => {
@@ -813,18 +805,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const handleSelectPlace = (placeName) => {
     setSelectedLocation(placeName.toLowerCase());
     scrollToSection('establishments-section');
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (!contactPhone || !contactMessage) return;
-    setFormSubmitted(true);
-    setTimeout(() => {
-      setContactTitle('');
-      setContactPhone('');
-      setContactMessage('');
-      setFormSubmitted(false);
-    }, 4000);
   };
 
   return (
@@ -1104,27 +1084,68 @@ export default function LandingPage({ defaultTab = 'home' }) {
         <div className="featured-categories-container">
           <h2 className="featured-categories-heading">Categories</h2>
 
-          <div className="featured-categories-grid">
-            {featuredCategoriesList.map((cat) => {
-              const isSelected = selectedFeaturedCategory === cat.title;
-              return (
-                <div
-                  key={cat.id}
-                  className={`featured-category-card ${isSelected ? 'active-selected' : ''}`}
-                  onClick={() => {
-                    setSelectedFeaturedCategory(cat.title);
-                    setSearchQuery(cat.title);
-                    scrollToSection('establishments-section');
-                  }}
-                >
-                  <div className="featured-category-icon">
-                    {renderCategoryIcon(cat.key)}
-                  </div>
-                  <span className="featured-category-title">{cat.title}</span>
-                </div>
-              );
-            })}
+          {/* Category Search Bar */}
+          <div className="category-search-container">
+            <HiSearch className="category-search-icon" />
+            <input
+              type="text"
+              placeholder="Search categories (e.g. Bakery, Software, Temple, Clinic)..."
+              value={categorySearchQuery}
+              onChange={(e) => setCategorySearchQuery(e.target.value)}
+              className="category-search-input"
+            />
+            {categorySearchQuery ? (
+              <button
+                onClick={() => setCategorySearchQuery('')}
+                className="category-search-clear"
+                aria-label="Clear category search"
+              >
+                <HiX />
+              </button>
+            ) : null}
           </div>
+
+          {featuredCategoriesList.filter((cat) =>
+            cat.title.toLowerCase().includes(categorySearchQuery.toLowerCase())
+          ).length === 0 ? (
+            <div className="landing-empty-state" style={{ margin: '20px 0' }}>
+              <HiInformationCircle className="empty-icon" />
+              <h3>No categories found matching "{categorySearchQuery}"</h3>
+              <button
+                onClick={() => setCategorySearchQuery('')}
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+              >
+                Reset Search
+              </button>
+            </div>
+          ) : (
+            <div className="featured-categories-grid">
+              {featuredCategoriesList
+                .filter((cat) =>
+                  cat.title.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                )
+                .map((cat) => {
+                  const isSelected = selectedFeaturedCategory === cat.title;
+                  return (
+                    <div
+                      key={cat.id}
+                      className={`featured-category-card ${isSelected ? 'active-selected' : ''}`}
+                      onClick={() => {
+                        setSelectedFeaturedCategory(cat.title);
+                        setSearchQuery(cat.title);
+                        scrollToSection('establishments-section');
+                      }}
+                    >
+                      <div className="featured-category-icon">
+                        {renderCategoryIcon(cat.key)}
+                      </div>
+                      <span className="featured-category-title">{cat.title}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
 
           {/* Pagination bar matching Screenshot 1 & 3 */}
           <div className="categories-pagination-bar">
@@ -1383,126 +1404,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       </section>
 
-      {/* 7. Contact & Map Section ("Get in Touch") */}
-      <section id="contact-section" className="landing-contact-section">
-        <div className="landing-contact-container">
-          <div className="landing-map-box">
-            <div className="landing-map-header">
-              <a
-                href="https://maps.google.com/?q=Payyanur+Kannur+Kerala"
-                target="_blank"
-                rel="noreferrer"
-                className="landing-map-btn"
-              >
-                Open in Maps <HiExternalLink />
-              </a>
-            </div>
-
-            <div className="landing-map-frame-wrapper">
-              <iframe
-                title="Locality Map View"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d62444.68694002621!2d75.17646679586196!3d12.100918076615712!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba46e2978a637a7%3A0x8be5b7ca31024f22!2sPayyanur%2C%20Kerala!5e0!3m2!1sen!2sin!4v1710000000000!5m2!1sen!2sin"
-                width="100%"
-                height="380"
-                style={{ border: 0 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              ></iframe>
-            </div>
-          </div>
-
-          <div className="landing-touch-wrapper">
-            <div className="landing-touch-form-container">
-              <h2 className="landing-touch-title">Get in Touch</h2>
-
-              {formSubmitted ? (
-                <div className="landing-success-alert">
-                  <HiCheckCircle className="alert-icon" />
-                  <div>
-                    <h4>Thank You for Contacting Us!</h4>
-                    <p>Your inquiry has been received. Our team will get back to you shortly.</p>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleFormSubmit} className="landing-touch-form">
-                  <div className="landing-form-row">
-                    <div className="landing-form-group flex-1">
-                      <select
-                        value={contactTitle}
-                        onChange={(e) => setContactTitle(e.target.value)}
-                        className="landing-form-control"
-                      >
-                        <option value="">Select Title</option>
-                        <option value="Mr">Mr.</option>
-                        <option value="Mrs">Mrs.</option>
-                        <option value="Dr">Dr.</option>
-                        <option value="Business Inquiry">Business Inquiry</option>
-                        <option value="Customer Support">Customer Support</option>
-                      </select>
-                    </div>
-
-                    <div className="landing-form-group flex-2">
-                      <div className="landing-phone-input-group">
-                        <span className="phone-prefix">+91</span>
-                        <input
-                          type="tel"
-                          placeholder="Phone number"
-                          value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
-                          required
-                          className="landing-form-control phone-input"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="landing-form-group">
-                    <textarea
-                      placeholder="Enter Message..."
-                      rows="4"
-                      value={contactMessage}
-                      onChange={(e) => setContactMessage(e.target.value)}
-                      required
-                      className="landing-form-control textarea"
-                    ></textarea>
-                  </div>
-
-                  <button type="submit" className="landing-submit-btn">
-                    Send Message
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <div className="landing-address-card">
-              <div className="landing-address-icon">
-                <HiHome />
-              </div>
-              <div className="landing-address-details">
-                <h4 className="landing-address-building">V/664, First Floor,</h4>
-                <p className="landing-address-text">
-                  Thekkekkara Antony Master Square, Kunnathangadi,
-                </p>
-
-                <p className="landing-address-text">Thrissur, Kerala - 680 012</p>
-
-                <div className="landing-address-contacts">
-                  <p>
-                    <HiPhone /> +91 9495 288 967
-                  </p>
-                  <p>
-                    <HiMail /> info@mylocalityinfo.com
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* 8. Full Width Blue Footer (Matching reference screenshot 1 & 4) */}
-      <footer className="landing-full-footer">
+      <footer id="contact-section" className="landing-full-footer">
         <div className="full-footer-inner">
           {/* Col 1: Logo & App summary */}
           <div className="full-footer-brand">
