@@ -19,7 +19,7 @@ const navSections = [
   {
     title: 'Overview',
     items: [
-      { path: '/', icon: HiOutlineViewGrid, label: 'Dashboard' },
+      { path: '/dashboard', icon: HiOutlineViewGrid, label: 'Dashboard' },
     ],
   },
   {

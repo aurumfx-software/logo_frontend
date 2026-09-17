@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AdminLayout from './components/Layout/AdminLayout';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import RegistrationRequests from './pages/RegistrationRequests';
@@ -23,11 +24,11 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Public route wrapper — redirects to / if already authenticated
-function PublicRoute({ children }) {
+// Public login wrapper — redirects to /dashboard if already authenticated
+function LoginPublicRoute({ children }) {
   const { isAuthenticated } = useAuth();
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 }
@@ -35,17 +36,25 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Login — public only (redirects to dashboard if already logged in) */}
+      {/* Public Landing Page & Views */}
+      <Route path="/" element={<LandingPage defaultTab="home" />} />
+      <Route path="/landing" element={<LandingPage defaultTab="home" />} />
+      <Route path="/category.php" element={<LandingPage defaultTab="categories" />} />
+      <Route path="/places" element={<LandingPage defaultTab="places" />} />
+      <Route path="/contact" element={<LandingPage defaultTab="contact" />} />
+
+
+      {/* Login — public only */}
       <Route
         path="/login"
         element={
-          <PublicRoute>
+          <LoginPublicRoute>
             <Login />
-          </PublicRoute>
+          </LoginPublicRoute>
         }
       />
 
-      {/* Admin routes — protected (redirects to login if not authenticated) */}
+      {/* Admin routes — protected */}
       <Route
         element={
           <ProtectedRoute>
@@ -53,7 +62,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/admin" element={<Dashboard />} />
         <Route path="/registration-requests" element={<RegistrationRequests />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/merchants" element={<Merchants />} />
@@ -65,8 +75,8 @@ function AppRoutes() {
         <Route path="/reports" element={<Reports />} />
       </Route>
 
-      {/* Catch-all — redirect to login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Catch-all — redirect to home landing page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
