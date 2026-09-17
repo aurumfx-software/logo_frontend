@@ -43,6 +43,32 @@ const defaultNavSections = [
   },
 ];
 
+const adminNavSections = [
+  {
+    title: 'Admin Overview',
+    items: [
+      { path: '/dashboard', icon: HiOutlineViewGrid, label: 'Admin Dashboard' },
+    ],
+  },
+  {
+    title: 'Approvals & Verification',
+    items: [
+      { path: '/registration-requests', icon: HiOutlineClipboardCheck, label: 'Registrations', badge: 12 },
+      { path: '/merchants', icon: HiOutlineOfficeBuilding, label: 'Merchants' },
+      { path: '/categories', icon: HiOutlineCollection, label: 'Categories' },
+    ],
+  },
+  {
+    title: 'Admin Operations',
+    items: [
+      { path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints', badge: 5 },
+      { path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
+      { path: '/users', icon: HiOutlineUsers, label: 'Users' },
+      { path: '/reports', icon: HiOutlineChartBar, label: 'Reports' },
+    ],
+  },
+];
+
 const fieldStaffNavSections = [
   {
     title: 'Field Desk',
@@ -71,7 +97,12 @@ export default function Sidebar({ collapsed }) {
     navigate('/login', { replace: true });
   };
 
-  const navSections = user?.role === 'Field Staff' ? fieldStaffNavSections : defaultNavSections;
+  let navSections = defaultNavSections;
+  if (user?.role === 'Field Staff') {
+    navSections = fieldStaffNavSections;
+  } else if (user?.role === 'Admin') {
+    navSections = adminNavSections;
+  }
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>

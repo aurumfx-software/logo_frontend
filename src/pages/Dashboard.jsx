@@ -27,6 +27,7 @@ import StatsCard from '../components/UI/StatsCard';
 import { dashboardStats, platformGrowthData, categoryDistribution, recentActivity } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import FieldStaffDashboard from './FieldStaffDashboard';
+import AdminDashboard from './AdminDashboard';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -57,6 +58,10 @@ export default function Dashboard() {
 
   if (user?.role === 'Field Staff') {
     return <FieldStaffDashboard />;
+  }
+
+  if (user?.role === 'Admin') {
+    return <AdminDashboard />;
   }
 
   return (
