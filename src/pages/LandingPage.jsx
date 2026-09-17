@@ -1017,16 +1017,59 @@ export default function LandingPage({ defaultTab = 'home' }) {
       {/* 3. Find Place & Places Grid Section (Matching reference screenshot: place.php) */}
       <section id="places-section" className="landing-find-place-section">
         <div className="landing-find-place-header">
-          <h2 className="find-place-title">Find Place</h2>
+          <div className="find-place-glow-effect"></div>
+          <div className="find-place-badge">
+            <HiLocationMarker /> MY LOCALITY SEARCH
+          </div>
+          <h2 className="find-place-title">Find Places & Services</h2>
+          <p className="find-place-sub">
+            Discover verified merchants, shops, offices, and landmarks in your locality
+          </p>
+
           <div className="find-place-search-container">
+            <div className="search-input-icon-wrapper">
+              <HiSearch className="find-place-search-icon" />
+            </div>
             <input
               type="text"
-              placeholder="What are you finding?"
+              placeholder="Search by town, category, or business (e.g. Payyanur, Bakery, Hospital)..."
               value={placeSearchQuery}
               onChange={(e) => setPlaceSearchQuery(e.target.value)}
               className="find-place-search-input"
             />
-            <HiSearch className="find-place-search-icon" />
+            {placeSearchQuery ? (
+              <button
+                className="find-place-clear-btn"
+                onClick={() => setPlaceSearchQuery('')}
+                aria-label="Clear Search"
+              >
+                <HiX />
+              </button>
+            ) : null}
+            <button
+              className="find-place-action-btn"
+              onClick={() => {
+                const el = document.getElementById('places-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              <span>Search</span>
+              <HiChevronRight />
+            </button>
+          </div>
+
+          {/* Popular Quick Search Suggestions */}
+          <div className="find-place-tags">
+            <span className="tags-label">Popular:</span>
+            {['Payyanur', 'Kannur', 'Taliparamba', 'Cleaning Machine', 'Solar', 'Bakery'].map((tag) => (
+              <button
+                key={tag}
+                className={`tag-pill ${placeSearchQuery.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`}
+                onClick={() => setPlaceSearchQuery(tag)}
+              >
+                {tag}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1479,7 +1522,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           {/* Col 2: Company Address & Contact Details */}
           <div className="full-footer-address">
             <h4>
-              <HiLocationMarker style={{ color: '#fff' }} /> AURUMFX TECH LLP
+              <HiLocationMarker style={{ color: '#fff' }} /> AURUMFX PVT LTD
             </h4>
             <p>V/664, First Floor,</p>
             <p>Thekkekkara Antony Master Square,</p>
@@ -1535,7 +1578,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
 
         <div className="full-footer-bottom">
-          © COPYRIGHT {new Date().getFullYear()} | AURUMFX TECH LLP | ALL RIGHTS RESERVED
+          © COPYRIGHT {new Date().getFullYear()} | AURUMFX PVT LTD | ALL RIGHTS RESERVED
         </div>
       </footer>
 
