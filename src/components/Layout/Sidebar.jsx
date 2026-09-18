@@ -58,15 +58,6 @@ const adminNavSections = [
       { path: '/categories', icon: HiOutlineCollection, label: 'Categories' },
     ],
   },
-  {
-    title: 'Admin Operations',
-    items: [
-      { path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints', badge: 5 },
-      { path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
-      { path: '/users', icon: HiOutlineUsers, label: 'Users' },
-      { path: '/reports', icon: HiOutlineChartBar, label: 'Reports' },
-    ],
-  },
 ];
 
 const fieldStaffNavSections = [
