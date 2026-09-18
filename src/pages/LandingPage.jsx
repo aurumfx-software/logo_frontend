@@ -10,6 +10,7 @@ import {
   HiMail,
   HiCheckCircle,
   HiX,
+  HiMenu,
   HiInformationCircle,
   HiStar,
   HiQrcode,
@@ -807,13 +808,15 @@ export default function LandingPage({ defaultTab = 'home' }) {
     scrollToSection('establishments-section');
   };
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <div className="landing-container">
       {/* 1. Header / Navbar */}
       <header className="landing-header">
         <div className="landing-header-inner">
           {/* Logo */}
-          <div className="landing-brand" onClick={() => { setActiveNavTab('home'); scrollToTop(); }}>
+          <div className="landing-brand" onClick={() => { setActiveNavTab('home'); setMobileNavOpen(false); scrollToTop(); }}>
             <div className="landing-brand-icon">
               <HiLocationMarker />
             </div>
@@ -823,11 +826,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </div>
           </div>
 
+          {/* Mobile Hamburger Toggle */}
+          <button
+            className="landing-mobile-nav-toggle"
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            aria-label="Toggle Navigation"
+          >
+            {mobileNavOpen ? <HiX size={26} /> : <HiMenu size={26} />}
+          </button>
+
           {/* Navigation Links */}
-          <nav className="landing-nav">
+          <nav className={`landing-nav ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <button
               onClick={() => {
                 setActiveNavTab('home');
+                setMobileNavOpen(false);
                 scrollToTop();
               }}
               className={`landing-nav-link ${activeNavTab === 'home' ? 'active' : ''}`}
@@ -837,6 +850,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <button
               onClick={() => {
                 setActiveNavTab('places');
+                setMobileNavOpen(false);
                 scrollToSection('places-section');
               }}
               className={`landing-nav-link ${activeNavTab === 'places' ? 'active' : ''}`}
@@ -846,6 +860,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <button
               onClick={() => {
                 setActiveNavTab('categories');
+                setMobileNavOpen(false);
                 scrollToSection('featured-categories-section');
               }}
               className={`landing-nav-link ${activeNavTab === 'categories' ? 'active' : ''}`}
@@ -855,6 +870,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <button
               onClick={() => {
                 setActiveNavTab('contact');
+                setMobileNavOpen(false);
                 scrollToSection('contact-section');
               }}
               className={`landing-nav-link ${activeNavTab === 'contact' ? 'active' : ''}`}
@@ -863,43 +879,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </button>
           </nav>
 
-          {/* Store Download Badges & Admin Access */}
-          <div className="landing-header-actions">
-            <a
-              href="https://play.google.com/store"
-              target="_blank"
-              rel="noreferrer"
-              className="landing-app-badge"
-              title="Get it on Google Play"
-            >
-              <svg viewBox="0 0 512 512" width="20" height="20" fill="currentColor">
-                <path d="M325.8 256L80.4 10.6c-4.8 4.7-7.8 11.2-7.8 18.5v453.8c0 7.3 3 13.8 7.8 18.5L325.8 256zM365.2 295.4l55.1-31.8c12.2-7.1 12.2-25.7 0-32.8l-55.1-31.8-49.3 49.3 49.3 49.3zM99.6 498.4l238.4-238.4-49.3-49.3L80.4 419.1c4.5 4.5 11 7.3 19.2 7.3zM99.6 13.6c-8.2 0-14.7 2.8-19.2 7.3l208.3 208.3 49.3-49.3L99.6 13.6z" />
-              </svg>
-              <div className="landing-app-badge-text">
-                <span className="small">GET IT ON</span>
-                <span className="bold">Google Play</span>
-              </div>
-            </a>
-
-            <a
-              href="https://apple.com/app-store"
-              target="_blank"
-              rel="noreferrer"
-              className="landing-app-badge"
-              title="Download on the App Store"
-            >
-              <svg viewBox="0 0 384 512" width="18" height="18" fill="currentColor">
-                <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 66.7 31.9 114.7c15.4 22.8 34.6 48.2 59 47.4 23.4-.9 32.5-15 60.7-15 28.1 0 36.3 15 60.7 14.1 25-.9 41.6-22.8 56.9-45.6 17.8-25.9 25.1-51.1 25.5-52.4-1.2-.4-49-18.8-50-68zM242 108.9c16.2-19.7 27.2-47.1 24.2-74.5-23.4 1-51.8 15.6-68.4 35.1-14.8 17.3-27.8 45.1-24.3 71.8 26.1 2 52.3-12.8 68.5-32.4z" />
-              </svg>
-              <div className="landing-app-badge-text">
-                <span className="small">Download on the</span>
-                <span className="bold">App Store</span>
-              </div>
-            </a>
-
+          {/* Admin Access Button */}
+          <div className={`landing-header-actions ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <Link
               to={isAuthenticated ? '/dashboard' : '/login'}
               className="landing-admin-btn"
+              onClick={() => setMobileNavOpen(false)}
             >
               {isAuthenticated ? 'Admin Dashboard' : 'Admin Login'}
             </Link>
