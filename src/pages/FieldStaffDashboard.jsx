@@ -147,10 +147,10 @@ export default function FieldStaffDashboard() {
 
       {/* Field Staff Welcome Header */}
       <div
+        className="field-staff-banner"
         style={{
           background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
           borderRadius: 20,
-          padding: '28px 32px',
           color: 'white',
           marginBottom: 28,
           boxShadow: '0 12px 30px rgba(49, 46, 129, 0.25)',
@@ -236,6 +236,7 @@ export default function FieldStaffDashboard() {
 
         {/* Target Progress Bar */}
         <div
+          className="field-staff-target-row"
           style={{
             marginTop: 24,
             paddingTop: 20,
@@ -282,14 +283,7 @@ export default function FieldStaffDashboard() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 20,
-          marginBottom: 28,
-        }}
-      >
+      <div className="field-staff-kpi-grid">
         <motion.div
           className="card"
           initial={{ opacity: 0, y: 15 }}
