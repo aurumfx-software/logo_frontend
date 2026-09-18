@@ -3403,43 +3403,121 @@ ul, ol {
 
 /* Tablet & Mobile Breakpoints (<= 768px) */
 @media (max-width: 768px) {
-  .admin-content {
-    margin-left: 0 !important;
+  .admin-layout {
+    width: 100% !important;
+    overflow-x: hidden !important;
   }
 
+  .admin-content,
   .admin-content.sidebar-collapsed {
     margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
   }
 
-  .sidebar {
-    transform: translateX(-100%);
-    width: 260px !important;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  .sidebar,
+  .sidebar.collapsed {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    width: 270px !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    z-index: 1100 !important;
   }
 
   .sidebar.mobile-open {
     transform: translateX(0) !important;
   }
 
-  .page-content {
-    padding: 16px 14px !important;
+  .sidebar-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
+    z-index: 1050 !important;
   }
 
+  .page-content {
+    padding: 16px 12px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Header */
   .header {
-    padding: 12px 16px !important;
-    gap: 12px;
+    padding: 0 14px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  .header-left {
+    gap: 10px !important;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .header-toggle {
+    width: 38px !important;
+    height: 38px !important;
+    background: var(--primary-ultra-light) !important;
+    color: var(--primary) !important;
+    border-radius: 10px !important;
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-size: 16px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .header-search {
     display: none !important;
   }
 
-  .header-title {
-    font-size: 17px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* Field Staff & Admin Banners */
+  .field-staff-banner,
+  .admin-banner {
+    padding: 20px 16px !important;
+    width: 100% !important;
+  }
+
+  .field-staff-banner-inner,
+  .field-staff-header-actions {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  .field-staff-banner h1 {
+    font-size: 20px !important;
+    word-break: break-word;
+  }
+
+  .field-staff-banner-btn,
+  .field-staff-banner button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .field-staff-target-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .field-staff-kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
   }
 
   /* Grid Layouts */
@@ -3452,42 +3530,41 @@ ul, ol {
     grid-template-columns: 1fr !important;
   }
 
-  /* Cards & Cards Header */
+  /* Cards & Table Scrolling */
   .card {
-    padding: 16px !important;
+    padding: 16px 12px !important;
+    width: 100% !important;
+    overflow: hidden !important;
   }
 
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 10px;
+  .table-responsive {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
   }
 
-  /* Tables */
-  .table-responsive, table {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .table-responsive table {
+    min-width: 600px !important;
   }
 
   /* Modals */
-  .modal-container, form {
-    width: 100% !important;
-    padding: 14px !important;
+  .modal-container {
+    width: 94% !important;
+    padding: 16px !important;
+    max-height: 88vh !important;
   }
 
-  /* Login Card */
-  .login-card {
-    width: 92% !important;
-    padding: 24px 20px !important;
+  .form-grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
   }
 }
 
 /* Small Mobile Breakpoint (<= 480px) */
 @media (max-width: 480px) {
   .header-right {
-    gap: 8px !important;
+    gap: 6px !important;
   }
 
   .header-avatar {

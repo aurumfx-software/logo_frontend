@@ -23,12 +23,8 @@ export default function AdminLayout() {
   const title = pageTitles[location.pathname] || 'Dashboard';
 
   const toggleSidebar = () => {
-    // If mobile viewport (width <= 768px), toggle mobile sidebar
-    if (window.innerWidth <= 768) {
-      setMobileSidebarOpen((prev) => !prev);
-    } else {
-      setSidebarCollapsed((prev) => !prev);
-    }
+    setMobileSidebarOpen((prev) => !prev);
+    setSidebarCollapsed((prev) => !prev);
   };
 
   return (
