@@ -107,7 +107,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div className="dashboard-charts-grid" style={{ marginBottom: 28 }}>
         {/* Platform Growth */}
         <motion.div
           className="card"
@@ -199,7 +199,7 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="dashboard-bottom-grid">
         {/* Recent Activity */}
         <motion.div
           className="card"
@@ -248,7 +248,7 @@ export default function Dashboard() {
             <h3 className="card-header-title">Quick Actions</h3>
           </div>
           <div className="card-body">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="dashboard-quick-actions-grid">
               {[
                 { icon: <HiOutlineClipboardCheck size={24} />, label: 'Pending Registrations', count: '12', color: '#6C63FF', bg: '#F0EFFF' },
                 { icon: <HiOutlineExclamationCircle size={24} />, label: 'Open Complaints', count: '5', color: '#EF4444', bg: '#FEE2E2' },

@@ -3507,17 +3507,37 @@ ul, ol {
   }
 }
 
-.form-grid-responsive {
+.dashboard-charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
 }
 
-@media (max-width: 640px) {
-  .form-grid-responsive {
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.dashboard-quick-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 992px) {
+  .dashboard-charts-grid,
+  .dashboard-bottom-grid {
     grid-template-columns: 1fr !important;
   }
 }
+
+@media (max-width: 480px) {
+  .dashboard-quick-actions-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 
 
 
