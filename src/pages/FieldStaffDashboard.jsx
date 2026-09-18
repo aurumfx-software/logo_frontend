@@ -819,7 +819,7 @@ export default function FieldStaffDashboard() {
 
               {/* Form Content */}
               <form onSubmit={handleAddMerchantSubmit} style={{ padding: 24 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div className="form-grid-responsive" style={{ marginBottom: 16 }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 600 }}>
                       Business / Shop Name *
@@ -856,7 +856,7 @@ export default function FieldStaffDashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div className="form-grid-responsive" style={{ marginBottom: 16 }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 600 }}>
                       Owner / Contact Person *
@@ -888,7 +888,7 @@ export default function FieldStaffDashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div className="form-grid-responsive" style={{ marginBottom: 16 }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Email Address (Optional)</label>
                     <input
