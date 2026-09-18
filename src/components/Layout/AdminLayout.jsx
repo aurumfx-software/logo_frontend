@@ -18,19 +18,39 @@ const pageTitles = {
 
 export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const title = pageTitles[location.pathname] || 'Dashboard';
 
+  const toggleSidebar = () => {
+    // If mobile viewport (width <= 768px), toggle mobile sidebar
+    if (window.innerWidth <= 768) {
+      setMobileSidebarOpen((prev) => !prev);
+    } else {
+      setSidebarCollapsed((prev) => !prev);
+    }
+  };
+
   return (
     <div className="admin-layout">
+      {/* Mobile backdrop overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
+
       <main className={`admin-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Header
           title={title}
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleSidebar={toggleSidebar}
         />
         <div className="page-content">
           <Outlet />

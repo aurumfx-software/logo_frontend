@@ -78,12 +78,13 @@ const fieldStaffNavSections = [
   },
 ];
 
-export default function Sidebar({ collapsed }) {
+export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
+    if (onCloseMobile) onCloseMobile();
     logout();
     navigate('/login', { replace: true });
   };
@@ -96,11 +97,11 @@ export default function Sidebar({ collapsed }) {
   }
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       {/* Brand */}
       <div className="sidebar-brand">
         <div className="sidebar-brand-icon">L</div>
-        {!collapsed && (
+        {(!collapsed || mobileOpen) && (
           <div className="sidebar-brand-text">
             <span className="sidebar-brand-name">Logo Admin</span>
             <span className="sidebar-brand-sub">AurumFX Pvt Ltd</span>
@@ -112,23 +113,26 @@ export default function Sidebar({ collapsed }) {
       <nav className="sidebar-nav">
         {navSections.map((section) => (
           <div key={section.title}>
-            {!collapsed && (
+            {(!collapsed || mobileOpen) && (
               <div className="sidebar-section-title">{section.title}</div>
             )}
             {section.items.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={() => {
+                  if (onCloseMobile) onCloseMobile();
+                }}
                 className={({ isActive }) =>
                   `sidebar-link ${isActive && location.pathname === item.path ? 'active' : ''}`
                 }
                 end={item.path === '/'}
-                title={collapsed ? item.label : undefined}
+                title={collapsed && !mobileOpen ? item.label : undefined}
               >
                 <span className="sidebar-link-icon">
                   <item.icon />
                 </span>
-                {!collapsed && (
+                {(!collapsed || mobileOpen) && (
                   <>
                     <span>{item.label}</span>
                     {item.badge && (
