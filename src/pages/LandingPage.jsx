@@ -826,16 +826,26 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </div>
           </div>
 
-          {/* Mobile Hamburger Toggle */}
-          <button
-            className="landing-mobile-nav-toggle"
-            onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            aria-label="Toggle Navigation"
-          >
-            {mobileNavOpen ? <HiX size={26} /> : <HiMenu size={26} />}
-          </button>
+          {/* Header Right: Desktop Admin Login & Mobile Hamburger Toggle */}
+          <div className="landing-header-right">
+            <Link
+              to={isAuthenticated ? '/dashboard' : '/login'}
+              className="landing-admin-btn desktop-only"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              {isAuthenticated ? 'Admin Dashboard' : 'Admin Login'}
+            </Link>
 
-          {/* Navigation Links */}
+            <button
+              className="landing-mobile-nav-toggle"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              aria-label="Toggle Navigation"
+            >
+              {mobileNavOpen ? <HiX size={24} /> : <HiMenu size={24} />}
+            </button>
+          </div>
+
+          {/* Navigation Links (Expands full width on mobile) */}
           <nav className={`landing-nav ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <button
               onClick={() => {
@@ -877,18 +887,18 @@ export default function LandingPage({ defaultTab = 'home' }) {
             >
               Contact
             </button>
-          </nav>
 
-          {/* Admin Access Button */}
-          <div className={`landing-header-actions ${mobileNavOpen ? 'mobile-open' : ''}`}>
-            <Link
-              to={isAuthenticated ? '/dashboard' : '/login'}
-              className="landing-admin-btn"
-              onClick={() => setMobileNavOpen(false)}
-            >
-              {isAuthenticated ? 'Admin Dashboard' : 'Admin Login'}
-            </Link>
-          </div>
+            {/* Mobile-Only Admin Button inside menu drawer */}
+            <div className="landing-mobile-admin-item">
+              <Link
+                to={isAuthenticated ? '/dashboard' : '/login'}
+                className="landing-admin-btn mobile-drawer-btn"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {isAuthenticated ? 'Admin Dashboard' : 'Admin Login'}
+              </Link>
+            </div>
+          </nav>
         </div>
       </header>
 

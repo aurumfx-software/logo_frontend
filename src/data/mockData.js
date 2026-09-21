@@ -107,16 +107,19 @@ export const merchants = [
 ];
 
 export const users = [
-  { id: 'USR-001', name: 'Rahul Sharma', email: 'rahul@email.com', city: 'Mumbai', status: 'active', joined: '2024-01-10', searches: 145, lastActive: '2024-09-14' },
-  { id: 'USR-002', name: 'Priya Patel', email: 'priya@email.com', city: 'Bangalore', status: 'active', joined: '2024-02-15', searches: 289, lastActive: '2024-09-14' },
-  { id: 'USR-003', name: 'Amit Kumar', email: 'amit@email.com', city: 'Delhi', status: 'active', joined: '2024-03-20', searches: 178, lastActive: '2024-09-13' },
-  { id: 'USR-004', name: 'Sneha Reddy', email: 'sneha@email.com', city: 'Hyderabad', status: 'suspended', joined: '2024-04-05', searches: 56, lastActive: '2024-08-20' },
-  { id: 'USR-005', name: 'Vivek Joshi', email: 'vivek@email.com', city: 'Pune', status: 'active', joined: '2024-05-12', searches: 234, lastActive: '2024-09-14' },
-  { id: 'USR-006', name: 'Anjali Singh', email: 'anjali@email.com', city: 'Chennai', status: 'active', joined: '2024-06-18', searches: 312, lastActive: '2024-09-13' },
-  { id: 'USR-007', name: 'Karthik Nair', email: 'karthik@email.com', city: 'Kochi', status: 'active', joined: '2024-07-01', searches: 189, lastActive: '2024-09-12' },
-  { id: 'USR-008', name: 'Meera Gupta', email: 'meera@email.com', city: 'Kolkata', status: 'inactive', joined: '2024-02-28', searches: 23, lastActive: '2024-07-15' },
-  { id: 'USR-009', name: 'Arjun Menon', email: 'arjun@email.com', city: 'Bangalore', status: 'active', joined: '2024-08-10', searches: 98, lastActive: '2024-09-14' },
-  { id: 'USR-010', name: 'Divya Sharma', email: 'divya@email.com', city: 'Jaipur', status: 'active', joined: '2024-03-15', searches: 267, lastActive: '2024-09-13' },
+  { id: 'ADM-001', name: 'Arshad V.P.', email: 'admin@locality.com', phone: '+91 98470 12345', city: 'Payyanur', role: 'Super Admin', status: 'active', joined: '2024-01-01', searches: 540, lastActive: '2024-09-21' },
+  { id: 'ADM-002', name: 'Siddharth Kumar', email: 'siddharth@locality.com', phone: '+91 98094 04292', city: 'Bangalore', role: 'Admin', status: 'active', joined: '2024-02-10', searches: 320, lastActive: '2024-09-20' },
+  { id: 'STF-001', name: 'Vikram Sethi', email: 'vikram.field@locality.com', phone: '+91 98765 43210', city: 'Kannur', role: 'Field Staff', status: 'active', joined: '2024-03-15', searches: 210, lastActive: '2024-09-21' },
+  { id: 'USR-001', name: 'Rahul Sharma', email: 'rahul@email.com', phone: '+91 98123 45678', city: 'Mumbai', role: 'User', status: 'active', joined: '2024-01-10', searches: 145, lastActive: '2024-09-14' },
+  { id: 'USR-002', name: 'Priya Patel', email: 'priya@email.com', phone: '+91 98234 56789', city: 'Bangalore', role: 'User', status: 'active', joined: '2024-02-15', searches: 289, lastActive: '2024-09-14' },
+  { id: 'USR-003', name: 'Amit Kumar', email: 'amit@email.com', phone: '+91 98345 67890', city: 'Delhi', role: 'User', status: 'active', joined: '2024-03-20', searches: 178, lastActive: '2024-09-13' },
+  { id: 'USR-004', name: 'Sneha Reddy', email: 'sneha@email.com', phone: '+91 98456 78901', city: 'Hyderabad', role: 'User', status: 'suspended', joined: '2024-04-05', searches: 56, lastActive: '2024-08-20' },
+  { id: 'USR-005', name: 'Vivek Joshi', email: 'vivek@email.com', phone: '+91 98567 89012', city: 'Pune', role: 'User', status: 'active', joined: '2024-05-12', searches: 234, lastActive: '2024-09-14' },
+  { id: 'USR-006', name: 'Anjali Singh', email: 'anjali@email.com', phone: '+91 98678 90123', city: 'Chennai', role: 'User', status: 'active', joined: '2024-06-18', searches: 312, lastActive: '2024-09-13' },
+  { id: 'USR-007', name: 'Karthik Nair', email: 'karthik@email.com', phone: '+91 98789 01234', city: 'Kochi', role: 'User', status: 'active', joined: '2024-07-01', searches: 189, lastActive: '2024-09-12' },
+  { id: 'USR-008', name: 'Meera Gupta', email: 'meera@email.com', phone: '+91 98890 12345', city: 'Kolkata', role: 'User', status: 'inactive', joined: '2024-02-28', searches: 23, lastActive: '2024-07-15' },
+  { id: 'USR-009', name: 'Arjun Menon', email: 'arjun@email.com', phone: '+91 98901 23456', city: 'Bangalore', role: 'User', status: 'active', joined: '2024-08-10', searches: 98, lastActive: '2024-09-14' },
+  { id: 'USR-010', name: 'Divya Sharma', email: 'divya@email.com', phone: '+91 99012 34567', city: 'Jaipur', role: 'User', status: 'active', joined: '2024-03-15', searches: 267, lastActive: '2024-09-13' },
 ];
 
 export const promotions = [

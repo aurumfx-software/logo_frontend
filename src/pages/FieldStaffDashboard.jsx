@@ -404,47 +404,21 @@ export default function FieldStaffDashboard() {
 
       {/* Navigation Tabs */}
       <div className="card" style={{ marginBottom: 24, padding: 12 }}>
-        <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid #E5E7EB', paddingBottom: 10 }}>
+        <div className="field-staff-tabs-wrapper">
           <button
             onClick={() => setActiveTab('merchants')}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 10,
-              border: 'none',
-              background: activeTab === 'merchants' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'merchants' ? 'white' : 'var(--text-dark)',
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.15s ease',
-            }}
+            className={`field-staff-tab-btn ${activeTab === 'merchants' ? 'active' : ''}`}
           >
-            <HiOutlineOfficeBuilding size={18} />
-            My Onboarded Merchants ({merchants.length})
+            <HiOutlineOfficeBuilding size={18} style={{ flexShrink: 0 }} />
+            <span>My Onboarded Merchants ({merchants.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('activity')}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 10,
-              border: 'none',
-              background: activeTab === 'activity' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'activity' ? 'white' : 'var(--text-dark)',
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.15s ease',
-            }}
+            className={`field-staff-tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
           >
-            <HiOutlineCalendar size={18} />
-            Daily Visit Log
+            <HiOutlineCalendar size={18} style={{ flexShrink: 0 }} />
+            <span>Daily Visit Log</span>
           </button>
         </div>
       </div>
@@ -455,17 +429,17 @@ export default function FieldStaffDashboard() {
           {/* Controls Bar */}
           <div
             style={{
-              padding: 20,
+              padding: '16px 20px',
               borderBottom: '1px solid #F3F4F6',
               display: 'flex',
-              justifyContain: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               flexWrap: 'wrap',
-              gap: 16,
+              gap: 12,
             }}
           >
             {/* Search Input */}
-            <div style={{ position: 'relative', minWidth: 280, flex: 1 }}>
+            <div style={{ position: 'relative', minWidth: 220, flex: 1, width: '100%' }}>
               <HiOutlineSearch
                 style={{
                   position: 'absolute',
@@ -489,6 +463,7 @@ export default function FieldStaffDashboard() {
                   fontSize: 14,
                   outline: 'none',
                   background: '#F9FAFB',
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -506,6 +481,7 @@ export default function FieldStaffDashboard() {
                   fontSize: 13,
                   fontWeight: 500,
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 All ({totalAdded})
@@ -521,6 +497,7 @@ export default function FieldStaffDashboard() {
                   fontSize: 13,
                   fontWeight: 500,
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Approved ({approvedCount})
@@ -536,6 +513,7 @@ export default function FieldStaffDashboard() {
                   fontSize: 13,
                   fontWeight: 500,
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Pending ({pendingCount})
@@ -552,6 +530,7 @@ export default function FieldStaffDashboard() {
                     fontSize: 13,
                     fontWeight: 500,
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Action Needed ({actionCount})
@@ -561,17 +540,17 @@ export default function FieldStaffDashboard() {
           </div>
 
           {/* Table */}
-          <div className="table-responsive">
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table className="table" style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#F9FAFB', textAlign: 'left', borderBottom: '1px solid #E5E7EB' }}>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>MERCHANT / BUSINESS</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>CATEGORY</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>OWNER CONTACT</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>DATE ADDED</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>STATUS</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>INCENTIVE</th>
-                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>ACTION</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 240 }}>MERCHANT / BUSINESS</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 140 }}>CATEGORY</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 160 }}>OWNER CONTACT</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 120 }}>DATE ADDED</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 140 }}>STATUS</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 100 }}>INCENTIVE</th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right', whiteSpace: 'nowrap', minWidth: 110 }}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
@@ -584,24 +563,24 @@ export default function FieldStaffDashboard() {
                 ) : (
                   filteredMerchants.map((m) => (
                     <tr key={m.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '14px 20px', minWidth: 240 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <img
                             src={m.storePhoto}
                             alt={m.name}
-                            style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }}
+                            style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
                           />
                           <div>
-                            <div style={{ fontWeight: 600, color: '#1F2937', fontSize: 14 }}>{m.name}</div>
-                            <div style={{ fontSize: 12, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <HiOutlineLocationMarker size={14} />
+                            <div style={{ fontWeight: 600, color: '#1F2937', fontSize: 14, whiteSpace: 'nowrap' }}>{m.name}</div>
+                            <div style={{ fontSize: 12, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                              <HiOutlineLocationMarker size={14} style={{ flexShrink: 0 }} />
                               {m.address}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
                         <span
                           style={{
                             background: '#F3F4F6',
@@ -610,23 +589,25 @@ export default function FieldStaffDashboard() {
                             borderRadius: 6,
                             fontSize: 12,
                             fontWeight: 500,
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           {m.category}
                         </span>
                       </td>
 
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
                         <div style={{ fontWeight: 500, fontSize: 13, color: '#1F2937' }}>{m.contactPerson}</div>
                         <div style={{ fontSize: 12, color: '#6C63FF', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <HiOutlinePhone size={14} />
+                          <HiOutlinePhone size={14} style={{ flexShrink: 0 }} />
                           {m.phone}
                         </div>
                       </td>
 
-                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563' }}>{m.dateAdded}</td>
+                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap' }}>{m.dateAdded}</td>
 
-                      <td style={{ padding: '14px 20px' }}>
+                      <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
                         {m.status === 'approved' && (
                           <span
                             style={{
@@ -639,6 +620,7 @@ export default function FieldStaffDashboard() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             <HiOutlineCheckCircle /> Approved
@@ -656,6 +638,7 @@ export default function FieldStaffDashboard() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             <HiOutlineClock /> Pending Review
@@ -673,6 +656,7 @@ export default function FieldStaffDashboard() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             <HiOutlineExclamationCircle /> Action Needed
@@ -680,11 +664,11 @@ export default function FieldStaffDashboard() {
                         )}
                       </td>
 
-                      <td style={{ padding: '14px 20px', fontWeight: 600, color: '#10B981', fontSize: 14 }}>
+                      <td style={{ padding: '14px 20px', fontWeight: 600, color: '#10B981', fontSize: 14, whiteSpace: 'nowrap' }}>
                         ₹{m.commission}
                       </td>
 
-                      <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <td style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
                           onClick={() => alert(`Contacting ${m.contactPerson} at ${m.phone}`)}
                           style={{
@@ -696,6 +680,7 @@ export default function FieldStaffDashboard() {
                             fontWeight: 600,
                             color: '#4B5563',
                             cursor: 'pointer',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           Call Owner
@@ -753,13 +738,14 @@ export default function FieldStaffDashboard() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.5)',
+              background: 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(4px)',
-              zIndex: 999,
+              zIndex: 1100,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 20,
+              padding: '16px 12px',
+              overflowY: 'auto',
             }}
           >
             <motion.div
@@ -771,30 +757,31 @@ export default function FieldStaffDashboard() {
                 borderRadius: 20,
                 width: '100%',
                 maxWidth: 640,
-                maxHeight: '90vh',
-                overflowY: 'auto',
+                maxHeight: 'calc(100vh - 32px)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               }}
             >
-              {/* Modal Header */}
+              {/* Modal Header (Pinned at top) */}
               <div
                 style={{
-                  padding: '20px 24px',
+                  padding: '16px 20px',
                   borderBottom: '1px solid #E5E7EB',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   background: '#1E1B4B',
                   color: 'white',
-                  borderTopLeftRadius: 20,
-                  borderTopRightRadius: 20,
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <HiOutlineOfficeBuilding size={24} style={{ color: '#A5B4FC' }} />
+                  <HiOutlineOfficeBuilding size={24} style={{ color: '#A5B4FC', flexShrink: 0 }} />
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Register New Merchant</h3>
-                    <p style={{ margin: 0, fontSize: 12, opacity: 0.8 }}>Field Staff Onboarding Form</p>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Register New Merchant</h3>
+                    <p style={{ margin: 0, fontSize: 11, opacity: 0.8 }}>Field Staff Onboarding Form</p>
                   </div>
                 </div>
                 <button
@@ -803,16 +790,20 @@ export default function FieldStaffDashboard() {
                     background: 'none',
                     border: 'none',
                     color: 'white',
-                    fontSize: 20,
+                    fontSize: 22,
                     cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
                   <HiOutlineX />
                 </button>
               </div>
 
-              {/* Form Content */}
-              <form onSubmit={handleAddMerchantSubmit} style={{ padding: 24 }}>
+              {/* Form Content (Scrolls cleanly) */}
+              <form onSubmit={handleAddMerchantSubmit} style={{ padding: '20px 20px 16px', overflowY: 'auto', flex: 1 }}>
                 <div className="form-grid-responsive" style={{ marginBottom: 16 }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 600 }}>
@@ -933,13 +924,13 @@ export default function FieldStaffDashboard() {
                     style={{
                       border: '2px dashed #E5E7EB',
                       borderRadius: 12,
-                      padding: '20px',
+                      padding: '16px',
                       textAlign: 'center',
                       background: '#F9FAFB',
                       cursor: 'pointer',
                     }}
                   >
-                    <HiOutlinePhotograph size={32} style={{ color: '#9CA3AF', marginBottom: 6 }} />
+                    <HiOutlinePhotograph size={30} style={{ color: '#9CA3AF', marginBottom: 4 }} />
                     <p style={{ margin: 0, fontSize: 13, color: '#4B5563', fontWeight: 500 }}>
                       Click to capture shop photo or attach document
                     </p>
@@ -948,18 +939,19 @@ export default function FieldStaffDashboard() {
                 </div>
 
                 {/* Buttons */}
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 10 }}>
+                <div className="modal-footer-buttons" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 14, borderTop: '1px solid #F3F4F6' }}>
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
                     style={{
-                      padding: '10px 20px',
+                      padding: '10px 18px',
                       borderRadius: 10,
                       border: '1px solid #E5E7EB',
                       background: 'white',
                       fontWeight: 600,
                       color: '#4B5563',
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     Cancel
@@ -967,13 +959,14 @@ export default function FieldStaffDashboard() {
                   <button
                     type="submit"
                     style={{
-                      padding: '10px 24px',
+                      padding: '10px 22px',
                       borderRadius: 10,
                       border: 'none',
                       background: 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)',
                       color: 'white',
                       fontWeight: 600,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                       boxShadow: '0 4px 14px rgba(108, 99, 255, 0.4)',
                     }}
                   >

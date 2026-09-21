@@ -10,6 +10,7 @@ import {
   HiOutlineBadgeCheck,
   HiOutlineArrowRight,
   HiOutlineShieldCheck,
+  HiOutlineUserAdd,
 } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -121,6 +122,28 @@ export default function AdminDashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              onClick={() =>
+                navigate(user?.role === 'Admin' ? '/users?addFieldStaff=true' : '/users?addAdmin=true')
+              }
+              style={{
+                background: '#FEF3C7',
+                color: '#92400E',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: 12,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+              }}
+            >
+              <HiOutlineUserAdd size={18} />
+              {user?.role === 'Admin' ? '+ Add Field Staff' : '+ Add Admin Account'}
+            </button>
             <button
               onClick={() => navigate('/registration-requests')}
               style={{
@@ -348,17 +371,17 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        <div className="table-responsive">
-          <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table className="table" style={{ width: '100%', minWidth: 850, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F9FAFB', textAlign: 'left', borderBottom: '1px solid #E5E7EB' }}>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>ID</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>MERCHANT NAME</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>CATEGORY</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>CITY</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>PHONE</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>DATE</th>
-                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>ADMIN ACTION</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 60 }}>ID</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 200 }}>MERCHANT NAME</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 140 }}>CATEGORY</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 120 }}>CITY</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 130 }}>PHONE</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', whiteSpace: 'nowrap', minWidth: 110 }}>DATE</th>
+                <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right', whiteSpace: 'nowrap', minWidth: 160 }}>ADMIN ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -371,17 +394,17 @@ export default function AdminDashboard() {
               ) : (
                 filteredRequests.map((r) => (
                   <tr key={r.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    <td style={{ padding: '14px 20px', fontWeight: 600, fontSize: 13, color: '#6B7280' }}>{r.id}</td>
-                    <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1F2937', fontSize: 14 }}>{r.name}</td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span style={{ background: '#F3F4F6', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500 }}>
+                    <td style={{ padding: '14px 20px', fontWeight: 600, fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>{r.id}</td>
+                    <td style={{ padding: '14px 20px', fontWeight: 600, color: '#1F2937', fontSize: 14, whiteSpace: 'nowrap' }}>{r.name}</td>
+                    <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
+                      <span style={{ background: '#F3F4F6', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', display: 'inline-block' }}>
                         {r.category}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563' }}>{r.city}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563' }}>{r.phone}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#6B7280' }}>{r.date}</td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap' }}>{r.city}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#4B5563', whiteSpace: 'nowrap' }}>{r.phone}</td>
+                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>{r.date}</td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button
                           onClick={() => handleApprove(r.id, r.name)}
