@@ -46,13 +46,14 @@ export default function Login() {
 
       const resData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
+      if (!response.ok || resData.success === false) {
+        const errorMsg =
           resData.message ||
-            resData.error ||
-            resData.msg ||
-            'Invalid credentials or authentication failed.'
-        );
+          resData.detail ||
+          (resData.errors && resData.errors[0]) ||
+          resData.error ||
+          'Invalid credentials or authentication failed.';
+        throw new Error(errorMsg);
       }
 
       // Extract user details & token from API response structure
