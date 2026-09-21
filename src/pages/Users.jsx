@@ -418,7 +418,7 @@ export default function Users() {
                   <HiOutlineShieldCheck size={24} style={{ color: '#A5B4FC', flexShrink: 0 }} />
                   <div>
                     <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                      {isAdminOnly ? 'Create Field Staff Account' : 'Create Admin / Staff Account'}
+                      {isAdminOnly ? 'Create Field Staff Account' : 'Create Admin Account'}
                     </h3>
                     <p style={{ margin: 0, fontSize: 11, opacity: 0.85 }}>
                       {isAdminOnly ? 'Operational Admin Control Panel' : 'Super Admin Control Panel'}
@@ -528,8 +528,6 @@ export default function Users() {
                         style={{ fontWeight: 600, color: '#1E1B4B' }}
                       >
                         <option value="Admin">Admin (Operational Approvals)</option>
-                        <option value="Super Admin">Super Admin (Full System Control)</option>
-                        <option value="Field Staff">Field Staff (Merchant Onboarding Desk)</option>
                       </select>
                     )}
                   </div>

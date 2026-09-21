@@ -7,26 +7,28 @@ export function AuthProvider({ children }) {
     const stored = localStorage.getItem('logo_admin_user');
     return stored ? JSON.parse(stored) : null;
   });
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('logo_admin_token') || null;
+  });
 
-  const login = useCallback((email, role) => {
-    const userData = {
-      email,
-      role,
-      name: email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      initials: email.charAt(0).toUpperCase(),
-      loginTime: new Date().toISOString(),
-    };
+  const login = useCallback((userData, authToken) => {
     localStorage.setItem('logo_admin_user', JSON.stringify(userData));
+    if (authToken) {
+      localStorage.setItem('logo_admin_token', authToken);
+      setToken(authToken);
+    }
     setUser(userData);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('logo_admin_user');
+    localStorage.removeItem('logo_admin_token');
     setUser(null);
+    setToken(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3943,7 +3943,13 @@ ul, ol {
   gap: 10px;
   border-bottom: 1px solid #E5E7EB;
   padding-bottom: 10px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.field-staff-tabs-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .field-staff-tab-btn {
@@ -3955,11 +3961,12 @@ ul, ol {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   transition: all 0.15s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .field-staff-tab-btn.active {
@@ -3969,8 +3976,29 @@ ul, ol {
 
 @media (max-width: 600px) {
   .field-staff-tabs-wrapper {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    border-bottom: 1px solid #E5E7EB;
+    padding-bottom: 8px;
+    overflow-x: auto;
+  }
+
+  .field-staff-tab-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 440px) {
+  .field-staff-tabs-wrapper {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     border-bottom: none;
     padding-bottom: 0;
@@ -3979,20 +4007,10 @@ ul, ol {
   .field-staff-tab-btn {
     width: 100%;
     justify-content: center;
-    padding: 11px 8px;
-    font-size: 12.5px;
-    border-radius: 8px;
-  }
-}
-
-@media (max-width: 420px) {
-  .field-staff-tabs-wrapper {
-    grid-template-columns: 1fr;
-  }
-
-  .field-staff-tab-btn {
-    padding: 12px 14px;
-    font-size: 13.5px;
+    padding: 12px 16px;
+    font-size: 14px;
+    border-radius: 10px;
+    white-space: nowrap;
   }
 }
 

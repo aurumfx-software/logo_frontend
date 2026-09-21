@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/apiConfig';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -29,11 +30,55 @@ export default function Login() {
 
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      login(email, role);
+    try {
+      const baseUrl = API_BASE_URL.replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          role: role,
+        }),
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          resData.message ||
+            resData.error ||
+            resData.msg ||
+            'Invalid credentials or authentication failed.'
+        );
+      }
+
+      // Extract user details & token from API response structure
+      const apiUser = resData.user || resData.data?.user || resData.data || {};
+      const authToken = resData.token || resData.data?.token || resData.accessToken || '';
+
+      const userData = {
+        email: apiUser.email || email,
+        role: apiUser.role || role,
+        name:
+          apiUser.name ||
+          email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        initials: (apiUser.name || email).charAt(0).toUpperCase(),
+        loginTime: new Date().toISOString(),
+        id: apiUser.id || apiUser._id,
+        ...apiUser,
+      };
+
+      login(userData, authToken);
       navigate('/', { replace: true });
-    }, 800);
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.message || 'Unable to log in. Please check server connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
