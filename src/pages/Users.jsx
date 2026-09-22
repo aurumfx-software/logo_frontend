@@ -16,6 +16,7 @@ import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import { users as initialUsers } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
+import { createAdminOrStaffAccount } from '../api/userApi';
 
 export default function Users() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export default function Users() {
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState(initialUsers);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   const [formData, setFormData] = useState({
@@ -63,44 +65,40 @@ export default function Users() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddAdminSubmit = (e) => {
+  const handleAddAdminSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
 
-    const prefix =
-      formData.role === 'Field Staff'
-        ? 'STF'
-        : formData.role === 'Super Admin'
-        ? 'SUP'
-        : 'ADM';
-    const newId = `${prefix}-${String(data.length + 1).padStart(3, '0')}`;
+    setIsSubmitting(true);
+    try {
+      const newAccount = await createAdminOrStaffAccount({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        password: formData.password || 'Password123!',
+        city: formData.city,
+      });
 
-    const newAdmin = {
-      id: newId,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || '+91 98765 43210',
-      city: formData.city,
-      role: formData.role,
-      status: 'active',
-      joined: new Date().toISOString().split('T')[0],
-      searches: 0,
-      lastActive: 'Just Now',
-    };
+      setData([newAccount, ...data]);
+      setIsAddModalOpen(false);
+      setActiveTab('admins');
+      showToast(`New ${formData.role} account "${formData.name}" created successfully!`);
 
-    setData([newAdmin, ...data]);
-    setIsAddModalOpen(false);
-    setActiveTab('admins');
-    showToast(`New ${formData.role} account "${formData.name}" created successfully!`);
-
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      role: isAdminOnly ? 'Field Staff' : 'Admin',
-      city: 'Payyanur',
-      password: '',
-    });
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        role: isAdminOnly ? 'Field Staff' : 'Admin',
+        city: 'Payyanur',
+        password: '',
+      });
+    } catch (err) {
+      console.error('Failed to create account:', err);
+      showToast(`Error: ${err.message || 'Failed to create account'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleToggleSuspend = (row) => {
@@ -601,6 +599,7 @@ export default function Users() {
                   </button>
                   <button
                     type="submit"
+                    disabled={isSubmitting}
                     style={{
                       padding: '10px 22px',
                       borderRadius: 10,
@@ -608,12 +607,13 @@ export default function Users() {
                       background: 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)',
                       color: 'white',
                       fontWeight: 700,
-                      cursor: 'pointer',
+                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
                       whiteSpace: 'nowrap',
                       boxShadow: '0 4px 14px rgba(108, 99, 255, 0.4)',
+                      opacity: isSubmitting ? 0.7 : 1,
                     }}
                   >
-                    Create Account
+                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
                   </button>
                 </div>
               </form>
