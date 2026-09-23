@@ -4,10 +4,59 @@ import { HiOutlinePlus, HiOutlinePencil, HiOutlineEye, HiOutlineTrash } from 're
 import PageHeader from '../components/UI/PageHeader';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
-import { promotions } from '../data/mockData';
+import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
+import { promotions as initialPromotions } from '../data/mockData';
+
+const promoCategories = [
+  'Solar & Electricals',
+  'Automobile & Spares',
+  'Shopping & Fashion',
+  'Hotels & Dining',
+  'Healthcare & Medicals',
+  'Interiors & Furniture',
+  'Education & Training',
+  'Aluminium Fabrication',
+  'Travels & Transport',
+];
 
 export default function Promotions() {
   const [showModal, setShowModal] = useState(false);
+  const [promoList, setPromoList] = useState(initialPromotions);
+  const [newPromo, setNewPromo] = useState({
+    title: '',
+    type: 'Featured',
+    placement: 'Home Top',
+    category: 'Solar & Electricals',
+    location: '',
+    startDate: '',
+    endDate: '',
+  });
+
+  const handleCreatePromo = () => {
+    if (!newPromo.title.trim()) return;
+    const created = {
+      id: `p-${Date.now()}`,
+      title: newPromo.title,
+      type: newPromo.type,
+      placement: `${newPromo.placement} (${newPromo.category})`,
+      startDate: newPromo.startDate || '2026-10-01',
+      endDate: newPromo.endDate || '2026-12-31',
+      status: 'active',
+      impressions: 0,
+      clicks: 0,
+    };
+    setPromoList([created, ...promoList]);
+    setShowModal(false);
+    setNewPromo({
+      title: '',
+      type: 'Featured',
+      placement: 'Home Top',
+      category: 'Solar & Electricals',
+      location: '',
+      startDate: '',
+      endDate: '',
+    });
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
@@ -21,7 +70,7 @@ export default function Promotions() {
       </PageHeader>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
-        {promotions.map((promo, idx) => (
+        {promoList.map((promo, idx) => (
           <motion.div
             key={promo.id}
             className="card"
@@ -118,40 +167,74 @@ export default function Promotions() {
         footer={
           <>
             <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => setShowModal(false)}>Create</button>
+            <button className="btn btn-primary" onClick={handleCreatePromo}>Create Promotion</button>
           </>
         }
       >
         <div className="form-group">
-          <label className="form-label">Title</label>
-          <input className="form-input" placeholder="e.g., Diwali Special Offers" />
+          <label className="form-label">Promotion Title *</label>
+          <input
+            className="form-input"
+            placeholder="e.g., Festival Offer - Up to 65% OFF"
+            value={newPromo.title}
+            onChange={(e) => setNewPromo({ ...newPromo, title: e.target.value })}
+          />
         </div>
+
         <div className="grid-2">
           <div className="form-group">
-            <label className="form-label">Type</label>
-            <select className="form-select">
-              <option>Banner</option>
-              <option>Featured</option>
-              <option>Promotion</option>
+            <label className="form-label">Ad Category *</label>
+            <select
+              className="form-select"
+              value={newPromo.category}
+              onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
+            >
+              {promoCategories.map((c, i) => (
+                <option key={i} value={c}>{c}</option>
+              ))}
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Placement</label>
-            <select className="form-select">
-              <option>Home Top</option>
-              <option>Home Middle</option>
-              <option>Category Page</option>
+            <label className="form-label">Promotion Type</label>
+            <select
+              className="form-select"
+              value={newPromo.type}
+              onChange={(e) => setNewPromo({ ...newPromo, type: e.target.value })}
+            >
+              <option value="Featured">Featured Ad</option>
+              <option value="Sponsored">Sponsored Listing</option>
+              <option value="Banner">Banner Carousel</option>
             </select>
           </div>
         </div>
+
+        <div className="form-group">
+          <label className="form-label">Location Search (Google Maps Autocomplete) *</label>
+          <GoogleMapsLocationInput
+            value={newPromo.location}
+            onChange={(loc) => setNewPromo({ ...newPromo, location: loc })}
+            placeholder="Search Google Maps for target location (e.g. Payyanur, Kannur, Kochi)..."
+          />
+        </div>
+
         <div className="grid-2">
           <div className="form-group">
             <label className="form-label">Start Date</label>
-            <input type="date" className="form-input" />
+            <input
+              type="date"
+              className="form-input"
+              value={newPromo.startDate}
+              onChange={(e) => setNewPromo({ ...newPromo, startDate: e.target.value })}
+            />
           </div>
           <div className="form-group">
             <label className="form-label">End Date</label>
-            <input type="date" className="form-input" />
+            <input
+              type="date"
+              className="form-input"
+              value={newPromo.endDate}
+              onChange={(e) => setNewPromo({ ...newPromo, endDate: e.target.value })}
+            />
           </div>
         </div>
       </Modal>

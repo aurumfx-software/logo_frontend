@@ -1987,6 +1987,7 @@ ul, ol {
   flex-shrink: 0;
 }
 
+.landing-category-filter,
 .landing-location-filter {
   display: flex;
   align-items: center;
@@ -2010,6 +2011,216 @@ ul, ol {
   color: #0f172a;
   outline: none;
   cursor: pointer;
+}
+
+/* Autofill Suggestions & Sort Filter Extensions */
+.landing-search-box-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.autofill-suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f8fafc;
+}
+
+.suggestion-item.empty {
+  color: #94a3b8;
+  font-size: 13px;
+  justify-content: center;
+  padding: 14px;
+}
+
+.suggestion-icon {
+  font-size: 16px;
+}
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-title {
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.suggestion-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.landing-sort-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.gps-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #f0efff;
+  color: #6C63FF;
+  border: 1px solid #e0e0ff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gps-locate-btn:hover {
+  background: #6C63FF;
+  color: #ffffff;
+  border-color: #6C63FF;
+}
+
+.meta-map-link {
+  cursor: pointer;
+}
+
+.meta-map-link:hover .location-txt-link {
+  text-decoration: underline;
+  color: #2563eb;
+}
+
+.btn-modal-map {
+  margin-top: 8px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-modal-map:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-map-action {
+  background: #1e293b;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-map-action:hover {
+  background: #0f172a;
+}
+
+/* Active Filters Chips Bar */
+.active-filters-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-top: 14px;
+}
+
+.chips-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  margin-right: 4px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.filter-chip:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.clear-all-chips-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+  text-decoration: underline;
+  padding: 4px 8px;
+}
+
+.clear-all-chips-btn:hover {
+  color: #b91c1c;
+}
+
+.pill-count-badge {
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.landing-pill.active .pill-count-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .landing-category-pills {
@@ -3033,7 +3244,7 @@ ul, ol {
 
 .place-image-holder {
   position: relative;
-  height: 120px;
+  height: 140px;
   overflow: hidden;
 }
 
@@ -3055,14 +3266,14 @@ ul, ol {
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(4px);
   color: #ffffff;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 3px 10px;
+  border-radius: 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .place-card-footer {
-  padding: 12px;
+  padding: 12px 8px;
   text-align: center;
   background: #ffffff;
   border-top: 1px solid #f1f5f9;
@@ -3072,6 +3283,19 @@ ul, ol {
   font-size: 15px;
   font-weight: 700;
   color: #2b3674;
+}
+
+.place-card-landmark {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -4054,6 +4278,70 @@ ul, ol {
     border-radius: 10px;
     white-space: nowrap;
   }
+}
+
+/* Google Maps Autocomplete Location Search Component */
+.gmaps-input-wrapper {
+  margin-bottom: 12px;
+}
+
+.gmaps-suggestions-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.gmaps-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.gmaps-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.gmaps-suggestion-item:hover {
+  background: #f8fafc;
+}
+
+.gmaps-suggestion-item.loading,
+.gmaps-suggestion-item.empty {
+  color: #94a3b8;
+  font-size: 13px;
+  justify-content: center;
+  padding: 12px;
+}
+
+.gmaps-item-icon {
+  color: #6C63FF;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.gmaps-selected-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-top: 8px;
 }
 
 

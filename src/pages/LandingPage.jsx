@@ -867,6 +867,78 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+
+  const openGoogleMaps = (name, address, e) => {
+    if (e) e.stopPropagation();
+    const query = encodeURIComponent(`${name}, ${address}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        setSelectedLocation('kannur');
+        scrollToSection('establishments-section');
+      },
+      (error) => {
+        setIsLocating(false);
+        setSelectedLocation('kannur');
+        scrollToSection('establishments-section');
+      },
+      { timeout: 5000 }
+    );
+  };
+
+  const getSearchSuggestions = () => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    const suggestions = [];
+
+    initialEstablishments.forEach((item) => {
+      if (item.name.toLowerCase().includes(q)) {
+        suggestions.push({ type: 'establishment', text: item.name, category: item.category, location: item.location });
+      }
+    });
+
+    featuredAdsList.forEach((item) => {
+      if (item.name.toLowerCase().includes(q) && !suggestions.some((s) => s.text === item.name)) {
+        suggestions.push({ type: 'ad', text: item.name, category: item.category, location: item.location });
+      }
+    });
+
+    featuredCategoriesList.forEach((cat) => {
+      if (cat.title.toLowerCase().includes(q) && !suggestions.some((s) => s.text === cat.title)) {
+        suggestions.push({ type: 'category', text: cat.title, category: 'Category', location: 'Kerala' });
+      }
+    });
+
+    placesList.forEach((place) => {
+      if (place.name.toLowerCase().includes(q) && !suggestions.some((s) => s.text === place.name)) {
+        suggestions.push({ type: 'location', text: place.name, category: 'District Location', location: place.name });
+      }
+    });
+
+    return suggestions.slice(0, 6);
+  };
+
+  const handleSelectSuggestion = (sug) => {
+    if (sug.type === 'location') {
+      setSelectedLocation(sug.text.toLowerCase());
+      setSearchQuery('');
+    } else {
+      setSearchQuery(sug.text);
+    }
+    setShowSuggestions(false);
+    scrollToSection('establishments-section');
+  };
 
   // Check route to auto-scroll if visited via /places or /categories or /featured-ads
   useEffect(() => {
@@ -929,34 +1001,117 @@ export default function LandingPage({ defaultTab = 'home' }) {
       place.description.toLowerCase().includes(placeSearchQuery.toLowerCase())
   );
 
+  const [minRating, setMinRating] = useState('all');
+
+  // Smart Location Matching Helper (Matches District & local sub-towns)
+  const matchesLocationFilter = (itemLoc, filter) => {
+    if (!filter || filter === 'all') return true;
+    const locLower = itemLoc.toLowerCase();
+    const filterLower = filter.toLowerCase();
+
+    if (locLower.includes(filterLower) || filterLower.includes(locLower)) return true;
+
+    if (filterLower.includes('kannur')) {
+      return ['payyanur', 'taliparamba', 'peringome', 'kannur', 'koothuparamba', 'thalassery'].some((t) => locLower.includes(t));
+    }
+    if (filterLower.includes('kasaragod')) {
+      return ['kasaragod', 'kanhangad', 'bekal', 'trikaripur', 'nileshwar'].some((t) => locLower.includes(t));
+    }
+    if (filterLower.includes('kozhikode') || filterLower.includes('calicut')) {
+      return ['kozhikode', 'calicut', 'feroke', 'vadakara', 'koyilandy', 'sm street'].some((t) => locLower.includes(t));
+    }
+    if (filterLower.includes('ernakulam') || filterLower.includes('kochi')) {
+      return ['ernakulam', 'kochi', 'fort kochi', 'aluva', 'edapally', 'kakkanad'].some((t) => locLower.includes(t));
+    }
+    if (filterLower.includes('thiruvananthapuram') || filterLower.includes('trivandrum')) {
+      return ['thiruvananthapuram', 'trivandrum', 'kovalam', 'kazhakkoottam'].some((t) => locLower.includes(t));
+    }
+    if (filterLower.includes('thrissur')) {
+      return ['thrissur', 'guruvayur', 'chalakudy', 'athirappilly'].some((t) => locLower.includes(t));
+    }
+    return false;
+  };
+
+  const matchesRatingFilter = (rating) => {
+    if (minRating === 'all') return true;
+    const min = parseFloat(minRating);
+    return (rating || 0) >= min;
+  };
+
   // Filter Featured Ads list
   const filteredFeaturedAds = featuredAdsList.filter((item) => {
     const matchesCategory =
       selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation =
-      selectedLocation === 'all' ||
-      item.location.toLowerCase().includes(selectedLocation.toLowerCase());
+    const matchesLocation = matchesLocationFilter(item.location, selectedLocation);
+    const matchesRating = matchesRatingFilter(item.rating);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.offerTag && item.offerTag.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesLocation && matchesSearch;
+    return matchesCategory && matchesLocation && matchesSearch && matchesRating;
   });
 
   // Filter Establishments list
   const filteredEstablishments = initialEstablishments.filter((item) => {
     const matchesCategory =
       selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation =
-      selectedLocation === 'all' ||
-      item.location.toLowerCase() === selectedLocation.toLowerCase();
+    const matchesLocation = matchesLocationFilter(item.location, selectedLocation);
+    const matchesRating = matchesRatingFilter(item.rating);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesLocation && matchesSearch;
+    return matchesCategory && matchesLocation && matchesSearch && matchesRating;
   });
+
+  // Helper to count items per category key under active location
+  const getCategoryCount = (catKey) => {
+    if (catKey === 'all') {
+      return (
+        initialEstablishments.filter((item) => matchesLocationFilter(item.location, selectedLocation)).length +
+        featuredAdsList.filter((item) => matchesLocationFilter(item.location, selectedLocation)).length
+      );
+    }
+    const estCount = initialEstablishments.filter(
+      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location, selectedLocation)
+    ).length;
+    const adCount = featuredAdsList.filter(
+      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location, selectedLocation)
+    ).length;
+    return estCount + adCount;
+  };
+
+  const resetAllFilters = () => {
+    setSelectedCategory('all');
+    setSelectedLocation('all');
+    setMinRating('all');
+    setSearchQuery('');
+    setSortBy('default');
+  };
+
+  // Sorting Option State & Logic
+  const [sortBy, setSortBy] = useState('default');
+
+  const sortItems = (items) => {
+    const list = [...items];
+    if (sortBy === 'location_asc') {
+      return list.sort((a, b) => a.location.localeCompare(b.location));
+    }
+    if (sortBy === 'category_asc') {
+      return list.sort((a, b) => a.category.localeCompare(b.category));
+    }
+    if (sortBy === 'rating_desc') {
+      return list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
+    if (sortBy === 'name_asc') {
+      return list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return list;
+  };
+
+  const combinedEstablishmentsList = [...filteredFeaturedAds, ...filteredEstablishments];
+  const sortedEstablishments = sortItems(combinedEstablishmentsList);
 
   const handleSelectPlace = (placeName) => {
     setSelectedLocation(placeName.toLowerCase());
@@ -1014,33 +1169,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </button>
             <button
               onClick={() => {
-                setActiveNavTab('places');
+                setActiveNavTab('establishments');
                 setMobileNavOpen(false);
-                scrollToSection('places-section');
+                scrollToSection('establishments-section');
               }}
-              className={`landing-nav-link ${activeNavTab === 'places' ? 'active' : ''}`}
+              className={`landing-nav-link ${activeNavTab === 'establishments' ? 'active' : ''}`}
             >
-              Places
-            </button>
-            <button
-              onClick={() => {
-                setActiveNavTab('categories');
-                setMobileNavOpen(false);
-                scrollToSection('featured-categories-section');
-              }}
-              className={`landing-nav-link ${activeNavTab === 'categories' ? 'active' : ''}`}
-            >
-              Categories
-            </button>
-            <button
-              onClick={() => {
-                setActiveNavTab('ads');
-                setMobileNavOpen(false);
-                scrollToSection('featured-ads-section');
-              }}
-              className={`landing-nav-link ${activeNavTab === 'ads' ? 'active' : ''}`}
-            >
-              Featured Ads
+              Establishments
             </button>
             <button
               onClick={() => {
@@ -1154,144 +1289,63 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       </section>
 
-      {/* 3. Places Grid Section */}
-      <section id="places-section" className="landing-find-place-section" style={{ paddingTop: 20 }}>
-        <div className="places-grid-wrapper">
-          <div className="places-grid">
-            {filteredPlaces.map((place) => (
-              <div
-                key={place.id}
-                className={`place-card ${
-                  selectedLocation === place.name.toLowerCase() ? 'active-selected' : ''
-                }`}
-                onClick={() => handleSelectPlace(place.name)}
-                title={`Click to view services in ${place.name}`}
-              >
-                <div className="place-image-holder">
-                  <img
-                    src={place.image}
-                    alt={place.name}
-                    className="place-image"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src =
-                        'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=600&auto=format&fit=crop&q=80';
-                    }}
-                  />
-                  <div className="place-badge">{place.count} Services</div>
-                </div>
-                <div className="place-card-footer">
-                  <h3 className="place-card-title">{place.name}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 3.5. Featured Categories Grid Section (Matching Screenshot 1 & 3: category.php) */}
-      <section id="featured-categories-section" className="featured-categories-page-section">
-        <div className="featured-categories-container">
-          <h2 className="featured-categories-heading">Categories</h2>
-
-          {/* Category Search Bar */}
-          <div className="category-search-container">
-            <HiSearch className="category-search-icon" />
-            <input
-              type="text"
-              placeholder="Search categories (e.g. Bakery, Software, Temple, Clinic)..."
-              value={categorySearchQuery}
-              onChange={(e) => setCategorySearchQuery(e.target.value)}
-              className="category-search-input"
-            />
-            {categorySearchQuery ? (
-              <button
-                onClick={() => setCategorySearchQuery('')}
-                className="category-search-clear"
-                aria-label="Clear category search"
-              >
-                <HiX />
-              </button>
-            ) : null}
-          </div>
-
-          {featuredCategoriesList.filter((cat) =>
-            cat.title.toLowerCase().includes(categorySearchQuery.toLowerCase())
-          ).length === 0 ? (
-            <div className="landing-empty-state" style={{ margin: '20px 0' }}>
-              <HiInformationCircle className="empty-icon" />
-              <h3>No categories found matching "{categorySearchQuery}"</h3>
-              <button
-                onClick={() => setCategorySearchQuery('')}
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
-              >
-                Reset Search
-              </button>
-            </div>
-          ) : (
-            <div className="featured-categories-grid">
-              {featuredCategoriesList
-                .filter((cat) =>
-                  cat.title.toLowerCase().includes(categorySearchQuery.toLowerCase())
-                )
-                .map((cat) => {
-                  const isSelected = selectedFeaturedCategory === cat.title;
-                  return (
-                    <div
-                      key={cat.id}
-                      className={`featured-category-card ${isSelected ? 'active-selected' : ''}`}
-                      onClick={() => {
-                        setSelectedFeaturedCategory(cat.title);
-                        setSearchQuery(cat.title);
-                        scrollToSection('establishments-section');
-                      }}
-                    >
-                      <div className="featured-category-icon">
-                        {renderCategoryIcon(cat.key)}
-                      </div>
-                      <span className="featured-category-title">{cat.title}</span>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-
-          {/* Pagination bar matching Screenshot 1 & 3 */}
-          <div className="categories-pagination-bar">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pageNum) => (
-              <button
-                key={pageNum}
-                onClick={() => setCategoryPage(pageNum)}
-                className={`categories-page-btn ${categoryPage === pageNum ? 'active' : ''}`}
-              >
-                {pageNum}
-              </button>
-            ))}
-            <span className="categories-page-info">Page {categoryPage} of 10</span>
-          </div>
-        </div>
-      </section>
-
       {/* 4. Filter & Search Section */}
       <section id="categories-section" className="landing-filter-section">
         <div className="landing-filter-container">
-          <div className="landing-search-box">
-            <HiSearch className="landing-search-icon" />
-            <input
-              type="text"
-              placeholder="Search establishments, services, or locations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="landing-search-input"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="landing-search-clear"
-              >
-                <HiX />
-              </button>
+          <div className="landing-search-box-wrapper">
+            <div className="landing-search-box">
+              <HiSearch className="landing-search-icon" />
+              <input
+                type="text"
+                placeholder="Search establishments, services, categories, or locations..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                className="landing-search-input"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSuggestions(false);
+                  }}
+                  className="landing-search-clear"
+                  aria-label="Clear search"
+                >
+                  <HiX />
+                </button>
+              )}
+            </div>
+
+            {/* Live Auto-Fill Suggestions Dropdown */}
+            {showSuggestions && searchQuery.trim().length > 0 && (
+              <div className="autofill-suggestions-dropdown">
+                {getSearchSuggestions().length === 0 ? (
+                  <div className="suggestion-item empty">
+                    <span>No matching establishments or locations</span>
+                  </div>
+                ) : (
+                  getSearchSuggestions().map((sug, idx) => (
+                    <div
+                      key={idx}
+                      className="suggestion-item"
+                      onMouseDown={() => handleSelectSuggestion(sug)}
+                    >
+                      <span className="suggestion-icon">
+                        {sug.type === 'location' ? '📍' : sug.type === 'category' ? '🏷️' : '🏪'}
+                      </span>
+                      <div className="suggestion-info">
+                        <strong className="suggestion-title">{sug.text}</strong>
+                        <span className="suggestion-sub">{sug.category} • {sug.location}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
 
@@ -1299,133 +1353,117 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <span className="filter-label">Location:</span>
             <select
               value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
+              onChange={(e) => {
+                setSelectedLocation(e.target.value);
+                scrollToSection('establishments-section');
+              }}
               className="landing-select"
             >
-              <option value="all">All Locations</option>
+              <option value="all">All Locations (Kerala)</option>
               {placesList.map((p) => (
                 <option key={p.id} value={p.name.toLowerCase()}>
                   {p.name}
                 </option>
               ))}
             </select>
-          </div>
-        </div>
 
-        {/* Category Filter Pills */}
-        <div className="landing-category-pills">
-          {[
-            { key: 'all', label: 'All Services', icon: '🏪' },
-            { key: 'automobile', label: 'Automobile', icon: '🚗' },
-            { key: 'solar', label: 'Solar & Energy', icon: '⚡' },
-            { key: 'health', label: 'Medical & Healthcare', icon: '🏥' },
-            { key: 'food', label: 'Hotels & Dining', icon: '🍽️' },
-            { key: 'shopping', label: 'Shopping & Fashion', icon: '🛍️' },
-            { key: 'services', label: 'Aluminium & Services', icon: '🔧' },
-            { key: 'travel', label: 'Travels & Transport', icon: '🚌' },
-          ].map((cat) => (
             <button
-              key={cat.key}
-              onClick={() => setSelectedCategory(cat.key)}
-              className={`landing-pill ${
-                selectedCategory === cat.key ? 'active' : ''
-              }`}
+              onClick={handleDetectLocation}
+              className="gps-locate-btn"
+              title="Detect nearest district location"
             >
-              <span className="pill-icon">{cat.icon}</span>
-              <span>{cat.label}</span>
+              <HiLocationMarker />
+              <span>{isLocating ? 'Locating...' : 'Near Me'}</span>
             </button>
-          ))}
-        </div>
-      </section>
+          </div>
 
-      {/* 4.5. Featured Ads Section (Aligned matching Establishments theme & layout) */}
-      <section id="featured-ads-section" className="landing-featured-ads-section">
-        <div className="landing-section-header">
-          <h2 className="landing-section-title">
-            Featured Ads <span className="featured-ads-title-badge">SPONSORED</span>
-          </h2>
-          <p className="landing-section-sub">
-            Hand-picked promotional deals & featured local business highlights{' '}
-            {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
-          </p>
-        </div>
-
-        {filteredFeaturedAds.length === 0 ? (
-          <div className="landing-empty-state">
-            <HiInformationCircle className="empty-icon" />
-            <h3>No featured ads found</h3>
-            <p>Try clearing your search query or selecting a different location.</p>
-            <button
-              onClick={() => {
-                setSelectedCategory('all');
-                setSelectedLocation('all');
-                setSearchQuery('');
+          <div className="landing-sort-filter">
+            <span className="filter-label">Rating:</span>
+            <select
+              value={minRating}
+              onChange={(e) => {
+                setMinRating(e.target.value);
+                scrollToSection('establishments-section');
               }}
-              className="btn btn-primary"
-              style={{ marginTop: 12 }}
+              className="landing-select"
             >
-              Reset Filters
-            </button>
+              <option value="all">All Ratings</option>
+              <option value="4.8">⭐ 4.8+ Stars</option>
+              <option value="4.5">⭐ 4.5+ Stars</option>
+            </select>
           </div>
-        ) : (
-          <div className="landing-grid">
-            {filteredFeaturedAds.map((item) => (
-              <div
-                key={item.id}
-                className="establishment-card"
-                onClick={() => setSelectedMerchant(item)}
+
+          <div className="landing-sort-filter">
+            <span className="filter-label">Sort By:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                scrollToSection('establishments-section');
+              }}
+              className="landing-select"
+            >
+              <option value="default">Default Order</option>
+              <option value="location_asc">📍 Location (A to Z)</option>
+              <option value="rating_desc">⭐ Top Rated First</option>
+              <option value="name_asc">🔤 Name (A to Z)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Active Filter Chips Bar */}
+        {(selectedCategory !== 'all' || selectedLocation !== 'all' || searchQuery.trim() !== '' || minRating !== 'all' || sortBy !== 'default') && (
+          <div className="active-filters-chips-bar">
+            <span className="chips-title">Active Filters:</span>
+            {selectedLocation !== 'all' && (
+              <button
+                className="filter-chip"
+                onClick={() => setSelectedLocation('all')}
+                title="Remove location filter"
               >
-                <div className="establishment-image-wrapper">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="establishment-image"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src =
-                        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-                    }}
-                  />
-                  <div
-                    className={`establishment-category-tag ${
-                      item.adBadge === 'SPONSORED' ? 'ad-badge-blue' : 'ad-badge-orange'
-                    }`}
-                  >
-                    {item.adBadge}
-                  </div>
-                  <div className="establishment-rating">
-                    <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
-                  </div>
-                </div>
+                📍 Location: {selectedLocation.toUpperCase()} <HiX />
+              </button>
+            )}
+            {selectedCategory !== 'all' && (
+              <button
+                className="filter-chip"
+                onClick={() => setSelectedCategory('all')}
+                title="Remove category filter"
+              >
+                🏷️ Category: {selectedCategory.toUpperCase()} <HiX />
+              </button>
+            )}
+            {minRating !== 'all' && (
+              <button
+                className="filter-chip"
+                onClick={() => setMinRating('all')}
+                title="Remove rating filter"
+              >
+                ⭐ Rating: {minRating}+ Stars <HiX />
+              </button>
+            )}
+            {searchQuery.trim() !== '' && (
+              <button
+                className="filter-chip"
+                onClick={() => setSearchQuery('')}
+                title="Remove search query"
+              >
+                🔍 Search: "{searchQuery}" <HiX />
+              </button>
+            )}
+            {sortBy !== 'default' && (
+              <button
+                className="filter-chip"
+                onClick={() => setSortBy('default')}
+                title="Reset sort order"
+              >
+                🔀 Sorted by {sortBy.replace('_', ' ')} <HiX />
+              </button>
+            )}
 
-                <div className="establishment-card-content">
-                  <h3 className="establishment-name">{item.name}</h3>
-
-                  <div className="establishment-meta">
-                    <span className="meta-item">
-                      <HiLocationMarker className="meta-icon" /> {item.location}
-                    </span>
-                    <span className="meta-item">
-                      <HiPhone className="meta-icon" /> {item.phone}
-                    </span>
-                    {item.offerTag && (
-                      <span className="meta-item ad-offer-tag">
-                        ⭐ {item.offerTag}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="establishment-card-footer">
-                    <span className="establishment-category-sub">
-                      {item.category}
-                    </span>
-                    <div className="establishment-arrow-btn">
-                      <HiChevronRight />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <button className="clear-all-chips-btn" onClick={resetAllFilters}>
+              Reset All
+            </button>
           </div>
         )}
       </section>
@@ -1440,7 +1478,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </p>
         </div>
 
-        {filteredEstablishments.length === 0 ? (
+        {sortedEstablishments.length === 0 ? (
           <div className="landing-empty-state">
             <HiInformationCircle className="empty-icon" />
             <h3>No establishments found</h3>
@@ -1459,7 +1497,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         ) : (
           <div className="landing-grid">
-            {filteredEstablishments.map((item) => (
+            {sortedEstablishments.map((item) => (
               <div
                 key={item.id}
                 className="establishment-card"
@@ -1470,9 +1508,22 @@ export default function LandingPage({ defaultTab = 'home' }) {
                     src={item.image}
                     alt={item.name}
                     className="establishment-image"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src =
+                        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                    }}
                   />
-                  <div className="establishment-category-tag">
-                    {item.category}
+                  <div
+                    className={`establishment-category-tag ${
+                      item.adBadge === 'SPONSORED'
+                        ? 'ad-badge-blue'
+                        : item.adBadge
+                        ? 'ad-badge-orange'
+                        : ''
+                    }`}
+                  >
+                    {item.adBadge || item.category}
                   </div>
                   <div className="establishment-rating">
                     <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
@@ -1483,12 +1534,22 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   <h3 className="establishment-name">{item.name}</h3>
 
                   <div className="establishment-meta">
-                    <span className="meta-item">
-                      <HiLocationMarker className="meta-icon" /> {item.location}
+                    <span
+                      className="meta-item meta-map-link"
+                      onClick={(e) => openGoogleMaps(item.name, item.address, e)}
+                      title="Open location in Google Maps"
+                    >
+                      <HiLocationMarker className="meta-icon map-pin-icon" />
+                      <span className="location-txt-link">{item.location} (Map)</span>
                     </span>
                     <span className="meta-item">
                       <HiPhone className="meta-icon" /> {item.phone}
                     </span>
+                    {item.offerTag && (
+                      <span className="meta-item ad-offer-tag">
+                        ⭐ {item.offerTag}
+                      </span>
+                    )}
                   </div>
 
                   <div className="establishment-card-footer">
@@ -1731,6 +1792,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   <div>
                     <strong>Location / Address</strong>
                     <p>{selectedMerchant.address}</p>
+                    <button
+                      className="btn-modal-map"
+                      onClick={(e) => openGoogleMaps(selectedMerchant.name, selectedMerchant.address, e)}
+                    >
+                      📍 View Location on Google Maps
+                    </button>
                   </div>
                 </div>
 
@@ -1782,6 +1849,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
               >
                 <HiPhone /> Call Merchant
               </a>
+              <button
+                className="btn btn-map-action"
+                onClick={(e) => openGoogleMaps(selectedMerchant.name, selectedMerchant.address, e)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              >
+                <HiLocationMarker /> Google Maps
+              </button>
               <button
                 className="btn btn-secondary"
                 onClick={() => setSelectedMerchant(null)}

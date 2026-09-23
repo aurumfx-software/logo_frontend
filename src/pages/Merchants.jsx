@@ -5,18 +5,85 @@ import {
   HiOutlineBan,
   HiOutlineCheckCircle,
   HiOutlineStar,
+  HiOutlinePlus,
+  HiOutlineLocationMarker,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
+import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import { fetchMerchantsList } from '../api/merchantApi';
+
+const categoriesList = [
+  'Helmets & Accessories',
+  'Software Development',
+  'Agricultural Research Institute',
+  'Cleaning Machine',
+  'Bakery',
+  'Physiotherapy',
+  'Catering Service',
+  'Supplyco Store',
+  'Fruits & Juice Shop',
+  'Pastry & Cake Shop',
+  'Hotel Residencies',
+  'Petrol Pumps',
+  'E V Charging',
+  'Solar & Electricals',
+  'Automobile & Spares',
+  'Shopping & Fashion',
+  'Aluminium Fabrication',
+  'Healthcare & Medicals',
+  'Travels & Transport',
+];
 
 export default function Merchants() {
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
+
+  // New Merchant Form State with Google Maps API location
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newMerchant, setNewMerchant] = useState({
+    name: '',
+    category: 'Solar & Electricals',
+    address: '',
+    city: '',
+    district: '',
+    phone: '',
+    status: 'active',
+  });
+
+  const handleAddMerchantSubmit = (e) => {
+    e.preventDefault();
+    if (!newMerchant.name.trim()) return;
+
+    const createdItem = {
+      id: `m-${Date.now()}`,
+      name: newMerchant.name,
+      category: newMerchant.category,
+      city: newMerchant.city || newMerchant.district || 'Kannur',
+      address: newMerchant.address,
+      phone: newMerchant.phone || '+91 98470 12345',
+      rating: 5.0,
+      reviews: 1,
+      status: newMerchant.status,
+      joined: new Date().toISOString().split('T')[0],
+    };
+
+    setData((prev) => [createdItem, ...prev]);
+    setShowAddModal(false);
+    setNewMerchant({
+      name: '',
+      category: 'Solar & Electricals',
+      address: '',
+      city: '',
+      district: '',
+      phone: '',
+      status: 'active',
+    });
+  };
 
   useEffect(() => {
     async function loadMerchants() {
@@ -143,7 +210,11 @@ export default function Merchants() {
       <PageHeader
         title="Merchants"
         subtitle="View, search, and manage all registered merchants"
-      />
+      >
+        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+          <HiOutlinePlus /> Add New Merchant
+        </button>
+      </PageHeader>
 
       <div className="tabs">
         {['all', 'active', 'suspended', 'inactive'].map((tab) => (
@@ -172,6 +243,7 @@ export default function Merchants() {
         </div>
       </div>
 
+      {/* View Merchant Modal */}
       <Modal
         isOpen={!!selectedMerchant}
         onClose={() => setSelectedMerchant(null)}
@@ -225,6 +297,100 @@ export default function Merchants() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Create New Merchant Modal with Google Maps Location Search & Category Picker */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Merchant"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleAddMerchantSubmit}>Save Merchant</button>
+          </>
+        }
+      >
+        <form onSubmit={handleAddMerchantSubmit}>
+          <div className="form-group">
+            <label className="form-label">Merchant / Business Name *</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. Royal Solar Solutions"
+              value={newMerchant.name}
+              onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Category *</label>
+              <select
+                className="form-select"
+                value={newMerchant.category}
+                onChange={(e) => setNewMerchant({ ...newMerchant, category: e.target.value })}
+              >
+                {categoriesList.map((cat, idx) => (
+                  <option key={idx} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Phone Contact</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="+91 98470 12345"
+                value={newMerchant.phone}
+                onChange={(e) => setNewMerchant({ ...newMerchant, phone: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Location Search (Google Maps Autocomplete) *</label>
+            <GoogleMapsLocationInput
+              value={newMerchant.address}
+              onChange={(addr) => setNewMerchant({ ...newMerchant, address: addr })}
+              onSelectLocation={(place) => {
+                setNewMerchant((prev) => ({
+                  ...prev,
+                  address: place.address,
+                  city: place.city || place.name,
+                  district: place.district,
+                }));
+              }}
+              placeholder="Type place name or address to search Google Maps (e.g. Payyanur, Kannur, Kochi)..."
+            />
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Autofilled City / Town</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="City"
+                value={newMerchant.city}
+                onChange={(e) => setNewMerchant({ ...newMerchant, city: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Autofilled District</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="District"
+                value={newMerchant.district}
+                onChange={(e) => setNewMerchant({ ...newMerchant, district: e.target.value })}
+              />
+            </div>
+          </div>
+        </form>
       </Modal>
     </motion.div>
   );
