@@ -409,133 +409,133 @@ const promoBanners = [
   },
 ];
 
-// Places Data (Matching reference screenshots: place.php)
+// Places Data (ONLY 14 Districts of Kerala with Landmark Images)
 const placesList = [
   {
-    id: 'payyanur',
-    name: 'Payyanur',
-    count: 245,
-    image: 'https://images.unsplash.com/photo-1590059208753-3765e90367f0?w=500&auto=format&fit=crop&q=80',
-    description: 'Cultural hub in Kannur known for temples, handlooms, and vibrant local commerce.',
+    id: 'thiruvananthapuram',
+    name: 'Thiruvananthapuram',
+    isDistrict: true,
+    landmark: 'Padmanabhaswamy Temple & Kovalam',
+    count: 520,
+    image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=600&auto=format&fit=crop&q=80',
+    description: 'Capital district of Kerala, famous for Sri Padmanabhaswamy Temple, Kovalam Beach, and Technopark.',
   },
   {
-    id: 'taliparamba',
-    name: 'Taliparamba',
-    count: 180,
-    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=500&auto=format&fit=crop&q=80',
-    description: 'Historic town with major spice markets, educational institutions, and healthcare centers.',
+    id: 'kollam',
+    name: 'Kollam',
+    isDistrict: true,
+    landmark: 'Jatayu Earth Center & Ashtamudi Lake',
+    count: 340,
+    image: 'https://images.unsplash.com/photo-1590059208753-3765e90367f0?w=600&auto=format&fit=crop&q=80',
+    description: 'Gateway to Kerala backwaters, famous for Ashtamudi Lake, cashew industry, and Jatayu Rock Sculpture.',
   },
   {
-    id: 'kannur',
-    name: 'Kannur',
-    count: 310,
-    image: 'https://images.unsplash.com/photo-1596895111956-bf1cf0599ce5?w=500&auto=format&fit=crop&q=80',
-    description: 'Major coastal city famous for beaches, handloom industries, and booming trade.',
-  },
-  {
-    id: 'kanhangad',
-    name: 'Kanhangad',
-    count: 140,
-    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=500&auto=format&fit=crop&q=80',
-    description: 'Largest commercial town in Kasaragod district with healthcare & retail hubs.',
-  },
-  {
-    id: 'calicut',
-    name: 'Calicut',
-    count: 420,
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&auto=format&fit=crop&q=80',
-    description: 'Kozhikode city center, renowned for food, shopping malls, and IT parks.',
-  },
-  {
-    id: 'cheemeni',
-    name: 'Cheemeni',
-    count: 65,
-    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=500&auto=format&fit=crop&q=80',
-    description: 'Growing township in Kasaragod with industrial parks and renewable energy hubs.',
-  },
-  {
-    id: 'thalassery',
-    name: 'Thalassery',
+    id: 'pathanamthitta',
+    name: 'Pathanamthitta',
+    isDistrict: true,
+    landmark: 'Sabarimala Temple & Gavi Forests',
     count: 210,
-    image: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=500&auto=format&fit=crop&q=80',
-    description: 'Heritage town celebrated for bakery culture, circus history, and colonial architecture.',
+    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&auto=format&fit=crop&q=80',
+    description: 'Pilgrim capital of Kerala, known for Sabarimala temple, dense eco-forests, and Aranmula metal mirrors.',
   },
   {
-    id: 'kasaragod',
-    name: 'Kasaragod',
-    count: 195,
-    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=80',
-    description: 'Northern border town with fort monuments, river tourism, and cross-cultural trade.',
+    id: 'alappuzha',
+    name: 'Alappuzha',
+    isDistrict: true,
+    landmark: 'Alleppey Backwaters & Houseboats',
+    count: 480,
+    image: 'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=600&auto=format&fit=crop&q=80',
+    description: 'Venice of the East, world-famous for houseboats, Vembanad backwaters, and Punnamada lake.',
   },
   {
-    id: 'trikaripur',
-    name: 'Trikaripur',
-    count: 90,
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=500&auto=format&fit=crop&q=80',
-    description: 'Picturesque coastal locality known for backwaters, boat building, and local markets.',
+    id: 'kottayam',
+    name: 'Kottayam',
+    isDistrict: true,
+    landmark: 'Kumarakom Bird Sanctuary & Lakes',
+    count: 390,
+    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=600&auto=format&fit=crop&q=80',
+    description: 'Land of Letters, Lakes & Latex; famous for Kumarakom backwaters, publishing houses, and rubber estates.',
+  },
+  {
+    id: 'idukki',
+    name: 'Idukki',
+    isDistrict: true,
+    landmark: 'Munnar Tea Gardens & Arch Dam',
+    count: 410,
+    image: 'https://images.unsplash.com/photo-1596895111956-bf1cf0599ce5?w=600&auto=format&fit=crop&q=80',
+    description: 'Hilly spice district featuring Munnar tea gardens, Idukki Arch Dam, and Eravikulam National Park.',
+  },
+  {
+    id: 'ernakulam',
+    name: 'Ernakulam (Kochi)',
+    isDistrict: true,
+    landmark: 'Fort Kochi Fishing Nets & Marine Drive',
+    count: 850,
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80',
+    description: 'Commercial capital of Kerala, famous for Fort Kochi, Marine Drive, port harbor, and InfoPark.',
+  },
+  {
+    id: 'thrissur',
+    name: 'Thrissur',
+    isDistrict: true,
+    landmark: 'Vadakkunnathan Temple & Athirappilly',
+    count: 620,
+    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?w=600&auto=format&fit=crop&q=80',
+    description: 'Cultural capital of Kerala, home to Thrissur Pooram, Vadakkunnathan Temple, and Athirappilly Waterfalls.',
+  },
+  {
+    id: 'palakkad',
+    name: 'Palakkad',
+    isDistrict: true,
+    landmark: "Palakkad Fort & Silent Valley",
+    count: 290,
+    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&auto=format&fit=crop&q=80',
+    description: 'Gateway to Kerala, known for historic Tipu Fort, Silent Valley National Park, and paddy fields.',
   },
   {
     id: 'malappuram',
     name: 'Malappuram',
-    count: 280,
-    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=80',
-    description: 'Fast-growing urban area with vibrant commercial centers and educational institutions.',
+    isDistrict: true,
+    landmark: 'Kottakkal Arya Vaidya Sala & Teak Museum',
+    count: 450,
+    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
+    description: 'Fast-growing cultural district, renowned for Ayurvedic treatment centers and Nilambur teak forests.',
   },
   {
-    id: 'vadakara',
-    name: 'Vadakara',
-    count: 130,
-    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?w=500&auto=format&fit=crop&q=80',
-    description: 'Historic martial arts land of Kalaripayattu with bustling coastal trade.',
+    id: 'kozhikode',
+    name: 'Kozhikode (Calicut)',
+    isDistrict: true,
+    landmark: 'Kappad Beach & Mananchira Square',
+    count: 680,
+    image: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=80',
+    description: 'Historic City of Spices, famous for Kozhikode Halwa, Malabar culinary heritage, and Kappad Beach.',
   },
   {
-    id: 'padiyotuchal',
-    name: 'Padiyotuchal',
-    count: 55,
-    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=500&auto=format&fit=crop&q=80',
-    description: 'Hilly agricultural town with local spice plantations and hardware suppliers.',
+    id: 'wayanad',
+    name: 'Wayanad',
+    isDistrict: true,
+    landmark: 'Edakkal Caves & Banasura Dam',
+    count: 370,
+    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=600&auto=format&fit=crop&q=80',
+    description: 'Hilly tourist haven featuring Edakkal prehistoric caves, Banasura Sagar Dam, and coffee plantations.',
   },
   {
-    id: 'alakode',
-    name: 'Alakode',
-    count: 75,
-    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=500&auto=format&fit=crop&q=80',
-    description: 'Highland township in eastern Kannur, prominent for agriculture and rubber trade.',
+    id: 'kannur',
+    name: 'Kannur',
+    isDistrict: true,
+    landmark: 'St. Angelo Fort & Muzhappilangad Drive-in Beach',
+    count: 590,
+    image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&auto=format&fit=crop&q=80',
+    description: 'Land of Theyyam art, famous for Muzhappilangad Drive-in Beach, St. Angelo Fort, and handloom crafts.',
   },
   {
-    id: 'kankol',
-    name: 'Kankol',
-    count: 40,
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&auto=format&fit=crop&q=80',
-    description: 'Quiet green village near Payyanur with emerging organic markets and local services.',
-  },
-  {
-    id: 'dharmasala',
-    name: 'Dharmasala',
-    count: 110,
-    image: 'https://images.unsplash.com/photo-1596895111956-bf1cf0599ce5?w=500&auto=format&fit=crop&q=80',
-    description: 'Major educational zone featuring NIFT, engineering colleges, and stadium complex.',
-  },
-  {
-    id: 'cherupuzha',
-    name: 'Cherupuzha',
-    count: 85,
-    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=500&auto=format&fit=crop&q=80',
-    description: 'Border township between Kannur and Kasaragod, famous for hilly trading markets.',
-  },
-  {
-    id: 'parappanangadi',
-    name: 'Parappanangadi',
-    count: 95,
-    image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=500&auto=format&fit=crop&q=80',
-    description: 'Coastal railway town in Malappuram with fisheries and traditional handicraft shops.',
-  },
-  {
-    id: 'kuthuparamba',
-    name: 'Kuthuparamba',
-    count: 150,
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=500&auto=format&fit=crop&q=80',
-    description: 'Key junction connecting Kannur, Wayanad, and Thalassery with busy commercial centers.',
+    id: 'kasaragod',
+    name: 'Kasaragod',
+    isDistrict: true,
+    landmark: 'Bekal Fort & Ranipuram Hills',
+    count: 320,
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80',
+    description: 'Northernmost district of Kerala, famous for majestic sea-side Bekal Fort and Ranipuram hill station.',
   },
 ];
 
@@ -784,9 +784,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
   };
 
   // Filter Places list
-  const filteredPlaces = placesList.filter((place) =>
-    place.name.toLowerCase().includes(placeSearchQuery.toLowerCase()) ||
-    place.description.toLowerCase().includes(placeSearchQuery.toLowerCase())
+  const filteredPlaces = placesList.filter(
+    (place) =>
+      place.name.toLowerCase().includes(placeSearchQuery.toLowerCase()) ||
+      (place.landmark && place.landmark.toLowerCase().includes(placeSearchQuery.toLowerCase())) ||
+      place.description.toLowerCase().includes(placeSearchQuery.toLowerCase())
   );
 
   // Filter Establishments list
@@ -989,68 +991,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       </section>
 
-      {/* 3. Find Place & Places Grid Section (Matching reference screenshot: place.php) */}
-      <section id="places-section" className="landing-find-place-section">
-        <div className="landing-find-place-header">
-          <div className="find-place-glow-effect"></div>
-          <div className="find-place-badge">
-            <HiLocationMarker /> MY LOCALITY SEARCH
-          </div>
-          <h2 className="find-place-title">Find Places & Services</h2>
-          <p className="find-place-sub">
-            Discover verified merchants, shops, offices, and landmarks in your locality
-          </p>
-
-          <div className="find-place-search-container">
-            <div className="search-input-icon-wrapper">
-              <HiSearch className="find-place-search-icon" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search by town, category, or business (e.g. Payyanur, Bakery, Hospital)..."
-              value={placeSearchQuery}
-              onChange={(e) => setPlaceSearchQuery(e.target.value)}
-              className="find-place-search-input"
-            />
-            {placeSearchQuery ? (
-              <button
-                className="find-place-clear-btn"
-                onClick={() => setPlaceSearchQuery('')}
-                aria-label="Clear Search"
-              >
-                <HiX />
-              </button>
-            ) : null}
-            <button
-              className="find-place-action-btn"
-              onClick={() => {
-                const el = document.getElementById('places-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-            >
-              <span>Search</span>
-              <HiChevronRight />
-            </button>
-          </div>
-
-          {/* Popular Quick Search Suggestions */}
-          <div className="find-place-tags">
-            <span className="tags-label">Popular:</span>
-            {['Payyanur', 'Kannur', 'Taliparamba', 'Cleaning Machine', 'Solar', 'Bakery'].map((tag) => (
-              <button
-                key={tag}
-                className={`tag-pill ${placeSearchQuery.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`}
-                onClick={() => setPlaceSearchQuery(tag)}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
+      {/* 3. Places Grid Section */}
+      <section id="places-section" className="landing-find-place-section" style={{ paddingTop: 20 }}>
         <div className="places-grid-wrapper">
-          <h2 className="places-main-heading">Places</h2>
-
           <div className="places-grid">
             {filteredPlaces.map((place) => (
               <div
@@ -1062,7 +1005,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 title={`Click to view services in ${place.name}`}
               >
                 <div className="place-image-holder">
-                  <img src={place.image} alt={place.name} className="place-image" />
+                  <img
+                    src={place.image}
+                    alt={place.name}
+                    className="place-image"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src =
+                        'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=600&auto=format&fit=crop&q=80';
+                    }}
+                  />
                   <div className="place-badge">{place.count} Services</div>
                 </div>
                 <div className="place-card-footer">

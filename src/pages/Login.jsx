@@ -56,9 +56,22 @@ export default function Login() {
         throw new Error(errorMsg);
       }
 
-      // Extract user details & token from API response structure
+      // Extract user details, access token & refresh token from API response structure
       const apiUser = resData.user || resData.data?.user || resData.data || {};
-      const authToken = resData.token || resData.data?.token || resData.accessToken || '';
+      const accessToken =
+        resData.access_token ||
+        resData.accessToken ||
+        resData.token ||
+        resData.data?.access_token ||
+        resData.data?.token ||
+        '';
+
+      const refreshToken =
+        resData.refresh_token ||
+        resData.refreshToken ||
+        resData.data?.refresh_token ||
+        resData.data?.refreshToken ||
+        '';
 
       const userData = {
         email: apiUser.email || email,
@@ -72,7 +85,7 @@ export default function Login() {
         ...apiUser,
       };
 
-      login(userData, authToken);
+      login(userData, { accessToken, refreshToken });
       navigate('/', { replace: true });
     } catch (err) {
       console.error('Login error:', err);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiOutlineEye,
@@ -10,12 +10,33 @@ import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
-import { merchants } from '../data/mockData';
+import { fetchMerchantsList } from '../api/merchantApi';
 
 export default function Merchants() {
   const [activeTab, setActiveTab] = useState('all');
-  const [data, setData] = useState(merchants);
+  const [data, setData] = useState([]);
+  const [loadingMerchants, setLoadingMerchants] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
+
+  useEffect(() => {
+    async function loadMerchants() {
+      try {
+        setLoadingMerchants(true);
+        const apiMerchants = await fetchMerchantsList();
+        if (Array.isArray(apiMerchants)) {
+          setData(apiMerchants);
+        } else {
+          setData([]);
+        }
+      } catch (err) {
+        console.warn('Backend merchants list error:', err);
+        setData([]);
+      } finally {
+        setLoadingMerchants(false);
+      }
+    }
+    loadMerchants();
+  }, []);
 
   const filteredData =
     activeTab === 'all'
@@ -138,10 +159,15 @@ export default function Merchants() {
 
       <div className="card">
         <div className="card-body" style={{ padding: 0 }}>
+          {loadingMerchants && (
+            <div style={{ padding: '16px 24px', fontSize: 13, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #F3F4F6' }}>
+              <span>🔄 Loading live merchants from API...</span>
+            </div>
+          )}
           <DataTable
             columns={columns}
             data={filteredData}
-            searchPlaceholder="Search merchants..."
+            searchPlaceholder="Search merchant name, category, city..."
           />
         </div>
       </div>

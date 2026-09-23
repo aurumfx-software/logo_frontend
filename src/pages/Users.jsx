@@ -14,9 +14,8 @@ import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
-import { users as initialUsers } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
-import { createAdminOrStaffAccount } from '../api/userApi';
+import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus } from '../api/userApi';
 
 export default function Users() {
   const location = useLocation();
@@ -27,7 +26,8 @@ export default function Users() {
   const isFieldStaff = userRole === 'Field Staff';
 
   const [activeTab, setActiveTab] = useState('all');
-  const [data, setData] = useState(initialUsers);
+  const [data, setData] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -40,6 +40,27 @@ export default function Users() {
     city: 'Payyanur',
     password: '',
   });
+
+  // Load real users from API on mount
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        setLoadingUsers(true);
+        const apiUsers = await fetchUsersList();
+        if (Array.isArray(apiUsers)) {
+          setData(apiUsers);
+        } else {
+          setData([]);
+        }
+      } catch (err) {
+        console.warn('Backend users list error:', err);
+        setData([]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    }
+    loadUsers();
+  }, []);
 
   // Open modal automatically if query param ?addAdmin=true or ?addFieldStaff=true is present
   useEffect(() => {
@@ -101,11 +122,14 @@ export default function Users() {
     }
   };
 
-  const handleToggleSuspend = (row) => {
+  const handleToggleSuspend = async (row) => {
     const newStatus = row.status === 'active' ? 'suspended' : 'active';
     setData((prev) =>
       prev.map((u) => (u.id === row.id ? { ...u, status: newStatus } : u))
     );
+    if (row.rawId || row.id) {
+      await toggleUserStatus(row.rawId || row.id, row.status);
+    }
     showToast(
       `Account "${row.name}" has been ${
         newStatus === 'suspended' ? 'suspended' : 'reactivated'
@@ -358,6 +382,11 @@ export default function Users() {
 
       <div className="card">
         <div className="card-body" style={{ padding: 0 }}>
+          {loadingUsers && (
+            <div style={{ padding: '16px 24px', fontSize: 13, color: '#6C63FF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #F3F4F6' }}>
+              <span>🔄 Loading live users from API...</span>
+            </div>
+          )}
           <DataTable
             columns={columns}
             data={filteredData}

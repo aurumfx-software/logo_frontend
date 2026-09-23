@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../api/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -7,28 +8,47 @@ export function AuthProvider({ children }) {
     const stored = localStorage.getItem('logo_admin_user');
     return stored ? JSON.parse(stored) : null;
   });
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('logo_admin_token') || null;
-  });
+  const [accessToken, setAccessToken] = useState(() => getAccessToken());
+  const [refreshToken, setRefreshToken] = useState(() => getRefreshToken());
 
-  const login = useCallback((userData, authToken) => {
+  const login = useCallback((userData, tokenData) => {
     localStorage.setItem('logo_admin_user', JSON.stringify(userData));
-    if (authToken) {
-      localStorage.setItem('logo_admin_token', authToken);
-      setToken(authToken);
+
+    let access = '';
+    let refresh = '';
+
+    if (typeof tokenData === 'string') {
+      access = tokenData;
+    } else if (tokenData && typeof tokenData === 'object') {
+      access = tokenData.accessToken || tokenData.access_token || tokenData.token || '';
+      refresh = tokenData.refreshToken || tokenData.refresh_token || '';
     }
+
+    setTokens({ accessToken: access, refreshToken: refresh });
+    setAccessToken(access);
+    setRefreshToken(refresh);
     setUser(userData);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('logo_admin_user');
-    localStorage.removeItem('logo_admin_token');
+    clearTokens();
     setUser(null);
-    setToken(null);
+    setAccessToken('');
+    setRefreshToken('');
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        isAuthenticated: !!user,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -41,3 +61,4 @@ export function useAuth() {
   }
   return context;
 }
+
