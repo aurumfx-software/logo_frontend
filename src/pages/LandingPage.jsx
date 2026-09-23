@@ -711,6 +711,138 @@ const initialEstablishments = [
   },
 ];
 
+// Featured Ads Data List
+const featuredAdsList = [
+  {
+    id: 'ad-1',
+    name: 'Bag Bazaar Payyanur',
+    adBadge: 'FEATURED AD',
+    offerTag: 'Up to 65% OFF',
+    category: 'Luggage & Leather Goods',
+    categoryKey: 'shopping',
+    location: 'Payyanur',
+    phone: '+91 93727 02692',
+    address: 'Near Old Bus Stand, Main Road, Payyanur, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+    rating: 4.9,
+    reviews: 240,
+    description: 'Top-rated store for school bags, executive luggage trolleys, handbags, and travel backpacks. Wholesale & Retail prices with up to 65% discount on top brands.',
+    highlights: ['VIP, American Tourister & Wildcraft', 'Wholesale & Retail Discount', 'Warranty & Repair Service'],
+  },
+  {
+    id: 'ad-2',
+    name: 'Global Solar Power Solution',
+    adBadge: 'SPONSORED',
+    offerTag: 'Govt Subsidy Eligible',
+    category: 'Solar & Energy',
+    categoryKey: 'solar',
+    location: 'Payyanur',
+    phone: '+91 89216 69652',
+    address: 'Payyanur - Padanna Road, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=600&auto=format&fit=crop&q=80',
+    rating: 4.9,
+    reviews: 185,
+    description: 'KSEB approved solar panel installations for home & commercial projects. Reduce up to 90% on monthly electricity bills with Govt subsidy benefits.',
+    highlights: ['KSEB Net Metering Approved', 'Free Site Survey & Estimate', '25 Years Panel Warranty'],
+  },
+  {
+    id: 'ad-3',
+    name: 'Castillo Interiors & Modular Kitchen',
+    adBadge: 'FEATURED AD',
+    offerTag: 'Free 3D Design Plan',
+    category: 'Interiors & Furniture',
+    categoryKey: 'services',
+    location: 'Payyanur',
+    phone: '+91 95627 53693',
+    address: 'Perumba, Payyanur, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&auto=format&fit=crop&q=80',
+    rating: 4.8,
+    reviews: 142,
+    description: 'Modern modular kitchens, gypsum false ceilings, custom wardrobes, and full house interior turn-key execution.',
+    highlights: ['Free 2D & 3D Interior Plan', 'Waterproof BWP Materials', '10-Year Craftsmanship Guarantee'],
+  },
+  {
+    id: 'ad-4',
+    name: 'VR Hero Motors Dealership',
+    adBadge: 'SPONSORED',
+    offerTag: '0% Down Payment',
+    category: 'Automobile Dealership',
+    categoryKey: 'automobile',
+    location: 'Kannur',
+    phone: '+91 85476 80511',
+    address: 'Raj Building, 13th Mile, Peringome, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=80',
+    rating: 4.9,
+    reviews: 320,
+    description: 'Authorized Hero MotoCorp dealership. Instant loan approval, low EMI options, 5 years warranty and 3 years free service.',
+    highlights: ['All Hero Two-Wheelers Ready Stock', 'Instant On-Spot Exchange', '5-Year Manufacturer Warranty'],
+  },
+  {
+    id: 'ad-5',
+    name: 'Online Art & Craft Classes',
+    adBadge: 'FEATURED AD',
+    offerTag: '1st Trial Class Free',
+    category: 'Education & Hobbies',
+    categoryKey: 'services',
+    location: 'Payyanur',
+    phone: '+91 70265 95769',
+    address: 'Online & Studio Classes, Payyanur, Kerala',
+    image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&auto=format&fit=crop&q=80',
+    rating: 5.0,
+    reviews: 98,
+    description: 'Interactive online & offline art classes by Arthana. Drawing, oil painting, watercolor, and craft workshops for kids & adults.',
+    highlights: ['Flexible Batch Timings', 'Beginner to Advanced Modules', 'Personalized Mentorship'],
+  },
+  {
+    id: 'ad-6',
+    name: 'Life Medicals & Surgicals',
+    adBadge: 'SPONSORED',
+    offerTag: '24/7 Home Delivery',
+    category: 'Healthcare & Pharmacy',
+    categoryKey: 'health',
+    location: 'Taliparamba',
+    phone: '+91 4672 206111',
+    address: 'Manna, Taliparamba, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?w=600&auto=format&fit=crop&q=80',
+    rating: 4.9,
+    reviews: 215,
+    description: '24x7 medical supplier for prescription medicines, surgical instruments, diagnostic equipment, and elderly care accessories.',
+    highlights: ['Full Range Surgical Supplies', 'Home Delivery in 30 Mins', 'Discounted Medicines'],
+  },
+  {
+    id: 'ad-7',
+    name: 'Malabar Spice Hub & Sweets',
+    adBadge: 'FEATURED AD',
+    offerTag: 'Authentic Calicut Halwa',
+    category: 'Hotels & Dining',
+    categoryKey: 'food',
+    location: 'Kozhikode (Calicut)',
+    phone: '+91 4952 360099',
+    address: 'SM Street, Kozhikode, Kerala',
+    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=600&auto=format&fit=crop&q=80',
+    rating: 4.9,
+    reviews: 410,
+    description: 'Famous Malabar confectionery & spice center. Fresh Kozhikode Halwa in 12 flavors, banana chips, and premium Kerala spices.',
+    highlights: ['100% Pure Ghee Halwa', 'Vacuum Packed Gift Boxes', 'Worldwide Express Shipping'],
+  },
+  {
+    id: 'ad-8',
+    name: 'Budget Tyre World 3D Alignment',
+    adBadge: 'SPONSORED',
+    offerTag: 'Free Alignment Check',
+    category: 'Automobile Care',
+    categoryKey: 'automobile',
+    location: 'Taliparamba',
+    phone: '+91 94004 00285',
+    address: 'NH Highway Road, Taliparamba, Kannur, Kerala',
+    image: 'https://images.unsplash.com/photo-1578844251758-2f71da64c96f?w=600&auto=format&fit=crop&q=80',
+    rating: 4.8,
+    reviews: 165,
+    description: 'Leading multi-brand tyre hub. Automatic 3D laser alignment, dynamic balancing, tubeless puncture repair, and nitrogen inflation.',
+    highlights: ['MRF, Michelin, Apollo & CEAT', 'Laser 3D Alignment', 'Fast Wheel Balancing'],
+  },
+];
+
 export default function LandingPage({ defaultTab = 'home' }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -720,6 +852,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [activeNavTab, setActiveNavTab] = useState(() => {
     if (location.pathname === '/places') return 'places';
     if (location.pathname === '/category.php' || location.pathname === '/categories') return 'categories';
+    if (location.pathname === '/featured-ads' || location.pathname === '/ads') return 'ads';
     if (location.pathname === '/contact') return 'contact';
     return defaultTab;
   });
@@ -735,7 +868,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // Check route to auto-scroll if visited via /places or /categories
+  // Check route to auto-scroll if visited via /places or /categories or /featured-ads
   useEffect(() => {
     if (location.pathname === '/places') {
       setTimeout(() => {
@@ -745,6 +878,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
     } else if (location.pathname === '/category.php' || location.pathname === '/categories') {
       setTimeout(() => {
         const el = document.getElementById('featured-categories-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    } else if (location.pathname === '/featured-ads' || location.pathname === '/ads') {
+      setTimeout(() => {
+        const el = document.getElementById('featured-ads-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
       }, 300);
     } else if (location.pathname === '/contact') {
@@ -790,6 +928,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
       (place.landmark && place.landmark.toLowerCase().includes(placeSearchQuery.toLowerCase())) ||
       place.description.toLowerCase().includes(placeSearchQuery.toLowerCase())
   );
+
+  // Filter Featured Ads list
+  const filteredFeaturedAds = featuredAdsList.filter((item) => {
+    const matchesCategory =
+      selectedCategory === 'all' || item.categoryKey === selectedCategory;
+    const matchesLocation =
+      selectedLocation === 'all' ||
+      item.location.toLowerCase().includes(selectedLocation.toLowerCase());
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.offerTag && item.offerTag.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesLocation && matchesSearch;
+  });
 
   // Filter Establishments list
   const filteredEstablishments = initialEstablishments.filter((item) => {
@@ -878,6 +1031,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
               className={`landing-nav-link ${activeNavTab === 'categories' ? 'active' : ''}`}
             >
               Categories
+            </button>
+            <button
+              onClick={() => {
+                setActiveNavTab('ads');
+                setMobileNavOpen(false);
+                scrollToSection('featured-ads-section');
+              }}
+              className={`landing-nav-link ${activeNavTab === 'ads' ? 'active' : ''}`}
+            >
+              Featured Ads
             </button>
             <button
               onClick={() => {
@@ -1173,6 +1336,98 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* 4.5. Featured Ads Section (Aligned matching Establishments theme & layout) */}
+      <section id="featured-ads-section" className="landing-featured-ads-section">
+        <div className="landing-section-header">
+          <h2 className="landing-section-title">
+            Featured Ads <span className="featured-ads-title-badge">SPONSORED</span>
+          </h2>
+          <p className="landing-section-sub">
+            Hand-picked promotional deals & featured local business highlights{' '}
+            {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
+          </p>
+        </div>
+
+        {filteredFeaturedAds.length === 0 ? (
+          <div className="landing-empty-state">
+            <HiInformationCircle className="empty-icon" />
+            <h3>No featured ads found</h3>
+            <p>Try clearing your search query or selecting a different location.</p>
+            <button
+              onClick={() => {
+                setSelectedCategory('all');
+                setSelectedLocation('all');
+                setSearchQuery('');
+              }}
+              className="btn btn-primary"
+              style={{ marginTop: 12 }}
+            >
+              Reset Filters
+            </button>
+          </div>
+        ) : (
+          <div className="landing-grid">
+            {filteredFeaturedAds.map((item) => (
+              <div
+                key={item.id}
+                className="establishment-card"
+                onClick={() => setSelectedMerchant(item)}
+              >
+                <div className="establishment-image-wrapper">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="establishment-image"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src =
+                        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  <div
+                    className={`establishment-category-tag ${
+                      item.adBadge === 'SPONSORED' ? 'ad-badge-blue' : 'ad-badge-orange'
+                    }`}
+                  >
+                    {item.adBadge}
+                  </div>
+                  <div className="establishment-rating">
+                    <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
+                  </div>
+                </div>
+
+                <div className="establishment-card-content">
+                  <h3 className="establishment-name">{item.name}</h3>
+
+                  <div className="establishment-meta">
+                    <span className="meta-item">
+                      <HiLocationMarker className="meta-icon" /> {item.location}
+                    </span>
+                    <span className="meta-item">
+                      <HiPhone className="meta-icon" /> {item.phone}
+                    </span>
+                    {item.offerTag && (
+                      <span className="meta-item ad-offer-tag">
+                        ⭐ {item.offerTag}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="establishment-card-footer">
+                    <span className="establishment-category-sub">
+                      {item.category}
+                    </span>
+                    <div className="establishment-arrow-btn">
+                      <HiChevronRight />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 5. Establishments / Services Grid Section */}

@@ -2240,6 +2240,48 @@ ul, ol {
   margin-bottom: 12px;
 }
 
+/* Featured Ads Section - Aligned with Establishments Layout & Theme */
+.landing-featured-ads-section {
+  max-width: 1280px;
+  margin: 20px auto 40px;
+  padding: 0 24px;
+}
+
+.featured-ads-title-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  vertical-align: middle;
+  margin-left: 8px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.3);
+}
+
+.ad-badge-orange {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: #ffffff !important;
+}
+
+.ad-badge-blue {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+}
+
+.ad-offer-tag {
+  color: #6C63FF;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.establishment-card:hover .ad-offer-tag {
+  color: #fcd34d;
+}
+
 /* 5. Contact Section */
 .landing-contact-section {
   background: #ffffff;
