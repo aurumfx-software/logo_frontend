@@ -1987,6 +1987,7 @@ ul, ol {
   flex-shrink: 0;
 }
 
+.landing-district-filter,
 .landing-category-filter,
 .landing-location-filter {
   display: flex;

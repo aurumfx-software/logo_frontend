@@ -409,6 +409,24 @@ const promoBanners = [
   },
 ];
 
+// 14 Districts of Kerala Sub-Towns / Locations Mapping
+const districtTownsMap = {
+  thiruvananthapuram: ['Thiruvananthapuram', 'Trivandrum', 'Kovalam', 'Kazhakkoottam', 'Neyyattinkara', 'Varkala'],
+  kollam: ['Kollam', 'Quilon', 'Karunagappally', 'Punalur', 'Kottarakkara', 'Paravur'],
+  pathanamthitta: ['Pathanamthitta', 'Adoor', 'Thiruvalla', 'Ranni', 'Kozhencherry', 'Pandalam'],
+  alappuzha: ['Alappuzha', 'Alleppey', 'Cherthala', 'Kayamkulam', 'Haripad', 'Mavelikkara'],
+  kottayam: ['Kottayam', 'Pala', 'Changanassery', 'Kanjirappally', 'Vaikom', 'Ettumanoor'],
+  idukki: ['Idukki', 'Munnar', 'Thodupuzha', 'Kattappana', 'Nedumkandam', 'Adimali'],
+  ernakulam: ['Ernakulam', 'Kochi', 'Fort Kochi', 'Aluva', 'Edapally', 'Kakkanad', 'Angamaly', 'Perumbavoor', 'Muvattupuzha', 'Tripunithura'],
+  thrissur: ['Thrissur', 'Guruvayur', 'Chalakudy', 'Athirappilly', 'Irinjalakuda', 'Kunnamkulam', 'Kodungallur'],
+  palakkad: ['Palakkad', 'Ottapalam', 'Chittur', 'Mannarkkad', 'Shoranur', 'Pattambi', 'Alathur'],
+  malappuram: ['Malappuram', 'Manjeri', 'Perinthalmanna', 'Tirur', 'Kottakkal', 'Ponnani', 'Nilambur'],
+  kozhikode: ['Kozhikode', 'Calicut', 'Feroke', 'Vadakara', 'Koyilandy', 'SM Street', 'Ramanattukara', 'Balussery'],
+  wayanad: ['Wayanad', 'Kalpetta', 'Sulthan Bathery', 'Mananthavady', 'Vythiri', 'Meppadi'],
+  kannur: ['Payyanur', 'Taliparamba', 'Peringome', 'Kannur', 'Thalassery', 'Koothuparamba', 'Mattannur', 'Iritty'],
+  kasaragod: ['Kasaragod', 'Kanhangad', 'Bekal', 'Trikaripur', 'Nileshwar', 'Cheruvathur', 'Manjeshwar'],
+};
+
 // Places Data (ONLY 14 Districts of Kerala with Landmark Images)
 const placesList = [
   {
@@ -863,12 +881,30 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Search & Filters
   const [placeSearchQuery, setPlaceSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+
+  // Cascading Location Helpers
+  const getAvailableLocations = () => {
+    if (selectedDistrict !== 'all') {
+      return districtTownsMap[selectedDistrict] || [];
+    }
+    const allTownsSet = new Set();
+    Object.values(districtTownsMap).forEach((towns) => {
+      towns.forEach((t) => allTownsSet.add(t));
+    });
+    return Array.from(allTownsSet);
+  };
+
+  const getDistrictName = (districtId) => {
+    const found = placesList.find((p) => p.id === districtId);
+    return found ? found.name : districtId;
+  };
 
   const openGoogleMaps = (name, address, e) => {
     if (e) e.stopPropagation();
@@ -885,12 +921,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
-        setSelectedLocation('kannur');
+        setSelectedDistrict('kannur');
+        setSelectedLocation('payyanur');
         scrollToSection('establishments-section');
       },
       (error) => {
         setIsLocating(false);
-        setSelectedLocation('kannur');
+        setSelectedDistrict('kannur');
+        setSelectedLocation('all');
         scrollToSection('establishments-section');
       },
       { timeout: 5000 }
@@ -931,7 +969,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   const handleSelectSuggestion = (sug) => {
     if (sug.type === 'location') {
-      setSelectedLocation(sug.text.toLowerCase());
+      const foundDistrict = placesList.find((p) => p.name.toLowerCase() === sug.text.toLowerCase());
+      if (foundDistrict) {
+        setSelectedDistrict(foundDistrict.id);
+        setSelectedLocation('all');
+      } else {
+        setSelectedLocation(sug.text.toLowerCase());
+      }
       setSearchQuery('');
     } else {
       setSearchQuery(sug.text);
@@ -1001,93 +1045,83 @@ export default function LandingPage({ defaultTab = 'home' }) {
       place.description.toLowerCase().includes(placeSearchQuery.toLowerCase())
   );
 
-  const [minRating, setMinRating] = useState('all');
+  // Smart Cascading District & Sub-Location Matching Helper
+  const matchesLocationFilter = (itemLoc) => {
+    if (!itemLoc) return true;
+    const itemLocLower = itemLoc.toLowerCase();
 
-  // Smart Location Matching Helper (Matches District & local sub-towns)
-  const matchesLocationFilter = (itemLoc, filter) => {
-    if (!filter || filter === 'all') return true;
-    const locLower = itemLoc.toLowerCase();
-    const filterLower = filter.toLowerCase();
+    // 1. District Level Filter Check
+    if (selectedDistrict && selectedDistrict !== 'all') {
+      const districtTowns = districtTownsMap[selectedDistrict] || [];
+      const districtObj = placesList.find((p) => p.id === selectedDistrict);
+      const districtNameLower = districtObj ? districtObj.name.toLowerCase() : selectedDistrict.toLowerCase();
 
-    if (locLower.includes(filterLower) || filterLower.includes(locLower)) return true;
+      const matchesDistrict =
+        itemLocLower.includes(districtNameLower) ||
+        districtNameLower.includes(itemLocLower) ||
+        districtTowns.some((t) => itemLocLower.includes(t.toLowerCase()) || t.toLowerCase().includes(itemLocLower));
 
-    if (filterLower.includes('kannur')) {
-      return ['payyanur', 'taliparamba', 'peringome', 'kannur', 'koothuparamba', 'thalassery'].some((t) => locLower.includes(t));
+      if (!matchesDistrict) return false;
     }
-    if (filterLower.includes('kasaragod')) {
-      return ['kasaragod', 'kanhangad', 'bekal', 'trikaripur', 'nileshwar'].some((t) => locLower.includes(t));
-    }
-    if (filterLower.includes('kozhikode') || filterLower.includes('calicut')) {
-      return ['kozhikode', 'calicut', 'feroke', 'vadakara', 'koyilandy', 'sm street'].some((t) => locLower.includes(t));
-    }
-    if (filterLower.includes('ernakulam') || filterLower.includes('kochi')) {
-      return ['ernakulam', 'kochi', 'fort kochi', 'aluva', 'edapally', 'kakkanad'].some((t) => locLower.includes(t));
-    }
-    if (filterLower.includes('thiruvananthapuram') || filterLower.includes('trivandrum')) {
-      return ['thiruvananthapuram', 'trivandrum', 'kovalam', 'kazhakkoottam'].some((t) => locLower.includes(t));
-    }
-    if (filterLower.includes('thrissur')) {
-      return ['thrissur', 'guruvayur', 'chalakudy', 'athirappilly'].some((t) => locLower.includes(t));
-    }
-    return false;
-  };
 
-  const matchesRatingFilter = (rating) => {
-    if (minRating === 'all') return true;
-    const min = parseFloat(minRating);
-    return (rating || 0) >= min;
+    // 2. Town / Sub-Location Level Filter Check
+    if (selectedLocation && selectedLocation !== 'all') {
+      const locLower = selectedLocation.toLowerCase();
+      if (!itemLocLower.includes(locLower) && !locLower.includes(itemLocLower)) {
+        return false;
+      }
+    }
+
+    return true;
   };
 
   // Filter Featured Ads list
   const filteredFeaturedAds = featuredAdsList.filter((item) => {
     const matchesCategory =
       selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation = matchesLocationFilter(item.location, selectedLocation);
-    const matchesRating = matchesRatingFilter(item.rating);
+    const matchesLocation = matchesLocationFilter(item.location);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.offerTag && item.offerTag.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesLocation && matchesSearch && matchesRating;
+    return matchesCategory && matchesLocation && matchesSearch;
   });
 
   // Filter Establishments list
   const filteredEstablishments = initialEstablishments.filter((item) => {
     const matchesCategory =
       selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation = matchesLocationFilter(item.location, selectedLocation);
-    const matchesRating = matchesRatingFilter(item.rating);
+    const matchesLocation = matchesLocationFilter(item.location);
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesLocation && matchesSearch && matchesRating;
+    return matchesCategory && matchesLocation && matchesSearch;
   });
 
   // Helper to count items per category key under active location
   const getCategoryCount = (catKey) => {
     if (catKey === 'all') {
       return (
-        initialEstablishments.filter((item) => matchesLocationFilter(item.location, selectedLocation)).length +
-        featuredAdsList.filter((item) => matchesLocationFilter(item.location, selectedLocation)).length
+        initialEstablishments.filter((item) => matchesLocationFilter(item.location)).length +
+        featuredAdsList.filter((item) => matchesLocationFilter(item.location)).length
       );
     }
     const estCount = initialEstablishments.filter(
-      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location, selectedLocation)
+      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location)
     ).length;
     const adCount = featuredAdsList.filter(
-      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location, selectedLocation)
+      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location)
     ).length;
     return estCount + adCount;
   };
 
   const resetAllFilters = () => {
-    setSelectedCategory('all');
+    setSelectedDistrict('all');
     setSelectedLocation('all');
-    setMinRating('all');
+    setSelectedCategory('all');
     setSearchQuery('');
-    setSortBy('default');
   };
 
   // Sorting Option State & Logic
@@ -1349,6 +1383,27 @@ export default function LandingPage({ defaultTab = 'home' }) {
             )}
           </div>
 
+          <div className="landing-district-filter">
+            <span className="filter-label">District:</span>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => {
+                const newDistrict = e.target.value;
+                setSelectedDistrict(newDistrict);
+                setSelectedLocation('all');
+                scrollToSection('establishments-section');
+              }}
+              className="landing-select"
+            >
+              <option value="all">All Districts (Kerala)</option>
+              {placesList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="landing-location-filter">
             <span className="filter-label">Location:</span>
             <select
@@ -1359,10 +1414,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
               }}
               className="landing-select"
             >
-              <option value="all">All Locations (Kerala)</option>
-              {placesList.map((p) => (
-                <option key={p.id} value={p.name.toLowerCase()}>
-                  {p.name}
+              <option value="all">
+                {selectedDistrict === 'all'
+                  ? 'All Locations (Kerala)'
+                  : `All Towns in ${getDistrictName(selectedDistrict)}`}
+              </option>
+              {getAvailableLocations().map((loc) => (
+                <option key={loc} value={loc.toLowerCase()}>
+                  {loc}
                 </option>
               ))}
             </select>
@@ -1376,45 +1435,24 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <span>{isLocating ? 'Locating...' : 'Near Me'}</span>
             </button>
           </div>
-
-          <div className="landing-sort-filter">
-            <span className="filter-label">Rating:</span>
-            <select
-              value={minRating}
-              onChange={(e) => {
-                setMinRating(e.target.value);
-                scrollToSection('establishments-section');
-              }}
-              className="landing-select"
-            >
-              <option value="all">All Ratings</option>
-              <option value="4.8">⭐ 4.8+ Stars</option>
-              <option value="4.5">⭐ 4.5+ Stars</option>
-            </select>
-          </div>
-
-          <div className="landing-sort-filter">
-            <span className="filter-label">Sort By:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                scrollToSection('establishments-section');
-              }}
-              className="landing-select"
-            >
-              <option value="default">Default Order</option>
-              <option value="location_asc">📍 Location (A to Z)</option>
-              <option value="rating_desc">⭐ Top Rated First</option>
-              <option value="name_asc">🔤 Name (A to Z)</option>
-            </select>
-          </div>
         </div>
 
         {/* Active Filter Chips Bar */}
-        {(selectedCategory !== 'all' || selectedLocation !== 'all' || searchQuery.trim() !== '' || minRating !== 'all' || sortBy !== 'default') && (
+        {(selectedDistrict !== 'all' || selectedLocation !== 'all' || selectedCategory !== 'all' || searchQuery.trim() !== '') && (
           <div className="active-filters-chips-bar">
             <span className="chips-title">Active Filters:</span>
+            {selectedDistrict !== 'all' && (
+              <button
+                className="filter-chip"
+                onClick={() => {
+                  setSelectedDistrict('all');
+                  setSelectedLocation('all');
+                }}
+                title="Remove district filter"
+              >
+                🏛️ District: {getDistrictName(selectedDistrict).toUpperCase()} <HiX />
+              </button>
+            )}
             {selectedLocation !== 'all' && (
               <button
                 className="filter-chip"
@@ -1433,15 +1471,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 🏷️ Category: {selectedCategory.toUpperCase()} <HiX />
               </button>
             )}
-            {minRating !== 'all' && (
-              <button
-                className="filter-chip"
-                onClick={() => setMinRating('all')}
-                title="Remove rating filter"
-              >
-                ⭐ Rating: {minRating}+ Stars <HiX />
-              </button>
-            )}
             {searchQuery.trim() !== '' && (
               <button
                 className="filter-chip"
@@ -1449,15 +1478,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 title="Remove search query"
               >
                 🔍 Search: "{searchQuery}" <HiX />
-              </button>
-            )}
-            {sortBy !== 'default' && (
-              <button
-                className="filter-chip"
-                onClick={() => setSortBy('default')}
-                title="Reset sort order"
-              >
-                🔀 Sorted by {sortBy.replace('_', ' ')} <HiX />
               </button>
             )}
 
