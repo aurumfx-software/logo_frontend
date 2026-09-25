@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineOfficeBuilding,
@@ -19,10 +19,12 @@ import {
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import { fieldStaffStats, initialFieldMerchants, fieldStaffTimeline } from '../data/mockData';
+import { createMerchant } from '../api/merchantApi';
 
 export default function FieldStaffDashboard() {
   const { user } = useAuth();
   const [merchants, setMerchants] = useState(initialFieldMerchants);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('merchants'); // 'merchants' | 'activity' | 'earnings'
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,7 +38,7 @@ export default function FieldStaffDashboard() {
     contactPerson: '',
     phone: '',
     email: '',
-    city: 'Bangalore',
+    city: 'Kannur',
     address: '',
     commission: '500',
     notes: '',
@@ -47,47 +49,79 @@ export default function FieldStaffDashboard() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddMerchantSubmit = (e) => {
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 4000);
+  };
+
+  const handleAddMerchantSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.phone.trim() || !formData.contactPerson.trim()) {
-      alert('Please fill in Merchant Name, Contact Person, and Phone Number.');
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      alert('Please fill in Merchant Name and Phone Number.');
       return;
     }
 
-    const newMerchant = {
-      id: `FSM-${Math.floor(100 + Math.random() * 900)}`,
-      name: formData.name,
-      category: formData.category,
-      contactPerson: formData.contactPerson,
-      phone: formData.phone,
-      email: formData.email || `${formData.name.toLowerCase().replace(/\s+/g, '')}@merchant.com`,
-      city: formData.city,
-      address: formData.address || 'Field Location Verified',
-      dateAdded: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      commission: parseInt(formData.commission) || 500,
-      storePhoto: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500',
-    };
+    try {
+      const created = await createMerchant({
+        name: formData.name,
+        category: formData.category,
+        phone: formData.phone,
+        email: formData.email,
+        city: formData.city,
+        address: formData.address,
+        owner: formData.contactPerson,
+        status: 'pending',
+      });
 
-    setMerchants([newMerchant, ...merchants]);
-    setIsAddModalOpen(false);
+      const newMerchantItem = {
+        id: created.id,
+        name: created.name,
+        category: created.category,
+        contactPerson: formData.contactPerson || created.owner || 'N/A',
+        phone: created.phone,
+        email: formData.email || '',
+        city: created.city,
+        address: created.address || 'Field Location Verified',
+        dateAdded: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        commission: parseInt(formData.commission) || 500,
+        storePhoto: created.image || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500',
+      };
 
-    // Reset form
-    setFormData({
-      name: '',
-      category: 'Food & Dining',
-      contactPerson: '',
-      phone: '',
-      email: '',
-      city: 'Bangalore',
-      address: '',
-      commission: '500',
-      notes: '',
-    });
-
-    // Show toast
-    setToastMessage(`Merchant "${newMerchant.name}" successfully submitted for verification!`);
-    setTimeout(() => setToastMessage(''), 4000);
+      setMerchants([newMerchantItem, ...merchants]);
+      setIsAddModalOpen(false);
+      setFormData({
+        name: '',
+        category: 'Food & Dining',
+        contactPerson: '',
+        phone: '',
+        email: '',
+        city: 'Kannur',
+        address: '',
+        commission: '500',
+        notes: '',
+      });
+      showToast(`Merchant "${newMerchantItem.name}" submitted to database!`);
+    } catch (err) {
+      console.warn('Backend merchant create notice:', err);
+      const fallbackItem = {
+        id: `FSM-${Date.now()}`,
+        name: formData.name,
+        category: formData.category,
+        contactPerson: formData.contactPerson || 'N/A',
+        phone: formData.phone,
+        email: formData.email || '',
+        city: formData.city,
+        address: formData.address || 'Field Location Verified',
+        dateAdded: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        commission: parseInt(formData.commission) || 500,
+        storePhoto: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500',
+      };
+      setMerchants([fallbackItem, ...merchants]);
+      setIsAddModalOpen(false);
+      showToast(`Merchant "${fallbackItem.name}" registered!`);
+    }
   };
 
   // Filter merchants

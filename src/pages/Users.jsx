@@ -139,9 +139,11 @@ export default function Users() {
 
   const filteredData = data.filter((u) => {
     if (activeTab === 'all') return true;
+    const rLower = (u.role || '').toString().toLowerCase();
     if (activeTab === 'admins')
-      return u.role === 'Super Admin' || u.role === 'Admin' || u.role === 'Field Staff';
-    if (activeTab === 'users') return u.role === 'User' || !u.role;
+      return rLower.includes('admin') || rLower.includes('staff');
+    if (activeTab === 'users')
+      return rLower.includes('user') || rLower.includes('merchant') || !u.role;
     return u.status === activeTab;
   });
 
@@ -150,60 +152,79 @@ export default function Users() {
     {
       key: 'name',
       label: 'Account / User',
-      render: (val, row) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            className="avatar"
-            style={{
-              background:
-                row.role === 'Super Admin'
+      render: (val, row) => {
+        const isSuper =
+          (row.role || '').toLowerCase().includes('super') ||
+          (row.name || '').toLowerCase() === 'super admin' ||
+          (row.email || '').toLowerCase() === 'aurumfxsoftware@gmail.com';
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              className="avatar"
+              style={{
+                background: isSuper
                   ? '#EDE9FE'
-                  : row.role === 'Admin'
+                  : (row.role || '').toLowerCase().includes('admin')
                   ? '#D1FAE5'
-                  : row.role === 'Field Staff'
+                  : (row.role || '').toLowerCase().includes('staff')
                   ? '#DBEAFE'
                   : `hsl(${val.charCodeAt(0) * 5}, 60%, 88%)`,
-              color:
-                row.role === 'Super Admin'
+                color: isSuper
                   ? '#6D28D9'
-                  : row.role === 'Admin'
+                  : (row.role || '').toLowerCase().includes('admin')
                   ? '#065F46'
-                  : row.role === 'Field Staff'
+                  : (row.role || '').toLowerCase().includes('staff')
                   ? '#1E40AF'
                   : `hsl(${val.charCodeAt(0) * 5}, 60%, 35%)`,
-              fontWeight: 700,
-            }}
-          >
-            {val.charAt(0)}
+                fontWeight: 700,
+              }}
+            >
+              {val.charAt(0)}
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{val}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{row.email}</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{val}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-light)' }}>{row.email}</div>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'role',
       label: 'Role',
-      render: (val) => {
-        const roleName = val || 'User';
-        let bg = '#F3F4F6';
-        let color = '#4B5563';
-        let border = '1px solid #E5E7EB';
+      render: (val, row) => {
+        const roleStr = (val || 'User').toString();
+        const isSuper =
+          roleStr.toLowerCase().includes('super') ||
+          (row?.name || '').toLowerCase() === 'super admin' ||
+          (row?.email || '').toLowerCase() === 'aurumfxsoftware@gmail.com';
+        const displayRoleStr = isSuper ? 'Super Admin' : roleStr;
+        const roleLower = displayRoleStr.toLowerCase();
 
-        if (roleName === 'Super Admin') {
+        let bg = '#F1F5F9';
+        let color = '#475569';
+        let border = '1px solid #CBD5E1';
+
+        if (isSuper || roleLower.includes('super')) {
           bg = '#EDE9FE';
           color = '#6D28D9';
           border = '1px solid #C4B5FD';
-        } else if (roleName === 'Admin') {
+        } else if (roleLower.includes('admin')) {
           bg = '#D1FAE5';
           color = '#065F46';
           border = '1px solid #A7F3D0';
-        } else if (roleName === 'Field Staff') {
+        } else if (roleLower.includes('staff')) {
           bg = '#DBEAFE';
           color = '#1E40AF';
           border = '1px solid #BFDBFE';
+        } else if (roleLower.includes('merchant')) {
+          bg = '#FEF3C7';
+          color = '#B45309';
+          border = '1px solid #FDE68A';
+        } else if (roleLower.includes('user')) {
+          bg = '#E0F2FE';
+          color = '#0369A1';
+          border = '1px solid #BAE6FD';
         }
 
         return (
@@ -212,7 +233,7 @@ export default function Users() {
               background: bg,
               color: color,
               border: border,
-              padding: '4px 10px',
+              padding: '4px 12px',
               borderRadius: 20,
               fontSize: 12,
               fontWeight: 700,
@@ -220,10 +241,11 @@ export default function Users() {
               alignItems: 'center',
               gap: 4,
               whiteSpace: 'nowrap',
+              textTransform: 'capitalize',
             }}
           >
-            {roleName === 'Super Admin' && <HiOutlineShieldCheck size={14} />}
-            {roleName}
+            {(isSuper || roleLower.includes('super')) && <HiOutlineShieldCheck size={14} />}
+            {displayRoleStr}
           </span>
         );
       },
@@ -244,23 +266,48 @@ export default function Users() {
       key: 'actions',
       label: 'Actions',
       sortable: false,
-      render: (_, row) => (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="View Details"
-            onClick={() => showToast(`Viewing details for ${row.name} (${row.role || 'User'})`)}
-          >
-            <HiOutlineEye />
-          </button>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="Send Email"
-            onClick={() => showToast(`Opening email compose to ${row.email}`)}
-          >
-            <HiOutlineMail />
-          </button>
-          {row.role !== 'Super Admin' && (
+      render: (_, row) => {
+        const isSuper =
+          (row.role || '').toLowerCase().includes('super') ||
+          (row.name || '').toLowerCase() === 'super admin' ||
+          (row.email || '').toLowerCase() === 'aurumfxsoftware@gmail.com';
+
+        if (isSuper) {
+          return (
+            <span
+              style={{
+                fontSize: 11,
+                color: '#6D28D9',
+                background: '#EDE9FE',
+                padding: '4px 10px',
+                borderRadius: 6,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              🔒 Protected
+            </span>
+          );
+        }
+
+        return (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="View Details"
+              onClick={() => showToast(`Viewing details for ${row.name} (${row.role || 'User'})`)}
+            >
+              <HiOutlineEye />
+            </button>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Send Email"
+              onClick={() => showToast(`Opening email compose to ${row.email}`)}
+            >
+              <HiOutlineMail />
+            </button>
             <button
               className="btn btn-outline btn-sm btn-icon"
               title={row.status === 'active' ? 'Suspend Account' : 'Reactivate Account'}
@@ -269,9 +316,9 @@ export default function Users() {
             >
               {row.status === 'active' ? <HiOutlineBan /> : <HiOutlineCheckCircle />}
             </button>
-          )}
-        </div>
-      ),
+          </div>
+        );
+      },
     },
   ];
 
@@ -555,6 +602,9 @@ export default function Users() {
                         style={{ fontWeight: 600, color: '#1E1B4B' }}
                       >
                         <option value="Admin">Admin (Operational Approvals)</option>
+                        <option value="Field Staff">Field Staff (Merchant Onboarding)</option>
+                        <option value="User">User (Public Account)</option>
+                        <option value="Merchant">Merchant (Business Account)</option>
                       </select>
                     )}
                   </div>

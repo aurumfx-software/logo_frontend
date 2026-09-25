@@ -30,7 +30,7 @@ export default function GoogleMapsLocationInput({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch location suggestions (Google Places / Nominatim API pattern)
+  // Fetch location suggestions (Google Places / Nominatim API pattern in English)
   useEffect(() => {
     if (!query || query.trim().length < 2) {
       setSuggestions([]);
@@ -40,11 +40,11 @@ export default function GoogleMapsLocationInput({
     const timer = setTimeout(async () => {
       try {
         setLoading(true);
-        // Query OpenStreetMap Nominatim / Google Places API pattern for location autofill
+        // Query Nominatim API with accept-language=en to force English text
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
             query + ', Kerala, India'
-          )}&limit=5&addressdetails=1`
+          )}&limit=5&addressdetails=1&accept-language=en`
         );
         if (response.ok) {
           const data = await response.json();
@@ -78,11 +78,28 @@ export default function GoogleMapsLocationInput({
     return list.filter((item) => item.display_name.toLowerCase().includes(q.toLowerCase()));
   };
 
+  const keralaDistrictsList = [
+    'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
+    'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 'Malappuram',
+    'Kozhikode', 'Wayanad', 'Kannur', 'Kasaragod'
+  ];
+
   const handleSelect = (item) => {
     const mainTitle = item.name || item.display_name.split(',')[0];
     const fullAddress = item.display_name;
-    const district = item.address?.state_district || item.district || 'Kerala';
-    const city = item.address?.city || item.address?.town || item.city || mainTitle;
+
+    let district = item.address?.state_district || item.address?.county || item.district || '';
+    if (district.toLowerCase().includes('district')) {
+      district = district.replace(/district/gi, '').trim();
+    }
+
+    const matchedDist = keralaDistrictsList.find((d) => fullAddress.toLowerCase().includes(d.toLowerCase()));
+    if (matchedDist) {
+      district = matchedDist;
+    }
+    if (!district) district = 'Kannur';
+
+    let city = item.address?.city || item.address?.town || item.address?.suburb || item.address?.village || item.city || mainTitle;
 
     setQuery(fullAddress);
     setSelectedPlace({ name: mainTitle, fullAddress, district, city, lat: item.lat, lon: item.lon });
@@ -109,36 +126,80 @@ export default function GoogleMapsLocationInput({
     }
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const autoLoc = {
-          name: 'Current Location (Kannur)',
-          address: 'Kannur, Kerala, India',
-          city: 'Kannur',
-          district: 'Kannur',
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          googleMapsUrl: `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`,
-        };
-        setQuery(autoLoc.address);
-        setSelectedPlace(autoLoc);
-        if (onChange) onChange(autoLoc.address);
-        if (onSelectLocation) onSelectLocation(autoLoc);
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        try {
+          // Reverse geocode GPS coordinates explicitly in English (accept-language=en)
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=en`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const fullAddr = data.display_name || `GPS (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
+            let city =
+              data.address?.city ||
+              data.address?.town ||
+              data.address?.suburb ||
+              data.address?.village ||
+              data.address?.county ||
+              'Payyanur';
+            let district =
+              data.address?.state_district || data.address?.county || data.address?.state || 'Kannur';
+
+            if (district.toLowerCase().includes('district')) {
+              district = district.replace(/district/gi, '').trim();
+            }
+
+            const matchedDist = keralaDistrictsList.find((d) => fullAddr.toLowerCase().includes(d.toLowerCase()));
+            if (matchedDist) {
+              district = matchedDist;
+            }
+
+            const autoLoc = {
+              name: city,
+              address: fullAddr,
+              city,
+              district,
+              latitude: lat,
+              longitude: lon,
+              lat,
+              lon,
+              googleMapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+            };
+
+            setQuery(autoLoc.address);
+            setSelectedPlace(autoLoc);
+            if (onChange) onChange(autoLoc.address);
+            if (onSelectLocation) onSelectLocation(autoLoc);
+          } else {
+            throw new Error('Reverse geocode failed');
+          }
+        } catch (e) {
+          const autoLoc = {
+            name: 'Current GPS Location',
+            address: `GPS (${lat.toFixed(5)}, ${lon.toFixed(5)})`,
+            city: 'Payyanur',
+            district: 'Kannur',
+            latitude: lat,
+            longitude: lon,
+            lat,
+            lon,
+            googleMapsUrl: `https://www.google.com/maps?q=${lat},${lon}`,
+          };
+          setQuery(autoLoc.address);
+          setSelectedPlace(autoLoc);
+          if (onChange) onChange(autoLoc.address);
+          if (onSelectLocation) onSelectLocation(autoLoc);
+        } finally {
+          setIsLocating(false);
+        }
       },
-      () => {
+      (err) => {
         setIsLocating(false);
-        const autoLoc = {
-          name: 'Kannur Town',
-          address: 'Kannur, Kerala, India',
-          city: 'Kannur',
-          district: 'Kannur',
-          googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Kannur,Kerala',
-        };
-        setQuery(autoLoc.address);
-        setSelectedPlace(autoLoc);
-        if (onChange) onChange(autoLoc.address);
-        if (onSelectLocation) onSelectLocation(autoLoc);
-      }
+        alert(`GPS location error: ${err.message || 'Permission denied'}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 

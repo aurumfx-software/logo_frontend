@@ -7,13 +7,16 @@ import {
   HiOutlineStar,
   HiOutlinePlus,
   HiOutlineLocationMarker,
+  HiOutlinePhotograph,
+  HiOutlineVideoCamera,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
-import { fetchMerchantsList } from '../api/merchantApi';
+import { fetchMerchantsList, createMerchant } from '../api/merchantApi';
+import { useAuth } from '../context/AuthContext';
 
 const categoriesList = [
   'Helmets & Accessories',
@@ -37,59 +40,120 @@ const categoriesList = [
   'Travels & Transport',
 ];
 
+const initialMerchantState = {
+  name: '',
+  category: 'Solar & Electricals',
+  address: '',
+  city: '',
+  district: '',
+  latitude: null,
+  longitude: null,
+  phone: '',
+  status: 'active',
+  photos: ['', '', '', ''],
+  videoUrl: '',
+};
+
 export default function Merchants() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New Merchant Form State with Google Maps API location
+  // New Merchant Form State with Google Maps API location, 4 Photos & Video
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newMerchant, setNewMerchant] = useState({
-    name: '',
-    category: 'Solar & Electricals',
-    address: '',
-    city: '',
-    district: '',
-    phone: '',
-    status: 'active',
-  });
+  const [newMerchant, setNewMerchant] = useState(initialMerchantState);
+  const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
-  const handleAddMerchantSubmit = (e) => {
+  const handlePhotoUpload = (index, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const updatedPhotos = [...newMerchant.photos];
+      updatedPhotos[index] = reader.result;
+      setNewMerchant((prev) => ({ ...prev, photos: updatedPhotos }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVideoUpload = (file) => {
+    if (!file) return;
+    setIsVideoUploading(true);
+    setVideoUploadProgress(0);
+
+    const reader = new FileReader();
+
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        setVideoUploadProgress(percent);
+      }
+    };
+
+    reader.onload = (e) => {
+      setVideoUploadProgress(100);
+      setTimeout(() => {
+        setNewMerchant((prev) => ({ ...prev, videoUrl: e.target.result }));
+        setIsVideoUploading(false);
+      }, 300);
+    };
+
+    reader.onerror = () => {
+      setIsVideoUploading(false);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddMerchantSubmit = async (e) => {
     e.preventDefault();
     if (!newMerchant.name.trim()) return;
 
-    const createdItem = {
-      id: `m-${Date.now()}`,
-      name: newMerchant.name,
-      category: newMerchant.category,
-      city: newMerchant.city || newMerchant.district || 'Kannur',
-      address: newMerchant.address,
-      phone: newMerchant.phone || '+91 98470 12345',
-      rating: 5.0,
-      reviews: 1,
-      status: newMerchant.status,
-      joined: new Date().toISOString().split('T')[0],
-    };
-
-    setData((prev) => [createdItem, ...prev]);
-    setShowAddModal(false);
-    setNewMerchant({
-      name: '',
-      category: 'Solar & Electricals',
-      address: '',
-      city: '',
-      district: '',
-      phone: '',
-      status: 'active',
-    });
+    setIsSubmitting(true);
+    try {
+      const createdItem = await createMerchant({
+        ...newMerchant,
+        user_id: user?.id || user?.user_id,
+      });
+      setData((prev) => [createdItem, ...prev]);
+      setShowAddModal(false);
+      setNewMerchant(initialMerchantState);
+    } catch (err) {
+      console.warn('Backend merchant create notice:', err);
+      const validPhotos = newMerchant.photos.filter((p) => p && p.trim() !== '');
+      const fallbackItem = {
+        id: `m-${Date.now()}`,
+        name: newMerchant.name,
+        category: newMerchant.category,
+        city: newMerchant.city || newMerchant.district || 'Kannur',
+        address: newMerchant.address,
+        phone: newMerchant.phone || '+91 98470 12345',
+        rating: 5.0,
+        reviews: 1,
+        status: newMerchant.status,
+        joined: new Date().toISOString().split('T')[0],
+        photos: validPhotos,
+        videoUrl: newMerchant.videoUrl,
+        image: validPhotos[0] || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+      };
+      setData((prev) => [fallbackItem, ...prev]);
+      setShowAddModal(false);
+      setNewMerchant(initialMerchantState);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {
     async function loadMerchants() {
       try {
         setLoadingMerchants(true);
-        const apiMerchants = await fetchMerchantsList();
+        const currentUserId = user?.id || user?.user_id;
+        const currentUserCode = user?.user_code || user?.userCode;
+        const apiMerchants = await fetchMerchantsList(currentUserId, currentUserCode);
         if (Array.isArray(apiMerchants)) {
           setData(apiMerchants);
         } else {
@@ -103,7 +167,7 @@ export default function Merchants() {
       }
     }
     loadMerchants();
-  }, []);
+  }, [user]);
 
   const filteredData =
     activeTab === 'all'
@@ -253,25 +317,18 @@ export default function Merchants() {
         {selectedMerchant && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 'var(--radius-md)',
-                  background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: 22,
+              <img
+                src={selectedMerchant.image || (selectedMerchant.photos && selectedMerchant.photos[0]) || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80'}
+                alt={selectedMerchant.name}
+                style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', border: '2px solid #2563EB' }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
                 }}
-              >
-                {selectedMerchant.name.charAt(0)}
-              </div>
+              />
               <div>
-                <h3 style={{ fontWeight: 700, fontSize: 18 }}>{selectedMerchant.name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                <h3 style={{ fontWeight: 700, fontSize: 18, margin: 0 }}>{selectedMerchant.name}</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
                   {selectedMerchant.category} · {selectedMerchant.city}
                 </p>
               </div>
@@ -284,22 +341,76 @@ export default function Merchants() {
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Rating</label>
-                <p style={{ fontWeight: 600 }}>⭐ {selectedMerchant.rating} ({selectedMerchant.reviews} reviews)</p>
+                <p style={{ fontWeight: 600 }}>⭐ {selectedMerchant.rating} ({selectedMerchant.reviews || 1} reviews)</p>
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Joined</label>
-                <p>{selectedMerchant.joined}</p>
+                <p>{selectedMerchant.joined || '2026-09-25'}</p>
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Merchant ID</label>
                 <p style={{ fontFamily: 'monospace' }}>{selectedMerchant.id}</p>
               </div>
+              {selectedMerchant.latitude && selectedMerchant.longitude && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label" style={{ color: 'var(--text-light)' }}>Exact GPS Pinpoint Location</label>
+                  <p style={{ fontFamily: 'monospace', fontWeight: 700, margin: 0, color: '#2563EB', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📍 {Number(selectedMerchant.latitude).toFixed(6)}, {Number(selectedMerchant.longitude).toFixed(6)}
+                    <a
+                      href={`https://www.google.com/maps?q=${selectedMerchant.latitude},${selectedMerchant.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 11, color: '#1D4ED8', textDecoration: 'underline' }}
+                    >
+                      Open Map ↗
+                    </a>
+                  </p>
+                </div>
+              )}
             </div>
+
+            {/* Merchant Photos Gallery */}
+            {selectedMerchant.photos && selectedMerchant.photos.length > 0 && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E2E8F0' }}>
+                <label className="form-label" style={{ fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📷 Merchant Business Photos ({selectedMerchant.photos.length})
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  {selectedMerchant.photos.map((imgUrl, i) => (
+                    <div key={i} style={{ height: 85, borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+                      <img
+                        src={imgUrl}
+                        alt={`Photo ${i + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Merchant Business Video */}
+            {selectedMerchant.videoUrl && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E2E8F0' }}>
+                <label className="form-label" style={{ fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🎥 Merchant Store Tour / Promo Video
+                </label>
+                <div style={{ background: '#000000', borderRadius: 12, overflow: 'hidden', border: '1px solid #1E293B' }}>
+                  <video
+                    controls
+                    src={selectedMerchant.videoUrl}
+                    style={{ width: '100%', maxHeight: 240, display: 'block' }}
+                  >
+                    Your browser does not support video playback.
+                  </video>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
-      {/* Create New Merchant Modal with Google Maps Location Search & Category Picker */}
+      {/* Create New Merchant Modal with Google Maps Location Search, 4 Photos & Video Upload */}
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -307,8 +418,12 @@ export default function Merchants() {
         size="lg"
         footer={
           <>
-            <button className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleAddMerchantSubmit}>Save Merchant</button>
+            <button className="btn btn-outline" onClick={() => setShowAddModal(false)} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleAddMerchantSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Saving Merchant...' : 'Save Merchant'}
+            </button>
           </>
         }
       >
@@ -352,7 +467,7 @@ export default function Merchants() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Location Search (Google Maps Autocomplete) *</label>
+            <label className="form-label">Location Search & GPS Detect (Google Maps API) *</label>
             <GoogleMapsLocationInput
               value={newMerchant.address}
               onChange={(addr) => setNewMerchant({ ...newMerchant, address: addr })}
@@ -362,32 +477,270 @@ export default function Merchants() {
                   address: place.address,
                   city: place.city || place.name,
                   district: place.district,
+                  latitude: place.latitude || place.lat || null,
+                  longitude: place.longitude || place.lon || null,
                 }));
               }}
-              placeholder="Type place name or address to search Google Maps (e.g. Payyanur, Kannur, Kochi)..."
+              placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
+            {newMerchant.latitude && newMerchant.longitude && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: '8px 12px',
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: '#15803D',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>📍 Exact GPS Coordinates:</span>
+                <strong style={{ fontFamily: 'monospace' }}>
+                  {Number(newMerchant.latitude).toFixed(6)}, {Number(newMerchant.longitude).toFixed(6)}
+                </strong>
+              </div>
+            )}
           </div>
 
           <div className="grid-2">
             <div className="form-group">
-              <label className="form-label">Autofilled City / Town</label>
+              <label className="form-label">City / Town (English) *</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="City"
+                placeholder="e.g. Payyanur"
                 value={newMerchant.city}
                 onChange={(e) => setNewMerchant({ ...newMerchant, city: e.target.value })}
+                required
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Autofilled District</label>
+              <label className="form-label">District (English) *</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="District"
+                placeholder="e.g. Kannur"
                 value={newMerchant.district}
                 onChange={(e) => setNewMerchant({ ...newMerchant, district: e.target.value })}
+                required
               />
+            </div>
+          </div>
+
+          {/* 4 Photos Upload Section */}
+          <div className="form-group" style={{ marginTop: 20 }}>
+            <label className="form-label" style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              📷 Merchant Business Photos (Upload Up to 4 Photos)
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Upload image files directly from your device for Storefront, Interior, Products, and Services.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[0, 1, 2, 3].map((index) => {
+                const photoUrl = newMerchant.photos[index];
+                const photoLabels = ['Storefront', 'Interior', 'Products', 'Services'];
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      border: '1.5px dashed #CBD5E1',
+                      borderRadius: 12,
+                      padding: 10,
+                      background: photoUrl ? '#F8FAFC' : '#FFFFFF',
+                      textAlign: 'center',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: 140,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                      Photo {index + 1}: {photoLabels[index]}
+                    </span>
+
+                    {photoUrl ? (
+                      <div style={{ position: 'relative', width: '100%', height: 75, marginBottom: 8 }}>
+                        <img
+                          src={photoUrl}
+                          alt={`Merchant Photo ${index + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '1px solid #E2E8F0',
+                          }}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedPhotos = [...newMerchant.photos];
+                            updatedPhotos[index] = '';
+                            setNewMerchant({ ...newMerchant, photos: updatedPhotos });
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: -6,
+                            right: -6,
+                            background: '#EF4444',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                          }}
+                          title="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 8, color: '#94A3B8' }}>
+                        <HiOutlinePhotograph style={{ fontSize: 32 }} />
+                      </div>
+                    )}
+
+                    <label
+                      htmlFor={`merchant-photo-input-${index}`}
+                      className="btn btn-outline btn-sm"
+                      style={{
+                        fontSize: 11,
+                        padding: '5px 8px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        justifyContent: 'center',
+                        fontWeight: 600,
+                      }}
+                    >
+                      📁 {photoUrl ? 'Change Photo' : 'Upload Photo'}
+                    </label>
+                    <input
+                      id={`merchant-photo-input-${index}`}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handlePhotoUpload(index, e.target.files[0])}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Merchant Video Upload Section */}
+          <div className="form-group" style={{ marginTop: 24 }}>
+            <label className="form-label" style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              🎥 Merchant Store Tour / Promo Video
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Upload video file (.mp4, .webm, .mov) directly from your device.
+            </p>
+
+            <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <label
+                  htmlFor="merchant-video-input"
+                  className={`btn ${isVideoUploading ? 'btn-outline' : 'btn-primary'}`}
+                  style={{
+                    fontSize: 13,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: isVideoUploading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <HiOutlineVideoCamera style={{ fontSize: 20 }} />
+                  {isVideoUploading
+                    ? `Uploading (${videoUploadProgress}%)...`
+                    : newMerchant.videoUrl
+                    ? 'Change Video File'
+                    : 'Select & Upload Video File'}
+                </label>
+                <input
+                  id="merchant-video-input"
+                  type="file"
+                  accept="video/*"
+                  disabled={isVideoUploading}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleVideoUpload(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                {!isVideoUploading && newMerchant.videoUrl && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                    onClick={() => setNewMerchant({ ...newMerchant, videoUrl: '' })}
+                  >
+                    🗑️ Remove Video
+                  </button>
+                )}
+              </div>
+
+              {/* Uploading Percentage Progress Bar */}
+              {isVideoUploading && (
+                <div style={{ marginTop: 14, padding: 14, background: '#EFF6FF', borderRadius: 10, border: '1px solid #BFDBFE' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 13, fontWeight: 700, color: '#1E40AF' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>⏳</span>
+                      <span>Uploading Video File...</span>
+                    </span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: '#2563EB' }}>
+                      {videoUploadProgress}%
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: 10, background: '#DBEAFE', borderRadius: 5, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${videoUploadProgress}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #2563EB, #3B82F6)',
+                        borderRadius: 5,
+                        transition: 'width 0.15s ease-out',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Video Player Preview */}
+              {!isVideoUploading && newMerchant.videoUrl && (
+                <div style={{ marginTop: 14, background: '#0F172A', padding: 10, borderRadius: 12, border: '1px solid #1E293B' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, color: '#38BDF8', fontSize: 12, fontWeight: 700 }}>
+                    <span>🎥 Video Ready for Upload</span>
+                    <span style={{ background: '#0369A1', color: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontSize: 11 }}>Uploaded</span>
+                  </div>
+                  <video
+                    controls
+                    src={newMerchant.videoUrl}
+                    style={{ width: '100%', maxHeight: 220, borderRadius: 8, display: 'block' }}
+                  >
+                    Your browser does not support video playback.
+                  </video>
+                </div>
+              )}
             </div>
           </div>
         </form>

@@ -60,10 +60,6 @@ export default function Dashboard() {
     return <FieldStaffDashboard />;
   }
 
-  if (user?.role === 'Admin') {
-    return <AdminDashboard />;
-  }
-
   return (
     <div>
       {/* Stats Grid */}

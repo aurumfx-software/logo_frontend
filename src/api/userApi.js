@@ -51,19 +51,6 @@ export async function createAdminOrStaffAccount({ name, email, phone, role, pass
   const createdUser = data.user || data.data?.user || data.data || {};
   const userId = createdUser.id || createdUser._id;
 
-  // 2. If backend supports role updating via admin endpoint
-  if (userId) {
-    try {
-      const roleStr = role === 'Field Staff' ? 'FIELD_STAFF' : 'ADMIN';
-      await apiFetch(`/api/v1/admin/users/${userId}/role`, {
-        method: 'PUT',
-        body: JSON.stringify({ role: roleStr }),
-      });
-    } catch (e) {
-      console.warn('Role assignment endpoint notice:', e);
-    }
-  }
-
   return {
     id: userId ? (role === 'Field Staff' ? `STF-${userId}` : `ADM-${userId}`) : `ADM-${Date.now()}`,
     name: createdUser.name || name,
@@ -113,16 +100,29 @@ export async function fetchUsersList() {
   }
 
   return rawUsers.map((u, idx) => {
-    const rawRole = (u.role || u.user_role || u.type || '').toString().toUpperCase();
+    const rawRole = (u.role || u.user_role || u.type || '').toString().toUpperCase().trim();
+    const uName = (u.name || u.full_name || '').toLowerCase().trim();
+    const uEmail = (u.email || '').toLowerCase().trim();
+
     let displayRole = 'User';
-    if (rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN') {
+    if (
+      rawRole === 'SUPER_ADMIN' ||
+      rawRole === 'SUPERADMIN' ||
+      rawRole === 'SUPER ADMIN' ||
+      uName === 'super admin' ||
+      uEmail === 'aurumfxsoftware@gmail.com'
+    ) {
       displayRole = 'Super Admin';
     } else if (rawRole === 'ADMIN') {
       displayRole = 'Admin';
     } else if (rawRole === 'FIELD_STAFF' || rawRole === 'FIELDSTAFF' || rawRole === 'STAFF') {
       displayRole = 'Field Staff';
+    } else if (rawRole === 'MERCHANT') {
+      displayRole = 'Merchant';
+    } else if (rawRole === 'USER') {
+      displayRole = 'User';
     } else if (u.role) {
-      displayRole = u.role;
+      displayRole = u.role.charAt(0).toUpperCase() + u.role.slice(1);
     }
 
     const rawId = u.id || u._id || u.userId || u.user_id;
@@ -164,7 +164,13 @@ export async function fetchUsersList() {
       name,
       email: u.email || 'N/A',
       phone: u.phone || u.phone_number || u.mobile || 'N/A',
-      city: u.city || u.address || u.location || u.region || 'Payyanur',
+      city:
+        u.city ||
+        (u.address && u.address.toLowerCase() !== 'user' ? u.address : null) ||
+        u.district ||
+        u.location ||
+        u.region ||
+        'Payyanur',
       role: displayRole,
       status,
       joined,

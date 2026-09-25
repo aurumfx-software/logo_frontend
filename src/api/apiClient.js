@@ -57,6 +57,8 @@ export function clearTokens() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('user_code');
+
   sessionStorage.clear();
 }
 

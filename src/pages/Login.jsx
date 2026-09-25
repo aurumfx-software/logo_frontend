@@ -56,7 +56,7 @@ export default function Login() {
         throw new Error(errorMsg);
       }
 
-      // Extract user details, access token & refresh token from API response structure
+      // Extract user details, user_code, access token & refresh token from API response structure
       const apiUser = resData.user || resData.data?.user || resData.data || {};
       const accessToken =
         resData.access_token ||
@@ -73,6 +73,18 @@ export default function Login() {
         resData.data?.refreshToken ||
         '';
 
+      const userCode =
+        resData.user_code ||
+        resData.userCode ||
+        resData.code ||
+        resData.data?.user_code ||
+        resData.data?.userCode ||
+        resData.data?.code ||
+        apiUser.user_code ||
+        apiUser.userCode ||
+        apiUser.code ||
+        'FLS_1';
+
       const userData = {
         email: apiUser.email || email,
         role: apiUser.role || role,
@@ -82,6 +94,8 @@ export default function Login() {
         initials: (apiUser.name || email).charAt(0).toUpperCase(),
         loginTime: new Date().toISOString(),
         id: apiUser.id || apiUser._id,
+        user_code: userCode,
+        userCode: userCode,
         ...apiUser,
       };
 
@@ -203,10 +217,13 @@ export default function Login() {
               value={role}
               onChange={(e) => setRole(e.target.value)}
               disabled={loading}
+              style={{ fontWeight: 600 }}
             >
-              <option>Super Admin</option>
-              <option>Admin</option>
-              <option>Field Staff</option>
+              <option value="Super Admin">Super Admin</option>
+              <option value="Admin">Admin</option>
+              <option value="Field Staff">Field Staff</option>
+              <option value="User">User</option>
+              <option value="Merchant">Merchant</option>
             </select>
           </div>
 

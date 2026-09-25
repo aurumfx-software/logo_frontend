@@ -92,8 +92,6 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   let navSections = defaultNavSections;
   if (user?.role === 'Field Staff') {
     navSections = fieldStaffNavSections;
-  } else if (user?.role === 'Admin') {
-    navSections = adminNavSections;
   }
 
   return (
