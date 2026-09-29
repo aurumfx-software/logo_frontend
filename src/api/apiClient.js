@@ -131,6 +131,10 @@ export async function apiFetch(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
+  if (options.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+
   if (accessToken) {
     const rawToken = accessToken.trim();
     const bearer = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;

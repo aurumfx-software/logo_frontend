@@ -56,7 +56,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const { user } = useAuth();
 
-  if (user?.role === 'Field Staff') {
+  const roleUpper = (user?.role || '').toString().toUpperCase();
+  if (roleUpper === 'STAFF' || roleUpper === 'FIELD STAFF' || roleUpper === 'FIELD_STAFF') {
     return <FieldStaffDashboard />;
   }
 

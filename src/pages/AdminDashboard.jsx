@@ -123,9 +123,7 @@ export default function AdminDashboard() {
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
-              onClick={() =>
-                navigate(user?.role === 'Admin' ? '/users?addFieldStaff=true' : '/users?addAdmin=true')
-              }
+              onClick={() => navigate('/users?addRole=staff')}
               style={{
                 background: '#FEF3C7',
                 color: '#92400E',
@@ -142,7 +140,7 @@ export default function AdminDashboard() {
               }}
             >
               <HiOutlineUserAdd size={18} />
-              {user?.role === 'Admin' ? '+ Add Field Staff' : '+ Add Admin Account'}
+              + Add Staff Account
             </button>
             <button
               onClick={() => navigate('/registration-requests')}

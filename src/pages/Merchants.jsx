@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   HiOutlineEye,
   HiOutlineBan,
@@ -9,7 +10,11 @@ import {
   HiOutlineLocationMarker,
   HiOutlinePhotograph,
   HiOutlineVideoCamera,
+  HiOutlineMail,
+  HiOutlinePhone,
+  HiOutlineGlobe,
 } from 'react-icons/hi';
+import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
@@ -46,9 +51,18 @@ const initialMerchantState = {
   address: '',
   city: '',
   district: '',
+  state: '',
   latitude: null,
   longitude: null,
   phone: '',
+  whatsapp: '',
+  landline: '',
+  email: '',
+  website: '',
+  facebook: '',
+  instagram: '',
+  twitter: '',
+  youtube: '',
   status: 'active',
   photos: ['', '', '', ''],
   videoUrl: '',
@@ -56,6 +70,7 @@ const initialMerchantState = {
 
 export default function Merchants() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
@@ -232,8 +247,8 @@ export default function Merchants() {
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             className="btn btn-outline btn-sm btn-icon"
-            title="View"
-            onClick={() => setSelectedMerchant(row)}
+            title="View Details"
+            onClick={() => navigate(`/merchants/${row.id}`)}
           >
             <HiOutlineEye />
           </button>
@@ -455,9 +470,9 @@ export default function Merchants() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Phone Contact</label>
+              <label className="form-label">📞 Mobile / Phone Contact</label>
               <input
-                type="text"
+                type="tel"
                 className="form-input"
                 placeholder="+91 98470 12345"
                 value={newMerchant.phone}
@@ -466,8 +481,131 @@ export default function Merchants() {
             </div>
           </div>
 
+          {/* Contact Details Section */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              📋 Contact Details
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaWhatsapp style={{ color: '#25D366' }} /> WhatsApp Number
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="+91 98470 12345"
+                  value={newMerchant.whatsapp}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, whatsapp: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlinePhone style={{ color: '#475569' }} /> Landline Number
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="0497-2765432"
+                  value={newMerchant.landline}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, landline: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlineMail style={{ color: '#6C63FF' }} /> Business Email ID
+                </label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="contact@yourbusiness.com"
+                  value={newMerchant.email}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlineGlobe style={{ color: '#3B82F6' }} /> Website URL
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://www.yourbusiness.com"
+                  value={newMerchant.website}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, website: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Social Media Links Section */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🔗 Social Media Links
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaFacebook style={{ color: '#1877F2' }} /> Facebook Page
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://facebook.com/yourbusiness"
+                  value={newMerchant.facebook}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, facebook: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaInstagram style={{ color: '#E1306C' }} /> Instagram Profile
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://instagram.com/yourbusiness"
+                  value={newMerchant.instagram}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, instagram: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaTwitter style={{ color: '#1DA1F2' }} /> Twitter / X Profile
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://twitter.com/yourbusiness"
+                  value={newMerchant.twitter}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, twitter: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaYoutube style={{ color: '#FF0000' }} /> YouTube Channel
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://youtube.com/@yourchannel"
+                  value={newMerchant.youtube}
+                  onChange={(e) => setNewMerchant({ ...newMerchant, youtube: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Location Section */}
           <div className="form-group">
-            <label className="form-label">Location Search & GPS Detect (Google Maps API) *</label>
+            <label className="form-label">📍 Location Search & GPS Detect (Google Maps) *</label>
             <GoogleMapsLocationInput
               value={newMerchant.address}
               onChange={(addr) => setNewMerchant({ ...newMerchant, address: addr })}
@@ -477,6 +615,7 @@ export default function Merchants() {
                   address: place.address,
                   city: place.city || place.name,
                   district: place.district,
+                  state: place.state || prev.state,
                   latitude: place.latitude || place.lat || null,
                   longitude: place.longitude || place.lon || null,
                 }));
@@ -484,32 +623,54 @@ export default function Merchants() {
               placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
             {newMerchant.latitude && newMerchant.longitude && (
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: '8px 12px',
-                  background: '#F0FDF4',
-                  border: '1px solid #BBF7D0',
-                  borderRadius: 8,
-                  fontSize: 12,
-                  color: '#15803D',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span>📍 Exact GPS Coordinates:</span>
-                <strong style={{ fontFamily: 'monospace' }}>
-                  {Number(newMerchant.latitude).toFixed(6)}, {Number(newMerchant.longitude).toFixed(6)}
-                </strong>
+              <div style={{ marginTop: 8 }}>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    background: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: '#15803D',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 6,
+                    marginBottom: 8,
+                  }}
+                >
+                  <span>📍 GPS Coordinates Captured:</span>
+                  <strong style={{ fontFamily: 'monospace' }}>
+                    {Number(newMerchant.latitude).toFixed(6)}, {Number(newMerchant.longitude).toFixed(6)}
+                  </strong>
+                  <a
+                    href={`https://www.google.com/maps?q=${newMerchant.latitude},${newMerchant.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                  >
+                    Open Map ↗
+                  </a>
+                </div>
+                {/* Embedded Google Map Preview */}
+                <iframe
+                  title="Merchant Location Map Preview"
+                  width="100%"
+                  height="200"
+                  style={{ border: 0, borderRadius: 10, marginTop: 4 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${newMerchant.latitude},${newMerchant.longitude}&hl=en&z=16&output=embed`}
+                />
               </div>
             )}
           </div>
 
           <div className="grid-2">
             <div className="form-group">
-              <label className="form-label">City / Town (English) *</label>
+              <label className="form-label">City / Town *</label>
               <input
                 type="text"
                 className="form-input"
@@ -520,7 +681,7 @@ export default function Merchants() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">District (English) *</label>
+              <label className="form-label">District *</label>
               <input
                 type="text"
                 className="form-input"
@@ -528,6 +689,16 @@ export default function Merchants() {
                 value={newMerchant.district}
                 onChange={(e) => setNewMerchant({ ...newMerchant, district: e.target.value })}
                 required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">State *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Kerala"
+                value={newMerchant.state}
+                onChange={(e) => setNewMerchant({ ...newMerchant, state: e.target.value })}
               />
             </div>
           </div>
