@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HiLocationMarker,
   HiPhone,
@@ -864,6 +864,7 @@ const featuredAdsList = [
 export default function LandingPage({ defaultTab = 'home' }) {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Tab & Selection State
@@ -1521,7 +1522,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div
                 key={item.id}
                 className="establishment-card"
-                onClick={() => setSelectedMerchant(item)}
+                onClick={() => navigate(`/place/${item.id}`)}
               >
                 <div className="establishment-image-wrapper">
                   <img

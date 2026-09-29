@@ -7,6 +7,7 @@ export default function DataTable({
   searchable = true,
   searchPlaceholder = 'Search...',
   pageSize = 8,
+  onRowClick,
 }) {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +92,16 @@ export default function DataTable({
               </tr>
             ) : (
               paginated.map((row, idx) => (
-                <tr key={row.id || idx}>
+                <tr
+                  key={row.id || idx}
+                  onClick={() => onRowClick && onRowClick(row)}
+                  style={{
+                    cursor: onRowClick ? 'pointer' : 'default',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseOver={(e) => { if (onRowClick) e.currentTarget.style.background = '#F5F3FF'; }}
+                  onMouseOut={(e) => { if (onRowClick) e.currentTarget.style.background = ''; }}
+                >
                   {columns.map((col) => (
                     <td key={col.key}>
                       {col.render ? col.render(row[col.key], row) : row[col.key]}

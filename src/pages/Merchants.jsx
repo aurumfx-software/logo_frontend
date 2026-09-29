@@ -318,6 +318,7 @@ export default function Merchants() {
             columns={columns}
             data={filteredData}
             searchPlaceholder="Search merchant name, category, city..."
+            onRowClick={(row) => navigate(`/merchants/${row.id}`, { state: { merchant: row } })}
           />
         </div>
       </div>
