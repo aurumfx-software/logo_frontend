@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   HiOutlineLocationMarker,
@@ -105,6 +105,8 @@ const FALLBACK_MERCHANTS = [
 export default function MerchantDetail({ isPublic = false }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedMerchant = location.state?.merchant;
   const { user, isAuthenticated } = useAuth();
 
   const [merchant, setMerchant] = useState(null);
@@ -117,6 +119,12 @@ export default function MerchantDetail({ isPublic = false }) {
     async function load() {
       try {
         setLoading(true);
+        if (passedMerchant) {
+          setMerchant(passedMerchant);
+          setLoading(false);
+          return;
+        }
+
         const userId = user?.id || user?.user_id;
         const userCode = user?.user_code || user?.userCode;
         const list = await fetchMerchantsList(userId, userCode);
@@ -143,13 +151,13 @@ export default function MerchantDetail({ isPublic = false }) {
         setMerchant(found || FALLBACK_MERCHANTS[0]);
       } catch (err) {
         console.error('Error loading merchant detail:', err);
-        setMerchant(FALLBACK_MERCHANTS[0]);
+        setMerchant(passedMerchant || FALLBACK_MERCHANTS[0]);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [id, user]);
+  }, [id, user, passedMerchant]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);

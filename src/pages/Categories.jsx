@@ -422,7 +422,7 @@ export default function Categories() {
                       {merchants.map((m) => (
                         <div
                           key={m.id}
-                          onClick={() => navigate(`/merchants/${m.id}`)}
+                          onClick={() => navigate(`/merchants/${m.id}`, { state: { merchant: m } })}
                           style={{ background: '#FAFAFA', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'flex-start', transition: 'all 0.18s', cursor: 'pointer', position: 'relative' }}
                           onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(108,99,255,0.13)'; e.currentTarget.style.borderColor = '#C7D2FE'; e.currentTarget.style.background = '#F5F3FF'; }}
                           onMouseOut={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.background = '#FAFAFA'; }}

@@ -1047,9 +1047,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
   );
 
   // Smart Cascading District & Sub-Location Matching Helper
-  const matchesLocationFilter = (itemLoc) => {
-    if (!itemLoc) return true;
-    const itemLocLower = itemLoc.toLowerCase();
+  // Smart Cascading District & Sub-Location Matching Helper
+  const matchesLocationFilter = (itemLoc, itemAddress) => {
+    if (selectedDistrict === 'all' && selectedLocation === 'all') return true;
+    const locText = `${itemLoc || ''} ${itemAddress || ''}`.toLowerCase();
 
     // 1. District Level Filter Check
     if (selectedDistrict && selectedDistrict !== 'all') {
@@ -1058,9 +1059,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
       const districtNameLower = districtObj ? districtObj.name.toLowerCase() : selectedDistrict.toLowerCase();
 
       const matchesDistrict =
-        itemLocLower.includes(districtNameLower) ||
-        districtNameLower.includes(itemLocLower) ||
-        districtTowns.some((t) => itemLocLower.includes(t.toLowerCase()) || t.toLowerCase().includes(itemLocLower));
+        locText.includes(districtNameLower) ||
+        districtNameLower.includes(locText) ||
+        districtTowns.some((t) => locText.includes(t.toLowerCase()));
 
       if (!matchesDistrict) return false;
     }
@@ -1068,7 +1069,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     // 2. Town / Sub-Location Level Filter Check
     if (selectedLocation && selectedLocation !== 'all') {
       const locLower = selectedLocation.toLowerCase();
-      if (!itemLocLower.includes(locLower) && !locLower.includes(itemLocLower)) {
+      if (!locText.includes(locLower)) {
         return false;
       }
     }
@@ -1079,9 +1080,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Filter Featured Ads list
   const filteredFeaturedAds = featuredAdsList.filter((item) => {
     const matchesCategory =
-      selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation = matchesLocationFilter(item.location);
+      selectedCategory === 'all' ||
+      item.categoryKey === selectedCategory ||
+      (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+      (selectedCategory && selectedCategory.toLowerCase().includes(item.category ? item.category.toLowerCase() : ''));
+    const matchesLocation = matchesLocationFilter(item.location, item.address);
     const matchesSearch =
+      !searchQuery.trim() ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1092,9 +1097,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Filter Establishments list
   const filteredEstablishments = initialEstablishments.filter((item) => {
     const matchesCategory =
-      selectedCategory === 'all' || item.categoryKey === selectedCategory;
-    const matchesLocation = matchesLocationFilter(item.location);
+      selectedCategory === 'all' ||
+      item.categoryKey === selectedCategory ||
+      (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+      (selectedCategory && selectedCategory.toLowerCase().includes(item.category ? item.category.toLowerCase() : ''));
+    const matchesLocation = matchesLocationFilter(item.location, item.address);
     const matchesSearch =
+      !searchQuery.trim() ||
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.address.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1105,15 +1114,19 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const getCategoryCount = (catKey) => {
     if (catKey === 'all') {
       return (
-        initialEstablishments.filter((item) => matchesLocationFilter(item.location)).length +
-        featuredAdsList.filter((item) => matchesLocationFilter(item.location)).length
+        initialEstablishments.filter((item) => matchesLocationFilter(item.location, item.address)).length +
+        featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length
       );
     }
     const estCount = initialEstablishments.filter(
-      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location)
+      (item) =>
+        (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
+        matchesLocationFilter(item.location, item.address)
     ).length;
     const adCount = featuredAdsList.filter(
-      (item) => item.categoryKey === catKey && matchesLocationFilter(item.location)
+      (item) =>
+        (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
+        matchesLocationFilter(item.location, item.address)
     ).length;
     return estCount + adCount;
   };
@@ -1148,8 +1161,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const combinedEstablishmentsList = [...filteredFeaturedAds, ...filteredEstablishments];
   const sortedEstablishments = sortItems(combinedEstablishmentsList);
 
-  const handleSelectPlace = (placeName) => {
-    setSelectedLocation(placeName.toLowerCase());
+  const handleSelectPlace = (placeObj) => {
+    const nameStr = typeof placeObj === 'string' ? placeObj : placeObj?.name || '';
+    const foundDistrict = placesList.find(
+      (p) => p.name.toLowerCase() === nameStr.toLowerCase() || p.id === nameStr.toLowerCase()
+    );
+    if (foundDistrict) {
+      setSelectedDistrict(foundDistrict.id);
+      setSelectedLocation('all');
+    } else {
+      setSelectedLocation(nameStr.toLowerCase());
+    }
     scrollToSection('establishments-section');
   };
 
@@ -1522,7 +1544,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div
                 key={item.id}
                 className="establishment-card"
-                onClick={() => navigate(`/place/${item.id}`)}
+                onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
               >
                 <div className="establishment-image-wrapper">
                   <img
