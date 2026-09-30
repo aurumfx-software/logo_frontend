@@ -15,15 +15,40 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (error) setError('');
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    if (error) setError('');
+  };
+
+  const handleRoleChange = (e) => {
+    setRole(e.target.value);
+    if (error) setError('');
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail) {
       setError('Please enter your email address');
       return;
     }
-    if (!password.trim()) {
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!cleanPassword) {
       setError('Please enter your password');
       return;
     }
@@ -32,8 +57,8 @@ export default function Login() {
 
     try {
       const loginRes = await authService.login({
-        email: email.trim(),
-        password: password.trim(),
+        email: cleanEmail,
+        password: cleanPassword,
         role,
       });
 
@@ -51,7 +76,7 @@ export default function Login() {
       const userData = {
         id: apiUser.id || 1,
         user_id: apiUser.id || 1,
-        email: apiUser.email || email.trim(),
+        email: apiUser.email || cleanEmail,
         name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
         role: detectedRole,
         user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
@@ -87,19 +112,41 @@ export default function Login() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             style={{
-              background: 'var(--danger-light)',
-              color: '#DC2626',
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-sm)',
+              background: '#FEF2F2',
+              border: '1px solid #FCA5A5',
+              color: '#991B1B',
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-md)',
               fontSize: 13,
               fontWeight: 500,
               marginBottom: 20,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              justifyContent: 'space-between',
+              gap: 10,
+              boxShadow: '0 2px 4px rgba(239, 68, 68, 0.05)',
             }}
           >
-            <span>⚠</span> {error}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#991B1B',
+                cursor: 'pointer',
+                fontSize: 14,
+                padding: 2,
+                lineHeight: 1,
+              }}
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </motion.div>
         )}
 
@@ -122,9 +169,10 @@ export default function Login() {
                 className="form-input"
                 placeholder="Enter email address..."
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 style={{ paddingLeft: 42 }}
                 disabled={loading}
+                autoComplete="email"
               />
             </div>
           </div>
@@ -147,9 +195,10 @@ export default function Login() {
                 className="form-input"
                 placeholder="Enter password..."
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 style={{ paddingLeft: 42, paddingRight: 42 }}
                 disabled={loading}
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -165,6 +214,7 @@ export default function Login() {
                   border: 'none',
                   cursor: 'pointer',
                 }}
+                disabled={loading}
               >
                 {showPassword ? <HiOutlineEyeOff /> : <HiOutlineEye />}
               </button>
@@ -176,7 +226,7 @@ export default function Login() {
             <select
               className="form-select"
               value={role}
-              onChange={(e) => setRole(e.target.value)}
+              onChange={handleRoleChange}
               disabled={loading}
               style={{ fontWeight: 600 }}
             >
@@ -187,10 +237,10 @@ export default function Login() {
 
           <div className="login-options">
             <label className="login-remember">
-              <input type="checkbox" defaultChecked />
+              <input type="checkbox" defaultChecked disabled={loading} />
               Remember me
             </label>
-            <span className="login-forgot">Forgot Password?</span>
+            <span className="login-forgot" style={{ cursor: 'pointer' }}>Forgot Password?</span>
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>
