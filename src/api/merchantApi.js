@@ -126,6 +126,14 @@ export async function createMerchant(merchantData) {
   const currentDistrict = merchantData.district || merchantData.city || 'Kannur';
   const currentAddress = merchantData.address || `${currentCity}, ${currentDistrict}`;
   const businessName = (merchantData.name || merchantData.business_name || '').trim();
+  const currentPhone = (
+    merchantData.phone ||
+    merchantData.phone_number ||
+    merchantData.contact_number ||
+    merchantData.mobile ||
+    '+91 98470 12345'
+  ).trim();
+  const currentUserCode = merchantData.user_code || merchantData.userCode || getCurrentUserCode();
   let validUserId = null;
   const rawUserId = merchantData.user_id || merchantData.userId || getCurrentUserId();
   if (rawUserId && !isNaN(Number(rawUserId))) {
