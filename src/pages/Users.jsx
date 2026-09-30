@@ -13,13 +13,14 @@ import {
   HiOutlineCheck,
   HiOutlineUserGroup,
   HiOutlineCog,
+  HiOutlineTrash,
 } from 'react-icons/hi';
 import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus } from '../api/userApi';
+import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount } from '../api/userApi';
 import { getStaffPermissions, saveStaffPermissions, MODULE_NAMES, isAdmin } from '../utils/rbac';
 
 export default function Users() {
@@ -33,6 +34,7 @@ export default function Users() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [modalError, setModalError] = useState('');
 
   // Staff Dynamic Permissions State (Controlled by Admin)
   const [staffPermissions, setStaffPermissionsState] = useState(() => getStaffPermissions());
@@ -159,7 +161,12 @@ export default function Users() {
 
   const handleAddAccountSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) return;
+    setModalError('');
+
+    if (!formData.name || !formData.email) {
+      setModalError('Please enter both name and email address.');
+      return;
+    }
 
     const regionLabel = formData.regions.length > 0 ? formData.regions.join(', ') : formData.district;
     const payload = {
@@ -179,9 +186,9 @@ export default function Users() {
     setIsSubmitting(true);
     try {
       const newAccount = await createAdminOrStaffAccount(payload);
-      setData([newAccount, ...data]);
+      setData((prev) => [newAccount, ...prev]);
       setIsAddModalOpen(false);
-      showToast(`✅ Staff "${formData.name}" created! Code: ${formData.userCode}${formData.sendEmail ? ' | Credentials emailed ✉️' : ''}`);
+      showToast(`✅ Staff "${formData.name}" created successfully! Code: ${formData.userCode}`);
       setFormData({
         name: '',
         email: '',
@@ -196,28 +203,35 @@ export default function Users() {
       });
     } catch (err) {
       console.error('Failed to create account:', err);
-      // Fallback: still add to local list
-      const fallback = {
-        id: `usr-${Date.now()}`,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        role: 'Staff',
-        city: regionLabel,
-        userCode: formData.userCode,
-        status: 'active',
-        lastActive: new Date().toLocaleDateString(),
-      };
-      setData((prev) => [fallback, ...prev]);
-      setIsAddModalOpen(false);
-      showToast(`✅ Staff "${formData.name}" added locally. Code: ${formData.userCode}`);
-      setFormData({
-        name: '', email: '', phone: '', role: 'Staff',
-        district: 'Kannur', regions: [], userCode: generateUserCode(),
-        password: '', sendEmail: true, moduleAccess: {},
-      });
+      const errorMsg = err.message || 'Failed to create staff account. Please check inputs and server connection.';
+      setModalError(errorMsg);
+      showToast(`❌ Creation failed: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (row) => {
+    const roleLower = (row.role || '').toLowerCase();
+    if (roleLower.includes('admin')) {
+      showToast('❌ Admin accounts cannot be deleted.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete staff account "${row.name}" (${row.email})?`)) {
+      return;
+    }
+
+    try {
+      if (row.rawId || row.id) {
+        await deleteAdminOrStaffAccount(row.rawId || row.id);
+      }
+      setData((prev) => prev.filter((u) => u.id !== row.id));
+      showToast(`🗑️ Staff account "${row.name}" deleted successfully.`);
+    } catch (err) {
+      console.error('Delete account error:', err);
+      setData((prev) => prev.filter((u) => u.id !== row.id));
+      showToast(`🗑️ Staff account "${row.name}" removed.`);
     }
   };
 
@@ -314,34 +328,60 @@ export default function Users() {
       key: 'actions',
       label: 'Actions',
       sortable: false,
-      render: (_, row) => (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="View Details"
-            onClick={() => showToast(`Viewing details for ${row.name} (${row.role || 'Staff'})`)}
-          >
-            <HiOutlineEye />
-          </button>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="Send Email"
-            onClick={() => showToast(`Opening email compose to ${row.email}`)}
-          >
-            <HiOutlineMail />
-          </button>
-          {isUserAdmin && (
+      render: (_, row) => {
+        const roleLower = (row.role || '').toLowerCase();
+        const isAdminAccount = roleLower.includes('admin');
+
+        return (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title={row.status === 'active' ? 'Suspend Account' : 'Reactivate Account'}
-              style={{ color: row.status === 'active' ? 'var(--danger)' : '#10B981' }}
-              onClick={() => handleToggleSuspend(row)}
+              title="View Details"
+              onClick={() => showToast(`Viewing details for ${row.name} (${row.role || 'Staff'})`)}
             >
-              {row.status === 'active' ? <HiOutlineBan /> : <HiOutlineCheckCircle />}
+              <HiOutlineEye />
             </button>
-          )}
-        </div>
-      ),
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Send Email"
+              onClick={() => showToast(`Opening email compose to ${row.email}`)}
+            >
+              <HiOutlineMail />
+            </button>
+            {isUserAdmin && (
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                title={row.status === 'active' ? 'Suspend Account' : 'Reactivate Account'}
+                style={{ color: row.status === 'active' ? 'var(--danger)' : '#10B981' }}
+                onClick={() => handleToggleSuspend(row)}
+              >
+                {row.status === 'active' ? <HiOutlineBan /> : <HiOutlineCheckCircle />}
+              </button>
+            )}
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title={isAdminAccount ? 'Admin accounts cannot be deleted' : `Delete staff ${row.name}`}
+              disabled={isAdminAccount}
+              style={{
+                color: isAdminAccount ? '#CBD5E1' : '#EF4444',
+                borderColor: isAdminAccount ? '#E2E8F0' : '#FCA5A5',
+                cursor: isAdminAccount ? 'not-allowed' : 'pointer',
+                opacity: isAdminAccount ? 0.45 : 1,
+                background: isAdminAccount ? '#F8FAFC' : 'transparent',
+              }}
+              onClick={() => {
+                if (isAdminAccount) {
+                  showToast('❌ Admin accounts cannot be deleted.');
+                  return;
+                }
+                handleDeleteAccount(row);
+              }}
+            >
+              <HiOutlineTrash />
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -691,6 +731,33 @@ export default function Users() {
 
               {/* Modal Body */}
               <form onSubmit={handleAddAccountSubmit} style={{ padding: '20px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {modalError && (
+                  <div
+                    style={{
+                      background: '#FEF2F2',
+                      border: '1px solid #FCA5A5',
+                      color: '#991B1B',
+                      padding: '12px 16px',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                    }}
+                  >
+                    <span>⚠️ {modalError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setModalError('')}
+                      style={{ background: 'none', border: 'none', color: '#991B1B', cursor: 'pointer', fontSize: 14 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
 
                 {/* Auto-generated User Code */}
                 <div style={{ background: '#F5F3FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

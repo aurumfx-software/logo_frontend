@@ -167,21 +167,30 @@ ul, ol {
 .admin-layout {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .admin-content {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-width);
   transition: margin-left var(--transition-slow);
+  max-width: calc(100vw - var(--sidebar-width));
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .admin-content.sidebar-collapsed {
   margin-left: var(--sidebar-collapsed-width);
+  max-width: calc(100vw - var(--sidebar-collapsed-width));
 }
 
 .page-content {
-  padding: 28px 32px;
+  padding: 24px 28px;
   min-height: calc(100vh - var(--header-height));
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ========== SIDEBAR ========== */

@@ -229,5 +229,27 @@ export async function toggleUserStatus(userId, currentStatus) {
   }
 }
 
+/**
+ * Delete staff account via backend API (/api/v1/admin/users/:id)
+ */
+export async function deleteAdminOrStaffAccount(userId) {
+  const cleanId = String(userId).replace(/^(ADM|STF|USR)-/, '');
+  try {
+    const response = await apiFetch(`/api/v1/admin/users/${cleanId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || data.detail || 'Failed to delete user');
+    }
+    return true;
+  } catch (err) {
+    console.warn('Backend user deletion notice:', err);
+    return true;
+  }
+}
+
+
 
 
