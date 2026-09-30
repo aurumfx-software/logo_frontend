@@ -245,18 +245,26 @@ export default function Users() {
 
   const handleOpenEditModal = (userRow) => {
     setEditingUser(userRow);
+    const resolvedDistrict = userRow.district || 'Kannur';
+    const resolvedRegions = Array.isArray(userRow.regions)
+      ? userRow.regions
+      : userRow.city
+      ? userRow.city.split(',').map((s) => s.trim())
+      : [];
+
     setEditFormData({
       id: userRow.id || '',
       rawId: userRow.rawId || userRow.id || '',
       name: userRow.name || '',
       email: userRow.email || '',
       phone: userRow.phone && userRow.phone !== 'N/A' ? userRow.phone : '',
+      district: resolvedDistrict,
+      regions: resolvedRegions,
       city: userRow.city || '',
-      district: userRow.district || 'Kannur',
-      regions: Array.isArray(userRow.regions) ? userRow.regions : [],
       status: userRow.status || 'active',
       role: userRow.role || 'Staff',
       userCode: userRow.user_code || userRow.userCode || userRow.id || '',
+      moduleAccess: userRow.moduleAccess || userRow.module_access || {},
     });
     setEditModalError('');
     setIsEditModalOpen(true);
@@ -271,14 +279,19 @@ export default function Users() {
       return;
     }
 
+    const regionLabel = editFormData.regions.length > 0 ? editFormData.regions.join(', ') : editFormData.district;
+
     setIsUpdating(true);
     try {
       await updateAdminOrStaffAccount(editFormData.rawId || editFormData.id, {
         name: editFormData.name.trim(),
         email: editFormData.email.trim(),
         phone: editFormData.phone.trim(),
-        city: editFormData.city.trim(),
+        city: regionLabel,
+        district: editFormData.district,
+        regions: editFormData.regions,
         status: editFormData.status,
+        moduleAccess: editFormData.moduleAccess,
       });
 
       setData((prev) =>
@@ -289,18 +302,21 @@ export default function Users() {
                 name: editFormData.name.trim(),
                 email: editFormData.email.trim(),
                 phone: editFormData.phone.trim(),
-                city: editFormData.city.trim(),
+                city: regionLabel,
+                district: editFormData.district,
+                regions: editFormData.regions,
                 status: editFormData.status,
+                moduleAccess: editFormData.moduleAccess,
               }
             : u
         )
       );
 
       setIsEditModalOpen(false);
-      showToast(`✏️ Account "${editFormData.name}" updated successfully!`);
+      showToast(`✏️ Staff account "${editFormData.name}" updated successfully!`);
     } catch (err) {
-      console.error('Failed to update user account:', err);
-      setEditModalError(err.message || 'Failed to update account details.');
+      console.error('Failed to update staff account:', err);
+      setEditModalError(err.message || 'Failed to update staff account details.');
     } finally {
       setIsUpdating(false);
     }
@@ -1134,7 +1150,8 @@ export default function Users() {
                 background: 'white',
                 borderRadius: 20,
                 width: '100%',
-                maxWidth: 540,
+                maxWidth: 600,
+                maxHeight: 'calc(100vh - 32px)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -1155,8 +1172,8 @@ export default function Users() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <HiOutlinePencil size={22} style={{ color: '#A5B4FC' }} />
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Edit Staff Account</h3>
-                    <p style={{ margin: 0, fontSize: 11, opacity: 0.8 }}>ID: {editFormData.id} ({editFormData.role})</p>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Edit Staff Account Details</h3>
+                    <p style={{ margin: 0, fontSize: 11, opacity: 0.8 }}>Update staff profile, assigned region, module access, or status.</p>
                   </div>
                 </div>
                 <button
@@ -1168,28 +1185,46 @@ export default function Users() {
               </div>
 
               {/* Modal Body */}
-              <form onSubmit={handleEditSubmit} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <form onSubmit={handleEditSubmit} style={{ padding: '20px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
                 {editModalError && (
                   <div
                     style={{
                       background: '#FEF2F2',
                       border: '1px solid #FCA5A5',
                       color: '#991B1B',
-                      padding: '10px 14px',
+                      padding: '12px 16px',
                       borderRadius: 10,
                       fontSize: 13,
                       fontWeight: 500,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: 10,
                     }}
                   >
                     <span>⚠️ {editModalError}</span>
-                    <button type="button" onClick={() => setEditModalError('')} style={{ background: 'none', border: 'none', color: '#991B1B', cursor: 'pointer' }}>✕</button>
+                    <button
+                      type="button"
+                      onClick={() => setEditModalError('')}
+                      style={{ background: 'none', border: 'none', color: '#991B1B', cursor: 'pointer', fontSize: 14 }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
 
-                {/* Pre-populated Full Name */}
+                {/* Staff Code Badge */}
+                <div style={{ background: '#F5F3FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
+                    🆔 Staff Code / ID
+                  </div>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 15, color: '#1E1B4B', letterSpacing: 1.5 }}>
+                    {editFormData.userCode || editFormData.id}
+                  </span>
+                </div>
+
+                {/* Full Name */}
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontWeight: 600 }}>Full Name *</label>
                   <input
@@ -1198,25 +1233,23 @@ export default function Users() {
                     value={editFormData.name}
                     onChange={(e) => setEditFormData((prev) => ({ ...prev, name: e.target.value }))}
                     className="form-input"
-                    placeholder="Staff Member Name"
+                    placeholder="e.g. Rahul Sharma"
                   />
                 </div>
 
-                {/* Pre-populated Email Address */}
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 600 }}>Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    value={editFormData.email}
-                    onChange={(e) => setEditFormData((prev) => ({ ...prev, email: e.target.value }))}
-                    className="form-input"
-                    placeholder="staff@aurumfx.com"
-                  />
-                </div>
-
-                {/* Pre-populated Phone + City/Region */}
+                {/* Email + Phone */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={editFormData.email}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, email: e.target.value }))}
+                      className="form-input"
+                      placeholder="staff@aurumfx.com"
+                    />
+                  </div>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 600 }}>Phone Number</label>
                     <input
@@ -1227,34 +1260,140 @@ export default function Users() {
                       placeholder="+91 98471 23456"
                     />
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontWeight: 600 }}>City / Region</label>
-                    <input
-                      type="text"
-                      value={editFormData.city}
-                      onChange={(e) => setEditFormData((prev) => ({ ...prev, city: e.target.value }))}
-                      className="form-input"
-                      placeholder="e.g. Payyanur, Kannur"
-                    />
+                </div>
+
+                {/* Fixed Role Indicator */}
+                <div style={{ background: '#F0FDF4', border: '1px solid #A7F3D0', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <HiOutlineUserGroup style={{ color: '#059669', fontSize: 20 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46' }}>Role: Staff (Field Operations)</div>
+                    <div style={{ fontSize: 11, color: '#047857' }}>Account role is set to Staff. Admin roles are system-controlled.</div>
+                  </div>
+                </div>
+
+                {/* District + Multi-Region Selection */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>📍 Assigned District</label>
+                  <select
+                    name="district"
+                    value={editFormData.district}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, district: e.target.value, regions: [] }))}
+                    className="form-select"
+                  >
+                    {Object.keys(DISTRICT_REGIONS).map((d) => (
+                      <option key={d} value={d}>{d} District</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>
+                    🏘️ Assigned Regions / Cities
+                    <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+                  </label>
+
+                  {/* Region chips grid */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 54 }}>
+                    {(DISTRICT_REGIONS[editFormData.district] || []).map((region) => {
+                      const selected = editFormData.regions.includes(region);
+                      return (
+                        <button
+                          key={region}
+                          type="button"
+                          onClick={() => setEditFormData((p) => ({
+                            ...p,
+                            regions: selected
+                              ? p.regions.filter((r) => r !== region)
+                              : [...p.regions, region],
+                          }))}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: 20,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            border: selected ? '1.5px solid #6C63FF' : '1.5px solid #CBD5E1',
+                            background: selected ? '#EDE9FE' : 'white',
+                            color: selected ? '#4C1D95' : '#475569',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {selected ? '✓ ' : ''}{region}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected regions summary */}
+                  {editFormData.regions.length > 0 && (
+                    <div style={{ marginTop: 8, padding: '6px 10px', background: '#F5F3FF', borderRadius: 8, fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
+                      ✅ {editFormData.regions.length} region{editFormData.regions.length > 1 ? 's' : ''} selected: {editFormData.regions.join(' • ')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Module Access Overrides */}
+                <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '14px 16px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <HiOutlineCog style={{ color: '#6C63FF' }} /> Module Access Control
+                    <span style={{ fontWeight: 400, fontSize: 11, color: '#64748B' }}>(overrides for this staff user)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {MODULE_NAMES.map((mod) => {
+                      const globalVal = !!staffPermissions[mod.key];
+                      const overrideVal = editFormData.moduleAccess.hasOwnProperty(mod.key)
+                        ? editFormData.moduleAccess[mod.key]
+                        : globalVal;
+                      return (
+                        <label
+                          key={mod.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '7px 10px',
+                            borderRadius: 8,
+                            border: overrideVal ? '1.5px solid #C7D2FE' : '1.5px solid #E2E8F0',
+                            background: overrideVal ? '#EDE9FE' : 'white',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: overrideVal ? '#4338CA' : '#64748B',
+                            userSelect: 'none',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={overrideVal}
+                            onChange={() => setEditFormData((p) => ({
+                              ...p,
+                              moduleAccess: { ...p.moduleAccess, [mod.key]: !overrideVal },
+                            }))}
+                            style={{ accentColor: '#6C63FF', width: 14, height: 14 }}
+                          />
+                          {mod.label}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Account Status Selection */}
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 600 }}>Account Status</label>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Account Operational Status</label>
                   <select
                     className="form-select"
                     value={editFormData.status}
                     onChange={(e) => setEditFormData((prev) => ({ ...prev, status: e.target.value }))}
                     style={{ fontWeight: 600 }}
                   >
-                    <option value="active">Active (Operational Access)</option>
+                    <option value="active">Active (Operational Access Allowed)</option>
                     <option value="suspended">Suspended (Access Blocked)</option>
                   </select>
                 </div>
 
                 {/* Footer Buttons */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid #F3F4F6' }}>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid #F3F4F6' }}>
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
