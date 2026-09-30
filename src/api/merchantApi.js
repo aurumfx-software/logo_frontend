@@ -125,17 +125,24 @@ export async function createMerchant(merchantData) {
   const currentCity = merchantData.city || merchantData.district || 'Kannur';
   const currentDistrict = merchantData.district || merchantData.city || 'Kannur';
   const currentAddress = merchantData.address || `${currentCity}, ${currentDistrict}`;
-  const currentPhone = merchantData.phone ? merchantData.phone.trim() : '+91 98470 12345';
-  const currentUserId = merchantData.user_id || merchantData.userId || getCurrentUserId() || 1;
-  const currentUserCode = merchantData.user_code || merchantData.userCode || getCurrentUserCode() || '';
+  const businessName = (merchantData.name || merchantData.business_name || '').trim();
+  let validUserId = null;
+  const rawUserId = merchantData.user_id || merchantData.userId || getCurrentUserId();
+  if (rawUserId && !isNaN(Number(rawUserId))) {
+    validUserId = parseInt(rawUserId, 10);
+  }
 
   const payload = {
-    // Exact Onboard Endpoint Raw POST Schema (/api/v1/merchants/onboard)
-    business_name: merchantData.name ? merchantData.name.trim() : '',
+    // Exact Onboard Endpoint Raw POST Schema (/api/v1/merchants/onboarding)
+    business_name: businessName,
+    name: businessName,
     category: currentCategory,
     categories: [currentCategory],
     owner_name: ownerName,
+    owner: ownerName,
     phone_number: currentPhone,
+    phone: currentPhone,
+    whatsapp: merchantData.whatsapp || currentPhone,
     email: merchantData.email ? merchantData.email.trim() : null,
     district: currentDistrict,
     city: currentCity,
@@ -144,24 +151,17 @@ export async function createMerchant(merchantData) {
     address: currentAddress,
     landmark: merchantData.landmark || currentAddress,
     merchant_photos: validPhotos,
+    photos: validPhotos,
     verification_documents: merchantData.verification_documents || [],
     merchant_videos: videoList,
+    video_url: merchantData.videoUrl || null,
     services: merchantData.services || ['Retail', 'Services'],
     service_timing: merchantData.service_timing || 'General Store Hours',
+    user_id: validUserId,
     user_code: currentUserCode,
-    userCode: currentUserCode,
-
-    // Fallback/Standard Backend fields
-    name: merchantData.name ? merchantData.name.trim() : '',
-    phone: currentPhone,
-    contact_person: ownerName,
-    user_id: currentUserId,
-    userId: currentUserId,
     latitude: merchantData.latitude || merchantData.lat || null,
     longitude: merchantData.longitude || merchantData.lon || merchantData.lng || null,
-    status: merchantData.status || 'active',
-    photos: validPhotos,
-    video_url: merchantData.videoUrl || null,
+    status: merchantData.status || 'APPROVED',
   };
 
   // Single direct POST request to onboard endpoint
@@ -173,12 +173,17 @@ export async function createMerchant(merchantData) {
   const resData = await response.json();
 
   if (!response.ok || resData.success === false) {
-    throw new Error(
-      resData.message ||
-        resData.detail ||
-        (resData.errors && Array.isArray(resData.errors) ? resData.errors.join(', ') : null) ||
-        'Failed to onboard merchant'
-    );
+    let errorMsg = 'Failed to onboard merchant';
+    if (Array.isArray(resData.detail)) {
+      errorMsg = resData.detail.join('\n');
+    } else if (typeof resData.detail === 'string') {
+      errorMsg = resData.detail;
+    } else if (Array.isArray(resData.errors)) {
+      errorMsg = resData.errors.join('\n');
+    } else if (resData.message) {
+      errorMsg = resData.message;
+    }
+    throw new Error(errorMsg);
   }
 
   const created = resData.merchant || resData.data?.merchant || resData.data || resData;
