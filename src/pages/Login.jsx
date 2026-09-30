@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff, HiOutlineShieldCheck, HiOutlineUserGroup, HiOutlineSparkles } from 'react-icons/hi';
+import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
 
@@ -14,19 +14,6 @@ export default function Login() {
   const [role, setRole] = useState('Admin');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const fillCredentials = (targetRole) => {
-    if (targetRole === 'Admin') {
-      setEmail('admin@aurumfx.com');
-      setPassword('admin123');
-      setRole('Admin');
-    } else {
-      setEmail('staff@aurumfx.com');
-      setPassword('staff123');
-      setRole('Staff');
-    }
-    setError('');
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -75,7 +62,7 @@ export default function Login() {
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.warn('API Authentication warning:', err);
-      
+
       // If live backend error, fallback to session auth for seamless UI testing
       const fallbackRole = email.toLowerCase().includes('admin') ? 'Admin' : role;
       const fallbackUser = {
@@ -109,78 +96,6 @@ export default function Login() {
         <div className="login-logo">L</div>
         <h1 className="login-title">Welcome Back</h1>
         <p className="login-subtitle">Sign in to Logo Admin Portal</p>
-
-        {/* Credentials Quick Selection Cards */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)',
-            border: '1px solid #E2E8F0',
-            borderRadius: 14,
-            padding: '14px 16px',
-            marginBottom: 20,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: '#475569',
-              marginBottom: 10,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <HiOutlineSparkles style={{ color: '#6C63FF' }} /> Quick Login Presets
-            </span>
-            <span style={{ fontSize: 10, background: '#E2E8F0', padding: '2px 8px', borderRadius: 10 }}>2 Roles Only</span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <button
-              type="button"
-              onClick={() => fillCredentials('Admin')}
-              style={{
-                background: role === 'Admin' ? '#1E1B4B' : 'white',
-                color: role === 'Admin' ? 'white' : '#1E293B',
-                border: role === 'Admin' ? '1px solid #1E1B4B' : '1px solid #CBD5E1',
-                borderRadius: 10,
-                padding: '10px 12px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <HiOutlineShieldCheck style={{ color: role === 'Admin' ? '#A5B4FC' : '#6C63FF' }} /> Admin Role
-              </div>
-              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>admin@aurumfx.com</div>
-              <div style={{ fontSize: 10, opacity: 0.8 }}>Pass: admin123</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fillCredentials('Staff')}
-              style={{
-                background: role === 'Staff' ? '#1E1B4B' : 'white',
-                color: role === 'Staff' ? 'white' : '#1E293B',
-                border: role === 'Staff' ? '1px solid #1E1B4B' : '1px solid #CBD5E1',
-                borderRadius: 10,
-                padding: '10px 12px',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <HiOutlineUserGroup style={{ color: role === 'Staff' ? '#34D399' : '#10B981' }} /> Staff Role
-              </div>
-              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>staff@aurumfx.com</div>
-              <div style={{ fontSize: 10, opacity: 0.8 }}>Pass: staff123</div>
-            </button>
-          </div>
-        </div>
 
         {error && (
           <motion.div
