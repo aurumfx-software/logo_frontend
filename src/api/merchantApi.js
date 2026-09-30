@@ -299,8 +299,9 @@ export async function createMerchant(merchantData) {
  * Approve / Reject Merchant via backend API
  */
 export async function approveMerchant(merchantId) {
-  const response = await apiFetch(`/api/v1/merchants/${merchantId}/approve`, { method: 'POST' });
-  const resData = await response.json();
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const response = await apiFetch(`/api/v1/merchants/${cleanId}/approve`, { method: 'POST' });
+  const resData = await response.json().catch(() => ({}));
 
   if (!response.ok || resData.success === false) {
     throw new Error(resData.message || resData.detail || 'Failed to approve merchant');
@@ -310,15 +311,77 @@ export async function approveMerchant(merchantId) {
 }
 
 export async function rejectMerchant(merchantId, rejectionReason = '') {
-  const response = await apiFetch(`/api/v1/merchants/${merchantId}/reject`, {
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const response = await apiFetch(`/api/v1/merchants/${cleanId}/reject`, {
     method: 'POST',
     body: JSON.stringify({ rejection_reason: rejectionReason }),
   });
-  const resData = await response.json();
+  const resData = await response.json().catch(() => ({}));
 
   if (!response.ok || resData.success === false) {
     throw new Error(resData.message || resData.detail || 'Failed to reject merchant');
   }
 
   return resData;
+}
+
+/**
+ * Update merchant profile details via backend API (/api/v1/merchants/:id)
+ */
+export async function updateMerchant(merchantId, updatedData) {
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const payload = {
+    business_name: updatedData.business_name || updatedData.name || undefined,
+    category: updatedData.category || undefined,
+    categories: updatedData.categories || (updatedData.category ? [updatedData.category] : undefined),
+    owner_name: updatedData.owner_name || updatedData.owner || undefined,
+    phone_number: updatedData.phone_number || updatedData.phone || undefined,
+    email: updatedData.email || undefined,
+    district: updatedData.district || undefined,
+    city: updatedData.city || undefined,
+    address: updatedData.address || undefined,
+    landmark: updatedData.landmark || undefined,
+    service_timing: updatedData.service_timing || undefined,
+    status: updatedData.status ? updatedData.status.toUpperCase() : undefined,
+  };
+
+  const response = await apiFetch(`/api/v1/merchants/${cleanId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+  const resData = await response.json().catch(() => ({}));
+
+  if (!response.ok || resData.success === false) {
+    let errorMsg = '';
+    if (typeof resData.detail === 'string') {
+      errorMsg = resData.detail;
+    } else if (Array.isArray(resData.detail)) {
+      errorMsg = resData.detail
+        .map((item) => (typeof item === 'object' ? item.msg || item.message : String(item)))
+        .join(', ');
+    } else if (resData.message) {
+      errorMsg = resData.message;
+    }
+    throw new Error(errorMsg || `Failed to update merchant profile (Status ${response.status})`);
+  }
+
+  return resData.data || resData.merchant || resData;
+}
+
+/**
+ * Delete a merchant record via backend API (/api/v1/merchants/:id)
+ */
+export async function deleteMerchant(merchantId) {
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const response = await apiFetch(`/api/v1/merchants/${cleanId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const resData = await response.json().catch(() => ({}));
+    throw new Error(resData.message || resData.detail || `Failed to delete merchant #${merchantId}`);
+  }
+
+  return true;
 }

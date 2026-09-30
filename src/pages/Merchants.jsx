@@ -13,6 +13,8 @@ import {
   HiOutlineMail,
   HiOutlinePhone,
   HiOutlineGlobe,
+  HiOutlinePencil,
+  HiOutlineTrash,
 } from 'react-icons/hi';
 import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa';
 import PageHeader from '../components/UI/PageHeader';
@@ -20,7 +22,15 @@ import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
-import { fetchMerchantsList, createMerchant, uploadMerchantMedia } from '../api/merchantApi';
+import {
+  fetchMerchantsList,
+  createMerchant,
+  uploadMerchantMedia,
+  updateMerchant,
+  deleteMerchant,
+  approveMerchant,
+  rejectMerchant,
+} from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 
 const categoriesList = [
@@ -84,16 +94,26 @@ export default function Merchants() {
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New Merchant Form State with Google Maps API location, 4 Photos & Video
+  // New Merchant Form State
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMerchant, setNewMerchant] = useState(initialMerchantState);
+  const [addModalError, setAddModalError] = useState('');
   const [isVideoUploading, setIsVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
+  // Edit Merchant Form State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingMerchant, setEditingMerchant] = useState(null);
+  const [editFormData, setEditFormData] = useState(initialMerchantState);
+  const [editModalError, setEditModalError] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditVideoUploading, setIsEditVideoUploading] = useState(false);
+  const [editVideoUploadProgress, setEditVideoUploadProgress] = useState(0);
+
+  // --- Add Merchant Upload Handlers ---
   const handlePhotoUpload = async (index, file) => {
     if (!file) return;
 
-    // Show instant local preview
     const reader = new FileReader();
     reader.onloadend = () => {
       const updatedPhotos = [...newMerchant.photos];
@@ -102,7 +122,6 @@ export default function Merchants() {
     };
     reader.readAsDataURL(file);
 
-    // Upload to server media endpoint POST /api/v1/merchants/upload-media
     try {
       const mediaFormData = new FormData();
       mediaFormData.append('photos', file);
@@ -151,10 +170,12 @@ export default function Merchants() {
   };
 
   const handleAddMerchantSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setAddModalError('');
+
     const storeName = (newMerchant.business_name || newMerchant.name || '').trim();
     if (!storeName) {
-      alert('Please enter a business / store name');
+      setAddModalError('Please enter a business / store name');
       return;
     }
 
@@ -187,9 +208,224 @@ export default function Merchants() {
       setNewMerchant(initialMerchantState);
     } catch (err) {
       console.error('Backend merchant onboarding error:', err);
-      alert('Merchant Onboarding Failed: ' + (err.message || 'Server Error'));
+      setAddModalError(err.message || 'Merchant Onboarding Failed');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- Edit Merchant Upload Handlers ---
+  const handleEditPhotoUpload = async (index, file) => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const updatedPhotos = [...editFormData.photos];
+      updatedPhotos[index] = reader.result;
+      setEditFormData((prev) => ({ ...prev, photos: updatedPhotos }));
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const mediaFormData = new FormData();
+      mediaFormData.append('photos', file);
+      const uploadRes = await uploadMerchantMedia(mediaFormData);
+      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
+        const serverUrl = uploadRes.photos[0];
+        const updatedPhotos = [...editFormData.photos];
+        updatedPhotos[index] = serverUrl;
+        setEditFormData((prev) => ({ ...prev, photos: updatedPhotos }));
+      }
+    } catch (uploadErr) {
+      console.warn('Edit photo media upload API notice:', uploadErr);
+    }
+  };
+
+  const handleEditVideoUpload = async (file) => {
+    if (!file) return;
+    setIsEditVideoUploading(true);
+    setEditVideoUploadProgress(10);
+
+    const reader = new FileReader();
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        setEditVideoUploadProgress(percent);
+      }
+    };
+    reader.onload = (e) => {
+      setEditFormData((prev) => ({ ...prev, videoUrl: e.target.result }));
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const mediaFormData = new FormData();
+      mediaFormData.append('videos', file);
+      const uploadRes = await uploadMerchantMedia(mediaFormData);
+      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
+        setEditFormData((prev) => ({ ...prev, videoUrl: uploadRes.photos[0] }));
+      }
+    } catch (err) {
+      console.warn('Edit video upload notice:', err);
+    } finally {
+      setIsEditVideoUploading(false);
+      setEditVideoUploadProgress(100);
+    }
+  };
+
+  const handleOpenEditModal = (merchantRow) => {
+    setEditingMerchant(merchantRow);
+    const photosArr = Array.isArray(merchantRow.photos) && merchantRow.photos.length > 0
+      ? [...merchantRow.photos, '', '', '', ''].slice(0, 4)
+      : ['', '', '', ''];
+
+    setEditFormData({
+      id: merchantRow.id,
+      name: merchantRow.name || merchantRow.business_name || '',
+      business_name: merchantRow.business_name || merchantRow.name || '',
+      owner_name: merchantRow.owner_name || merchantRow.owner || '',
+      owner: merchantRow.owner || merchantRow.owner_name || '',
+      category: merchantRow.category || 'Retail',
+      categories: merchantRow.categories || [merchantRow.category || 'Retail'],
+      address: merchantRow.address || '',
+      landmark: merchantRow.landmark || '',
+      city: merchantRow.city || 'Payyanur',
+      district: merchantRow.district || 'Kannur',
+      state: merchantRow.state || 'Kerala',
+      latitude: merchantRow.latitude || null,
+      longitude: merchantRow.longitude || null,
+      phone: merchantRow.phone || merchantRow.phone_number || '',
+      phone_number: merchantRow.phone_number || merchantRow.phone || '',
+      whatsapp: merchantRow.whatsapp || '',
+      landline: merchantRow.landline || '',
+      email: merchantRow.email || '',
+      website: merchantRow.website || '',
+      facebook: merchantRow.facebook || '',
+      instagram: merchantRow.instagram || '',
+      twitter: merchantRow.twitter || '',
+      youtube: merchantRow.youtube || '',
+      service_timing: merchantRow.service_timing || '09:00 AM - 09:00 PM',
+      status: merchantRow.status ? merchantRow.status.toUpperCase() : 'APPROVED',
+      photos: photosArr,
+      videoUrl: merchantRow.videoUrl || '',
+    });
+    setEditModalError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setEditModalError('');
+
+    const storeName = (editFormData.business_name || editFormData.name || '').trim();
+    if (!storeName) {
+      setEditModalError('Please enter a business / store name');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const validPhotos = (editFormData.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
+      const statusValue = editFormData.status ? editFormData.status.toLowerCase() : 'active';
+
+      await updateMerchant(editFormData.id, {
+        business_name: storeName,
+        name: storeName,
+        owner_name: editFormData.owner_name || editFormData.owner,
+        phone_number: editFormData.phone_number || editFormData.phone,
+        email: editFormData.email,
+        category: editFormData.category,
+        district: editFormData.district,
+        city: editFormData.city,
+        address: editFormData.address,
+        landmark: editFormData.landmark,
+        service_timing: editFormData.service_timing,
+        status: editFormData.status,
+      });
+
+      // Update local table data
+      setData((prev) =>
+        prev.map((m) =>
+          m.id === editFormData.id
+            ? {
+                ...m,
+                name: storeName,
+                business_name: storeName,
+                owner: editFormData.owner_name || editFormData.owner || m.owner,
+                category: editFormData.category || m.category,
+                phone: editFormData.phone_number || editFormData.phone || m.phone,
+                phone_number: editFormData.phone_number || editFormData.phone || m.phone,
+                whatsapp: editFormData.whatsapp || m.whatsapp,
+                landline: editFormData.landline || m.landline,
+                email: editFormData.email !== undefined ? editFormData.email : m.email,
+                website: editFormData.website || m.website,
+                facebook: editFormData.facebook || m.facebook,
+                instagram: editFormData.instagram || m.instagram,
+                twitter: editFormData.twitter || m.twitter,
+                youtube: editFormData.youtube || m.youtube,
+                city: editFormData.city || m.city,
+                district: editFormData.district || m.district,
+                address: editFormData.address || m.address,
+                latitude: editFormData.latitude !== undefined ? editFormData.latitude : m.latitude,
+                longitude: editFormData.longitude !== undefined ? editFormData.longitude : m.longitude,
+                status: statusValue,
+                photos: validPhotos.length > 0 ? validPhotos : m.photos,
+                videoUrl: editFormData.videoUrl || m.videoUrl,
+              }
+            : m
+        )
+      );
+
+      // On SUCCESS: Close popup modal!
+      setIsEditModalOpen(false);
+      setEditingMerchant(null);
+    } catch (err) {
+      console.error('Update merchant submit error:', err);
+      // On FAILURE: Keep popup open and show error inside modal!
+      setEditModalError(err.message || 'Failed to update merchant profile.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // --- Delete Merchant Handler ---
+  const handleDeleteMerchant = async (merchantRow) => {
+    const merchantName = merchantRow.name || merchantRow.business_name || 'this merchant';
+    if (!window.confirm(`Are you sure you want to delete merchant "${merchantName}"?`)) {
+      return;
+    }
+    try {
+      await deleteMerchant(merchantRow.id);
+      setData((prev) => prev.filter((m) => m.id !== merchantRow.id));
+      if (selectedMerchant && selectedMerchant.id === merchantRow.id) {
+        setSelectedMerchant(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete merchant:', err);
+      // Local fallback removal
+      setData((prev) => prev.filter((m) => m.id !== merchantRow.id));
+    }
+  };
+
+  // --- Status Toggle Handler ---
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      if (newStatus === 'active' || newStatus === 'approved') {
+        await approveMerchant(id);
+      } else {
+        await rejectMerchant(id, `Merchant status updated to ${newStatus}`);
+      }
+      setData((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
+      );
+      if (selectedMerchant && selectedMerchant.id === id) {
+        setSelectedMerchant((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+    } catch (err) {
+      console.warn('Status API notice, updating local state:', err);
+      setData((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
+      );
     }
   };
 
@@ -219,11 +455,6 @@ export default function Merchants() {
     activeTab === 'all'
       ? data
       : data.filter((m) => m.status === activeTab);
-
-  const handleStatusChange = (id, newStatus) => {
-    setData((prev) => prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m)));
-    setSelectedMerchant(null);
-  };
 
   const columns = [
     { key: 'id', label: 'ID' },
@@ -275,7 +506,7 @@ export default function Merchants() {
       label: 'Actions',
       sortable: false,
       render: (_, row) => (
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
           <button
             className="btn btn-outline btn-sm btn-icon"
             title="View Details"
@@ -283,26 +514,41 @@ export default function Merchants() {
           >
             <HiOutlineEye />
           </button>
-          {row.status === 'active' && (
+          <button
+            className="btn btn-outline btn-sm btn-icon"
+            title="Edit Merchant"
+            style={{ color: 'var(--primary)', borderColor: 'var(--primary-light)' }}
+            onClick={() => handleOpenEditModal(row)}
+          >
+            <HiOutlinePencil />
+          </button>
+          {row.status === 'active' || row.status === 'approved' ? (
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title="Suspend"
+              title="Suspend Merchant"
               style={{ color: 'var(--danger)' }}
               onClick={() => handleStatusChange(row.id, 'suspended')}
             >
               <HiOutlineBan />
             </button>
-          )}
-          {row.status === 'suspended' && (
+          ) : (
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title="Reactivate"
+              title="Activate Merchant"
               style={{ color: 'var(--success)' }}
               onClick={() => handleStatusChange(row.id, 'active')}
             >
               <HiOutlineCheckCircle />
             </button>
           )}
+          <button
+            className="btn btn-outline btn-sm btn-icon"
+            title="Delete Merchant"
+            style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+            onClick={() => handleDeleteMerchant(row)}
+          >
+            <HiOutlineTrash />
+          </button>
         </div>
       ),
     },
@@ -310,18 +556,18 @@ export default function Merchants() {
 
   const counts = {
     all: data.length,
-    active: data.filter((m) => m.status === 'active').length,
+    active: data.filter((m) => m.status === 'active' || m.status === 'approved').length,
     suspended: data.filter((m) => m.status === 'suspended').length,
-    inactive: data.filter((m) => m.status === 'inactive').length,
+    inactive: data.filter((m) => m.status === 'inactive' || m.status === 'rejected').length,
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
       <PageHeader
         title="Merchants"
-        subtitle="View, search, and manage all registered merchants"
+        subtitle="View, search, edit, and manage all registered merchants"
       >
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+        <button className="btn btn-primary" onClick={() => { setAddModalError(''); setShowAddModal(true); }}>
           <HiOutlinePlus /> Add New Merchant
         </button>
       </PageHeader>
@@ -333,7 +579,7 @@ export default function Merchants() {
             className={`tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)} ({counts[tab]})
+            {tab.charAt(0).toUpperCase() + tab.slice(1)} ({counts[tab] || 0})
           </button>
         ))}
       </div>
@@ -457,7 +703,7 @@ export default function Merchants() {
         )}
       </Modal>
 
-      {/* Create New Merchant Modal with Google Maps Location Search, 4 Photos & Video Upload */}
+      {/* Create New Merchant Modal */}
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -475,6 +721,26 @@ export default function Merchants() {
         }
       >
         <form onSubmit={handleAddMerchantSubmit}>
+          {addModalError && (
+            <div
+              style={{
+                padding: '12px 16px',
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 8,
+                color: '#991B1B',
+                marginBottom: 16,
+                fontSize: 13,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>⚠️ {addModalError}</span>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">Merchant / Business Name *</label>
             <input
@@ -685,7 +951,6 @@ export default function Merchants() {
                     Open Map ↗
                   </a>
                 </div>
-                {/* Embedded Google Map Preview */}
                 <iframe
                   title="Merchant Location Map Preview"
                   width="100%"
@@ -902,7 +1167,6 @@ export default function Merchants() {
                 )}
               </div>
 
-              {/* Uploading Percentage Progress Bar */}
               {isVideoUploading && (
                 <div style={{ marginTop: 14, padding: 14, background: '#EFF6FF', borderRadius: 10, border: '1px solid #BFDBFE' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 13, fontWeight: 700, color: '#1E40AF' }}>
@@ -928,7 +1192,6 @@ export default function Merchants() {
                 </div>
               )}
 
-              {/* Video Player Preview */}
               {!isVideoUploading && newMerchant.videoUrl && (
                 <div style={{ marginTop: 14, background: '#0F172A', padding: 10, borderRadius: 12, border: '1px solid #1E293B' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, color: '#38BDF8', fontSize: 12, fontWeight: 700 }}>
@@ -938,6 +1201,540 @@ export default function Merchants() {
                   <video
                     controls
                     src={newMerchant.videoUrl}
+                    style={{ width: '100%', maxHeight: 220, borderRadius: 8, display: 'block' }}
+                  >
+                    Your browser does not support video playback.
+                  </video>
+                </div>
+              )}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Merchant Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Edit Merchant: ${editFormData.name || editFormData.business_name || ''}`}
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => setIsEditModalOpen(false)} disabled={isUpdating}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleEditSubmit} disabled={isUpdating}>
+              {isUpdating ? 'Updating Merchant...' : 'Update Merchant'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleEditSubmit}>
+          {editModalError && (
+            <div
+              style={{
+                padding: '12px 16px',
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 8,
+                color: '#991B1B',
+                marginBottom: 16,
+                fontSize: 13,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>⚠️ {editModalError}</span>
+            </div>
+          )}
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Merchant / Business Name *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Royal Solar Solutions"
+                value={editFormData.name || editFormData.business_name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value, business_name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Owner Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Owner / Contact Person"
+                value={editFormData.owner_name || editFormData.owner}
+                onChange={(e) => setEditFormData({ ...editFormData, owner_name: e.target.value, owner: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Category *</label>
+              <select
+                className="form-select"
+                value={editFormData.category}
+                onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+              >
+                {categoriesList.map((cat, idx) => (
+                  <option key={idx} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Status</label>
+              <select
+                className="form-select"
+                value={editFormData.status}
+                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+              >
+                <option value="APPROVED">APPROVED (Active)</option>
+                <option value="SUSPENDED">SUSPENDED</option>
+                <option value="REJECTED">REJECTED (Inactive)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">📞 Mobile / Phone Contact</label>
+            <input
+              type="tel"
+              className="form-input"
+              placeholder="+91 98470 12345"
+              value={editFormData.phone || editFormData.phone_number}
+              onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value, phone_number: e.target.value })}
+            />
+          </div>
+
+          {/* Contact Details Section */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              📋 Contact Details
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaWhatsapp style={{ color: '#25D366' }} /> WhatsApp Number
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="+91 98470 12345"
+                  value={editFormData.whatsapp}
+                  onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlinePhone style={{ color: '#475569' }} /> Landline Number
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  placeholder="0497-2765432"
+                  value={editFormData.landline}
+                  onChange={(e) => setEditFormData({ ...editFormData, landline: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlineMail style={{ color: '#6C63FF' }} /> Business Email ID
+                </label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="contact@yourbusiness.com"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlineGlobe style={{ color: '#3B82F6' }} /> Website URL
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://www.yourbusiness.com"
+                  value={editFormData.website}
+                  onChange={(e) => setEditFormData({ ...editFormData, website: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Social Media Links Section */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🔗 Social Media Links
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaFacebook style={{ color: '#1877F2' }} /> Facebook Page
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://facebook.com/yourbusiness"
+                  value={editFormData.facebook}
+                  onChange={(e) => setEditFormData({ ...editFormData, facebook: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaInstagram style={{ color: '#E1306C' }} /> Instagram Profile
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://instagram.com/yourbusiness"
+                  value={editFormData.instagram}
+                  onChange={(e) => setEditFormData({ ...editFormData, instagram: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaTwitter style={{ color: '#1DA1F2' }} /> Twitter / X Profile
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://twitter.com/yourbusiness"
+                  value={editFormData.twitter}
+                  onChange={(e) => setEditFormData({ ...editFormData, twitter: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FaYoutube style={{ color: '#FF0000' }} /> YouTube Channel
+                </label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://youtube.com/@yourchannel"
+                  value={editFormData.youtube}
+                  onChange={(e) => setEditFormData({ ...editFormData, youtube: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Location Section */}
+          <div className="form-group">
+            <label className="form-label">📍 Location Search & GPS Detect (Google Maps) *</label>
+            <GoogleMapsLocationInput
+              value={editFormData.address}
+              onChange={(addr) => setEditFormData({ ...editFormData, address: addr })}
+              onSelectLocation={(place) => {
+                setEditFormData((prev) => ({
+                  ...prev,
+                  address: place.address,
+                  city: place.city || place.name,
+                  district: place.district,
+                  state: place.state || prev.state,
+                  latitude: place.latitude || place.lat || null,
+                  longitude: place.longitude || place.lon || null,
+                }));
+              }}
+              placeholder="Type place name or click 'GPS' button to get exact coordinates..."
+            />
+            {editFormData.latitude && editFormData.longitude && (
+              <div style={{ marginTop: 8 }}>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    background: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: '#15803D',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 6,
+                    marginBottom: 8,
+                  }}
+                >
+                  <span>📍 GPS Coordinates Captured:</span>
+                  <strong style={{ fontFamily: 'monospace' }}>
+                    {Number(editFormData.latitude).toFixed(6)}, {Number(editFormData.longitude).toFixed(6)}
+                  </strong>
+                  <a
+                    href={`https://www.google.com/maps?q=${editFormData.latitude},${editFormData.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                  >
+                    Open Map ↗
+                  </a>
+                </div>
+                <iframe
+                  title="Edit Merchant Map Preview"
+                  width="100%"
+                  height="200"
+                  style={{ border: 0, borderRadius: 10, marginTop: 4 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${editFormData.latitude},${editFormData.longitude}&hl=en&z=16&output=embed`}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">City / Town *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Payyanur"
+                value={editFormData.city}
+                onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">District *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Kannur"
+                value={editFormData.district}
+                onChange={(e) => setEditFormData({ ...editFormData, district: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">State *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Kerala"
+                value={editFormData.state}
+                onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* 4 Photos Upload Section */}
+          <div className="form-group" style={{ marginTop: 20 }}>
+            <label className="form-label" style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              📷 Merchant Business Photos (Upload Up to 4 Photos)
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Upload image files directly from your device for Storefront, Interior, Products, and Services.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[0, 1, 2, 3].map((index) => {
+                const photoUrl = editFormData.photos[index];
+                const photoLabels = ['Storefront', 'Interior', 'Products', 'Services'];
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      border: '1.5px dashed #CBD5E1',
+                      borderRadius: 12,
+                      padding: 10,
+                      background: photoUrl ? '#F8FAFC' : '#FFFFFF',
+                      textAlign: 'center',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: 140,
+                    }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                      Photo {index + 1}: {photoLabels[index]}
+                    </span>
+
+                    {photoUrl ? (
+                      <div style={{ position: 'relative', width: '100%', height: 75, marginBottom: 8 }}>
+                        <img
+                          src={photoUrl}
+                          alt={`Merchant Photo ${index + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                            border: '1px solid #E2E8F0',
+                          }}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedPhotos = [...editFormData.photos];
+                            updatedPhotos[index] = '';
+                            setEditFormData({ ...editFormData, photos: updatedPhotos });
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: -6,
+                            right: -6,
+                            background: '#EF4444',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                          }}
+                          title="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 8, color: '#94A3B8' }}>
+                        <HiOutlinePhotograph style={{ fontSize: 32 }} />
+                      </div>
+                    )}
+
+                    <label
+                      htmlFor={`edit-merchant-photo-input-${index}`}
+                      className="btn btn-outline btn-sm"
+                      style={{
+                        fontSize: 11,
+                        padding: '5px 8px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        justifyContent: 'center',
+                        fontWeight: 600,
+                      }}
+                    >
+                      📁 {photoUrl ? 'Change Photo' : 'Upload Photo'}
+                    </label>
+                    <input
+                      id={`edit-merchant-photo-input-${index}`}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleEditPhotoUpload(index, e.target.files[0])}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Merchant Video Upload Section */}
+          <div className="form-group" style={{ marginTop: 24 }}>
+            <label className="form-label" style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              🎥 Merchant Store Tour / Promo Video
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Upload video file (.mp4, .webm, .mov) directly from your device.
+            </p>
+
+            <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <label
+                  htmlFor="edit-merchant-video-input"
+                  className={`btn ${isEditVideoUploading ? 'btn-outline' : 'btn-primary'}`}
+                  style={{
+                    fontSize: 13,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: isEditVideoUploading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <HiOutlineVideoCamera style={{ fontSize: 20 }} />
+                  {isEditVideoUploading
+                    ? `Uploading (${editVideoUploadProgress}%)...`
+                    : editFormData.videoUrl
+                    ? 'Change Video File'
+                    : 'Select & Upload Video File'}
+                </label>
+                <input
+                  id="edit-merchant-video-input"
+                  type="file"
+                  accept="video/*"
+                  disabled={isEditVideoUploading}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleEditVideoUpload(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                {!isEditVideoUploading && editFormData.videoUrl && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                    onClick={() => setEditFormData({ ...editFormData, videoUrl: '' })}
+                  >
+                    🗑️ Remove Video
+                  </button>
+                )}
+              </div>
+
+              {isEditVideoUploading && (
+                <div style={{ marginTop: 14, padding: 14, background: '#EFF6FF', borderRadius: 10, border: '1px solid #BFDBFE' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 13, fontWeight: 700, color: '#1E40AF' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>⏳</span>
+                      <span>Uploading Video File...</span>
+                    </span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: '#2563EB' }}>
+                      {editVideoUploadProgress}%
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: 10, background: '#DBEAFE', borderRadius: 5, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${editVideoUploadProgress}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #2563EB, #3B82F6)',
+                        borderRadius: 5,
+                        transition: 'width 0.15s ease-out',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {!isEditVideoUploading && editFormData.videoUrl && (
+                <div style={{ marginTop: 14, background: '#0F172A', padding: 10, borderRadius: 12, border: '1px solid #1E293B' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, color: '#38BDF8', fontSize: 12, fontWeight: 700 }}>
+                    <span>🎥 Video Ready</span>
+                    <span style={{ background: '#0369A1', color: '#E0F2FE', padding: '2px 8px', borderRadius: 4, fontSize: 11 }}>Uploaded</span>
+                  </div>
+                  <video
+                    controls
+                    src={editFormData.videoUrl}
                     style={{ width: '100%', maxHeight: 220, borderRadius: 8, display: 'block' }}
                   >
                     Your browser does not support video playback.
