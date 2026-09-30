@@ -266,21 +266,32 @@ export async function updateAdminOrStaffAccount(userId, updatedData) {
     status: updatedData.status || undefined,
   };
 
-  try {
-    const response = await apiFetch(`/api/v1/admin/users/${cleanId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
+  const response = await apiFetch(`/api/v1/admin/users/${cleanId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || data.detail || 'Failed to update user account');
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.success === false) {
+    let errorMsg = '';
+    if (typeof data.detail === 'string') {
+      errorMsg = data.detail;
+    } else if (Array.isArray(data.detail)) {
+      errorMsg = data.detail
+        .map((item) => (typeof item === 'object' ? item.msg || item.message : String(item)))
+        .join(', ');
+    } else if (data.message) {
+      errorMsg = data.message;
     }
-    return data;
-  } catch (err) {
-    console.warn('Backend user update notice:', err);
-    return { success: true, localOnly: true, ...updatedData };
+
+    if (!errorMsg) {
+      errorMsg = `Failed to update user account (Status ${response.status})`;
+    }
+    throw new Error(errorMsg);
   }
+
+  return data;
 }
 
 
