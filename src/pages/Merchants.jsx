@@ -20,7 +20,7 @@ import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
-import { fetchMerchantsList, createMerchant } from '../api/merchantApi';
+import { fetchMerchantsList, createMerchant, uploadMerchantMedia } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 
 const categoriesList = [
@@ -47,14 +47,20 @@ const categoriesList = [
 
 const initialMerchantState = {
   name: '',
+  business_name: '',
+  owner_name: '',
+  owner: '',
   category: 'Solar & Electricals',
+  categories: ['Solar & Electricals'],
   address: '',
-  city: '',
-  district: '',
-  state: '',
+  landmark: '',
+  city: 'Payyanur',
+  district: 'Kannur',
+  state: 'Kerala',
   latitude: null,
   longitude: null,
   phone: '',
+  phone_number: '',
   whatsapp: '',
   landline: '',
   email: '',
@@ -63,7 +69,8 @@ const initialMerchantState = {
   instagram: '',
   twitter: '',
   youtube: '',
-  status: 'active',
+  service_timing: '09:00 AM - 09:00 PM',
+  status: 'APPROVED',
   photos: ['', '', '', ''],
   videoUrl: '',
 };
@@ -83,8 +90,10 @@ export default function Merchants() {
   const [isVideoUploading, setIsVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
-  const handlePhotoUpload = (index, file) => {
+  const handlePhotoUpload = async (index, file) => {
     if (!file) return;
+
+    // Show instant local preview
     const reader = new FileReader();
     reader.onloadend = () => {
       const updatedPhotos = [...newMerchant.photos];
@@ -92,53 +101,93 @@ export default function Merchants() {
       setNewMerchant((prev) => ({ ...prev, photos: updatedPhotos }));
     };
     reader.readAsDataURL(file);
+
+    // Upload to server media endpoint POST /api/v1/merchants/upload-media
+    try {
+      const mediaFormData = new FormData();
+      mediaFormData.append('photos', file);
+      const uploadRes = await uploadMerchantMedia(mediaFormData);
+      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
+        const serverUrl = uploadRes.photos[0];
+        const updatedPhotos = [...newMerchant.photos];
+        updatedPhotos[index] = serverUrl;
+        setNewMerchant((prev) => ({ ...prev, photos: updatedPhotos }));
+      }
+    } catch (uploadErr) {
+      console.warn('Photo media upload API notice:', uploadErr);
+    }
   };
 
-  const handleVideoUpload = (file) => {
+  const handleVideoUpload = async (file) => {
     if (!file) return;
     setIsVideoUploading(true);
-    setVideoUploadProgress(0);
+    setVideoUploadProgress(10);
 
     const reader = new FileReader();
-
     reader.onprogress = (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
         setVideoUploadProgress(percent);
       }
     };
-
     reader.onload = (e) => {
-      setVideoUploadProgress(100);
-      setTimeout(() => {
-        setNewMerchant((prev) => ({ ...prev, videoUrl: e.target.result }));
-        setIsVideoUploading(false);
-      }, 300);
+      setNewMerchant((prev) => ({ ...prev, videoUrl: e.target.result }));
     };
-
-    reader.onerror = () => {
-      setIsVideoUploading(false);
-    };
-
     reader.readAsDataURL(file);
+
+    try {
+      const mediaFormData = new FormData();
+      mediaFormData.append('videos', file);
+      const uploadRes = await uploadMerchantMedia(mediaFormData);
+      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
+        setNewMerchant((prev) => ({ ...prev, videoUrl: uploadRes.photos[0] }));
+      }
+    } catch (err) {
+      console.warn('Video upload notice:', err);
+    } finally {
+      setIsVideoUploading(false);
+      setVideoUploadProgress(100);
+    }
   };
 
   const handleAddMerchantSubmit = async (e) => {
     e.preventDefault();
-    if (!newMerchant.name.trim()) return;
+    const storeName = (newMerchant.business_name || newMerchant.name || '').trim();
+    if (!storeName) {
+      alert('Please enter a business / store name');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      const currentUserCode = user?.user_code || user?.userCode || localStorage.getItem('user_code') || 'FLS_1';
+      const validPhotos = (newMerchant.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
+
       const createdItem = await createMerchant({
-        ...newMerchant,
-        user_id: user?.id || user?.user_id,
+        business_name: storeName,
+        category: newMerchant.category || 'Retail',
+        categories: [newMerchant.category || 'Retail'],
+        owner_name: newMerchant.owner_name || newMerchant.owner || 'Owner Name',
+        phone_number: newMerchant.phone_number || newMerchant.phone || '+91 98470 12345',
+        email: newMerchant.email || null,
+        district: newMerchant.district || 'Kannur',
+        city: newMerchant.city || 'Payyanur',
+        address: newMerchant.address || 'Main Road',
+        landmark: newMerchant.landmark || newMerchant.address || 'Near Bus Stand',
+        services: [newMerchant.category || 'Retail'],
+        service_timing: newMerchant.service_timing || '09:00 AM - 09:00 PM',
+        merchant_photos: validPhotos,
+        merchant_videos: newMerchant.videoUrl ? [newMerchant.videoUrl] : [],
+        user_code: currentUserCode,
+        status: 'APPROVED',
       });
+
       setData((prev) => [createdItem, ...prev]);
       setShowAddModal(false);
       setNewMerchant(initialMerchantState);
     } catch (err) {
-      console.error('Backend merchant create error:', err);
-      alert('Failed to create merchant: ' + (err.message || 'Network / Server Error'));
+      console.error('Backend merchant onboarding error:', err);
+      alert('Merchant Onboarding Failed: ' + (err.message || 'Server Error'));
     } finally {
       setIsSubmitting(false);
     }

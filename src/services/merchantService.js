@@ -2,7 +2,7 @@ import { apiFetch } from '../api/apiClient';
 import { STATIC_BASE_URL } from '../config/apiConfig';
 
 /**
- * Helper to ensure image URLs are fully qualified static URLs
+ * Format media URLs into absolute static URLs
  */
 export function formatMediaUrl(url) {
   if (!url) return '';
@@ -14,138 +14,31 @@ export function formatMediaUrl(url) {
 }
 
 /**
- * Merchant Service — Module 2 (Merchant Onboarding & Management)
+ * Merchant Service — Module 2 (Merchant Management & Onboarding APIs)
  */
 export const merchantService = {
   /**
-   * Merchant Onboarding (Full Form Submission): POST /api/v1/merchants/onboarding
+   * 1. GET ALL MERCHANTS: GET /api/v1/merchants?user_code=...&category=...&location=...
    */
-  async onboardMerchant(data) {
-    const categories = Array.isArray(data.categories) && data.categories.length > 0
-      ? data.categories
-      : [data.category || 'Retail'];
-
-    const photos = Array.isArray(data.photos) ? data.photos.map(formatMediaUrl) : [];
-    const highlights = Array.isArray(data.key_highlights)
-      ? data.key_highlights
-      : Array.isArray(data.highlights)
-      ? data.highlights
-      : ['Quality Service', 'Customer Support'];
-
-    const payload = {
-      business_name: data.business_name || data.name || '',
-      owner_name: data.owner_name || data.owner || data.contact_person || 'Owner',
-      category: data.category || categories[0],
-      categories: categories,
-      phone: data.phone || data.phone_number || '',
-      phone_number: data.phone || data.phone_number || '',
-      whatsapp: data.whatsapp || data.phone || '',
-      email: data.email || null,
-      address: data.address || `${data.city || 'Payyanur'}, ${data.district || 'Kannur'}`,
-      city: data.city || 'Payyanur',
-      district: data.district || 'Kannur',
-      state: data.state || 'Kerala',
-      location: data.location || data.address || `${data.city || 'Payyanur'}, ${data.district || 'Kannur'}`,
-      landmark: data.landmark || data.address || '',
-      latitude: data.latitude || data.lat ? Number(data.latitude || data.lat) : null,
-      longitude: data.longitude || data.lon || data.lng ? Number(data.longitude || data.lon || data.lng) : null,
-      about: data.about || data.description || 'Verified merchant listing on Logo My Locality.',
-      rating: data.rating ? Number(data.rating) : 5.0,
-      reviews_count: data.reviews_count || data.reviews ? Number(data.reviews_count || data.reviews) : 1,
-      key_highlights: highlights,
-      website: data.website || '',
-      facebook: data.facebook || '',
-      instagram: data.instagram || '',
-      twitter: data.twitter || '',
-      youtube: data.youtube || '',
-      photos: photos,
-      merchant_photos: photos,
-      verification_documents: data.verification_documents || [],
-      merchant_videos: data.videoUrl ? [data.videoUrl] : [],
-      status: data.status || 'APPROVED',
-      user_code: data.user_code || data.userCode || localStorage.getItem('user_code') || '',
-    };
-
-    let response;
-    // Try primary /onboarding route, then fallback to /onboard
-    try {
-      response = await apiFetch('/api/v1/merchants/onboarding', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok && response.status === 404) {
-        response = await apiFetch('/api/v1/merchants/onboard', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-      }
-    } catch (err) {
-      response = await apiFetch('/api/v1/merchants/onboard', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    }
-
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Merchant onboarding failed');
-    }
-
-    return resData.data || resData.merchant || resData;
-  },
-
-  /**
-   * Media Upload (Images, Videos, Verification Docs): POST /api/v1/merchants/upload-media
-   */
-  async uploadMedia(formData) {
-    const response = await apiFetch('/api/v1/merchants/upload-media', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to upload media files');
-    }
-
-    const rawPhotos = resData.photos || resData.all_urls || resData.urls || resData.files || [];
-    const formattedPhotos = rawPhotos.map(formatMediaUrl);
-
-    return {
-      message: resData.message || 'Media uploaded successfully',
-      photos: formattedPhotos,
-      all_urls: formattedPhotos,
-      total_files: resData.total_files || formattedPhotos.length,
-      raw: resData,
-    };
-  },
-
-  /**
-   * Get Merchant Listing: GET /api/v1/merchants
-   */
-  async getMerchants(params = {}) {
+  async getMerchants({ user_code, category, location, skip, limit } = {}) {
     const query = new URLSearchParams();
-    if (params.category) query.append('category', params.category);
-    if (params.location) query.append('location', params.location);
-    if (params.skip !== undefined) query.append('skip', String(params.skip));
-    if (params.limit !== undefined) query.append('limit', String(params.limit));
-    if (params.user_code) query.append('user_code', params.user_code);
+    if (user_code) query.append('user_code', user_code);
+    if (category) query.append('category', category);
+    if (location) query.append('location', location);
+    if (skip !== undefined) query.append('skip', String(skip));
+    if (limit !== undefined) query.append('limit', String(limit));
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
     let response;
     try {
       response = await apiFetch(`/api/v1/merchants${queryString}`, { method: 'GET' });
-      if (!response.ok && response.status === 404) {
-        response = await apiFetch(`/api/v1/merchants/list${queryString}`, { method: 'GET' });
-      }
-    } catch {
-      response = await apiFetch(`/api/v1/merchants/list${queryString}`, { method: 'GET' });
+    } catch (err) {
+      console.error('Fetch merchants error:', err);
+      throw new Error('Unable to connect to merchant API server.');
     }
 
-    const resData = await response.json();
+    const resData = await response.json().catch(() => ({}));
 
     if (!response.ok || resData.success === false) {
       throw new Error(resData.message || resData.detail || 'Failed to fetch merchants');
@@ -160,48 +53,134 @@ export const merchantService = {
     return items.map((m, idx) => ({
       id: m.id || m.merchant_id || m._id || `MCH-${idx + 1}`,
       name: m.business_name || m.name || 'Merchant Store',
-      business_name: m.business_name || m.name,
-      owner: m.owner_name || m.contact_person || m.owner || 'Owner',
-      category: m.category || (m.categories && m.categories[0]) || 'Retail',
+      business_name: m.business_name || m.name || 'Merchant Store',
+      owner: m.owner_name || m.contact_person || m.owner || 'Owner Name',
+      owner_name: m.owner_name || m.contact_person || m.owner || 'Owner Name',
+      category: m.category || (Array.isArray(m.categories) && m.categories[0]) || 'Retail',
+      categories: Array.isArray(m.categories) ? m.categories : [m.category || 'Retail'],
       city: m.city || m.district || m.location || 'Payyanur',
       district: m.district || m.city || 'Kannur',
-      address: m.address || m.location || '',
+      address: m.address || m.location || 'Main Road',
+      landmark: m.landmark || m.address || '',
+      services: Array.isArray(m.services) ? m.services : [m.category || 'Retail'],
+      service_timing: m.service_timing || '09:00 AM - 09:00 PM',
       latitude: m.latitude || m.lat || null,
       longitude: m.longitude || m.lon || m.lng || null,
       rating: m.rating || 4.5,
       reviews: m.reviews_count || m.reviews || 0,
-      status: m.status ? m.status.toLowerCase() : 'active',
+      status: m.status ? m.status.toLowerCase() : 'approved',
       phone: m.phone || m.phone_number || m.mobile || '',
+      phone_number: m.phone_number || m.phone || m.mobile || '',
       whatsapp: m.whatsapp || m.phone || '',
       email: m.email || '',
       about: m.about || m.description || '',
       highlights: m.key_highlights || m.highlights || [],
-      photos: Array.isArray(m.photos) && m.photos.length > 0
-        ? m.photos.map(formatMediaUrl)
-        : Array.isArray(m.merchant_photos)
+      photos: Array.isArray(m.merchant_photos) && m.merchant_photos.length > 0
         ? m.merchant_photos.map(formatMediaUrl)
+        : Array.isArray(m.photos)
+        ? m.photos.map(formatMediaUrl)
         : [],
-      image: (m.photos && m.photos[0]) || (m.merchant_photos && m.merchant_photos[0]) || m.image || '',
+      merchant_photos: Array.isArray(m.merchant_photos) ? m.merchant_photos.map(formatMediaUrl) : [],
+      merchant_videos: Array.isArray(m.merchant_videos) ? m.merchant_videos : [],
+      image: (m.merchant_photos && m.merchant_photos[0]) || (m.photos && m.photos[0]) || m.image || '',
+      user_code: m.user_code || 'FLS_1',
     }));
   },
 
   /**
-   * Search Merchants: GET /api/v1/merchants/search
+   * 2. CREATE / ONBOARD MERCHANT: POST /api/v1/merchants/onboarding
    */
-  async searchMerchants(params = {}) {
-    const query = new URLSearchParams();
-    if (params.q) query.append('q', params.q);
-    if (params.location) query.append('location', params.location);
-    if (params.service) query.append('service', params.service);
-    if (params.category) query.append('category', params.category);
-    if (params.skip !== undefined) query.append('skip', String(params.skip));
-    if (params.limit !== undefined) query.append('limit', String(params.limit));
+  async onboardMerchant(data) {
+    const category = (data.category || (Array.isArray(data.categories) && data.categories[0]) || 'Retail').trim();
+    const categories = Array.isArray(data.categories) && data.categories.length > 0 ? data.categories : [category];
+    const services = Array.isArray(data.services) && data.services.length > 0 ? data.services : [category];
+    const photos = Array.isArray(data.merchant_photos)
+      ? data.merchant_photos
+      : Array.isArray(data.photos)
+      ? data.photos.filter((p) => p && typeof p === 'string')
+      : [];
+    const videos = Array.isArray(data.merchant_videos)
+      ? data.merchant_videos
+      : data.videoUrl
+      ? [data.videoUrl]
+      : [];
+    const userCode = data.user_code || data.userCode || localStorage.getItem('user_code') || 'FLS_1';
 
-    const response = await apiFetch(`/api/v1/merchants/search?${query.toString()}`, { method: 'GET' });
-    const resData = await response.json();
+    const payload = {
+      business_name: (data.business_name || data.name || 'Store Name').trim(),
+      category: category,
+      categories: categories,
+      owner_name: (data.owner_name || data.owner || 'Owner Name').trim(),
+      phone_number: (data.phone_number || data.phone || '+91 98470 12345').trim(),
+      email: data.email ? data.email.trim() : null,
+      district: (data.district || 'Kannur').trim(),
+      city: (data.city || 'Payyanur').trim(),
+      address: (data.address || 'Main Road').trim(),
+      landmark: (data.landmark || data.address || 'Near Bus Stand').trim(),
+      services: services,
+      service_timing: data.service_timing || '09:00 AM - 09:00 PM',
+      merchant_photos: photos,
+      merchant_videos: videos,
+      user_code: userCode,
+      status: (data.status || 'APPROVED').toUpperCase(),
+    };
+
+    const response = await apiFetch('/api/v1/merchants/onboarding', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    const resData = await response.json().catch(() => ({}));
 
     if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Search failed');
+      let errorMsg = '';
+      if (typeof resData.detail === 'string') {
+        errorMsg = resData.detail;
+      } else if (Array.isArray(resData.detail)) {
+        errorMsg = resData.detail
+          .map((item) => (typeof item === 'object' ? item.msg || item.message : String(item)))
+          .join(', ');
+      } else if (resData.message) {
+        errorMsg = resData.message;
+      }
+      throw new Error(errorMsg || `Merchant onboarding failed (Status ${response.status})`);
+    }
+
+    return resData.data || resData.merchant || resData;
+  },
+
+  /**
+   * 3. GET MERCHANT BY ID: GET /api/v1/merchants/{id}
+   */
+  async getMerchantById(id) {
+    const cleanId = String(id).replace(/^MCH-/, '');
+    const response = await apiFetch(`/api/v1/merchants/${cleanId}`, { method: 'GET' });
+    const resData = await response.json().catch(() => ({}));
+
+    if (!response.ok || resData.success === false) {
+      throw new Error(resData.message || resData.detail || `Failed to fetch merchant #${id}`);
+    }
+
+    return resData.data || resData.merchant || resData;
+  },
+
+  /**
+   * 4. SEARCH MERCHANTS: GET /api/v1/merchants/search?q=store&location=Kannur
+   */
+  async searchMerchants({ q, location, category, service, skip, limit } = {}) {
+    const query = new URLSearchParams();
+    if (q) query.append('q', q);
+    if (location) query.append('location', location);
+    if (category) query.append('category', category);
+    if (service) query.append('service', service);
+    if (skip !== undefined) query.append('skip', String(skip));
+    if (limit !== undefined) query.append('limit', String(limit));
+
+    const response = await apiFetch(`/api/v1/merchants/search?${query.toString()}`, { method: 'GET' });
+    const resData = await response.json().catch(() => ({}));
+
+    if (!response.ok || resData.success === false) {
+      throw new Error(resData.message || resData.detail || 'Merchant search failed');
     }
 
     let items = [];
@@ -213,79 +192,29 @@ export const merchantService = {
   },
 
   /**
-   * Get Merchant Details by ID: GET /api/v1/merchants/{merchant_id}
+   * 5. UPLOAD PHOTOS / MEDIA: POST /api/v1/merchants/upload-media (multipart/form-data with 'photos' or 'videos')
    */
-  async getMerchantById(merchantId) {
-    const response = await apiFetch(`/api/v1/merchants/${merchantId}`, { method: 'GET' });
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to fetch merchant details');
-    }
-
-    return resData.data || resData.merchant || resData;
-  },
-
-  /**
-   * Update Merchant Profile: PUT /api/v1/merchants/{merchant_id}
-   */
-  async updateMerchant(merchantId, data) {
-    const response = await apiFetch(`/api/v1/merchants/${merchantId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to update merchant profile');
-    }
-
-    return resData.data || resData.merchant || resData;
-  },
-
-  /**
-   * Approve Merchant: POST /api/v1/merchants/{merchant_id}/approve
-   */
-  async approveMerchant(merchantId) {
-    const response = await apiFetch(`/api/v1/merchants/${merchantId}/approve`, { method: 'POST' });
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to approve merchant');
-    }
-
-    return resData;
-  },
-
-  /**
-   * Reject Merchant: POST /api/v1/merchants/{merchant_id}/reject
-   */
-  async rejectMerchant(merchantId, rejectionReason = '') {
-    const response = await apiFetch(`/api/v1/merchants/${merchantId}/reject`, {
+  async uploadMedia(formData) {
+    const response = await apiFetch('/api/v1/merchants/upload-media', {
       method: 'POST',
-      body: JSON.stringify({ rejection_reason: rejectionReason }),
+      body: formData,
     });
-    const resData = await response.json();
+
+    const resData = await response.json().catch(() => ({}));
 
     if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to reject merchant');
+      throw new Error(resData.message || resData.detail || 'Failed to upload media files');
     }
 
-    return resData;
-  },
+    const rawPhotos = resData.photos || resData.all_urls || resData.urls || resData.files || [];
+    const formattedPhotos = rawPhotos.map(formatMediaUrl);
 
-  /**
-   * Location & Hierarchy Dropdown Data: GET /api/v1/merchants/regions
-   */
-  async getRegions() {
-    const response = await apiFetch('/api/v1/merchants/regions', { method: 'GET' });
-    const resData = await response.json();
-
-    if (!response.ok || resData.success === false) {
-      throw new Error(resData.message || resData.detail || 'Failed to fetch regions');
-    }
-
-    return resData.data || resData.regions || resData;
+    return {
+      message: resData.message || 'Media uploaded successfully',
+      photos: formattedPhotos,
+      all_urls: formattedPhotos,
+      raw: resData,
+    };
   },
 };
 
