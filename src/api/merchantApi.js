@@ -43,11 +43,21 @@ export function getCurrentUserCode() {
  * Fetch list of merchants from backend API (/api/v1/merchants/list?user_code=FLS_1)
  */
 export async function fetchMerchantsList(userIdParam, userCodeParam) {
-  const userCode = userCodeParam || getCurrentUserCode() || 'FLS_1';
-  const queryParam = `?user_code=${encodeURIComponent(userCode)}`;
+  let userCode = userCodeParam;
+  try {
+    const userStr = localStorage.getItem('logo_admin_user');
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      if (u.role === 'FIELD_STAFF' || u.role === 'Staff') {
+        userCode = userCode || u.user_code || u.userCode || 'FLS_1';
+      }
+    }
+  } catch (e) {}
 
-  // GET /api/v1/merchants/list?user_code=...
-  const response = await apiFetch(`/api/v1/merchants/list${queryParam}`, {
+  const queryParam = userCode ? `?user_code=${encodeURIComponent(userCode)}` : '';
+
+  // GET /api/v1/merchants or /api/v1/merchants?user_code=...
+  const response = await apiFetch(`/api/v1/merchants${queryParam}`, {
     method: 'GET',
   });
 
@@ -155,7 +165,7 @@ export async function createMerchant(merchantData) {
   };
 
   // Single direct POST request to onboard endpoint
-  response = await apiFetch('/api/v1/merchants/onboard', {
+  response = await apiFetch('/api/v1/merchants/onboarding', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -171,7 +181,7 @@ export async function createMerchant(merchantData) {
     );
   }
 
-  const created = resData.data || resData.merchant || resData;
+  const created = resData.merchant || resData.data?.merchant || resData.data || resData;
   return {
     id: created.id || created.merchant_id || `MCH-${Date.now()}`,
     name: created.business_name || created.name || payload.business_name,

@@ -7,11 +7,11 @@ export default defineConfig({
   server: {
     host: true, // Listen on all network interfaces (0.0.0.0) for local network access
     port: 5173,
-    allowedHosts: ['logo-frontend.onrender.com', '.onrender.com'],
+    allowedHosts: true,
   },
   preview: {
     host: true,
     port: 4173,
-    allowedHosts: ['logo-frontend.onrender.com', '.onrender.com'],
+    allowedHosts: true,
   },
 })

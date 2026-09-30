@@ -137,26 +137,8 @@ export default function Merchants() {
       setShowAddModal(false);
       setNewMerchant(initialMerchantState);
     } catch (err) {
-      console.warn('Backend merchant create notice:', err);
-      const validPhotos = newMerchant.photos.filter((p) => p && p.trim() !== '');
-      const fallbackItem = {
-        id: `m-${Date.now()}`,
-        name: newMerchant.name,
-        category: newMerchant.category,
-        city: newMerchant.city || newMerchant.district || 'Kannur',
-        address: newMerchant.address,
-        phone: newMerchant.phone || '+91 98470 12345',
-        rating: 5.0,
-        reviews: 1,
-        status: newMerchant.status,
-        joined: new Date().toISOString().split('T')[0],
-        photos: validPhotos,
-        videoUrl: newMerchant.videoUrl,
-        image: validPhotos[0] || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
-      };
-      setData((prev) => [fallbackItem, ...prev]);
-      setShowAddModal(false);
-      setNewMerchant(initialMerchantState);
+      console.error('Backend merchant create error:', err);
+      alert('Failed to create merchant: ' + (err.message || 'Network / Server Error'));
     } finally {
       setIsSubmitting(false);
     }
