@@ -23,19 +23,44 @@ export function getAuthHeaders(customHeaders = {}) {
  * Register a new Admin or Field Staff account via backend API.
  * @param {Object} payload - { name, email, phone, role, password, city }
  */
-export async function createAdminOrStaffAccount({ name, email, phone, role, password, city }) {
-  // 1. Register the user
-  const response = await apiFetch('/api/v1/auth/register', {
+export async function createAdminOrStaffAccount({ name, email, phone, role, password, city, district, regions, module_access, address }) {
+  const isStaff = role === 'Field Staff' || role === 'FIELD_STAFF';
+  const roleCode = isStaff ? 'FIELD_STAFF' : 'ADMIN';
+
+  const payload = {
+    name: name.trim(),
+    email: email.trim(),
+    phone: phone ? phone.trim() : '9847055667',
+    password: password ? password.trim() : 'Password123',
+    role: roleCode,
+    district: district || city || 'Kannur',
+    city: city || 'Payyanur',
+    regions: Array.isArray(regions) ? regions : [city || 'Payyanur North'],
+    module_access: Array.isArray(module_access) ? module_access : ['merchants', 'categories'],
+    send_email: true,
+    status: 'ACTIVE',
+    address: address || city || 'Payyanur, Kannur',
+    profile_picture: '',
+  };
+
+  let response = await apiFetch('/api/v1/admin/users', {
     method: 'POST',
-    body: JSON.stringify({
-      name: name.trim(),
-      email: email.trim(),
-      password: password.trim(),
-      phone: phone ? phone.trim() : null,
-      address: city ? city.trim() : null,
-      role: role === 'Field Staff' ? 'FIELD_STAFF' : role === 'Admin' ? 'ADMIN' : 'ADMIN',
-    }),
+    body: JSON.stringify(payload),
   });
+
+  if (!response.ok && response.status === 404) {
+    response = await apiFetch('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        email: payload.email,
+        password: payload.password,
+        phone: payload.phone,
+        address: payload.address,
+        role: payload.role,
+      }),
+    });
+  }
 
   const data = await response.json();
 
@@ -48,16 +73,16 @@ export async function createAdminOrStaffAccount({ name, email, phone, role, pass
     throw new Error(errorMsg);
   }
 
-  const createdUser = data.user || data.data?.user || data.data || {};
+  const createdUser = data.user || data.data?.user || data.data || data || {};
   const userId = createdUser.id || createdUser._id;
 
   return {
-    id: userId ? (role === 'Field Staff' ? `STF-${userId}` : `ADM-${userId}`) : `ADM-${Date.now()}`,
+    id: userId ? (isStaff ? `STF-${userId}` : `ADM-${userId}`) : `ADM-${Date.now()}`,
     name: createdUser.name || name,
     email: createdUser.email || email,
-    phone: createdUser.phone || phone || '+91 98765 43210',
+    phone: createdUser.phone || phone || '+91 98470 55667',
     city: city || 'Payyanur',
-    role: role,
+    role: isStaff ? 'Field Staff' : 'Admin',
     status: 'active',
     joined: new Date().toISOString().split('T')[0],
     searches: 0,

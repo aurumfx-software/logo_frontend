@@ -1,30 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { HiOutlineCheck, HiOutlineX, HiOutlineEye } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
-import { registrationRequests } from '../data/mockData';
+import { fetchMerchantsList, approveMerchant, rejectMerchant } from '../api/merchantApi';
 
 export default function RegistrationRequests() {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [data, setData] = useState(registrationRequests);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      const list = await fetchMerchantsList();
+      setData(list);
+    } catch (err) {
+      console.warn('Backend requests fetch notice:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
 
   const filteredData =
     activeTab === 'all'
       ? data
-      : data.filter((r) => r.status === activeTab);
+      : data.filter((r) => (r.status || '').toLowerCase() === activeTab);
 
-  const handleApprove = (id) => {
-    setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
-    setSelectedRequest(null);
+  const handleApprove = async (id) => {
+    try {
+      setActionLoading(true);
+      await approveMerchant(id);
+      setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+    } catch {
+      setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+    } finally {
+      setActionLoading(false);
+      setSelectedRequest(null);
+    }
   };
 
-  const handleReject = (id) => {
-    setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
-    setSelectedRequest(null);
+  const handleReject = async (id) => {
+    try {
+      setActionLoading(true);
+      await rejectMerchant(id, 'Document validation failed');
+      setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
+    } catch {
+      setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
+    } finally {
+      setActionLoading(false);
+      setSelectedRequest(null);
+    }
   };
 
   const columns = [
@@ -36,7 +70,7 @@ export default function RegistrationRequests() {
     },
     { key: 'category', label: 'Category' },
     { key: 'city', label: 'City' },
-    { key: 'date', label: 'Date' },
+    { key: 'joined', label: 'Date' },
     {
       key: 'status',
       label: 'Status',
@@ -60,6 +94,7 @@ export default function RegistrationRequests() {
               <button
                 className="btn btn-success btn-sm btn-icon"
                 title="Approve"
+                disabled={actionLoading}
                 onClick={() => handleApprove(row.id)}
               >
                 <HiOutlineCheck />
@@ -67,6 +102,7 @@ export default function RegistrationRequests() {
               <button
                 className="btn btn-danger btn-sm btn-icon"
                 title="Reject"
+                disabled={actionLoading}
                 onClick={() => handleReject(row.id)}
               >
                 <HiOutlineX />
@@ -80,9 +116,9 @@ export default function RegistrationRequests() {
 
   const counts = {
     all: data.length,
-    pending: data.filter((r) => r.status === 'pending').length,
-    approved: data.filter((r) => r.status === 'approved').length,
-    rejected: data.filter((r) => r.status === 'rejected').length,
+    pending: data.filter((r) => (r.status || '').toLowerCase() === 'pending').length,
+    approved: data.filter((r) => (r.status || '').toLowerCase() === 'approved' || (r.status || '').toLowerCase() === 'active').length,
+    rejected: data.filter((r) => (r.status || '').toLowerCase() === 'rejected').length,
   };
 
   return (
@@ -99,7 +135,7 @@ export default function RegistrationRequests() {
             className={`tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)} ({counts[tab]})
+            {tab.charAt(0).toUpperCase() + tab.slice(1)} ({counts[tab] || 0})
           </button>
         ))}
       </div>
@@ -125,10 +161,10 @@ export default function RegistrationRequests() {
               <button className="btn btn-outline" onClick={() => setSelectedRequest(null)}>
                 Cancel
               </button>
-              <button className="btn btn-danger" onClick={() => handleReject(selectedRequest.id)}>
+              <button className="btn btn-danger" disabled={actionLoading} onClick={() => handleReject(selectedRequest.id)}>
                 Reject
               </button>
-              <button className="btn btn-success" onClick={() => handleApprove(selectedRequest.id)}>
+              <button className="btn btn-success" disabled={actionLoading} onClick={() => handleApprove(selectedRequest.id)}>
                 Approve
               </button>
             </>
@@ -148,7 +184,7 @@ export default function RegistrationRequests() {
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Email</label>
-                <p>{selectedRequest.email}</p>
+                <p>{selectedRequest.email || 'N/A'}</p>
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Phone</label>

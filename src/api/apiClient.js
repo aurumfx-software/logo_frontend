@@ -1,19 +1,23 @@
-import { API_BASE_URL } from '../config/apiConfig';
+import { API_BASE_URL, API_V1_URL } from '../config/apiConfig';
 
+const AUTH_TOKEN_KEY = 'auth_token';
+const USER_KEY = 'user';
 const ACCESS_TOKEN_KEY = 'logo_admin_access_token';
 const REFRESH_TOKEN_KEY = 'logo_admin_refresh_token';
 const LEGACY_TOKEN_KEY = 'logo_admin_token';
-const USER_KEY = 'logo_admin_user';
+const LOGO_USER_KEY = 'logo_admin_user';
 
 /**
  * Get current Access Token from localStorage or sessionStorage
  */
 export function getAccessToken() {
   return (
+    localStorage.getItem(AUTH_TOKEN_KEY) ||
     localStorage.getItem(ACCESS_TOKEN_KEY) ||
     localStorage.getItem(LEGACY_TOKEN_KEY) ||
     localStorage.getItem('token') ||
     localStorage.getItem('access_token') ||
+    sessionStorage.getItem(AUTH_TOKEN_KEY) ||
     sessionStorage.getItem(ACCESS_TOKEN_KEY) ||
     sessionStorage.getItem('access_token') ||
     ''
@@ -38,8 +42,12 @@ export function getRefreshToken() {
  */
 export function setTokens({ accessToken, refreshToken }) {
   if (accessToken) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    localStorage.setItem(LEGACY_TOKEN_KEY, accessToken);
+    const tokenStr = accessToken.trim();
+    localStorage.setItem(AUTH_TOKEN_KEY, tokenStr);
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokenStr);
+    localStorage.setItem(LEGACY_TOKEN_KEY, tokenStr);
+    localStorage.setItem('token', tokenStr);
+    localStorage.setItem('access_token', tokenStr);
   }
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -47,23 +55,52 @@ export function setTokens({ accessToken, refreshToken }) {
 }
 
 /**
+ * Save user profile data to localStorage
+ */
+export function setUserSession(userData) {
+  if (userData && typeof userData === 'object') {
+    const userJson = JSON.stringify(userData);
+    localStorage.setItem(USER_KEY, userJson);
+    localStorage.setItem(LOGO_USER_KEY, userJson);
+
+    const resolvedId = userData.id || userData.user_id || userData.userId || userData._id;
+    const resolvedCode = userData.user_code || userData.userCode || userData.code;
+
+    if (resolvedId) {
+      localStorage.setItem('user_id', String(resolvedId));
+      localStorage.setItem('userId', String(resolvedId));
+      localStorage.setItem('logo_admin_user_id', String(resolvedId));
+    }
+    if (resolvedCode) {
+      localStorage.setItem('user_code', String(resolvedCode));
+      localStorage.setItem('userCode', String(resolvedCode));
+    }
+  }
+}
+
+/**
  * Clear all authentication tokens and user session data
  */
 export function clearTokens() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
+  localStorage.removeItem(LOGO_USER_KEY);
   localStorage.removeItem('token');
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('user_id');
+  localStorage.removeItem('userId');
   localStorage.removeItem('user_code');
+  localStorage.removeItem('userCode');
 
   sessionStorage.clear();
 }
 
 /**
- * Attempt to refresh the access token using the refresh token
+ * Attempt to refresh access token using refresh token
  */
 export async function refreshAccessToken() {
   const refreshToken = getRefreshToken();
@@ -108,24 +145,25 @@ export async function refreshAccessToken() {
     }
   }
 
-  // If refresh failed on all endpoints, clear tokens
   clearTokens();
   throw lastError || new Error('Failed to refresh authentication token');
 }
 
 /**
  * Centralized Authenticated Fetch Wrapper (`apiFetch`)
- * Automatically injects Bearer JWT access token and handles token refresh on 401.
+ * Automatically attaches Bearer JWT token and resolves URL endpoints against API_BASE_URL
  */
 export async function apiFetch(endpoint, options = {}) {
   const baseUrl = API_BASE_URL.replace(/\/$/, '');
-  const url = endpoint.startsWith('http')
-    ? endpoint
-    : `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  
+  let url = endpoint;
+  if (!endpoint.startsWith('http')) {
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    url = `${baseUrl}${cleanEndpoint}`;
+  }
 
   const accessToken = getAccessToken();
 
-  // Prepare headers
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -146,7 +184,7 @@ export async function apiFetch(endpoint, options = {}) {
     headers,
   });
 
-  // If 401 Unauthorized, try refreshing token once and retrying
+  // Handle 401 Unauthorized token refresh
   if (response.status === 401 && getRefreshToken()) {
     try {
       const newAccessToken = await refreshAccessToken();
@@ -158,7 +196,7 @@ export async function apiFetch(endpoint, options = {}) {
         });
       }
     } catch (refreshErr) {
-      console.warn('Token refresh failed:', refreshErr);
+      console.warn('Token refresh notice:', refreshErr);
     }
   }
 
