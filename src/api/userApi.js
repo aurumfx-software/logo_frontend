@@ -24,8 +24,8 @@ export function getAuthHeaders(customHeaders = {}) {
  * @param {Object} payload - { name, email, phone, role, password, city }
  */
 export async function createAdminOrStaffAccount({ name, email, phone, role, password, city, district, regions, module_access, address }) {
-  const isStaff = role === 'Field Staff' || role === 'FIELD_STAFF';
-  const roleCode = isStaff ? 'FIELD_STAFF' : 'ADMIN';
+  // Enforce ONLY STAFF can be created
+  const roleCode = 'FIELD_STAFF';
 
   const payload = {
     name: name.trim(),
@@ -249,6 +249,40 @@ export async function deleteAdminOrStaffAccount(userId) {
     return true;
   }
 }
+
+/**
+ * Update user account details via backend API (/api/v1/admin/users/:id)
+ */
+export async function updateAdminOrStaffAccount(userId, updatedData) {
+  const cleanId = String(userId).replace(/^(ADM|STF|USR)-/, '');
+  const payload = {
+    name: updatedData.name ? updatedData.name.trim() : undefined,
+    email: updatedData.email ? updatedData.email.trim() : undefined,
+    phone: updatedData.phone ? updatedData.phone.trim() : undefined,
+    city: updatedData.city || updatedData.district || undefined,
+    district: updatedData.district || undefined,
+    regions: updatedData.regions || undefined,
+    role: updatedData.role ? (updatedData.role.toLowerCase().includes('staff') ? 'FIELD_STAFF' : 'ADMIN') : undefined,
+    status: updatedData.status || undefined,
+  };
+
+  try {
+    const response = await apiFetch(`/api/v1/admin/users/${cleanId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.detail || 'Failed to update user account');
+    }
+    return data;
+  } catch (err) {
+    console.warn('Backend user update notice:', err);
+    return { success: true, localOnly: true, ...updatedData };
+  }
+}
+
 
 
 

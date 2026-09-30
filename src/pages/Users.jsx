@@ -14,13 +14,14 @@ import {
   HiOutlineUserGroup,
   HiOutlineCog,
   HiOutlineTrash,
+  HiOutlinePencil,
 } from 'react-icons/hi';
 import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount } from '../api/userApi';
+import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount, updateAdminOrStaffAccount } from '../api/userApi';
 import { getStaffPermissions, saveStaffPermissions, MODULE_NAMES, isAdmin } from '../utils/rbac';
 
 export default function Users() {
@@ -35,6 +36,13 @@ export default function Users() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [modalError, setModalError] = useState('');
+
+  // Edit User Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editFormData, setEditFormData] = useState({ id: '', rawId: '', name: '', email: '', phone: '', city: '', status: 'active', role: 'Staff' });
+  const [editModalError, setEditModalError] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Staff Dynamic Permissions State (Controlled by Admin)
   const [staffPermissions, setStaffPermissionsState] = useState(() => getStaffPermissions());
@@ -235,6 +243,69 @@ export default function Users() {
     }
   };
 
+  const handleOpenEditModal = (userRow) => {
+    setEditingUser(userRow);
+    setEditFormData({
+      id: userRow.id || '',
+      rawId: userRow.rawId || userRow.id || '',
+      name: userRow.name || '',
+      email: userRow.email || '',
+      phone: userRow.phone && userRow.phone !== 'N/A' ? userRow.phone : '',
+      city: userRow.city || '',
+      district: userRow.district || 'Kannur',
+      regions: Array.isArray(userRow.regions) ? userRow.regions : [],
+      status: userRow.status || 'active',
+      role: userRow.role || 'Staff',
+      userCode: userRow.user_code || userRow.userCode || userRow.id || '',
+    });
+    setEditModalError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditModalError('');
+
+    if (!editFormData.name.trim() || !editFormData.email.trim()) {
+      setEditModalError('Name and email are required fields.');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await updateAdminOrStaffAccount(editFormData.rawId || editFormData.id, {
+        name: editFormData.name.trim(),
+        email: editFormData.email.trim(),
+        phone: editFormData.phone.trim(),
+        city: editFormData.city.trim(),
+        status: editFormData.status,
+      });
+
+      setData((prev) =>
+        prev.map((u) =>
+          u.id === editFormData.id
+            ? {
+                ...u,
+                name: editFormData.name.trim(),
+                email: editFormData.email.trim(),
+                phone: editFormData.phone.trim(),
+                city: editFormData.city.trim(),
+                status: editFormData.status,
+              }
+            : u
+        )
+      );
+
+      setIsEditModalOpen(false);
+      showToast(`✏️ Account "${editFormData.name}" updated successfully!`);
+    } catch (err) {
+      console.error('Failed to update user account:', err);
+      setEditModalError(err.message || 'Failed to update account details.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleToggleSuspend = async (row) => {
     const newStatus = row.status === 'active' ? 'suspended' : 'active';
     setData((prev) =>
@@ -252,6 +323,31 @@ export default function Users() {
     if (activeTab === 'admins') return rLower.includes('admin');
     if (activeTab === 'staff') return rLower.includes('staff');
     return u.status === activeTab;
+  });
+
+  // Sort Data: Admins first, then LIFO (newest entries first)
+  const sortedData = [...filteredData].sort((a, b) => {
+    const aRole = (a.role || '').toString().toLowerCase();
+    const bRole = (b.role || '').toString().toLowerCase();
+
+    const aIsSuperAdmin = aRole.includes('super admin') || a.email === 'aurumfxsoftware@gmail.com';
+    const bIsSuperAdmin = bRole.includes('super admin') || b.email === 'aurumfxsoftware@gmail.com';
+    if (aIsSuperAdmin && !bIsSuperAdmin) return -1;
+    if (!aIsSuperAdmin && bIsSuperAdmin) return 1;
+
+    const aIsAdmin = aRole.includes('admin');
+    const bIsAdmin = bRole.includes('admin');
+    if (aIsAdmin && !bIsAdmin) return -1;
+    if (!aIsAdmin && bIsAdmin) return 1;
+
+    // LIFO (Newest First) within same role category
+    const aIdNum = parseInt(String(a.rawId || a.id).replace(/\D/g, ''), 10) || 0;
+    const bIdNum = parseInt(String(b.rawId || b.id).replace(/\D/g, ''), 10) || 0;
+    if (aIdNum !== bIdNum) {
+      return bIdNum - aIdNum; // Higher/Newer ID first (LIFO)
+    }
+
+    return 0;
   });
 
   const columns = [
@@ -332,14 +428,35 @@ export default function Users() {
         const roleLower = (row.role || '').toLowerCase();
         const isAdminAccount = roleLower.includes('admin');
 
+        if (isAdminAccount) {
+          return (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#6B7280',
+                background: '#F3F4F6',
+                padding: '4px 10px',
+                borderRadius: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              🔒 Protected Admin
+            </span>
+          );
+        }
+
         return (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title="View Details"
-              onClick={() => showToast(`Viewing details for ${row.name} (${row.role || 'Staff'})`)}
+              title={`Edit ${row.name}`}
+              style={{ color: '#4F46E5', borderColor: '#C7D2FE' }}
+              onClick={() => handleOpenEditModal(row)}
             >
-              <HiOutlineEye />
+              <HiOutlinePencil />
             </button>
             <button
               className="btn btn-outline btn-sm btn-icon"
@@ -360,22 +477,9 @@ export default function Users() {
             )}
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title={isAdminAccount ? 'Admin accounts cannot be deleted' : `Delete staff ${row.name}`}
-              disabled={isAdminAccount}
-              style={{
-                color: isAdminAccount ? '#CBD5E1' : '#EF4444',
-                borderColor: isAdminAccount ? '#E2E8F0' : '#FCA5A5',
-                cursor: isAdminAccount ? 'not-allowed' : 'pointer',
-                opacity: isAdminAccount ? 0.45 : 1,
-                background: isAdminAccount ? '#F8FAFC' : 'transparent',
-              }}
-              onClick={() => {
-                if (isAdminAccount) {
-                  showToast('❌ Admin accounts cannot be deleted.');
-                  return;
-                }
-                handleDeleteAccount(row);
-              }}
+              title={`Delete ${row.name}`}
+              style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+              onClick={() => handleDeleteAccount(row)}
             >
               <HiOutlineTrash />
             </button>
@@ -997,6 +1101,186 @@ export default function Users() {
                   >
                     <HiOutlineUserAdd size={16} />
                     {isSubmitting ? 'Creating Staff...' : 'Create Staff Account'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Edit Staff Account */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.65)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px 12px',
+              overflowY: 'auto',
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{
+                background: 'white',
+                borderRadius: 20,
+                width: '100%',
+                maxWidth: 540,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.35)',
+              }}
+            >
+              {/* Modal Header */}
+              <div
+                style={{
+                  padding: '18px 22px',
+                  background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
+                  color: 'white',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <HiOutlinePencil size={22} style={{ color: '#A5B4FC' }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Edit Staff Account</h3>
+                    <p style={{ margin: 0, fontSize: 11, opacity: 0.8 }}>ID: {editFormData.id} ({editFormData.role})</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'white', fontSize: 22, cursor: 'pointer' }}
+                >
+                  <HiOutlineX />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleEditSubmit} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {editModalError && (
+                  <div
+                    style={{
+                      background: '#FEF2F2',
+                      border: '1px solid #FCA5A5',
+                      color: '#991B1B',
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span>⚠️ {editModalError}</span>
+                    <button type="button" onClick={() => setEditModalError('')} style={{ background: 'none', border: 'none', color: '#991B1B', cursor: 'pointer' }}>✕</button>
+                  </div>
+                )}
+
+                {/* Pre-populated Full Name */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    className="form-input"
+                    placeholder="Staff Member Name"
+                  />
+                </div>
+
+                {/* Pre-populated Email Address */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, email: e.target.value }))}
+                    className="form-input"
+                    placeholder="staff@aurumfx.com"
+                  />
+                </div>
+
+                {/* Pre-populated Phone + City/Region */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Phone Number</label>
+                    <input
+                      type="tel"
+                      value={editFormData.phone}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                      className="form-input"
+                      placeholder="+91 98471 23456"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>City / Region</label>
+                    <input
+                      type="text"
+                      value={editFormData.city}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, city: e.target.value }))}
+                      className="form-input"
+                      placeholder="e.g. Payyanur, Kannur"
+                    />
+                  </div>
+                </div>
+
+                {/* Account Status Selection */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Account Status</label>
+                  <select
+                    className="form-select"
+                    value={editFormData.status}
+                    onChange={(e) => setEditFormData((prev) => ({ ...prev, status: e.target.value }))}
+                    style={{ fontWeight: 600 }}
+                  >
+                    <option value="active">Active (Operational Access)</option>
+                    <option value="suspended">Suspended (Access Blocked)</option>
+                  </select>
+                </div>
+
+                {/* Footer Buttons */}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 12, borderTop: '1px solid #F3F4F6' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid #E5E7EB', background: 'white', fontWeight: 600, color: '#4B5563', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    style={{
+                      padding: '10px 24px',
+                      borderRadius: 10,
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)',
+                      color: 'white',
+                      fontWeight: 700,
+                      cursor: isUpdating ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 14px rgba(108, 99, 255, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <HiOutlinePencil size={16} />
+                    {isUpdating ? 'Saving Changes...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
