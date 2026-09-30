@@ -767,7 +767,7 @@ export default function Users() {
             )}
             <DataTable
               columns={columns}
-              data={filteredData}
+              data={sortedData}
               searchPlaceholder="Search accounts by name, email, city or role..."
             />
           </div>
