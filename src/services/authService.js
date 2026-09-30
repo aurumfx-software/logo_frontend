@@ -7,12 +7,14 @@ export const authService = {
   /**
    * User Login: POST /api/v1/auth/login
    */
-  async login({ email, password }) {
+  async login({ email, password, role }) {
+    const roleCode = role === 'Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN';
     const response = await apiFetch('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim(),
         password: password.trim(),
+        role: roleCode,
       }),
     });
 

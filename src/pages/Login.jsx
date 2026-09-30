@@ -34,6 +34,7 @@ export default function Login() {
       const loginRes = await authService.login({
         email: email.trim(),
         password: password.trim(),
+        role,
       });
 
       const apiUser = loginRes.user || {};
@@ -61,24 +62,8 @@ export default function Login() {
       login(userData, { accessToken, refreshToken });
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      console.warn('API Authentication warning:', err);
-
-      // If live backend error, fallback to session auth for seamless UI testing
-      const fallbackRole = email.toLowerCase().includes('admin') ? 'Admin' : role;
-      const fallbackUser = {
-        id: fallbackRole === 'Admin' ? 1 : 2,
-        email: email.trim(),
-        role: fallbackRole,
-        name: fallbackRole === 'Admin' ? 'Super Admin' : 'Staff Member',
-        user_code: fallbackRole === 'Admin' ? 'ADM_4' : 'FLS_1',
-        loginTime: new Date().toISOString(),
-      };
-
-      login(fallbackUser, {
-        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwibmFtZSI6IlN1cGVyIEFkbWluIn0',
-        refreshToken: 'demo-refresh-token',
-      });
-      navigate('/dashboard', { replace: true });
+      console.error('API Authentication error:', err);
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
