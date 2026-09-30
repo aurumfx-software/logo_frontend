@@ -18,6 +18,7 @@ export const authService = {
         method: 'POST',
         body: JSON.stringify({
           email: cleanEmail,
+          username: cleanEmail,
           password: cleanPassword,
           role: roleCode,
         }),
@@ -72,13 +73,26 @@ export const authService = {
 
     const token = data.access_token || data.accessToken || data.token || data.data?.access_token || data.data?.accessToken;
     const refreshToken = data.refresh_token || data.refreshToken || data.data?.refresh_token || data.data?.refreshToken || '';
-    const user = data.user || data.data?.user || data.data || {};
+    let user = data.user || data.data?.user || (data.data && typeof data.data === 'object' ? data.data : {});
 
     if (!token) {
       throw new Error('Authentication succeeded, but no access token was returned by the server.');
     }
 
     setTokens({ accessToken: token, refreshToken });
+
+    // If login endpoint did not return complete user details, fetch from /api/v1/auth/me
+    if (!user || !user.email || !user.id) {
+      try {
+        const meData = await this.getMe();
+        if (meData && typeof meData === 'object') {
+          user = { ...user, ...meData };
+        }
+      } catch (meErr) {
+        console.warn('Post-login /api/v1/auth/me fetch notice:', meErr);
+      }
+    }
+
     if (user && typeof user === 'object' && Object.keys(user).length > 0) {
       setUserSession(user);
     }
