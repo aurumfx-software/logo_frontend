@@ -87,7 +87,12 @@ export default function Login() {
       };
 
       login(userData, { accessToken, refreshToken });
-      navigate('/dashboard', { replace: true });
+      // Customers go to landing page, Admin/Staff go to dashboard
+      if (detectedRole === 'Customer') {
+        navigate('/', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       console.error('API Authentication error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');

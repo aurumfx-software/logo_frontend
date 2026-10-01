@@ -8,7 +8,7 @@ export const authService = {
    * User Login: POST /api/v1/auth/login
    */
   async login({ email, password, role }) {
-    const roleCode = role === 'Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN';
+    const roleCode = role === 'Customer' || role === 'CUSTOMER' ? 'CUSTOMER' : role === 'Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN';
     const cleanEmail = (email || '').trim();
     const cleanPassword = (password || '').trim();
 
@@ -109,7 +109,7 @@ export const authService = {
   /**
    * User Registration: POST /api/v1/auth/register
    */
-  async register({ name, email, password, phone, role, city, address }) {
+  async register({ name, email, password, phone, role, city, district, state, address }) {
     const response = await apiFetch('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({
@@ -118,7 +118,10 @@ export const authService = {
         password: password.trim(),
         phone: phone ? phone.trim() : null,
         address: address || city ? (address || city).trim() : null,
-        role: role === 'Field Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN',
+        city: city ? city.trim() : null,
+        district: district ? district.trim() : null,
+        state: state ? state.trim() : null,
+        role: role === 'CUSTOMER' || role === 'Customer' ? 'CUSTOMER' : role === 'Field Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN',
       }),
     });
 
