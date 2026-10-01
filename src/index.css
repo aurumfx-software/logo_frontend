@@ -953,9 +953,16 @@ ul, ol {
 /* ========== PAGE HEADER ========== */
 .page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 28px;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.page-header-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .page-header-left h1 {
@@ -975,6 +982,8 @@ ul, ol {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ========== TABS ========== */

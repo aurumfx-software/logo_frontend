@@ -424,13 +424,58 @@ export default function Users() {
         );
       },
     },
-    { key: 'city', label: 'City / Region' },
+    {
+      key: 'city',
+      label: 'City / Region',
+      render: (val) => {
+        if (!val) return 'N/A';
+        const str = String(val).trim();
+        // If long raw address, show clean primary location & full string on hover
+        const parts = str.split(',').map((s) => s.trim()).filter(Boolean);
+        const displayStr = parts.length > 2 ? `${parts[0]}, ${parts[1]}` : str;
+        return (
+          <div
+            style={{
+              maxWidth: 220,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              fontSize: 13,
+            }}
+            title={str}
+          >
+            {displayStr}
+          </div>
+        );
+      },
+    },
     {
       key: 'phone',
       label: 'Phone',
-      render: (val) => val || 'N/A',
+      render: (val) => (
+        <span style={{ whiteSpace: 'nowrap', fontSize: 13, fontFamily: 'monospace' }}>
+          {val || 'N/A'}
+        </span>
+      ),
     },
-    { key: 'lastActive', label: 'Last Active' },
+    {
+      key: 'lastActive',
+      label: 'Last Active',
+      render: (val) => {
+        if (!val) return <span style={{ whiteSpace: 'nowrap', fontSize: 13 }}>Recent</span>;
+        if (typeof val === 'string' && val.includes('T')) {
+          const parts = val.split('T');
+          const datePart = parts[0];
+          const timePart = parts[1] ? parts[1].substring(0, 5) : '';
+          return (
+            <span style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }} title={val}>
+              {datePart} {timePart}
+            </span>
+          );
+        }
+        return <span style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{val}</span>;
+      },
+    },
     {
       key: 'status',
       label: 'Status',
@@ -457,6 +502,7 @@ export default function Users() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
+                whiteSpace: 'nowrap',
               }}
             >
               🔒 Protected Admin
@@ -465,7 +511,7 @@ export default function Users() {
         }
 
         return (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
             <button
               className="btn btn-outline btn-sm btn-icon"
               title={`Edit ${row.name}`}
@@ -552,12 +598,14 @@ export default function Users() {
             className="btn btn-primary"
             onClick={() => setIsAddModalOpen(true)}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
               padding: '10px 18px',
               fontWeight: 700,
               borderRadius: 10,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               boxShadow: '0 4px 14px rgba(108, 99, 255, 0.35)',
             }}
           >
