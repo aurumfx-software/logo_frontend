@@ -176,14 +176,14 @@ ul, ol {
   min-width: 0;
   margin-left: var(--sidebar-width);
   transition: margin-left var(--transition-slow);
-  max-width: calc(100vw - var(--sidebar-width));
+  width: calc(100% - var(--sidebar-width));
   box-sizing: border-box;
   overflow-x: hidden;
 }
 
 .admin-content.sidebar-collapsed {
   margin-left: var(--sidebar-collapsed-width);
-  max-width: calc(100vw - var(--sidebar-collapsed-width));
+  width: calc(100% - var(--sidebar-collapsed-width));
 }
 
 .page-content {
@@ -987,6 +987,7 @@ ul, ol {
   flex-shrink: 0;
   white-space: nowrap;
   margin-left: auto;
+  padding-right: 16px;
 }
 
 /* ========== TABS ========== */
