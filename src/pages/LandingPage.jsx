@@ -1318,7 +1318,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
 
           {/* Header Right: Logged-in User Status & Quick Actions or Customer Auth Buttons */}
-          <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
             {isAuthenticated ? (
               <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* User Status Badge */}
@@ -1383,28 +1383,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   <HiViewGrid /> Merchants
                 </Link>
 
-                {/* Quick Access: Dashboard (Admin / Staff) */}
-                {(user?.role === 'Admin' || user?.role === 'Staff' || user?.role === 'ADMIN' || user?.role === 'FIELD_STAFF') && (
-                  <Link
-                    to="/dashboard"
-                    className="btn btn-sm"
-                    style={{
-                      background: '#2563EB',
-                      color: '#FFFFFF',
-                      fontWeight: 700,
-                      fontSize: 12,
-                      padding: '6px 12px',
-                      borderRadius: 8,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <HiShieldCheck /> Dashboard
-                  </Link>
-                )}
-
                 {/* Sign Out Button */}
                 <button
                   onClick={() => logout()}
@@ -1446,7 +1424,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                     boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   }}
                 >
-                  <HiUser style={{ color: '#2563EB', fontSize: 16 }} /> Sign In
+                  <HiUser style={{ color: '#2563EB', fontSize: 16 }} /> Customer Sign In
                 </button>
 
                 {/* Customer Register Button */}
@@ -1469,16 +1447,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 >
                   <HiUserAdd style={{ fontSize: 16 }} /> Register
                 </button>
-
-                {/* Admin Portal Link */}
-                <Link
-                  to="/login"
-                  className="landing-admin-btn"
-                  onClick={() => setMobileNavOpen(false)}
-                  style={{ fontSize: 12, padding: '7px 12px' }}
-                >
-                  Admin Portal
-                </Link>
               </div>
             )}
 
@@ -1537,11 +1505,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   <Link to="/merchants" className="landing-admin-btn mobile-drawer-btn" onClick={() => setMobileNavOpen(false)}>
                     Manage Merchants
                   </Link>
-                  {(user?.role === 'Admin' || user?.role === 'Staff' || user?.role === 'ADMIN' || user?.role === 'FIELD_STAFF') && (
-                    <Link to="/dashboard" className="landing-admin-btn mobile-drawer-btn" onClick={() => setMobileNavOpen(false)}>
-                      Admin Dashboard
-                    </Link>
-                  )}
                   <button
                     onClick={() => { logout(); setMobileNavOpen(false); }}
                     className="btn btn-outline"
@@ -1566,9 +1529,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   >
                     Register New Account
                   </button>
-                  <Link to="/login" className="landing-admin-btn mobile-drawer-btn" onClick={() => setMobileNavOpen(false)}>
-                    Admin Portal Login
-                  </Link>
                 </div>
               )}
             </div>
