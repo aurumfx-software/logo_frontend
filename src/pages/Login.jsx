@@ -71,13 +71,15 @@ export default function Login() {
           ? 'Admin'
           : apiUser.role === 'FIELD_STAFF' || apiUser.role === 'STAFF'
           ? 'Staff'
+          : apiUser.role === 'CUSTOMER' || apiUser.role === 'Customer'
+          ? 'Customer'
           : role;
 
       const userData = {
         id: apiUser.id || 1,
         user_id: apiUser.id || 1,
         email: apiUser.email || cleanEmail,
-        name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
+        name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : detectedRole === 'Customer' ? 'Customer User' : 'Staff Member'),
         role: detectedRole,
         user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
         loginTime: new Date().toISOString(),
@@ -232,6 +234,7 @@ export default function Login() {
             >
               <option value="Admin">Admin (Full Control Panel)</option>
               <option value="Staff">Staff (Admin Configured Access)</option>
+              <option value="Customer">Customer (Public Portal Access)</option>
             </select>
           </div>
 
