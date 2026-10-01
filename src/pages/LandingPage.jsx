@@ -1421,19 +1421,23 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
+  // Combine live backend merchants with static mock list
+  const sourceEstablishments = apiMerchants.length > 0 ? [...apiMerchants, ...initialEstablishments] : initialEstablishments;
+
   // Filter Establishments list
-  const filteredEstablishments = initialEstablishments.filter((item) => {
+  const filteredEstablishments = sourceEstablishments.filter((item) => {
     const matchesCategory =
       selectedCategory === 'all' ||
       item.categoryKey === selectedCategory ||
       (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
       (selectedCategory && selectedCategory.toLowerCase().includes(item.category ? item.category.toLowerCase() : ''));
-    const matchesLocation = matchesLocationFilter(item.location, item.address);
+    const matchesLocation = matchesLocationFilter(item.location || item.city || item.district || '', item.address || '');
     const matchesSearch =
       !searchQuery.trim() ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.address.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.business_name && item.business_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.address && item.address.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
@@ -1441,14 +1445,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const getCategoryCount = (catKey) => {
     if (catKey === 'all') {
       return (
-        initialEstablishments.filter((item) => matchesLocationFilter(item.location, item.address)).length +
+        sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length +
         featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length
       );
     }
-    const estCount = initialEstablishments.filter(
+    const estCount = sourceEstablishments.filter(
       (item) =>
         (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
-        matchesLocationFilter(item.location, item.address)
+        matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')
     ).length;
     const adCount = featuredAdsList.filter(
       (item) =>
@@ -2063,7 +2067,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div
                 key={item.id}
                 className="establishment-card"
-                onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
+                onClick={() => handleSelectMerchantCard(item)}
               >
                 <div className="establishment-image-wrapper">
                   <img
