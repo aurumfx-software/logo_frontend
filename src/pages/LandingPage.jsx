@@ -20,6 +20,11 @@ import {
   HiViewGrid,
   HiShieldCheck,
   HiLockClosed,
+  HiPlus,
+  HiPhotograph,
+  HiVideoCamera,
+  HiClock,
+  HiBriefcase,
 } from 'react-icons/hi';
 import {
   FaFacebookF,
@@ -29,6 +34,13 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
+import {
+  fetchMerchantsList,
+  createMerchant,
+  getMerchantById,
+  searchMerchants,
+  uploadMerchantMedia,
+} from '../api/merchantApi';
 
 // 30 Featured Categories List (Matching Screenshot 1 & 3: category.php)
 const featuredCategoriesList = [
@@ -1028,6 +1040,183 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
+  // Backend API Merchant Integration State
+  const [apiMerchants, setApiMerchants] = useState([]);
+  const [isLoadingMerchants, setIsLoadingMerchants] = useState(false);
+
+  // Onboard Merchant Modal & Media Upload State
+  const [onboardModalOpen, setOnboardModalOpen] = useState(false);
+  const [onboardLoading, setOnboardLoading] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [onboardError, setOnboardError] = useState('');
+  const [onboardSuccess, setOnboardSuccess] = useState('');
+
+  // Form State matching API spec:
+  // POST http://168.144.18.149:8000/api/v1/merchants/onboarding
+  const [onboardForm, setOnboardForm] = useState({
+    business_name: '',
+    category: 'Retail',
+    categories: ['Retail'],
+    owner_name: '',
+    phone_number: '+91 98470 12345',
+    email: '',
+    district: 'Kannur',
+    city: 'Payyanur',
+    address: 'Main Road',
+    landmark: 'Near Bus Stand',
+    services: ['Retail'],
+    service_timing: '09:00 AM - 09:00 PM',
+    merchant_photos: [],
+    merchant_videos: [],
+    user_code: 'FLS_1',
+    status: 'APPROVED',
+  });
+
+  // 1. GET ALL MERCHANTS from Backend (GET /api/v1/merchants?user_code=FLS_1&category=...&location=...)
+  useEffect(() => {
+    let active = true;
+    setIsLoadingMerchants(true);
+
+    const loc = selectedDistrict !== 'all' ? selectedDistrict : selectedLocation !== 'all' ? selectedLocation : '';
+    const cat = selectedCategory !== 'all' ? selectedCategory : '';
+
+    fetchMerchantsList({ user_code: 'FLS_1', category: cat, location: loc })
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          setApiMerchants(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Backend merchants fetch notice:', err.message);
+      })
+      .finally(() => {
+        if (active) setIsLoadingMerchants(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedCategory, selectedDistrict, selectedLocation]);
+
+  // 4. SEARCH MERCHANTS via Backend API (GET /api/v1/merchants/search?q=...&location=...)
+  const handleBackendSearch = async (queryText) => {
+    const q = queryText !== undefined ? queryText : searchQuery;
+    if (!q.trim() && selectedDistrict === 'all' && selectedCategory === 'all') {
+      return;
+    }
+    setIsLoadingMerchants(true);
+    try {
+      const loc = selectedDistrict !== 'all' ? selectedDistrict : selectedLocation !== 'all' ? selectedLocation : '';
+      const results = await searchMerchants(q.trim(), loc);
+      setApiMerchants(results || []);
+    } catch (err) {
+      console.warn('Search merchants error:', err.message);
+    } finally {
+      setIsLoadingMerchants(false);
+    }
+  };
+
+  // 3. GET MERCHANT BY ID (GET /api/v1/merchants/{id})
+  const handleSelectMerchantCard = async (m) => {
+    setSelectedMerchant(m);
+    if (m.id && !String(m.id).startsWith('est-') && !String(m.id).startsWith('ad-')) {
+      try {
+        const fullDetail = await getMerchantById(m.id);
+        if (fullDetail) {
+          setSelectedMerchant(fullDetail);
+        }
+      } catch (err) {
+        console.warn('Failed to load merchant by ID:', err.message);
+      }
+    }
+  };
+
+  // 5. UPLOAD PHOTOS / MEDIA (POST /api/v1/merchants/upload-media)
+  const handleMediaUpload = async (e, type = 'photos') => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setUploadingMedia(true);
+    setOnboardError('');
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append(type === 'videos' ? 'videos' : 'photos', file);
+      });
+
+      const res = await uploadMerchantMedia(formData);
+
+      if (type === 'videos') {
+        const newVids = res.videos || res.photos || [];
+        setOnboardForm((prev) => ({
+          ...prev,
+          merchant_videos: [...prev.merchant_videos, ...newVids],
+        }));
+      } else {
+        const newPhotos = res.photos || res.all_urls || [];
+        setOnboardForm((prev) => ({
+          ...prev,
+          merchant_photos: [...prev.merchant_photos, ...newPhotos],
+        }));
+      }
+    } catch (err) {
+      console.error('Media upload error:', err);
+      setOnboardError(err.message || 'Failed to upload media file');
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  // 2. CREATE / ONBOARD MERCHANT (POST /api/v1/merchants/onboarding)
+  const handleOnboardSubmit = async (e) => {
+    e.preventDefault();
+    if (!onboardForm.business_name.trim()) {
+      setOnboardError('Please enter a Business Name');
+      return;
+    }
+
+    setOnboardLoading(true);
+    setOnboardError('');
+    setOnboardSuccess('');
+
+    try {
+      const newMerchant = await createMerchant(onboardForm);
+      setOnboardSuccess(`Successfully onboarded "${newMerchant.name || onboardForm.business_name}"!`);
+
+      // Prepend newly created merchant to list
+      setApiMerchants((prev) => [newMerchant, ...prev]);
+
+      setTimeout(() => {
+        setOnboardModalOpen(false);
+        setOnboardSuccess('');
+        setOnboardForm({
+          business_name: '',
+          category: 'Retail',
+          categories: ['Retail'],
+          owner_name: '',
+          phone_number: '+91 98470 12345',
+          email: '',
+          district: 'Kannur',
+          city: 'Payyanur',
+          address: 'Main Road',
+          landmark: 'Near Bus Stand',
+          services: ['Retail'],
+          service_timing: '09:00 AM - 09:00 PM',
+          merchant_photos: [],
+          merchant_videos: [],
+          user_code: 'FLS_1',
+          status: 'APPROVED',
+        });
+      }, 1500);
+    } catch (err) {
+      console.error('Onboard merchant submit error:', err);
+      setOnboardError(err.message || 'Failed to onboard merchant');
+    } finally {
+      setOnboardLoading(false);
+    }
+  };
+
   // Cascading Location Helpers
   const getAvailableLocations = () => {
     if (selectedDistrict !== 'all') {
@@ -1376,7 +1565,28 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   </div>
                 </div>
 
-                {/* Quick Access: Merchants Link */}
+                {/* Quick Access: Merchants Link & Onboard Button */}
+                <button
+                  onClick={() => setOnboardModalOpen(true)}
+                  className="btn btn-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #10B981, #059669)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                  }}
+                >
+                  <HiPlus style={{ fontSize: 16 }} /> Onboard Merchant
+                </button>
+
                 <Link
                   to="/merchants"
                   className="btn btn-sm"
@@ -1804,12 +2014,30 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
       {/* 5. Establishments / Services Grid Section */}
       <section id="establishments-section" className="landing-establishments-section">
-        <div className="landing-section-header">
-          <h2 className="landing-section-title">Establishments / Services</h2>
-          <p className="landing-section-sub">
-            Showing verified local merchants and providers{' '}
-            {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
-          </p>
+        <div className="landing-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2 className="landing-section-title">Establishments / Services</h2>
+            <p className="landing-section-sub">
+              Showing verified local merchants and providers{' '}
+              {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
+            </p>
+          </div>
+          <button
+            onClick={() => setOnboardModalOpen(true)}
+            className="btn btn-primary"
+            style={{
+              background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+              padding: '10px 18px',
+              borderRadius: 10,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+            }}
+          >
+            <HiPlus style={{ fontSize: 18 }} /> Onboard Merchant
+          </button>
         </div>
 
         {sortedEstablishments.length === 0 ? (
@@ -2197,6 +2425,319 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. CREATE / ONBOARD MERCHANT MODAL ON LANDING PAGE */}
+      {onboardModalOpen && (
+        <div className="modal-backdrop" onClick={() => setOnboardModalOpen(false)}>
+          <div
+            className="modal-container merchant-detail-modal"
+            style={{ maxWidth: 720, maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #1E293B, #0F172A)', color: '#FFF' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ background: '#10B981', padding: 8, borderRadius: 8, color: '#FFF', display: 'flex' }}>
+                  <HiPlus style={{ fontSize: 20 }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#FFF', fontSize: 18 }}>Onboard New Merchant</h3>
+                  <p style={{ margin: 0, color: '#94A3B8', fontSize: 12 }}>Register & list a business directly to backend API</p>
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                style={{ color: '#94A3B8' }}
+                onClick={() => setOnboardModalOpen(false)}
+              >
+                <HiX />
+              </button>
+            </div>
+
+            <form onSubmit={handleOnboardSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {onboardError && (
+                  <div style={{ padding: '10px 14px', background: '#FEE2E2', borderLeft: '4px solid #EF4444', color: '#B91C1C', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
+                    ⚠️ {onboardError}
+                  </div>
+                )}
+                {onboardSuccess && (
+                  <div style={{ padding: '10px 14px', background: '#D1FAE5', borderLeft: '4px solid #10B981', color: '#047857', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
+                    ✅ {onboardSuccess}
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Business Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Store Name"
+                      value={onboardForm.business_name}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, business_name: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Owner Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Owner Name"
+                      value={onboardForm.owner_name}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, owner_name: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Category *
+                    </label>
+                    <select
+                      value={onboardForm.category}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, category: e.target.value, categories: [e.target.value], services: [e.target.value] })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14, background: '#FFF' }}
+                    >
+                      {featuredCategoriesList.map((cat) => (
+                        <option key={cat.id} value={cat.title}>{cat.title}</option>
+                      ))}
+                      <option value="Retail">Retail</option>
+                      <option value="Services">Services</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Food & Dining">Food & Dining</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      User Code
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. FLS_1"
+                      value={onboardForm.user_code}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, user_code: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Phone Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="+91 98470 12345"
+                      value={onboardForm.phone_number}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, phone_number: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="store@gmail.com"
+                      value={onboardForm.email}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      District *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Kannur"
+                      value={onboardForm.district}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, district: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Payyanur"
+                      value={onboardForm.city}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, city: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Main Road"
+                      value={onboardForm.address}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, address: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Landmark
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near Bus Stand"
+                      value={onboardForm.landmark}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, landmark: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Service Timing
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 09:00 AM - 09:00 PM"
+                      value={onboardForm.service_timing}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, service_timing: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
+                      Status
+                    </label>
+                    <select
+                      value={onboardForm.status}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, status: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14, background: '#FFF' }}
+                    >
+                      <option value="APPROVED">APPROVED</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="ACTIVE">ACTIVE</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* MEDIA UPLOAD SECTION (POST /api/v1/merchants/upload-media) */}
+                <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 10, border: '1px dashed #CBD5E1' }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 6 }}>
+                    📸 Merchant Media Upload (Photos & Videos)
+                  </label>
+                  <p style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
+                    Upload photos/videos directly via <code>POST /api/v1/merchants/upload-media</code>
+                  </p>
+
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <label
+                      style={{
+                        padding: '8px 14px',
+                        background: '#3B82F6',
+                        color: '#FFF',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: uploadingMedia ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <HiPhotograph /> {uploadingMedia ? 'Uploading...' : 'Upload Photos'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={uploadingMedia}
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleMediaUpload(e, 'photos')}
+                      />
+                    </label>
+
+                    <label
+                      style={{
+                        padding: '8px 14px',
+                        background: '#8B5CF6',
+                        color: '#FFF',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: uploadingMedia ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <HiVideoCamera /> {uploadingMedia ? 'Uploading...' : 'Upload Videos'}
+                      <input
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        disabled={uploadingMedia}
+                        style={{ display: 'none' }}
+                        onChange={(e) => handleMediaUpload(e, 'videos')}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Uploaded Photos Preview */}
+                  {onboardForm.merchant_photos.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                      {onboardForm.merchant_photos.map((url, i) => (
+                        <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 6, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+                          <img src={url} alt={`Photo ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', padding: '12px 20px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setOnboardModalOpen(false)}
+                  disabled={onboardLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={onboardLoading || uploadingMedia}
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none', fontWeight: 700 }}
+                >
+                  {onboardLoading ? 'Onboarding Merchant...' : 'Onboard Merchant'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
