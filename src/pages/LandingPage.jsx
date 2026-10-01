@@ -882,7 +882,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
     email: '',
     password: '',
     phone: '',
-    city: '',
+    city: 'Payyanur',
+    district: 'Kannur',
+    state: 'Kerala',
   });
   const [authError, setAuthError] = useState('');
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
@@ -892,7 +894,15 @@ export default function LandingPage({ defaultTab = 'home' }) {
     setAuthModalMode(mode);
     setAuthError('');
     setAuthSuccessMsg('');
-    setAuthFormData({ name: '', email: '', password: '', phone: '', city: '' });
+    setAuthFormData({
+      name: '',
+      email: '',
+      password: '',
+      phone: '',
+      city: 'Payyanur',
+      district: 'Kannur',
+      state: 'Kerala',
+    });
     setIsAuthModalOpen(true);
   };
 
@@ -959,6 +969,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
             password: authFormData.password,
             phone: authFormData.phone,
             city: authFormData.city,
+            district: authFormData.district,
+            state: authFormData.state,
             role: 'CUSTOMER',
           });
         } catch (regErr) {
@@ -972,6 +984,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
           email: authFormData.email.trim(),
           phone: authFormData.phone ? authFormData.phone.trim() : '',
           city: authFormData.city ? authFormData.city.trim() : 'Payyanur',
+          district: authFormData.district ? authFormData.district.trim() : 'Kannur',
+          state: authFormData.state ? authFormData.state.trim() : 'Kerala',
           role: 'Customer',
           status: 'Active',
           loginTime: new Date().toISOString(),
@@ -2365,10 +2379,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
               </div>
 
               {authModalMode === 'register' && (
-                <div className="grid-2" style={{ gap: 12, marginBottom: 14 }}>
-                  <div className="form-group" style={{ margin: 0 }}>
+                <>
+                  <div className="form-group" style={{ marginBottom: 14 }}>
                     <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                      Phone Number
+                      📞 Phone Number *
                     </label>
                     <input
                       type="tel"
@@ -2376,22 +2390,54 @@ export default function LandingPage({ defaultTab = 'home' }) {
                       placeholder="+91 98470 12345"
                       value={authFormData.phone}
                       onChange={(e) => setAuthFormData({ ...authFormData, phone: e.target.value })}
+                      required
                     />
                   </div>
 
-                  <div className="form-group" style={{ margin: 0 }}>
+                  <div className="grid-2" style={{ gap: 12, marginBottom: 14 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
+                        City / Town *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Payyanur"
+                        value={authFormData.city}
+                        onChange={(e) => setAuthFormData({ ...authFormData, city: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
+                        District *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="e.g. Kannur"
+                        value={authFormData.district}
+                        onChange={(e) => setAuthFormData({ ...authFormData, district: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 14 }}>
                     <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                      City / Region
+                      State *
                     </label>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="e.g. Payyanur"
-                      value={authFormData.city}
-                      onChange={(e) => setAuthFormData({ ...authFormData, city: e.target.value })}
+                      placeholder="e.g. Kerala"
+                      value={authFormData.state}
+                      onChange={(e) => setAuthFormData({ ...authFormData, state: e.target.value })}
+                      required
                     />
                   </div>
-                </div>
+                </>
               )}
 
               <div className="form-group" style={{ marginBottom: 20 }}>
