@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('Admin');
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,10 +25,7 @@ export default function Login() {
     if (error) setError('');
   };
 
-  const handleRoleChange = (e) => {
-    setRole(e.target.value);
-    if (error) setError('');
-  };
+
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -59,7 +56,6 @@ export default function Login() {
       const loginRes = await authService.login({
         email: cleanEmail,
         password: cleanPassword,
-        role,
       });
 
       const apiUser = loginRes.user || {};
@@ -73,7 +69,7 @@ export default function Login() {
           ? 'Staff'
           : apiUser.role === 'CUSTOMER' || apiUser.role === 'Customer'
           ? 'Customer'
-          : role;
+          : 'Admin';
 
       const userData = {
         id: apiUser.id || 1,
@@ -228,20 +224,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Role Authorization</label>
-            <select
-              className="form-select"
-              value={role}
-              onChange={handleRoleChange}
-              disabled={loading}
-              style={{ fontWeight: 600 }}
-            >
-              <option value="Admin">Admin (Full Control Panel)</option>
-              <option value="Staff">Staff (Admin Configured Access)</option>
-              <option value="Customer">Customer (Public Portal Access)</option>
-            </select>
-          </div>
+
 
           <div className="login-options">
             <label className="login-remember">
@@ -262,7 +245,7 @@ export default function Login() {
                 Signing in...
               </span>
             ) : (
-              `Sign In as ${role}`
+              'Sign In'
             )}
           </button>
         </form>
