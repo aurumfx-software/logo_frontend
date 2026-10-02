@@ -29,6 +29,16 @@ import {
 import { fetchMerchantsList, getMerchantById } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 
+function formatSocialUrl(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  if (!str) return '';
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('mailto:')) {
+    return str;
+  }
+  return `https://${str.replace(/^\/+/, '')}`;
+}
+
 // Standard fallback establishments matching landing page & screenshot
 const FALLBACK_MERCHANTS = [
   {
@@ -630,39 +640,6 @@ export default function MerchantDetail({ isPublic = false }) {
             </p>
           </div>
 
-          {/* ── KEY HIGHLIGHTS SECTION ── */}
-          <div style={{ display: 'grid', gap: 12 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0 }}>Key Highlights</h3>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 12,
-              }}
-            >
-              {highlights.map((item, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: '#1E293B',
-                    padding: '8px 12px',
-                    background: '#F8FAFC',
-                    borderRadius: 10,
-                    border: '1px solid #F1F5F9',
-                  }}
-                >
-                  <HiCheckCircle style={{ color: '#10B981', flexShrink: 0 }} size={18} />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* ── SOCIAL MEDIA & WEB LINKS SECTION ── */}
           <div style={{ display: 'grid', gap: 12 }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0 }}>
@@ -683,8 +660,8 @@ export default function MerchantDetail({ isPublic = false }) {
                   bgColor: '#E8F5E9',
                   borderColor: '#A5D6A7',
                   url: merchant.whatsapp
-                    ? `https://wa.me/${merchant.whatsapp.replace(/\D/g, '')}`
-                    : `https://wa.me/${(merchant.phone || '914985205882').replace(/\D/g, '')}`,
+                    ? formatSocialUrl(merchant.whatsapp.includes('http') || merchant.whatsapp.includes('wa.me') ? merchant.whatsapp : `wa.me/${merchant.whatsapp.replace(/\D/g, '')}`)
+                    : `https://wa.me/${(merchant.phone || '919847012345').replace(/\D/g, '')}`,
                   label: merchant.whatsapp || merchant.phone || 'Chat on WhatsApp',
                 },
                 {
@@ -693,8 +670,10 @@ export default function MerchantDetail({ isPublic = false }) {
                   color: '#1877F2',
                   bgColor: '#E8F0FE',
                   borderColor: '#90CAF9',
-                  url: merchant.facebook || `https://facebook.com/search/top?q=${encodeURIComponent(merchant.name || 'hotel topform')}`,
-                  label: 'Facebook Page',
+                  url: merchant.facebook
+                    ? formatSocialUrl(merchant.facebook)
+                    : `https://facebook.com/search/top?q=${encodeURIComponent(merchant.name || 'hotel topform')}`,
+                  label: merchant.facebook ? merchant.facebook.replace(/^https?:\/\/(www\.)?/, '') : 'Facebook Page',
                 },
                 {
                   name: 'Instagram',
@@ -702,8 +681,10 @@ export default function MerchantDetail({ isPublic = false }) {
                   color: '#E1306C',
                   bgColor: '#FCE4EC',
                   borderColor: '#F48FB1',
-                  url: merchant.instagram || `https://instagram.com/explore/tags/${encodeURIComponent((merchant.name || 'hoteltopform').replace(/\s+/g, '').toLowerCase())}`,
-                  label: 'Instagram',
+                  url: merchant.instagram
+                    ? formatSocialUrl(merchant.instagram)
+                    : `https://instagram.com/explore/tags/${encodeURIComponent((merchant.name || 'hoteltopform').replace(/\s+/g, '').toLowerCase())}`,
+                  label: merchant.instagram ? merchant.instagram.replace(/^https?:\/\/(www\.)?/, '') : 'Instagram Profile',
                 },
                 {
                   name: 'Twitter / X',
@@ -711,8 +692,10 @@ export default function MerchantDetail({ isPublic = false }) {
                   color: '#1DA1F2',
                   bgColor: '#E1F5FE',
                   borderColor: '#81D4FA',
-                  url: merchant.twitter || `https://twitter.com/search?q=${encodeURIComponent(merchant.name || 'hotel topform')}`,
-                  label: 'Twitter / X',
+                  url: merchant.twitter
+                    ? formatSocialUrl(merchant.twitter)
+                    : `https://twitter.com/search?q=${encodeURIComponent(merchant.name || 'hotel topform')}`,
+                  label: merchant.twitter ? merchant.twitter.replace(/^https?:\/\/(www\.)?/, '') : 'Twitter / X',
                 },
                 {
                   name: 'YouTube',
@@ -720,8 +703,10 @@ export default function MerchantDetail({ isPublic = false }) {
                   color: '#FF0000',
                   bgColor: '#FFEBEE',
                   borderColor: '#EF9A9A',
-                  url: merchant.youtube || `https://youtube.com/results?search_query=${encodeURIComponent(merchant.name || 'hotel topform')}`,
-                  label: 'YouTube Channel',
+                  url: merchant.youtube
+                    ? formatSocialUrl(merchant.youtube)
+                    : `https://youtube.com/results?search_query=${encodeURIComponent(merchant.name || 'hotel topform')}`,
+                  label: merchant.youtube ? merchant.youtube.replace(/^https?:\/\/(www\.)?/, '') : 'YouTube Channel',
                 },
                 {
                   name: 'Website',
@@ -729,7 +714,9 @@ export default function MerchantDetail({ isPublic = false }) {
                   color: '#4F46E5',
                   bgColor: '#EEF2FF',
                   borderColor: '#C7D2FE',
-                  url: merchant.website || 'https://www.topformpayyanur.com',
+                  url: merchant.website
+                    ? formatSocialUrl(merchant.website)
+                    : 'https://www.topformpayyanur.com',
                   label: merchant.website ? merchant.website.replace(/^https?:\/\//, '') : 'Official Website',
                 },
               ].map((social, idx) => (
@@ -864,19 +851,45 @@ export default function MerchantDetail({ isPublic = false }) {
             </div>
           </div>
 
-          {/* ── MAP EMBED IF COORDINATES PRESENT ── */}
-          {merchant.latitude && merchant.longitude && (
-            <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-              <iframe
-                title="Google Maps Embed"
-                width="100%"
-                height="220"
-                style={{ border: 0 }}
-                loading="lazy"
-                src={`https://www.google.com/maps?q=${merchant.latitude},${merchant.longitude}&hl=en&z=15&output=embed`}
-              />
-            </div>
-          )}
+          {/* ── MAP EMBED & COORDINATES SECTION ── */}
+          {(() => {
+            const lat = merchant.latitude || 12.094541;
+            const lng = merchant.longitude || 75.201402;
+
+            return (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <HiOutlineLocationMarker style={{ color: '#2563EB' }} /> Location & Map
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 13, background: '#EFF6FF', color: '#1D4ED8', padding: '5px 14px', borderRadius: 20, fontWeight: 700, border: '1px solid #BFDBFE' }}>
+                      📍 Coordinates: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 13, color: '#2563EB', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      Open Map ↗
+                    </a>
+                  </div>
+                </div>
+
+                <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                  <iframe
+                    title="Google Maps Embed"
+                    width="100%"
+                    height="240"
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    src={`https://www.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`}
+                  />
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── PROMO VIDEO IF PRESENT ── */}
           {merchant.videoUrl && (

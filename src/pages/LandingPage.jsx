@@ -2331,19 +2331,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   {selectedMerchant.description}
                 </p>
               </div>
-
-              {selectedMerchant.highlights && (
-                <div style={{ marginTop: 16 }}>
-                  <h4>Key Highlights</h4>
-                  <ul className="merchant-highlights">
-                    {selectedMerchant.highlights.map((h, i) => (
-                      <li key={i}>
-                        <HiCheckCircle className="check-icon" /> {h}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
 
             <div className="modal-footer">
