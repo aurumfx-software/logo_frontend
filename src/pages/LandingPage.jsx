@@ -1417,96 +1417,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
           {/* Header Right: Logged-in User Status & Quick Actions or Customer Auth Buttons */}
           <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-            {isAuthenticated ? (
-              <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* User Status Badge */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: '#FFFFFF',
-                    padding: '4px 12px',
-                    borderRadius: 20,
-                    border: '1px solid #CBD5E1',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                    fontSize: 12,
-                    color: '#1E293B',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                      color: '#FFFFFF',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: 12,
-                    }}
-                  >
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0F172A' }}>
-                      {user?.name || user?.email?.split('@')[0]}
-                    </span>
-                    <span style={{ fontSize: 10, color: '#10B981', fontWeight: 700, textTransform: 'uppercase' }}>
-                      ● {user?.role || 'Customer'}
-                    </span>
-                  </div>
-                </div>
 
-
-
-                {/* Sign Out Button */}
-                <button
-                  onClick={() => logout()}
-                  className="btn btn-sm btn-outline"
-                  style={{
-                    borderColor: '#CBD5E1',
-                    color: '#64748B',
-                    fontWeight: 600,
-                    fontSize: 12,
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    cursor: 'pointer',
-                  }}
-                  title="Sign Out"
-                >
-                  <HiLogout /> Sign Out
-                </button>
-              </div>
-            ) : (
-              <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Link
-                  to="/login"
-                  style={{
-                    background: '#FFFFFF',
-                    color: '#1E293B',
-                    border: '1px solid #CBD5E1',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    padding: '7px 16px',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    textDecoration: 'none',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  }}
-                >
-                  <HiUser style={{ color: '#2563EB', fontSize: 16 }} /> Sign In
-                </Link>
-              </div>
-            )}
 
             <button
               className="landing-mobile-nav-toggle"
@@ -1550,40 +1461,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               Contact
             </button>
 
-            {/* Mobile Drawer Auth Actions */}
-            <div className="landing-mobile-admin-item" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E2E8F0' }}>
-              {isAuthenticated ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ padding: '8px 12px', background: '#F8FAFC', borderRadius: 8, fontSize: 13 }}>
-                    <strong style={{ color: '#0F172A' }}>{user?.name || user?.email}</strong>
-                    <span style={{ display: 'block', fontSize: 11, color: '#10B981', fontWeight: 700 }}>
-                      ● Logged in as {user?.role || 'Customer'}
-                    </span>
-                  </div>
-                  <Link to="/merchants" className="landing-admin-btn mobile-drawer-btn" onClick={() => setMobileNavOpen(false)}>
-                    Manage Merchants
-                  </Link>
-                  <button
-                    onClick={() => { logout(); setMobileNavOpen(false); }}
-                    className="btn btn-outline"
-                    style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <Link
-                    to="/login"
-                    className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
-                    onClick={() => setMobileNavOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                </div>
-              )}
-            </div>
+
           </nav>
         </div>
       </header>
