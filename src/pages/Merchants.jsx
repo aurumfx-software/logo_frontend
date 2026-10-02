@@ -949,68 +949,136 @@ export default function Merchants() {
               }}
               placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
-            {newMerchant.latitude && newMerchant.longitude && (
-              <div style={{ marginTop: 8 }}>
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    background: '#F0FDF4',
-                    border: '1px solid #BBF7D0',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: '#15803D',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 6,
-                    marginBottom: 8,
-                  }}
-                >
-                  <span>📍 GPS Coordinates Captured:</span>
-                  <strong style={{ fontFamily: 'monospace' }}>
-                    {Number(newMerchant.latitude).toFixed(6)}, {Number(newMerchant.longitude).toFixed(6)}
-                  </strong>
-                  <a
-                    href={`https://www.google.com/maps?q=${newMerchant.latitude},${newMerchant.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-                  >
-                    Open Map ↗
-                  </a>
-                </div>
-                <iframe
-                  title="Merchant Location Map Preview"
-                  width="100%"
-                  height="200"
-                  style={{ border: 0, borderRadius: 10, marginTop: 4 }}
-                  loading="lazy"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps?q=${newMerchant.latitude},${newMerchant.longitude}&hl=en&z=16&output=embed`}
-                />
-              </div>
-            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+            {/* State Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>State *</label>
+              <select
+                className="form-select"
+                value={newMerchant.state || DEFAULT_STATE}
+                onChange={(e) => {
+                  const newSt = e.target.value;
+                  const availableDistricts = getDistrictsForState(newSt);
+                  const firstDist = availableDistricts[0] || '';
+                  const availableCities = getCitiesForDistrict(newSt, firstDist);
+                  const firstCity = availableCities[0] || '';
+                  setNewMerchant((prev) => ({
+                    ...prev,
+                    state: newSt,
+                    district: firstDist,
+                    city: firstCity,
+                  }));
+                }}
+                required
+              >
+                {getStatesList().map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* District Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>District *</label>
+              <select
+                className="form-select"
+                value={newMerchant.district}
+                onChange={(e) => {
+                  const newDist = e.target.value;
+                  const currentSt = newMerchant.state || DEFAULT_STATE;
+                  const availableCities = getCitiesForDistrict(currentSt, newDist);
+                  const firstCity = availableCities[0] || '';
+                  setNewMerchant((prev) => ({
+                    ...prev,
+                    district: newDist,
+                    city: firstCity,
+                  }));
+                }}
+                required
+              >
+                {getDistrictsForState(newMerchant.state || DEFAULT_STATE).map((d) => (
+                  <option key={d} value={d}>{d} District</option>
+                ))}
+                {newMerchant.district && !getDistrictsForState(newMerchant.state || DEFAULT_STATE).includes(newMerchant.district) && (
+                  <option value={newMerchant.district}>{newMerchant.district}</option>
+                )}
+              </select>
+            </div>
+
+            {/* City / Town Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>City / Town *</label>
+              <select
+                className="form-select"
+                value={newMerchant.city}
+                onChange={(e) => setNewMerchant((prev) => ({ ...prev, city: e.target.value }))}
+                required
+              >
+                {getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                {newMerchant.city && !getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).includes(newMerchant.city) && (
+                  <option value={newMerchant.city}>{newMerchant.city}</option>
+                )}
+              </select>
+            </div>
           </div>
 
-          {/* Searchable Multi-Select Location Picker (State, District, City) */}
-          <MultiSelectLocationPicker
-            selectedStates={newMerchant.states || []}
-            selectedDistricts={newMerchant.districts || []}
-            selectedCities={newMerchant.cities || []}
-            onChange={({ states, districts, cities }) => {
-              setNewMerchant((prev) => ({
-                ...prev,
-                states,
-                districts,
-                cities,
-                state: states.join(', '),
-                district: districts.join(', '),
-                city: cities.join(', '),
-              }));
-            }}
-          />
+          {/* Auto-updating Map Preview */}
+          {(newMerchant.city || newMerchant.address || (newMerchant.latitude && newMerchant.longitude)) && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  padding: '8px 12px',
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: '#15803D',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
+                <span>📍 Location Auto-Mapped on Google Maps:</span>
+                <strong style={{ fontFamily: 'monospace' }}>
+                  {newMerchant.latitude && newMerchant.longitude
+                    ? `${Number(newMerchant.latitude).toFixed(6)}, ${Number(newMerchant.longitude).toFixed(6)}`
+                    : `${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}`}
+                </strong>
+                <a
+                  href={`https://www.google.com/maps?q=${encodeURIComponent(
+                    newMerchant.latitude && newMerchant.longitude
+                      ? `${newMerchant.latitude},${newMerchant.longitude}`
+                      : `${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}, India`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                >
+                  Open Map ↗
+                </a>
+              </div>
+              <iframe
+                title="Merchant Location Map Preview"
+                width="100%"
+                height="220"
+                style={{ border: 0, borderRadius: 10, marginTop: 4 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps?q=${encodeURIComponent(
+                  newMerchant.latitude && newMerchant.longitude
+                    ? `${newMerchant.latitude},${newMerchant.longitude}`
+                    : `${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}, India`
+                )}&hl=en&z=14&output=embed`}
+              />
+            </div>
+          )}
 
           {/* 4 Photos Upload Section */}
           <div className="form-group" style={{ marginTop: 20 }}>
@@ -1466,68 +1534,136 @@ export default function Merchants() {
               }}
               placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
-            {editFormData.latitude && editFormData.longitude && (
-              <div style={{ marginTop: 8 }}>
-                <div
-                  style={{
-                    padding: '8px 12px',
-                    background: '#F0FDF4',
-                    border: '1px solid #BBF7D0',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: '#15803D',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 6,
-                    marginBottom: 8,
-                  }}
-                >
-                  <span>📍 GPS Coordinates Captured:</span>
-                  <strong style={{ fontFamily: 'monospace' }}>
-                    {Number(editFormData.latitude).toFixed(6)}, {Number(editFormData.longitude).toFixed(6)}
-                  </strong>
-                  <a
-                    href={`https://www.google.com/maps?q=${editFormData.latitude},${editFormData.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-                  >
-                    Open Map ↗
-                  </a>
-                </div>
-                <iframe
-                  title="Edit Merchant Map Preview"
-                  width="100%"
-                  height="200"
-                  style={{ border: 0, borderRadius: 10, marginTop: 4 }}
-                  loading="lazy"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps?q=${editFormData.latitude},${editFormData.longitude}&hl=en&z=16&output=embed`}
-                />
-              </div>
-            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+            {/* State Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>State *</label>
+              <select
+                className="form-select"
+                value={editFormData.state || DEFAULT_STATE}
+                onChange={(e) => {
+                  const newSt = e.target.value;
+                  const availableDistricts = getDistrictsForState(newSt);
+                  const firstDist = availableDistricts[0] || '';
+                  const availableCities = getCitiesForDistrict(newSt, firstDist);
+                  const firstCity = availableCities[0] || '';
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    state: newSt,
+                    district: firstDist,
+                    city: firstCity,
+                  }));
+                }}
+                required
+              >
+                {getStatesList().map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* District Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>District *</label>
+              <select
+                className="form-select"
+                value={editFormData.district}
+                onChange={(e) => {
+                  const newDist = e.target.value;
+                  const currentSt = editFormData.state || DEFAULT_STATE;
+                  const availableCities = getCitiesForDistrict(currentSt, newDist);
+                  const firstCity = availableCities[0] || '';
+                  setEditFormData((prev) => ({
+                    ...prev,
+                    district: newDist,
+                    city: firstCity,
+                  }));
+                }}
+                required
+              >
+                {getDistrictsForState(editFormData.state || DEFAULT_STATE).map((d) => (
+                  <option key={d} value={d}>{d} District</option>
+                ))}
+                {editFormData.district && !getDistrictsForState(editFormData.state || DEFAULT_STATE).includes(editFormData.district) && (
+                  <option value={editFormData.district}>{editFormData.district}</option>
+                )}
+              </select>
+            </div>
+
+            {/* City / Town Select */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>City / Town *</label>
+              <select
+                className="form-select"
+                value={editFormData.city}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, city: e.target.value }))}
+                required
+              >
+                {getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                {editFormData.city && !getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).includes(editFormData.city) && (
+                  <option value={editFormData.city}>{editFormData.city}</option>
+                )}
+              </select>
+            </div>
           </div>
 
-          {/* Searchable Multi-Select Location Picker (State, District, City) */}
-          <MultiSelectLocationPicker
-            selectedStates={editFormData.states || []}
-            selectedDistricts={editFormData.districts || []}
-            selectedCities={editFormData.cities || []}
-            onChange={({ states, districts, cities }) => {
-              setEditFormData((prev) => ({
-                ...prev,
-                states,
-                districts,
-                cities,
-                state: states.join(', '),
-                district: districts.join(', '),
-                city: cities.join(', '),
-              }));
-            }}
-          />
+          {/* Auto-updating Map Preview */}
+          {(editFormData.city || editFormData.address || (editFormData.latitude && editFormData.longitude)) && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  padding: '8px 12px',
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: '#15803D',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
+                <span>📍 Location Auto-Mapped on Google Maps:</span>
+                <strong style={{ fontFamily: 'monospace' }}>
+                  {editFormData.latitude && editFormData.longitude
+                    ? `${Number(editFormData.latitude).toFixed(6)}, ${Number(editFormData.longitude).toFixed(6)}`
+                    : `${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}`}
+                </strong>
+                <a
+                  href={`https://www.google.com/maps?q=${encodeURIComponent(
+                    editFormData.latitude && editFormData.longitude
+                      ? `${editFormData.latitude},${editFormData.longitude}`
+                      : `${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}, India`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#15803D', fontSize: 11, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                >
+                  Open Map ↗
+                </a>
+              </div>
+              <iframe
+                title="Edit Merchant Map Preview"
+                width="100%"
+                height="220"
+                style={{ border: 0, borderRadius: 10, marginTop: 4 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps?q=${encodeURIComponent(
+                  editFormData.latitude && editFormData.longitude
+                    ? `${editFormData.latitude},${editFormData.longitude}`
+                    : `${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}, India`
+                )}&hl=en&z=14&output=embed`}
+              />
+            </div>
+          )}
 
           {/* 4 Photos Upload Section */}
           <div className="form-group" style={{ marginTop: 20 }}>
