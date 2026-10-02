@@ -33,6 +33,15 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { useAuth } from '../context/AuthContext';
+import {
+  STATE_DISTRICT_REGIONS,
+  DEFAULT_STATE,
+  DEFAULT_DISTRICT,
+  getStateForDistrict,
+  getStatesList,
+  getDistrictsForState,
+  getCitiesForDistrict,
+} from '../utils/locations';
 
 const initialMerchantState = {
   name: '',
@@ -259,6 +268,10 @@ export default function Merchants() {
       ? [...merchantRow.photos, '', '', '', ''].slice(0, 4)
       : ['', '', '', ''];
 
+    const resolvedDistrict = merchantRow.district || DEFAULT_DISTRICT;
+    const resolvedState = merchantRow.state || getStateForDistrict(resolvedDistrict, DEFAULT_STATE);
+    const resolvedCity = merchantRow.city || (getCitiesForDistrict(resolvedState, resolvedDistrict)[0] || 'Payyanur');
+
     setEditFormData({
       id: merchantRow.id,
       name: merchantRow.name || merchantRow.business_name || '',
@@ -269,9 +282,9 @@ export default function Merchants() {
       categories: merchantRow.categories || [merchantRow.category || 'Retail'],
       address: merchantRow.address || '',
       landmark: merchantRow.landmark || '',
-      city: merchantRow.city || 'Payyanur',
-      district: merchantRow.district || 'Kannur',
-      state: merchantRow.state || 'Kerala',
+      city: resolvedCity,
+      district: resolvedDistrict,
+      state: resolvedState,
       latitude: merchantRow.latitude || null,
       longitude: merchantRow.longitude || null,
       phone: merchantRow.phone || merchantRow.phone_number || '',
@@ -958,38 +971,64 @@ export default function Merchants() {
             )}
           </div>
 
-          <div className="grid-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div className="form-group">
-              <label className="form-label">City / Town *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Payyanur"
-                value={newMerchant.city}
-                onChange={(e) => setNewMerchant({ ...newMerchant, city: e.target.value })}
+              <label className="form-label">State *</label>
+              <select
+                className="form-select"
+                value={newMerchant.state || DEFAULT_STATE}
+                onChange={(e) => {
+                  const newSt = e.target.value;
+                  const availableDistricts = getDistrictsForState(newSt);
+                  const firstDist = availableDistricts[0] || '';
+                  const availableCities = getCitiesForDistrict(newSt, firstDist);
+                  const firstCity = availableCities[0] || '';
+                  setNewMerchant({ ...newMerchant, state: newSt, district: firstDist, city: firstCity });
+                }}
                 required
-              />
+              >
+                {getStatesList().map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">District *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Kannur"
+              <select
+                className="form-select"
                 value={newMerchant.district}
-                onChange={(e) => setNewMerchant({ ...newMerchant, district: e.target.value })}
+                onChange={(e) => {
+                  const newDist = e.target.value;
+                  const currentSt = newMerchant.state || DEFAULT_STATE;
+                  const availableCities = getCitiesForDistrict(currentSt, newDist);
+                  const firstCity = availableCities[0] || '';
+                  setNewMerchant({ ...newMerchant, district: newDist, city: firstCity });
+                }}
                 required
-              />
+              >
+                {getDistrictsForState(newMerchant.state || DEFAULT_STATE).map((d) => (
+                  <option key={d} value={d}>{d} District</option>
+                ))}
+                {newMerchant.district && !getDistrictsForState(newMerchant.state || DEFAULT_STATE).includes(newMerchant.district) && (
+                  <option value={newMerchant.district}>{newMerchant.district}</option>
+                )}
+              </select>
             </div>
             <div className="form-group">
-              <label className="form-label">State *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Kerala"
-                value={newMerchant.state}
-                onChange={(e) => setNewMerchant({ ...newMerchant, state: e.target.value })}
-              />
+              <label className="form-label">City / Town *</label>
+              <select
+                className="form-select"
+                value={newMerchant.city}
+                onChange={(e) => setNewMerchant({ ...newMerchant, city: e.target.value })}
+                required
+              >
+                {getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                {newMerchant.city && !getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).includes(newMerchant.city) && (
+                  <option value={newMerchant.city}>{newMerchant.city}</option>
+                )}
+              </select>
             </div>
           </div>
 
@@ -1492,38 +1531,64 @@ export default function Merchants() {
             )}
           </div>
 
-          <div className="grid-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div className="form-group">
-              <label className="form-label">City / Town *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Payyanur"
-                value={editFormData.city}
-                onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+              <label className="form-label">State *</label>
+              <select
+                className="form-select"
+                value={editFormData.state || DEFAULT_STATE}
+                onChange={(e) => {
+                  const newSt = e.target.value;
+                  const availableDistricts = getDistrictsForState(newSt);
+                  const firstDist = availableDistricts[0] || '';
+                  const availableCities = getCitiesForDistrict(newSt, firstDist);
+                  const firstCity = availableCities[0] || '';
+                  setEditFormData({ ...editFormData, state: newSt, district: firstDist, city: firstCity });
+                }}
                 required
-              />
+              >
+                {getStatesList().map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label">District *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Kannur"
+              <select
+                className="form-select"
                 value={editFormData.district}
-                onChange={(e) => setEditFormData({ ...editFormData, district: e.target.value })}
+                onChange={(e) => {
+                  const newDist = e.target.value;
+                  const currentSt = editFormData.state || DEFAULT_STATE;
+                  const availableCities = getCitiesForDistrict(currentSt, newDist);
+                  const firstCity = availableCities[0] || '';
+                  setEditFormData({ ...editFormData, district: newDist, city: firstCity });
+                }}
                 required
-              />
+              >
+                {getDistrictsForState(editFormData.state || DEFAULT_STATE).map((d) => (
+                  <option key={d} value={d}>{d} District</option>
+                ))}
+                {editFormData.district && !getDistrictsForState(editFormData.state || DEFAULT_STATE).includes(editFormData.district) && (
+                  <option value={editFormData.district}>{editFormData.district}</option>
+                )}
+              </select>
             </div>
             <div className="form-group">
-              <label className="form-label">State *</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Kerala"
-                value={editFormData.state}
-                onChange={(e) => setEditFormData({ ...editFormData, state: e.target.value })}
-              />
+              <label className="form-label">City / Town *</label>
+              <select
+                className="form-select"
+                value={editFormData.city}
+                onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                required
+              >
+                {getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                {editFormData.city && !getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).includes(editFormData.city) && (
+                  <option value={editFormData.city}>{editFormData.city}</option>
+                )}
+              </select>
             </div>
           </div>
 

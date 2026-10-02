@@ -23,6 +23,15 @@ import StatusBadge from '../components/UI/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount, updateAdminOrStaffAccount } from '../api/userApi';
 import { getStaffPermissions, saveStaffPermissions, MODULE_NAMES, isAdmin } from '../utils/rbac';
+import {
+  STATE_DISTRICT_REGIONS,
+  DEFAULT_STATE,
+  DEFAULT_DISTRICT,
+  getStateForDistrict,
+  getStatesList,
+  getDistrictsForState,
+  getCitiesForDistrict,
+} from '../utils/locations';
 
 export default function Users() {
   const location = useLocation();
@@ -40,30 +49,12 @@ export default function Users() {
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [editFormData, setEditFormData] = useState({ id: '', rawId: '', name: '', email: '', phone: '', city: '', status: 'active', role: 'Staff' });
+  const [editFormData, setEditFormData] = useState({ id: '', rawId: '', name: '', email: '', phone: '', state: DEFAULT_STATE, district: DEFAULT_DISTRICT, city: '', status: 'active', role: 'Staff' });
   const [editModalError, setEditModalError] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Staff Dynamic Permissions State (Controlled by Admin)
   const [staffPermissions, setStaffPermissionsState] = useState(() => getStaffPermissions());
-
-  // Kerala district → cities/towns mapping
-  const DISTRICT_REGIONS = {
-    Kannur: ['Payyanur', 'Kannur City', 'Taliparamba', 'Iritty', 'Thaliparamba', 'Sreekandapuram', 'Kuthuparamba', 'Mattannur', 'Panoor', 'Anthoor'],
-    Kozhikode: ['Kozhikode City', 'Calicut', 'Vadakara', 'Koyilandy', 'Ramanattukara', 'Feroke', 'Perambra', 'Quilandy'],
-    Ernakulam: ['Kochi', 'Aluva', 'Perumbavoor', 'Angamaly', 'Kothamangalam', 'Muvattupuzha', 'Thrippunithura', 'North Paravur'],
-    Thrissur: ['Thrissur City', 'Chalakudy', 'Kodungallur', 'Guruvayur', 'Kunnamkulam', 'Irinjalakuda'],
-    Malappuram: ['Malappuram City', 'Tirur', 'Manjeri', 'Perinthalmanna', 'Nilambur', 'Ponnani', 'Kondotty'],
-    Palakkad: ['Palakkad City', 'Ottapalam', 'Shoranur', 'Mannarkkad', 'Alathur', 'Chittur'],
-    Thiruvananthapuram: ['Thiruvananthapuram City', 'Neyyattinkara', 'Nedumangad', 'Varkala', 'Attingal'],
-    Kollam: ['Kollam City', 'Karunagappally', 'Kottarakkara', 'Punalur', 'Chavara'],
-    Alappuzha: ['Alappuzha City', 'Cherthala', 'Kayamkulam', 'Haripad', 'Chengannur'],
-    Kottayam: ['Kottayam City', 'Pala', 'Changanacherry', 'Vaikom', 'Ettumanoor'],
-    Idukki: ['Munnar', 'Thodupuzha', 'Adimali', 'Nedumkandam', 'Kumily'],
-    Wayanad: ['Kalpetta', 'Mananthavady', 'Sulthan Bathery', 'Vythiri'],
-    Kasaragod: ['Kasaragod City', 'Kanhangad', 'Hosdurg', 'Bekal', 'Nileshwar'],
-    Pathanamthitta: ['Pathanamthitta City', 'Thiruvalla', 'Adoor', 'Pandalam', 'Ranny'],
-  };
 
   // Auto-generate a staff user code
   const generateUserCode = () => {
@@ -78,7 +69,8 @@ export default function Users() {
     email: '',
     phone: '',
     role: 'Staff',                // FIXED: only Staff can be created here
-    district: 'Kannur',
+    state: DEFAULT_STATE,
+    district: DEFAULT_DISTRICT,
     regions: [],                  // multi-select cities
     userCode: generateUserCode(), // auto-generated
     password: '',
@@ -245,7 +237,8 @@ export default function Users() {
 
   const handleOpenEditModal = (userRow) => {
     setEditingUser(userRow);
-    const resolvedDistrict = userRow.district || 'Kannur';
+    const resolvedDistrict = userRow.district || DEFAULT_DISTRICT;
+    const resolvedState = userRow.state || getStateForDistrict(resolvedDistrict, DEFAULT_STATE);
     const resolvedRegions = Array.isArray(userRow.regions)
       ? userRow.regions
       : userRow.city
@@ -258,6 +251,7 @@ export default function Users() {
       name: userRow.name || '',
       email: userRow.email || '',
       phone: userRow.phone && userRow.phone !== 'N/A' ? userRow.phone : '',
+      state: resolvedState,
       district: resolvedDistrict,
       regions: resolvedRegions,
       city: userRow.city || '',
@@ -993,19 +987,45 @@ export default function Users() {
                   </div>
                 </div>
 
-                {/* District + Multi-Region */}
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 600 }}>📍 Assigned District</label>
-                  <select
-                    name="district"
-                    value={formData.district}
-                    onChange={(e) => setFormData(p => ({ ...p, district: e.target.value, regions: [] }))}
-                    className="form-select"
-                  >
-                    {Object.keys(DISTRICT_REGIONS).map(d => (
-                      <option key={d} value={d}>{d} District</option>
-                    ))}
-                  </select>
+                {/* State + District + Multi-Region */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>🏛️ Assigned State</label>
+                    <select
+                      name="state"
+                      value={formData.state || DEFAULT_STATE}
+                      onChange={(e) => {
+                        const newSt = e.target.value;
+                        const availableDistricts = getDistrictsForState(newSt);
+                        const firstDist = availableDistricts[0] || '';
+                        setFormData((p) => ({
+                          ...p,
+                          state: newSt,
+                          district: firstDist,
+                          regions: [],
+                        }));
+                      }}
+                      className="form-select"
+                    >
+                      {getStatesList().map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>📍 Assigned District</label>
+                    <select
+                      name="district"
+                      value={formData.district}
+                      onChange={(e) => setFormData((p) => ({ ...p, district: e.target.value, regions: [] }))}
+                      className="form-select"
+                    >
+                      {getDistrictsForState(formData.state || DEFAULT_STATE).map((d) => (
+                        <option key={d} value={d}>{d} District</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
@@ -1016,7 +1036,7 @@ export default function Users() {
 
                   {/* Region chips grid */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 54 }}>
-                    {(DISTRICT_REGIONS[formData.district] || []).map((region) => {
+                    {getCitiesForDistrict(formData.state || DEFAULT_STATE, formData.district).map((region) => {
                       const selected = formData.regions.includes(region);
                       return (
                         <button
@@ -1320,19 +1340,45 @@ export default function Users() {
                   </div>
                 </div>
 
-                {/* District + Multi-Region Selection */}
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 600 }}>📍 Assigned District</label>
-                  <select
-                    name="district"
-                    value={editFormData.district}
-                    onChange={(e) => setEditFormData((prev) => ({ ...prev, district: e.target.value, regions: [] }))}
-                    className="form-select"
-                  >
-                    {Object.keys(DISTRICT_REGIONS).map((d) => (
-                      <option key={d} value={d}>{d} District</option>
-                    ))}
-                  </select>
+                {/* State + District + Multi-Region Selection */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>🏛️ Assigned State</label>
+                    <select
+                      name="state"
+                      value={editFormData.state || DEFAULT_STATE}
+                      onChange={(e) => {
+                        const newSt = e.target.value;
+                        const availableDistricts = getDistrictsForState(newSt);
+                        const firstDist = availableDistricts[0] || '';
+                        setEditFormData((p) => ({
+                          ...p,
+                          state: newSt,
+                          district: firstDist,
+                          regions: [],
+                        }));
+                      }}
+                      className="form-select"
+                    >
+                      {getStatesList().map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 600 }}>📍 Assigned District</label>
+                    <select
+                      name="district"
+                      value={editFormData.district}
+                      onChange={(e) => setEditFormData((prev) => ({ ...prev, district: e.target.value, regions: [] }))}
+                      className="form-select"
+                    >
+                      {getDistrictsForState(editFormData.state || DEFAULT_STATE).map((d) => (
+                        <option key={d} value={d}>{d} District</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
@@ -1343,7 +1389,7 @@ export default function Users() {
 
                   {/* Region chips grid */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 54 }}>
-                    {(DISTRICT_REGIONS[editFormData.district] || []).map((region) => {
+                    {getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).map((region) => {
                       const selected = editFormData.regions.includes(region);
                       return (
                         <button
