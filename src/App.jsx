@@ -40,12 +40,8 @@ function RoleProtectedRoute({ allowedRoles, children }) {
 
 // Public login wrapper — redirects to /dashboard if already authenticated
 function LoginPublicRoute({ children }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   if (isAuthenticated) {
-    // Customers should go to landing page, not admin dashboard
-    if (user?.role === 'Customer' || user?.role === 'CUSTOMER') {
-      return <Navigate to="/" replace />;
-    }
     return <Navigate to="/dashboard" replace />;
   }
   return children;

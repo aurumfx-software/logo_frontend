@@ -63,19 +63,15 @@ export default function Login() {
       const refreshToken = loginRes.refreshToken || '';
 
       const detectedRole =
-        apiUser.role === 'ADMIN' || apiUser.role === 'SUPER_ADMIN'
-          ? 'Admin'
-          : apiUser.role === 'FIELD_STAFF' || apiUser.role === 'STAFF'
+        apiUser.role === 'FIELD_STAFF' || apiUser.role === 'STAFF' || apiUser.role === 'Staff'
           ? 'Staff'
-          : apiUser.role === 'CUSTOMER' || apiUser.role === 'Customer'
-          ? 'Customer'
           : 'Admin';
 
       const userData = {
         id: apiUser.id || 1,
         user_id: apiUser.id || 1,
         email: apiUser.email || cleanEmail,
-        name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : detectedRole === 'Customer' ? 'Customer User' : 'Staff Member'),
+        name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
         role: detectedRole,
         user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
         loginTime: new Date().toISOString(),
@@ -83,12 +79,7 @@ export default function Login() {
       };
 
       login(userData, { accessToken, refreshToken });
-      // Customers go to landing page, Admin/Staff go to dashboard
-      if (detectedRole === 'Customer') {
-        navigate('/', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('API Authentication error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
