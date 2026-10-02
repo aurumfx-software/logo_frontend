@@ -1616,47 +1616,26 @@ export default function LandingPage({ defaultTab = 'home' }) {
               </div>
             ) : (
               <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* Customer Sign In Button */}
-                <button
-                  onClick={() => openAuthModal('login')}
+                <Link
+                  to="/login"
                   style={{
                     background: '#FFFFFF',
                     color: '#1E293B',
                     border: '1px solid #CBD5E1',
                     fontWeight: 700,
                     fontSize: 13,
-                    padding: '7px 14px',
+                    padding: '7px 16px',
                     borderRadius: 8,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 6,
+                    textDecoration: 'none',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   }}
                 >
-                  <HiUser style={{ color: '#2563EB', fontSize: 16 }} /> Customer Sign In
-                </button>
-
-                {/* Customer Register Button */}
-                <button
-                  onClick={() => openAuthModal('register')}
-                  style={{
-                    background: 'linear-gradient(135deg, #10B981, #059669)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    padding: '7px 14px',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
-                  }}
-                >
-                  <HiUserAdd style={{ fontSize: 16 }} /> Register
-                </button>
+                  <HiUser style={{ color: '#2563EB', fontSize: 16 }} /> Sign In
+                </Link>
               </div>
             )}
 
@@ -1725,20 +1704,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <button
-                    onClick={() => { openAuthModal('login'); setMobileNavOpen(false); }}
+                  <Link
+                    to="/login"
                     className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center' }}
+                    style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
+                    onClick={() => setMobileNavOpen(false)}
                   >
-                    Customer Sign In
-                  </button>
-                  <button
-                    onClick={() => { openAuthModal('register'); setMobileNavOpen(false); }}
-                    className="btn btn-outline"
-                    style={{ width: '100%', justifyContent: 'center', borderColor: '#10B981', color: '#10B981' }}
-                  >
-                    Register New Account
-                  </button>
+                    Sign In
+                  </Link>
                 </div>
               )}
             </div>
@@ -2708,284 +2681,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       )}
 
-      {/* 10. Customer Sign In / Registration Modal */}
-      {isAuthModalOpen && (
-        <div
-          className="landing-modal-overlay"
-          onClick={() => setIsAuthModalOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <div
-            className="landing-modal-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: '#FFFFFF',
-              borderRadius: 16,
-              maxWidth: 440,
-              width: '100%',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              overflow: 'hidden',
-              border: '1px solid #E2E8F0',
-            }}
-          >
-            {/* Modal Header */}
-            <div
-              style={{
-                padding: '20px 24px 16px',
-                borderBottom: '1px solid #F1F5F9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'linear-gradient(to right, #F8FAFC, #FFFFFF)',
-              }}
-            >
-              <div>
-                <h3 style={{ margin: 0, fontWeight: 800, fontSize: 18, color: '#0F172A' }}>
-                  {authModalMode === 'login' ? '🔑 Customer Sign In' : '📝 Customer Registration'}
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B' }}>
-                  {authModalMode === 'login'
-                    ? 'Enter your credentials to access local services & merchants'
-                    : 'Create a free account to explore and rate local merchants'}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsAuthModalOpen(false)}
-                style={{
-                  background: '#F1F5F9',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 32,
-                  height: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#64748B',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Mode Selector Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-              <button
-                type="button"
-                onClick={() => { setAuthModalMode('login'); setAuthError(''); }}
-                style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
-                  background: authModalMode === 'login' ? '#FFFFFF' : 'transparent',
-                  fontWeight: authModalMode === 'login' ? 700 : 500,
-                  color: authModalMode === 'login' ? '#2563EB' : '#64748B',
-                  borderBottom: authModalMode === 'login' ? '2.5px solid #2563EB' : 'none',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthModalMode('register'); setAuthError(''); }}
-                style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
-                  background: authModalMode === 'register' ? '#FFFFFF' : 'transparent',
-                  fontWeight: authModalMode === 'register' ? 700 : 500,
-                  color: authModalMode === 'register' ? '#10B981' : '#64748B',
-                  borderBottom: authModalMode === 'register' ? '2.5px solid #10B981' : 'none',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                New Registration
-              </button>
-            </div>
-
-            {/* Form Content */}
-            <form onSubmit={handleCustomerAuthSubmit} style={{ padding: 24 }}>
-              {authError && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    background: '#FEF2F2',
-                    border: '1px solid #FCA5A5',
-                    borderRadius: 8,
-                    color: '#991B1B',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    marginBottom: 16,
-                  }}
-                >
-                  ⚠️ {authError}
-                </div>
-              )}
-
-              {authSuccessMsg && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    background: '#ECFDF5',
-                    border: '1px solid #A7F3D0',
-                    borderRadius: 8,
-                    color: '#065F46',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    marginBottom: 16,
-                  }}
-                >
-                  ✅ {authSuccessMsg}
-                </div>
-              )}
-
-              {authModalMode === 'register' && (
-                <div className="form-group" style={{ marginBottom: 14 }}>
-                  <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Enter your full name"
-                    value={authFormData.name}
-                    onChange={(e) => setAuthFormData({ ...authFormData, name: e.target.value })}
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 14 }}>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  className="form-input"
-                  placeholder="you@domain.com"
-                  value={authFormData.email}
-                  onChange={(e) => setAuthFormData({ ...authFormData, email: e.target.value })}
-                  required
-                />
-              </div>
-
-              {authModalMode === 'register' && (
-                <>
-                  <div className="form-group" style={{ marginBottom: 14 }}>
-                    <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                      📞 Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      placeholder="+91 98470 12345"
-                      value={authFormData.phone}
-                      onChange={(e) => setAuthFormData({ ...authFormData, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="grid-2" style={{ gap: 12, marginBottom: 14 }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                        City / Town *
-                      </label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="e.g. Payyanur"
-                        value={authFormData.city}
-                        onChange={(e) => setAuthFormData({ ...authFormData, city: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                        District *
-                      </label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="e.g. Kannur"
-                        value={authFormData.district}
-                        onChange={(e) => setAuthFormData({ ...authFormData, district: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 14 }}>
-                    <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                      State *
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Kerala"
-                      value={authFormData.state}
-                      onChange={(e) => setAuthFormData({ ...authFormData, state: e.target.value })}
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 20 }}>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={authFormData.password}
-                  onChange={(e) => setAuthFormData({ ...authFormData, password: e.target.value })}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{
-                  width: '100%',
-                  padding: 12,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  background: authModalMode === 'register' ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                  border: 'none',
-                  cursor: authLoading ? 'wait' : 'pointer',
-                }}
-                disabled={authLoading}
-              >
-                {authLoading
-                  ? 'Processing...'
-                  : authModalMode === 'login'
-                  ? 'Sign In as Customer'
-                  : 'Register Customer Account'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
