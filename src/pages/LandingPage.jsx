@@ -41,6 +41,7 @@ import {
   searchMerchants,
   uploadMerchantMedia,
 } from '../api/merchantApi';
+import { fetchCategoriesList } from '../api/categoryApi';
 
 // 30 Featured Categories List (Matching Screenshot 1 & 3: category.php)
 const featuredCategoriesList = [
@@ -1050,6 +1051,20 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [onboardError, setOnboardError] = useState('');
   const [onboardSuccess, setOnboardSuccess] = useState('');
+  const [categoryOptionsList, setCategoryOptionsList] = useState([]);
+
+  useEffect(() => {
+    fetchCategoriesList()
+      .then((catItems) => {
+        if (Array.isArray(catItems) && catItems.length > 0) {
+          const fetchedNames = Array.from(new Set(catItems.map((c) => c.name || c.category_name).filter(Boolean)));
+          setCategoryOptionsList(fetchedNames);
+        }
+      })
+      .catch((err) => {
+        console.warn('Backend categories fetch notice in LandingPage:', err.message);
+      });
+  }, []);
 
   // Form State matching API spec:
   // POST http://168.144.18.149:8000/api/v1/merchants/onboarding
@@ -2519,13 +2534,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
                       onChange={(e) => setOnboardForm({ ...onboardForm, category: e.target.value, categories: [e.target.value], services: [e.target.value] })}
                       style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14, background: '#FFF' }}
                     >
-                      {featuredCategoriesList.map((cat) => (
-                        <option key={cat.id} value={cat.title}>{cat.title}</option>
+                      {categoryOptionsList.map((catName, idx) => (
+                        <option key={idx} value={catName}>{catName}</option>
                       ))}
-                      <option value="Retail">Retail</option>
-                      <option value="Services">Services</option>
-                      <option value="Healthcare">Healthcare</option>
-                      <option value="Food & Dining">Food & Dining</option>
                     </select>
                   </div>
                   <div>

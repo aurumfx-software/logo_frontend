@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { fieldStaffStats, initialFieldMerchants, fieldStaffTimeline } from '../data/mockData';
 import { createMerchant } from '../api/merchantApi';
+import { fetchCategoriesList } from '../api/categoryApi';
 
 export default function FieldStaffDashboard() {
   const { user } = useAuth();
@@ -30,6 +31,20 @@ export default function FieldStaffDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState([]);
+
+  useEffect(() => {
+    fetchCategoriesList()
+      .then((catItems) => {
+        if (Array.isArray(catItems) && catItems.length > 0) {
+          const fetchedNames = Array.from(new Set(catItems.map((c) => c.name || c.category_name).filter(Boolean)));
+          setCategoryOptions(fetchedNames);
+        }
+      })
+      .catch((err) => {
+        console.warn('Dynamic categories error in FieldStaffDashboard:', err);
+      });
+  }, []);
 
   // Form state for adding merchant
   const [formData, setFormData] = useState({
@@ -864,13 +879,9 @@ export default function FieldStaffDashboard() {
                       onChange={handleInputChange}
                       className="form-select"
                     >
-                      <option>Food & Dining</option>
-                      <option>Shopping</option>
-                      <option>Health & Wellness</option>
-                      <option>Services</option>
-                      <option>Education</option>
-                      <option>Banking & Finance</option>
-                      <option>Travel & Transport</option>
+                      {categoryOptions.map((c, i) => (
+                        <option key={i} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

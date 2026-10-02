@@ -31,37 +31,16 @@ import {
   approveMerchant,
   rejectMerchant,
 } from '../api/merchantApi';
+import { fetchCategoriesList } from '../api/categoryApi';
 import { useAuth } from '../context/AuthContext';
-
-const categoriesList = [
-  'Helmets & Accessories',
-  'Software Development',
-  'Agricultural Research Institute',
-  'Cleaning Machine',
-  'Bakery',
-  'Physiotherapy',
-  'Catering Service',
-  'Supplyco Store',
-  'Fruits & Juice Shop',
-  'Pastry & Cake Shop',
-  'Hotel Residencies',
-  'Petrol Pumps',
-  'E V Charging',
-  'Solar & Electricals',
-  'Automobile & Spares',
-  'Shopping & Fashion',
-  'Aluminium Fabrication',
-  'Healthcare & Medicals',
-  'Travels & Transport',
-];
 
 const initialMerchantState = {
   name: '',
   business_name: '',
   owner_name: '',
   owner: '',
-  category: 'Solar & Electricals',
-  categories: ['Solar & Electricals'],
+  category: '',
+  categories: [],
   address: '',
   landmark: '',
   city: 'Payyanur',
@@ -93,6 +72,7 @@ export default function Merchants() {
   const [loadingMerchants, setLoadingMerchants] = useState(true);
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categoriesList, setCategoriesList] = useState([]);
 
   // New Merchant Form State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -348,30 +328,30 @@ export default function Merchants() {
         prev.map((m) =>
           m.id === editFormData.id
             ? {
-                ...m,
-                name: storeName,
-                business_name: storeName,
-                owner: editFormData.owner_name || editFormData.owner || m.owner,
-                category: editFormData.category || m.category,
-                phone: editFormData.phone_number || editFormData.phone || m.phone,
-                phone_number: editFormData.phone_number || editFormData.phone || m.phone,
-                whatsapp: editFormData.whatsapp || m.whatsapp,
-                landline: editFormData.landline || m.landline,
-                email: editFormData.email !== undefined ? editFormData.email : m.email,
-                website: editFormData.website || m.website,
-                facebook: editFormData.facebook || m.facebook,
-                instagram: editFormData.instagram || m.instagram,
-                twitter: editFormData.twitter || m.twitter,
-                youtube: editFormData.youtube || m.youtube,
-                city: editFormData.city || m.city,
-                district: editFormData.district || m.district,
-                address: editFormData.address || m.address,
-                latitude: editFormData.latitude !== undefined ? editFormData.latitude : m.latitude,
-                longitude: editFormData.longitude !== undefined ? editFormData.longitude : m.longitude,
-                status: statusValue,
-                photos: validPhotos.length > 0 ? validPhotos : m.photos,
-                videoUrl: editFormData.videoUrl || m.videoUrl,
-              }
+              ...m,
+              name: storeName,
+              business_name: storeName,
+              owner: editFormData.owner_name || editFormData.owner || m.owner,
+              category: editFormData.category || m.category,
+              phone: editFormData.phone_number || editFormData.phone || m.phone,
+              phone_number: editFormData.phone_number || editFormData.phone || m.phone,
+              whatsapp: editFormData.whatsapp || m.whatsapp,
+              landline: editFormData.landline || m.landline,
+              email: editFormData.email !== undefined ? editFormData.email : m.email,
+              website: editFormData.website || m.website,
+              facebook: editFormData.facebook || m.facebook,
+              instagram: editFormData.instagram || m.instagram,
+              twitter: editFormData.twitter || m.twitter,
+              youtube: editFormData.youtube || m.youtube,
+              city: editFormData.city || m.city,
+              district: editFormData.district || m.district,
+              address: editFormData.address || m.address,
+              latitude: editFormData.latitude !== undefined ? editFormData.latitude : m.latitude,
+              longitude: editFormData.longitude !== undefined ? editFormData.longitude : m.longitude,
+              status: statusValue,
+              photos: validPhotos.length > 0 ? validPhotos : m.photos,
+              videoUrl: editFormData.videoUrl || m.videoUrl,
+            }
             : m
         )
       );
@@ -430,7 +410,7 @@ export default function Merchants() {
   };
 
   useEffect(() => {
-    async function loadMerchants() {
+    async function loadData() {
       try {
         setLoadingMerchants(true);
         const currentUserId = user?.id || user?.user_id;
@@ -447,8 +427,21 @@ export default function Merchants() {
       } finally {
         setLoadingMerchants(false);
       }
+
+      try {
+        const catItems = await fetchCategoriesList();
+        if (Array.isArray(catItems) && catItems.length > 0) {
+          const fetchedNames = Array.from(new Set(catItems.map((c) => c.name || c.category_name).filter(Boolean)));
+          setCategoriesList(fetchedNames);
+        } else {
+          setCategoriesList([]);
+        }
+      } catch (catErr) {
+        console.warn('Backend categories list error in Merchants page:', catErr);
+        setCategoriesList([]);
+      }
     }
-    loadMerchants();
+    loadData();
   }, [user]);
 
   const filteredData =
@@ -1139,8 +1132,8 @@ export default function Merchants() {
                   {isVideoUploading
                     ? `Uploading (${videoUploadProgress}%)...`
                     : newMerchant.videoUrl
-                    ? 'Change Video File'
-                    : 'Select & Upload Video File'}
+                      ? 'Change Video File'
+                      : 'Select & Upload Video File'}
                 </label>
                 <input
                   id="merchant-video-input"
@@ -1673,8 +1666,8 @@ export default function Merchants() {
                   {isEditVideoUploading
                     ? `Uploading (${editVideoUploadProgress}%)...`
                     : editFormData.videoUrl
-                    ? 'Change Video File'
-                    : 'Select & Upload Video File'}
+                      ? 'Change Video File'
+                      : 'Select & Upload Video File'}
                 </label>
                 <input
                   id="edit-merchant-video-input"
