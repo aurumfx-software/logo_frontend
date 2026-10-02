@@ -26,7 +26,7 @@ import {
   FaGlobe,
   FaEnvelope,
 } from 'react-icons/fa';
-import { fetchMerchantsList } from '../api/merchantApi';
+import { fetchMerchantsList, getMerchantById } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 
 // Standard fallback establishments matching landing page & screenshot
@@ -109,8 +109,8 @@ export default function MerchantDetail({ isPublic = false }) {
   const passedMerchant = location.state?.merchant;
   const { user, isAuthenticated } = useAuth();
 
-  const [merchant, setMerchant] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [merchant, setMerchant] = useState(passedMerchant || null);
+  const [loading, setLoading] = useState(!passedMerchant);
   const [activePhoto, setActivePhoto] = useState(0);
   const [copied, setCopied] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -118,7 +118,21 @@ export default function MerchantDetail({ isPublic = false }) {
   useEffect(() => {
     async function load() {
       try {
-        setLoading(true);
+        if (!merchant) setLoading(true);
+
+        if (id) {
+          try {
+            const fetched = await getMerchantById(id);
+            if (fetched && (fetched.name || fetched.business_name)) {
+              setMerchant(fetched);
+              setLoading(false);
+              return;
+            }
+          } catch (apiErr) {
+            console.warn('Backend getMerchantById fallback notice:', apiErr.message);
+          }
+        }
+
         if (passedMerchant) {
           setMerchant(passedMerchant);
           setLoading(false);
@@ -139,7 +153,6 @@ export default function MerchantDetail({ isPublic = false }) {
           );
         }
 
-        // If still not found, fallback to first fallback merchant so page always renders gracefully
         if (!found && id) {
           found = {
             ...FALLBACK_MERCHANTS[0],

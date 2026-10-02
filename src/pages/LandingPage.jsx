@@ -2074,7 +2074,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div
                 key={item.id}
                 className="establishment-card"
-                onClick={() => handleSelectMerchantCard(item)}
+                onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
               >
                 <div className="establishment-image-wrapper">
                   <img
