@@ -323,16 +323,21 @@ export default function Categories() {
               >
                 {/* Category Icon / Image */}
                 <div style={{ width: 48, height: 48, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '1.5px solid #E2E8F0', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {cat.icon_url ? (
+                  {cat.icon_url || (cat.icon && cat.icon.startsWith('http')) ? (
                     <img
-                      src={cat.icon_url}
+                      src={cat.icon_url || cat.icon}
                       alt={catName}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  <div style={{ display: (cat.icon_url || (cat.icon && cat.icon.startsWith('http'))) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <HiOutlineOfficeBuilding style={{ fontSize: 24, color: '#94A3B8' }} />
-                  )}
+                  </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
