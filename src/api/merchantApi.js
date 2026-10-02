@@ -100,12 +100,8 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
     location = arg4;
   }
 
-  if (!userCode) {
-    userCode = getCurrentUserCode() || 'FLS_1';
-  }
-
   const params = new URLSearchParams();
-  if (userCode) params.set('user_code', userCode);
+  if (userCode && userCode !== 'all') params.set('user_code', userCode);
   if (category && category !== 'all') params.set('category', category);
   if (location && location !== 'all') params.set('location', location);
 
@@ -147,9 +143,16 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
   }
 
   return rawItems.map((m, idx) => {
-    const rawPhotos = m.photos || m.merchant_photos || (m.profile_picture ? [m.profile_picture] : []);
+    let rawPhotos = m.photos || m.merchant_photos || (m.profile_picture ? [m.profile_picture] : []);
+    if (!Array.isArray(rawPhotos) || rawPhotos.length === 0) {
+      const photosFromNumbered = [m.photo_1, m.photo_2, m.photo_3, m.photo_4, m.photo_5, m.photo_6].filter(Boolean);
+      if (photosFromNumbered.length > 0) {
+        rawPhotos = photosFromNumbered;
+      }
+    }
     const formattedPhotos = Array.isArray(rawPhotos) ? rawPhotos.map(formatMediaUrl) : [];
     const rawVideos = m.merchant_videos || (m.video_url || m.videoUrl ? [m.video_url || m.videoUrl] : []);
+    const phoneVal = m.phone_number || m.phone || m.contact_number || m.contact_phone || m.mobile || '+91 98470 12345';
 
     return {
       id: m.id || m.merchant_id || m._id || `MCH-${idx + 1}`,
@@ -171,11 +174,11 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       status: m.status ? m.status.toLowerCase() : (m.is_approved || m.is_active ? 'active' : 'pending'),
       owner: m.owner_name || m.contact_person || m.owner || 'N/A',
       owner_name: m.owner_name || m.contact_person || m.owner || 'N/A',
-      phone: m.phone_number || m.phone || m.contact_phone || m.mobile || '+91 98470 12345',
-      phone_number: m.phone_number || m.phone || m.contact_phone || m.mobile || '+91 98470 12345',
-      whatsapp: m.whatsapp || m.phone_number || m.phone || '',
+      phone: phoneVal,
+      phone_number: phoneVal,
+      whatsapp: m.whatsapp || phoneVal,
       email: m.email || '',
-      user_code: m.user_code || userCode || 'FLS_1',
+      user_code: m.user_code || 'FLS_1',
       about: m.about || m.description || '',
       key_highlights: Array.isArray(m.key_highlights) ? m.key_highlights : Array.isArray(m.highlights) ? m.highlights : [],
       highlights: Array.isArray(m.key_highlights) ? m.key_highlights : Array.isArray(m.highlights) ? m.highlights : [],
@@ -192,6 +195,9 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       merchant_videos: rawVideos,
       videoUrl: (rawVideos && rawVideos[0]) || '',
       image: formattedPhotos[0] || m.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+      location: m.city || m.location || m.district || 'Payyanur',
+      categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      description: m.about || m.description || '',
     };
   });
 }

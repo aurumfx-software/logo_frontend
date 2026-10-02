@@ -1072,7 +1072,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     status: 'APPROVED',
   });
 
-  // 1. GET ALL MERCHANTS from Backend (GET /api/v1/merchants?user_code=FLS_1&category=...&location=...)
+  // 1. GET ALL MERCHANTS from Backend (GET /api/v1/merchants)
   useEffect(() => {
     let active = true;
     setIsLoadingMerchants(true);
@@ -1080,7 +1080,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
     const loc = selectedDistrict !== 'all' ? selectedDistrict : selectedLocation !== 'all' ? selectedLocation : '';
     const cat = selectedCategory !== 'all' ? selectedCategory : '';
 
-    fetchMerchantsList({ user_code: 'FLS_1', category: cat, location: loc })
+    const queryParams = {};
+    if (cat) queryParams.category = cat;
+    if (loc) queryParams.location = loc;
+
+    fetchMerchantsList(queryParams)
       .then((data) => {
         if (active && Array.isArray(data)) {
           setApiMerchants(data);
@@ -1421,8 +1425,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
-  // Combine live backend merchants with static mock list
-  const sourceEstablishments = apiMerchants.length > 0 ? [...apiMerchants, ...initialEstablishments] : initialEstablishments;
+  // Use backend API merchants exclusively when loaded from server
+  const sourceEstablishments = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
 
   // Filter Establishments list
   const filteredEstablishments = sourceEstablishments.filter((item) => {
@@ -1446,7 +1450,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     if (catKey === 'all') {
       return (
         sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length +
-        featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length
+        (apiMerchants.length > 0 ? 0 : featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length)
       );
     }
     const estCount = sourceEstablishments.filter(
@@ -1454,11 +1458,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
         (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
         matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')
     ).length;
-    const adCount = featuredAdsList.filter(
-      (item) =>
-        (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
-        matchesLocationFilter(item.location, item.address)
-    ).length;
+    const adCount = apiMerchants.length > 0
+      ? 0
+      : featuredAdsList.filter(
+          (item) =>
+            (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
+            matchesLocationFilter(item.location, item.address)
+        ).length;
     return estCount + adCount;
   };
 
@@ -1475,21 +1481,22 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const sortItems = (items) => {
     const list = [...items];
     if (sortBy === 'location_asc') {
-      return list.sort((a, b) => a.location.localeCompare(b.location));
+      return list.sort((a, b) => (a.location || '').localeCompare(b.location || ''));
     }
     if (sortBy === 'category_asc') {
-      return list.sort((a, b) => a.category.localeCompare(b.category));
+      return list.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
     }
     if (sortBy === 'rating_desc') {
       return list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }
     if (sortBy === 'name_asc') {
-      return list.sort((a, b) => a.name.localeCompare(b.name));
+      return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
     return list;
   };
 
-  const combinedEstablishmentsList = [...filteredFeaturedAds, ...filteredEstablishments];
+  // Populate exclusively from Backend API merchants when available
+  const combinedEstablishmentsList = apiMerchants.length > 0 ? filteredEstablishments : [...filteredFeaturedAds, ...filteredEstablishments];
   const sortedEstablishments = sortItems(combinedEstablishmentsList);
 
   const handleSelectPlace = (placeObj) => {
