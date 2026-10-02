@@ -33,6 +33,7 @@ export async function createAdminOrStaffAccount({ name, email, phone, role, pass
     phone: phone ? phone.trim() : '9847055667',
     password: password ? password.trim() : 'Password123',
     role: roleCode,
+    is_staff: true,
     district: district || city || 'Kannur',
     city: city || 'Payyanur',
     regions: Array.isArray(regions) ? regions : [city || 'Payyanur North'],
@@ -93,8 +94,31 @@ export async function createAdminOrStaffAccount({ name, email, phone, role, pass
 /**
  * Fetch list of registered users from backend API (/api/v1/admin/users) with JWT token
  */
-export async function fetchUsersList() {
-  const response = await apiFetch('/api/v1/admin/users', {
+export async function fetchUsersList(filters = {}) {
+  const searchVal = typeof filters === 'string' ? filters : (filters.search || filters.query || filters.q || filters.searchQuery || '');
+  const role = filters.role;
+  const status = filters.status;
+  const state = filters.state;
+  const district = filters.district;
+  const city = filters.city;
+
+  const params = new URLSearchParams();
+  if (role && role !== 'all') params.set('role', role);
+  if (status && status !== 'all') params.set('status', status);
+  if (state && state !== 'all') params.set('state', state);
+  if (district && district !== 'all') params.set('district', district);
+  if (city && city !== 'all') params.set('city', city);
+
+  if (searchVal && String(searchVal).trim()) {
+    const q = String(searchVal).trim();
+    params.set('search', q);
+    params.set('query', q);
+    params.set('q', q);
+  }
+
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await apiFetch(`/api/v1/admin/users${queryString}`, {
     method: 'GET',
   });
 

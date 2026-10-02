@@ -14,6 +14,7 @@ export const adminService = {
       phone: data.phone ? data.phone.trim() : '',
       password: data.password ? data.password.trim() : 'Password123',
       role: data.role === 'Field Staff' || data.role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN',
+      is_staff: true,
       district: data.district || data.city || 'Kannur',
       city: data.city || 'Payyanur',
       regions: Array.isArray(data.regions) ? data.regions : [data.city || 'Payyanur'],
@@ -51,6 +52,17 @@ export const adminService = {
   async getUsers(params = {}) {
     const query = new URLSearchParams();
     if (params.role) query.append('role', params.role);
+    if (params.status) query.append('status', params.status);
+    if (params.state) query.append('state', params.state);
+    if (params.district) query.append('district', params.district);
+    if (params.city) query.append('city', params.city);
+    const searchVal = params.search || params.query || params.q;
+    if (searchVal && String(searchVal).trim()) {
+      const cleanQ = String(searchVal).trim();
+      query.append('search', cleanQ);
+      query.append('query', cleanQ);
+      query.append('q', cleanQ);
+    }
     if (params.skip !== undefined) query.append('skip', String(params.skip));
     if (params.limit !== undefined) query.append('limit', String(params.limit || 50));
 

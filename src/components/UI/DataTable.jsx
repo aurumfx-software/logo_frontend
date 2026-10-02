@@ -5,9 +5,10 @@ export default function DataTable({
   columns,
   data = [],
   searchable = true,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = 'Search all fields (name, email, phone, city, state...)...',
   pageSize = 8,
   onRowClick,
+  onSearch,
 }) {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,13 +20,22 @@ export default function DataTable({
     setCurrentPage(1);
   }, [data]);
 
-  // Filter
-  const filtered = (data || []).filter((row) =>
-    columns.some((col) => {
-      const val = row[col.key];
-      return val && String(val).toLowerCase().includes(search.toLowerCase());
-    })
-  );
+  // Filter across ALL fields of each row
+  const filtered = (data || []).filter((row) => {
+    if (!search || !search.trim()) return true;
+    const queryStr = search.toLowerCase().trim();
+    return Object.values(row).some((val) => {
+      if (val === null || val === undefined) return false;
+      if (typeof val === 'object') {
+        try {
+          return JSON.stringify(val).toLowerCase().includes(queryStr);
+        } catch {
+          return false;
+        }
+      }
+      return String(val).toLowerCase().includes(queryStr);
+    });
+  });
 
   // Sort
   const sorted = sortKey
@@ -63,8 +73,12 @@ export default function DataTable({
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => {
-                setSearch(e.target.value);
+                const val = e.target.value;
+                setSearch(val);
                 setCurrentPage(1);
+                if (typeof onSearch === 'function') {
+                  onSearch(val);
+                }
               }}
             />
           </div>

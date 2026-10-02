@@ -89,21 +89,45 @@ export async function uploadMerchantMedia(formData) {
  * Optional query params: ?user_code=FLS_1&category=Retail&location=Kannur
  */
 export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
-  let userCode, category, location;
+  let filterObj = {};
   if (typeof arg1 === 'object' && arg1 !== null) {
-    userCode = arg1.user_code || arg1.userCode;
-    category = arg1.category;
-    location = arg1.location || arg1.city || arg1.district;
+    filterObj = arg1;
   } else {
-    userCode = arg2 || arg1;
-    category = arg3;
-    location = arg4;
+    filterObj = {
+      user_code: arg2 || arg1,
+      category: arg3,
+      location: arg4,
+    };
   }
+
+  const userCode = filterObj.user_code || filterObj.userCode;
+  const category = filterObj.category;
+  const location = filterObj.location || filterObj.city || filterObj.district;
+  const searchVal = filterObj.search || filterObj.query || filterObj.q || filterObj.searchQuery;
+  const status = filterObj.status;
+  const state = filterObj.state;
+  const district = filterObj.district;
+  const city = filterObj.city;
+  const plan = filterObj.plan;
+  const businessType = filterObj.business_type || filterObj.businessType;
 
   const params = new URLSearchParams();
   if (userCode && userCode !== 'all') params.set('user_code', userCode);
   if (category && category !== 'all') params.set('category', category);
   if (location && location !== 'all') params.set('location', location);
+  if (status && status !== 'all') params.set('status', status);
+  if (state && state !== 'all') params.set('state', state);
+  if (district && district !== 'all') params.set('district', district);
+  if (city && city !== 'all') params.set('city', city);
+  if (plan && plan !== 'all') params.set('plan', plan);
+  if (businessType && businessType !== 'all') params.set('business_type', businessType);
+
+  if (searchVal && String(searchVal).trim()) {
+    const q = String(searchVal).trim();
+    params.set('search', q);
+    params.set('query', q);
+    params.set('q', q);
+  }
 
   const queryString = params.toString() ? `?${params.toString()}` : '';
 

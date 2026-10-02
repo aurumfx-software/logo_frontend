@@ -122,6 +122,7 @@ export const authService = {
         district: district ? district.trim() : null,
         state: state ? state.trim() : null,
         role: role === 'CUSTOMER' || role === 'Customer' ? 'CUSTOMER' : role === 'Field Staff' || role === 'FIELD_STAFF' ? 'FIELD_STAFF' : 'ADMIN',
+        is_staff: true,
       }),
     });
 
