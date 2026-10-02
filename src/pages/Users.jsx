@@ -830,6 +830,7 @@ export default function Users() {
               </div>
             )}
             <DataTable
+              key={activeTab}
               columns={columns}
               data={sortedData}
               searchPlaceholder="Search accounts by name, email, city or role..."

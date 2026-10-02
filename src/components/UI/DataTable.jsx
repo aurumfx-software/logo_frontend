@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight } from 'react-icons/hi';
 
 export default function DataTable({
   columns,
-  data,
+  data = [],
   searchable = true,
   searchPlaceholder = 'Search...',
   pageSize = 8,
@@ -14,8 +14,13 @@ export default function DataTable({
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
 
+  // Reset page to 1 when input data array changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data]);
+
   // Filter
-  const filtered = data.filter((row) =>
+  const filtered = (data || []).filter((row) =>
     columns.some((col) => {
       const val = row[col.key];
       return val && String(val).toLowerCase().includes(search.toLowerCase());
@@ -25,16 +30,17 @@ export default function DataTable({
   // Sort
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
-        const aVal = a[sortKey] || '';
-        const bVal = b[sortKey] || '';
+        const aVal = a[sortKey] ?? '';
+        const bVal = b[sortKey] ?? '';
         const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
         return sortDir === 'asc' ? cmp : -cmp;
       })
     : filtered;
 
-  // Paginate
-  const totalPages = Math.ceil(sorted.length / pageSize);
-  const start = (currentPage - 1) * pageSize;
+  // Safe Paginate bounds calculation
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (safeCurrentPage - 1) * pageSize;
   const paginated = sorted.slice(start, start + pageSize);
 
   const handleSort = (key) => {
@@ -114,7 +120,7 @@ export default function DataTable({
         </table>
       </div>
 
-      {totalPages > 1 && (
+      {sorted.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -128,40 +134,42 @@ export default function DataTable({
           <span>
             Showing {start + 1}–{Math.min(start + pageSize, sorted.length)} of {sorted.length}
           </span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              className="btn btn-outline btn-sm btn-icon"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              style={{ opacity: currentPage === 1 ? 0.4 : 1 }}
-            >
-              <HiOutlineChevronLeft />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-              .map((p, idx, arr) => (
-                <React.Fragment key={p}>
-                  {idx > 0 && arr[idx - 1] !== p - 1 && (
-                    <span style={{ padding: '0 4px' }}>…</span>
-                  )}
-                  <button
-                    className={`btn btn-sm ${p === currentPage ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => setCurrentPage(p)}
-                    style={{ minWidth: 36 }}
-                  >
-                    {p}
-                  </button>
-                </React.Fragment>
-              ))}
-            <button
-              className="btn btn-outline btn-sm btn-icon"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              style={{ opacity: currentPage === totalPages ? 0.4 : 1 }}
-            >
-              <HiOutlineChevronRight />
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage === 1}
+                style={{ opacity: safeCurrentPage === 1 ? 0.4 : 1 }}
+              >
+                <HiOutlineChevronLeft />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1)
+                .map((p, idx, arr) => (
+                  <React.Fragment key={p}>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span style={{ padding: '0 4px' }}>…</span>
+                    )}
+                    <button
+                      className={`btn btn-sm ${p === safeCurrentPage ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={() => setCurrentPage(p)}
+                      style={{ minWidth: 36 }}
+                    >
+                      {p}
+                    </button>
+                  </React.Fragment>
+                ))}
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage === totalPages}
+                style={{ opacity: safeCurrentPage === totalPages ? 0.4 : 1 }}
+              >
+                <HiOutlineChevronRight />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
