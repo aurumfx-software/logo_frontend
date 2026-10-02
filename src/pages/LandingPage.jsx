@@ -1591,47 +1591,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   </div>
                 </div>
 
-                {/* Quick Access: Merchants Link & Onboard Button */}
-                <button
-                  onClick={() => setOnboardModalOpen(true)}
-                  className="btn btn-sm"
-                  style={{
-                    background: 'linear-gradient(135deg, #10B981, #059669)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontWeight: 700,
-                    fontSize: 12,
-                    padding: '6px 14px',
-                    borderRadius: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
-                  }}
-                >
-                  <HiPlus style={{ fontSize: 16 }} /> Onboard Merchant
-                </button>
 
-                <Link
-                  to="/merchants"
-                  className="btn btn-sm"
-                  style={{
-                    background: '#EEF2FF',
-                    color: '#4F46E5',
-                    border: '1px solid #C7D2FE',
-                    fontWeight: 700,
-                    fontSize: 12,
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <HiViewGrid /> Merchants
-                </Link>
 
                 {/* Sign Out Button */}
                 <button
@@ -2048,22 +2008,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
               {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
             </p>
           </div>
-          <button
-            onClick={() => setOnboardModalOpen(true)}
-            className="btn btn-primary"
-            style={{
-              background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-              padding: '10px 18px',
-              borderRadius: 10,
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
-            }}
-          >
-            <HiPlus style={{ fontSize: 18 }} /> Onboard Merchant
-          </button>
         </div>
 
         {sortedEstablishments.length === 0 ? (
