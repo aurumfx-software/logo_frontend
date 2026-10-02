@@ -41,6 +41,8 @@ import {
   getStatesList,
   getDistrictsForState,
   getCitiesForDistrict,
+  getDistrictsForStates,
+  getCitiesForDistricts,
 } from '../utils/locations';
 
 const initialMerchantState = {
@@ -55,6 +57,9 @@ const initialMerchantState = {
   city: 'Payyanur',
   district: 'Kannur',
   state: 'Kerala',
+  states: [DEFAULT_STATE],
+  districts: [DEFAULT_DISTRICT],
+  cities: ['Payyanur'],
   latitude: null,
   longitude: null,
   phone: '',
@@ -268,9 +273,23 @@ export default function Merchants() {
       ? [...merchantRow.photos, '', '', '', ''].slice(0, 4)
       : ['', '', '', ''];
 
-    const resolvedDistrict = merchantRow.district || DEFAULT_DISTRICT;
-    const resolvedState = merchantRow.state || getStateForDistrict(resolvedDistrict, DEFAULT_STATE);
-    const resolvedCity = merchantRow.city || (getCitiesForDistrict(resolvedState, resolvedDistrict)[0] || 'Payyanur');
+    const resolvedDistricts = Array.isArray(merchantRow.districts) && merchantRow.districts.length > 0
+      ? merchantRow.districts
+      : merchantRow.district
+      ? merchantRow.district.split(',').map((s) => s.trim())
+      : [DEFAULT_DISTRICT];
+
+    const resolvedStates = Array.isArray(merchantRow.states) && merchantRow.states.length > 0
+      ? merchantRow.states
+      : merchantRow.state
+      ? merchantRow.state.split(',').map((s) => s.trim())
+      : [getStateForDistrict(resolvedDistricts[0], DEFAULT_STATE)];
+
+    const resolvedCities = Array.isArray(merchantRow.cities) && merchantRow.cities.length > 0
+      ? merchantRow.cities
+      : merchantRow.city
+      ? merchantRow.city.split(',').map((s) => s.trim())
+      : [getCitiesForDistrict(resolvedStates[0], resolvedDistricts[0])[0] || 'Payyanur'];
 
     setEditFormData({
       id: merchantRow.id,
@@ -282,9 +301,12 @@ export default function Merchants() {
       categories: merchantRow.categories || [merchantRow.category || 'Retail'],
       address: merchantRow.address || '',
       landmark: merchantRow.landmark || '',
-      city: resolvedCity,
-      district: resolvedDistrict,
-      state: resolvedState,
+      city: resolvedCities.join(', '),
+      district: resolvedDistricts.join(', '),
+      state: resolvedStates.join(', '),
+      states: resolvedStates,
+      districts: resolvedDistricts,
+      cities: resolvedCities,
       latitude: merchantRow.latitude || null,
       longitude: merchantRow.longitude || null,
       phone: merchantRow.phone || merchantRow.phone_number || '',
@@ -971,65 +993,157 @@ export default function Merchants() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">State *</label>
-              <select
-                className="form-select"
-                value={newMerchant.state || DEFAULT_STATE}
-                onChange={(e) => {
-                  const newSt = e.target.value;
-                  const availableDistricts = getDistrictsForState(newSt);
-                  const firstDist = availableDistricts[0] || '';
-                  const availableCities = getCitiesForDistrict(newSt, firstDist);
-                  const firstCity = availableCities[0] || '';
-                  setNewMerchant({ ...newMerchant, state: newSt, district: firstDist, city: firstCity });
-                }}
-                required
-              >
-                {getStatesList().map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
+          {/* Multi-State Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              🏛️ State * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 46 }}>
+              {getStatesList().map((st) => {
+                const selected = (newMerchant.states || []).includes(st);
+                return (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setNewMerchant((p) => {
+                      const currentStates = p.states || [];
+                      const nextStates = selected
+                        ? currentStates.filter((s) => s !== st)
+                        : [...currentStates, st];
+                      const validDistricts = getDistrictsForStates(nextStates);
+                      const nextDistricts = (p.districts || []).filter((d) => validDistricts.includes(d));
+                      const validCities = getCitiesForDistricts(nextStates, nextDistricts);
+                      const nextCities = (p.cities || []).filter((c) => validCities.includes(c));
+                      return {
+                        ...p,
+                        states: nextStates,
+                        districts: nextDistricts,
+                        cities: nextCities,
+                        state: nextStates.join(', '),
+                        district: nextDistricts.join(', '),
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #059669' : '1.5px solid #CBD5E1',
+                      background: selected ? '#D1FAE5' : 'white',
+                      color: selected ? '#065F46' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{st}
+                  </button>
+                );
+              })}
             </div>
-            <div className="form-group">
-              <label className="form-label">District *</label>
-              <select
-                className="form-select"
-                value={newMerchant.district}
-                onChange={(e) => {
-                  const newDist = e.target.value;
-                  const currentSt = newMerchant.state || DEFAULT_STATE;
-                  const availableCities = getCitiesForDistrict(currentSt, newDist);
-                  const firstCity = availableCities[0] || '';
-                  setNewMerchant({ ...newMerchant, district: newDist, city: firstCity });
-                }}
-                required
-              >
-                {getDistrictsForState(newMerchant.state || DEFAULT_STATE).map((d) => (
-                  <option key={d} value={d}>{d} District</option>
-                ))}
-                {newMerchant.district && !getDistrictsForState(newMerchant.state || DEFAULT_STATE).includes(newMerchant.district) && (
-                  <option value={newMerchant.district}>{newMerchant.district}</option>
-                )}
-              </select>
+            {(newMerchant.states || []).length > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#059669', fontWeight: 600 }}>
+                ✅ {(newMerchant.states || []).length} state{(newMerchant.states || []).length > 1 ? 's' : ''} selected: {(newMerchant.states || []).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Multi-District Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              📍 District * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 46 }}>
+              {getDistrictsForStates(newMerchant.states).map((d) => {
+                const selected = (newMerchant.districts || []).includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setNewMerchant((p) => {
+                      const currentDistricts = p.districts || [];
+                      const nextDistricts = selected
+                        ? currentDistricts.filter((dist) => dist !== d)
+                        : [...currentDistricts, d];
+                      const validCities = getCitiesForDistricts(p.states, nextDistricts);
+                      const nextCities = (p.cities || []).filter((c) => validCities.includes(c));
+                      return {
+                        ...p,
+                        districts: nextDistricts,
+                        cities: nextCities,
+                        district: nextDistricts.join(', '),
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #2563EB' : '1.5px solid #CBD5E1',
+                      background: selected ? '#DBEAFE' : 'white',
+                      color: selected ? '#1E40AF' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{d}
+                  </button>
+                );
+              })}
             </div>
-            <div className="form-group">
-              <label className="form-label">City / Town *</label>
-              <select
-                className="form-select"
-                value={newMerchant.city}
-                onChange={(e) => setNewMerchant({ ...newMerchant, city: e.target.value })}
-                required
-              >
-                {getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-                {newMerchant.city && !getCitiesForDistrict(newMerchant.state || DEFAULT_STATE, newMerchant.district).includes(newMerchant.city) && (
-                  <option value={newMerchant.city}>{newMerchant.city}</option>
-                )}
-              </select>
+            {(newMerchant.districts || []).length > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#2563EB', fontWeight: 600 }}>
+                ✅ {(newMerchant.districts || []).length} district{(newMerchant.districts || []).length > 1 ? 's' : ''} selected: {(newMerchant.districts || []).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Multi-City Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              🏘️ City / Town * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 54 }}>
+              {getCitiesForDistricts(newMerchant.states, newMerchant.districts).map((city) => {
+                const selected = (newMerchant.cities || []).includes(city);
+                return (
+                  <button
+                    key={city}
+                    type="button"
+                    onClick={() => setNewMerchant((p) => {
+                      const currentCities = p.cities || [];
+                      const nextCities = selected
+                        ? currentCities.filter((c) => c !== city)
+                        : [...currentCities, city];
+                      return {
+                        ...p,
+                        cities: nextCities,
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #6C63FF' : '1.5px solid #CBD5E1',
+                      background: selected ? '#EDE9FE' : 'white',
+                      color: selected ? '#4C1D95' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{city}
+                  </button>
+                );
+              })}
             </div>
+            {(newMerchant.cities || []).length > 0 && (
+              <div style={{ marginTop: 6, padding: '6px 10px', background: '#F5F3FF', borderRadius: 8, fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
+                ✅ {newMerchant.cities.length} city/town{newMerchant.cities.length > 1 ? 's' : ''} selected: {newMerchant.cities.join(' • ')}
+              </div>
+            )}
           </div>
 
           {/* 4 Photos Upload Section */}
@@ -1531,65 +1645,157 @@ export default function Merchants() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">State *</label>
-              <select
-                className="form-select"
-                value={editFormData.state || DEFAULT_STATE}
-                onChange={(e) => {
-                  const newSt = e.target.value;
-                  const availableDistricts = getDistrictsForState(newSt);
-                  const firstDist = availableDistricts[0] || '';
-                  const availableCities = getCitiesForDistrict(newSt, firstDist);
-                  const firstCity = availableCities[0] || '';
-                  setEditFormData({ ...editFormData, state: newSt, district: firstDist, city: firstCity });
-                }}
-                required
-              >
-                {getStatesList().map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
+          {/* Multi-State Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              🏛️ State * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 46 }}>
+              {getStatesList().map((st) => {
+                const selected = (editFormData.states || []).includes(st);
+                return (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setEditFormData((p) => {
+                      const currentStates = p.states || [];
+                      const nextStates = selected
+                        ? currentStates.filter((s) => s !== st)
+                        : [...currentStates, st];
+                      const validDistricts = getDistrictsForStates(nextStates);
+                      const nextDistricts = (p.districts || []).filter((d) => validDistricts.includes(d));
+                      const validCities = getCitiesForDistricts(nextStates, nextDistricts);
+                      const nextCities = (p.cities || []).filter((c) => validCities.includes(c));
+                      return {
+                        ...p,
+                        states: nextStates,
+                        districts: nextDistricts,
+                        cities: nextCities,
+                        state: nextStates.join(', '),
+                        district: nextDistricts.join(', '),
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #059669' : '1.5px solid #CBD5E1',
+                      background: selected ? '#D1FAE5' : 'white',
+                      color: selected ? '#065F46' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{st}
+                  </button>
+                );
+              })}
             </div>
-            <div className="form-group">
-              <label className="form-label">District *</label>
-              <select
-                className="form-select"
-                value={editFormData.district}
-                onChange={(e) => {
-                  const newDist = e.target.value;
-                  const currentSt = editFormData.state || DEFAULT_STATE;
-                  const availableCities = getCitiesForDistrict(currentSt, newDist);
-                  const firstCity = availableCities[0] || '';
-                  setEditFormData({ ...editFormData, district: newDist, city: firstCity });
-                }}
-                required
-              >
-                {getDistrictsForState(editFormData.state || DEFAULT_STATE).map((d) => (
-                  <option key={d} value={d}>{d} District</option>
-                ))}
-                {editFormData.district && !getDistrictsForState(editFormData.state || DEFAULT_STATE).includes(editFormData.district) && (
-                  <option value={editFormData.district}>{editFormData.district}</option>
-                )}
-              </select>
+            {(editFormData.states || []).length > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#059669', fontWeight: 600 }}>
+                ✅ {(editFormData.states || []).length} state{(editFormData.states || []).length > 1 ? 's' : ''} selected: {(editFormData.states || []).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Multi-District Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              📍 District * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 46 }}>
+              {getDistrictsForStates(editFormData.states).map((d) => {
+                const selected = (editFormData.districts || []).includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setEditFormData((p) => {
+                      const currentDistricts = p.districts || [];
+                      const nextDistricts = selected
+                        ? currentDistricts.filter((dist) => dist !== d)
+                        : [...currentDistricts, d];
+                      const validCities = getCitiesForDistricts(p.states, nextDistricts);
+                      const nextCities = (p.cities || []).filter((c) => validCities.includes(c));
+                      return {
+                        ...p,
+                        districts: nextDistricts,
+                        cities: nextCities,
+                        district: nextDistricts.join(', '),
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #2563EB' : '1.5px solid #CBD5E1',
+                      background: selected ? '#DBEAFE' : 'white',
+                      color: selected ? '#1E40AF' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{d}
+                  </button>
+                );
+              })}
             </div>
-            <div className="form-group">
-              <label className="form-label">City / Town *</label>
-              <select
-                className="form-select"
-                value={editFormData.city}
-                onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                required
-              >
-                {getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-                {editFormData.city && !getCitiesForDistrict(editFormData.state || DEFAULT_STATE, editFormData.district).includes(editFormData.city) && (
-                  <option value={editFormData.city}>{editFormData.city}</option>
-                )}
-              </select>
+            {(editFormData.districts || []).length > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#2563EB', fontWeight: 600 }}>
+                ✅ {(editFormData.districts || []).length} district{(editFormData.districts || []).length > 1 ? 's' : ''} selected: {(editFormData.districts || []).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Multi-City Selection */}
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              🏘️ City / Town * <span style={{ fontWeight: 400, color: '#64748B', marginLeft: 6, fontSize: 11 }}>(select multiple)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '10px 12px', border: '1.5px solid #E2E8F0', borderRadius: 10, background: '#FAFAFA', minHeight: 54 }}>
+              {getCitiesForDistricts(editFormData.states, editFormData.districts).map((city) => {
+                const selected = (editFormData.cities || []).includes(city);
+                return (
+                  <button
+                    key={city}
+                    type="button"
+                    onClick={() => setEditFormData((p) => {
+                      const currentCities = p.cities || [];
+                      const nextCities = selected
+                        ? currentCities.filter((c) => c !== city)
+                        : [...currentCities, city];
+                      return {
+                        ...p,
+                        cities: nextCities,
+                        city: nextCities.join(', '),
+                      };
+                    })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: selected ? '1.5px solid #6C63FF' : '1.5px solid #CBD5E1',
+                      background: selected ? '#EDE9FE' : 'white',
+                      color: selected ? '#4C1D95' : '#475569',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{city}
+                  </button>
+                );
+              })}
             </div>
+            {(editFormData.cities || []).length > 0 && (
+              <div style={{ marginTop: 6, padding: '6px 10px', background: '#F5F3FF', borderRadius: 8, fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
+                ✅ {editFormData.cities.length} city/town{editFormData.cities.length > 1 ? 's' : ''} selected: {editFormData.cities.join(' • ')}
+              </div>
+            )}
           </div>
 
           {/* 4 Photos Upload Section */}
