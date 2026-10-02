@@ -62,3 +62,35 @@ export const getCitiesForDistrict = (state, district) => {
   const stateObj = STATE_DISTRICT_REGIONS[state] || STATE_DISTRICT_REGIONS[DEFAULT_STATE] || {};
   return stateObj[district] || [];
 };
+
+export const getDistrictsForStates = (statesArray = []) => {
+  if (!Array.isArray(statesArray) || statesArray.length === 0) {
+    return Object.keys(STATE_DISTRICT_REGIONS[DEFAULT_STATE] || {});
+  }
+  const districtsSet = new Set();
+  statesArray.forEach((st) => {
+    const districtsMap = STATE_DISTRICT_REGIONS[st] || {};
+    Object.keys(districtsMap).forEach((d) => districtsSet.add(d));
+  });
+  return Array.from(districtsSet);
+};
+
+export const getCitiesForDistricts = (statesArray = [], districtsArray = []) => {
+  const effectiveStates = Array.isArray(statesArray) && statesArray.length > 0 ? statesArray : [DEFAULT_STATE];
+  const citiesSet = new Set();
+
+  effectiveStates.forEach((st) => {
+    const districtsMap = STATE_DISTRICT_REGIONS[st] || {};
+    if (Array.isArray(districtsArray) && districtsArray.length > 0) {
+      districtsArray.forEach((d) => {
+        if (districtsMap[d]) {
+          districtsMap[d].forEach((c) => citiesSet.add(c));
+        }
+      });
+    } else {
+      Object.values(districtsMap).forEach((cities) => cities.forEach((c) => citiesSet.add(c)));
+    }
+  });
+
+  return Array.from(citiesSet);
+};
