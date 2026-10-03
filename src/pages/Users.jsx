@@ -950,26 +950,6 @@ export default function Users() {
                   </div>
                 )}
 
-                {/* Auto-generated User Code */}
-                <div style={{ background: '#F5F3FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
-                    🆔 Auto-Generated Staff Code
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, color: '#1E1B4B', letterSpacing: 2 }}>
-                      {formData.userCode}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(p => ({ ...p, userCode: generateUserCode() }))}
-                      title="Regenerate code"
-                      style={{ background: '#EDE9FE', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: '#6D28D9', fontWeight: 700 }}
-                    >
-                      🔄 Regenerate
-                    </button>
-                  </div>
-                </div>
-
                 {/* Full Name */}
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontWeight: 600 }}>Full Name *</label>
@@ -1238,16 +1218,6 @@ export default function Users() {
                     </button>
                   </div>
                 )}
-
-                {/* Staff Code Badge */}
-                <div style={{ background: '#F5F3FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontSize: 12, color: '#4338CA', fontWeight: 600 }}>
-                    🆔 Staff Code / ID
-                  </div>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 15, color: '#1E1B4B', letterSpacing: 1.5 }}>
-                    {editFormData.userCode || editFormData.id}
-                  </span>
-                </div>
 
                 {/* Full Name */}
                 <div className="form-group" style={{ margin: 0 }}>
