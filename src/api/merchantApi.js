@@ -367,6 +367,51 @@ export async function createMerchant(merchantData) {
 }
 
 /**
+ * Fetch list of merchant registration approval requests (/api/v1/admin/merchants/registration-requests)
+ */
+export async function fetchRegistrationRequests(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.state) params.set('state', filters.state);
+  if (filters.district) params.set('district', filters.district);
+  if (filters.city) params.set('city', filters.city);
+
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  try {
+    const response = await apiFetch(`/api/v1/admin/merchants/registration-requests${queryString}`, { method: 'GET' });
+    if (response.ok) {
+      const resData = await response.json();
+      let items = resData.data || resData.items || resData.merchants || resData;
+      if (Array.isArray(items)) {
+        return items.map((m, idx) => ({
+          id: m.id || m._id || m.merchant_id || `MCH-${idx + 100}`,
+          name: m.business_name || m.name || 'Unnamed Store',
+          business_name: m.business_name || m.name || 'Unnamed Store',
+          owner_name: m.owner_name || m.owner || 'N/A',
+          phone_number: m.phone_number || m.phone || '',
+          email: m.email || '',
+          category: m.category || 'Retail',
+          city: m.city || 'Payyanur',
+          district: m.district || 'Kannur',
+          state: m.state || 'Kerala',
+          status: (m.status || 'pending').toLowerCase(),
+          joined: m.submitted_at || m.created_at || m.joined || new Date().toISOString().split('T')[0],
+          photos: m.photos || [m.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80'],
+          raw: m,
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('Backend registration-requests API notice, fallback to fetchMerchantsList:', err);
+  }
+
+  // Fallback to fetchMerchantsList if registration-requests endpoint is not active
+  return await fetchMerchantsList(filters);
+}
+
+/**
  * Approve / Reject Merchant via backend API
  */
 export async function approveMerchant(merchantId) {

@@ -5,7 +5,7 @@ import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
-import { fetchMerchantsList, approveMerchant, rejectMerchant } from '../api/merchantApi';
+import { fetchRegistrationRequests, approveMerchant, rejectMerchant } from '../api/merchantApi';
 
 export default function RegistrationRequests() {
   const [activeTab, setActiveTab] = useState('all');
@@ -17,8 +17,12 @@ export default function RegistrationRequests() {
   const loadRequests = async () => {
     try {
       setLoading(true);
-      const list = await fetchMerchantsList();
-      setData(list);
+      const list = await fetchRegistrationRequests({ status: activeTab });
+      if (Array.isArray(list)) {
+        setData(list);
+      } else {
+        setData([]);
+      }
     } catch (err) {
       console.warn('Backend requests fetch notice:', err);
     } finally {
@@ -28,7 +32,7 @@ export default function RegistrationRequests() {
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [activeTab]);
 
   const filteredData =
     activeTab === 'all'

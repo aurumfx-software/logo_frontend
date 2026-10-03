@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiOutlineUsers,
@@ -26,6 +26,7 @@ import {
 import StatsCard from '../components/UI/StatsCard';
 import { dashboardStats, platformGrowthData, categoryDistribution, recentActivity } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
+import adminService from '../services/adminService';
 import FieldStaffDashboard from './FieldStaffDashboard';
 import AdminDashboard from './AdminDashboard';
 
@@ -55,6 +56,52 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [stats, setStats] = useState(dashboardStats);
+  const [growthData, setGrowthData] = useState(platformGrowthData);
+  const [catDistribution, setCatDistribution] = useState(categoryDistribution);
+  const [activityFeed, setActivityFeed] = useState(recentActivity);
+
+  useEffect(() => {
+    async function loadLiveDashboard() {
+      try {
+        const liveStats = await adminService.getDashboardStats();
+        if (liveStats) {
+          setStats((prev) => ({
+            totalUsers: liveStats.total_users || liveStats.totalUsers || prev.totalUsers,
+            totalMerchants: liveStats.total_merchants || liveStats.totalMerchants || prev.totalMerchants,
+            totalSearches: liveStats.total_searches || liveStats.totalSearches || prev.totalSearches,
+            activeAds: liveStats.active_ads || liveStats.activeAds || prev.activeAds,
+            userGrowth: liveStats.user_growth || liveStats.growth?.users_change_pct || prev.userGrowth,
+            merchantGrowth: liveStats.merchant_growth || liveStats.growth?.merchants_change_pct || prev.merchantGrowth,
+            searchGrowth: liveStats.search_growth || liveStats.growth?.searches_change_pct || prev.searchGrowth,
+            adsGrowth: liveStats.ads_growth || prev.adsGrowth,
+          }));
+        }
+      } catch (err) {
+        console.warn('Backend live dashboard stats notice:', err);
+      }
+
+      try {
+        const chartsData = await adminService.getDashboardCharts();
+        if (chartsData) {
+          if (Array.isArray(chartsData.growth_trends)) setGrowthData(chartsData.growth_trends);
+          if (Array.isArray(chartsData.category_distribution)) setCatDistribution(chartsData.category_distribution);
+        }
+      } catch (chartErr) {
+        console.warn('Backend live dashboard charts notice:', chartErr);
+      }
+
+      try {
+        const liveActivities = await adminService.getDashboardRecentActivity();
+        if (Array.isArray(liveActivities) && liveActivities.length > 0) {
+          setActivityFeed(liveActivities);
+        }
+      } catch (actErr) {
+        console.warn('Backend live recent activity notice:', actErr);
+      }
+    }
+    loadLiveDashboard();
+  }, []);
 
   const roleUpper = (user?.role || '').toString().toUpperCase();
   if (roleUpper === 'STAFF' || roleUpper === 'FIELD STAFF' || roleUpper === 'FIELD_STAFF') {

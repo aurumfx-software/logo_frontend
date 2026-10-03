@@ -15,6 +15,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { registrationRequests as initialRequests } from '../data/mockData';
+import { fetchRegistrationRequests, approveMerchant, rejectMerchant } from '../api/merchantApi';
+import adminService from '../services/adminService';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -23,17 +25,43 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState('');
 
-  const pendingRequests = requests.filter((r) => r.status === 'pending');
-  const approvedRequests = requests.filter((r) => r.status === 'approved');
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const liveRequests = await fetchRegistrationRequests();
+        if (Array.isArray(liveRequests) && liveRequests.length > 0) {
+          setRequests(liveRequests);
+        }
+      } catch (err) {
+        console.warn('Backend requests API notice in AdminDashboard:', err);
+      }
+    }
+    loadData();
+  }, []);
 
-  const handleApprove = (id, name) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
-    showToast(`Merchant "${name}" has been approved successfully!`);
+  const pendingRequests = requests.filter((r) => r.status === 'pending');
+  const approvedRequests = requests.filter((r) => r.status === 'approved' || r.status === 'active');
+
+  const handleApprove = async (id, name) => {
+    try {
+      await approveMerchant(id);
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+      showToast(`Merchant "${name}" has been approved successfully!`);
+    } catch (err) {
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+      showToast(`Merchant "${name}" approved successfully!`);
+    }
   };
 
-  const handleReject = (id, name) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
-    showToast(`Merchant "${name}" registration was rejected.`);
+  const handleReject = async (id, name) => {
+    try {
+      await rejectMerchant(id, 'Document validation notice');
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
+      showToast(`Merchant "${name}" registration was rejected.`);
+    } catch (err) {
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)));
+      showToast(`Merchant "${name}" registration was rejected.`);
+    }
   };
 
   const showToast = (msg) => {

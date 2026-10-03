@@ -129,17 +129,52 @@ export const adminService = {
   },
 
   /**
-   * Admin Dashboard Stats: GET /api/v1/admin/dashboard
+   * Admin Dashboard Stats: GET /api/v1/admin/dashboard/stats or GET /api/v1/admin/dashboard
    */
-  async getDashboardStats() {
+  async getDashboardStats(timeframe = 'this_month') {
     try {
-      const response = await apiFetch('/api/v1/admin/dashboard', { method: 'GET' });
+      let response = await apiFetch(`/api/v1/admin/dashboard/stats?timeframe=${timeframe}`, { method: 'GET' });
+      if (!response.ok && response.status === 404) {
+        response = await apiFetch('/api/v1/admin/dashboard', { method: 'GET' });
+      }
       if (response.ok) {
         const resData = await response.json();
         return resData.data || resData.stats || resData;
       }
     } catch (err) {
-      console.warn('Dashboard stats fallback:', err);
+      console.warn('Dashboard stats API notice:', err);
+    }
+    return null;
+  },
+
+  /**
+   * Admin Dashboard Charts: GET /api/v1/admin/dashboard/charts
+   */
+  async getDashboardCharts(months = 6) {
+    try {
+      const response = await apiFetch(`/api/v1/admin/dashboard/charts?months=${months}`, { method: 'GET' });
+      if (response.ok) {
+        const resData = await response.json();
+        return resData.data || resData;
+      }
+    } catch (err) {
+      console.warn('Dashboard charts API notice:', err);
+    }
+    return null;
+  },
+
+  /**
+   * Admin Dashboard Recent Activity: GET /api/v1/admin/dashboard/recent-activity
+   */
+  async getDashboardRecentActivity(limit = 10) {
+    try {
+      const response = await apiFetch(`/api/v1/admin/dashboard/recent-activity?limit=${limit}`, { method: 'GET' });
+      if (response.ok) {
+        const resData = await response.json();
+        return resData.activities || resData.data || resData;
+      }
+    } catch (err) {
+      console.warn('Dashboard recent-activity API notice:', err);
     }
     return null;
   },
