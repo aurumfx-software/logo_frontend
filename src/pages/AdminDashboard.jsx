@@ -25,8 +25,6 @@ export default function AdminDashboard() {
   const [requests, setRequests] = useState(initialRequests);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState('');
-  const [confirmApprove, setConfirmApprove] = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -436,7 +434,7 @@ export default function AdminDashboard() {
                     <td style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button
-                          onClick={() => setConfirmApprove(r)}
+                          onClick={() => handleApprove(r.id, r.name)}
                           style={{
                             background: '#10B981',
                             color: 'white',
@@ -451,7 +449,7 @@ export default function AdminDashboard() {
                             gap: 4,
                           }}
                         >
-                          <HiOutlineCheckCircle /> Approve (Permanent)
+                          <HiOutlineCheckCircle /> Approve
                         </button>
                         <button
                           onClick={() => handleReject(r.id, r.name)}
@@ -480,62 +478,6 @@ export default function AdminDashboard() {
           </table>
         </div>
       </motion.div>
-
-      {/* Confirmation Modal for Permanent Approval */}
-      <Modal
-        isOpen={!!confirmApprove}
-        onClose={() => setConfirmApprove(null)}
-        title="⚠️ Confirm Permanent Approval"
-        size="sm"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setConfirmApprove(null)}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-success"
-              disabled={actionLoading}
-              onClick={async () => {
-                if (confirmApprove) {
-                  setActionLoading(true);
-                  await handleApprove(confirmApprove.id, confirmApprove.name);
-                  setActionLoading(false);
-                  setConfirmApprove(null);
-                }
-              }}
-            >
-              {actionLoading ? 'Approving...' : 'Confirm Permanent Approval'}
-            </button>
-          </>
-        }
-      >
-        {confirmApprove && (
-          <div style={{ textAlign: 'center', padding: '10px 0' }}>
-            <div style={{ fontSize: 42, marginBottom: 12 }}>🔒</div>
-            <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: '#1E293B' }}>
-              Approve "{confirmApprove.name || confirmApprove.business_name}"?
-            </h4>
-            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
-              Are you sure you want to approve this merchant?
-            </p>
-            <div
-              style={{
-                marginTop: 14,
-                padding: '12px 14px',
-                background: '#FEF2F2',
-                border: '1px solid #FCA5A5',
-                borderRadius: 8,
-                fontSize: 12,
-                color: '#991B1B',
-                fontWeight: 600,
-                textAlign: 'left',
-              }}
-            >
-              ⚠️ Warning: Once approved, this merchant activation is permanent and non-reversible!
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
