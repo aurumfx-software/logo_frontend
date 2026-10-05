@@ -898,7 +898,14 @@ export default function MerchantDetail({ isPublic = false }) {
                 <HiOutlineVideoCamera style={{ color: '#6C63FF' }} /> Promo Video
               </h3>
               <div style={{ background: '#0F172A', borderRadius: 16, overflow: 'hidden' }}>
-                <video controls src={merchant.videoUrl} style={{ width: '100%', maxHeight: 360, display: 'block' }} />
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  key={merchant.videoUrl}
+                  src={merchant.videoUrl}
+                  style={{ width: '100%', maxHeight: 360, display: 'block' }}
+                />
               </div>
             </div>
           )}

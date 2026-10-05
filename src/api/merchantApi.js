@@ -214,6 +214,7 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       joined: (m.created_at || m.createdAt || m.joined)
         ? (m.created_at || m.createdAt || m.joined).toString().split('T')[0]
         : '2026-09-25',
+      created_at: m.created_at || m.createdAt || null,
       photos: formattedPhotos,
       merchant_photos: formattedPhotos,
       merchant_videos: rawVideos,
@@ -224,6 +225,16 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       description: m.about || m.description || '',
     };
   });
+
+  // Guarantee newest created merchant appears at the top (avasanam create cheyytha merchant listinte athyam varanam)
+  mappedItems.sort((a, b) => {
+    const timeA = new Date(a.created_at || a.createdAt || a.joined || 0).getTime();
+    const timeB = new Date(b.created_at || b.createdAt || b.joined || 0).getTime();
+    if (timeB !== timeA) return timeB - timeA;
+    return (Number(b.id) || 0) - (Number(a.id) || 0);
+  });
+
+  return mappedItems;
 }
 
 /**
@@ -281,7 +292,7 @@ export async function createMerchant(merchantData) {
     merchant_photos: validPhotos,
     merchant_videos: rawVideos,
     user_code: currentUserCode,
-    status: merchantData.status ? merchantData.status.toUpperCase() : 'APPROVED',
+    status: merchantData.status ? merchantData.status.toUpperCase() : 'PENDING',
 
     // Alias fields for backend compatibility
     name: businessName,
@@ -357,7 +368,7 @@ export async function createMerchant(merchantData) {
     owner_name: created.owner_name || created.owner || payload.owner_name,
     owner: created.owner_name || created.owner || payload.owner_name,
     user_code: created.user_code || payload.user_code,
-    status: created.status ? created.status.toLowerCase() : 'approved',
+    status: created.status ? created.status.toLowerCase() : 'pending',
     joined: new Date().toISOString().split('T')[0],
     photos: validPhotos,
     merchant_photos: validPhotos,
