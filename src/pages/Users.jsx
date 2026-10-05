@@ -21,6 +21,7 @@ import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import MultiSelectLocationPicker from '../components/UI/MultiSelectLocationPicker';
+import CircularSpinner from '../components/UI/CircularSpinner';
 import { useAuth } from '../context/AuthContext';
 import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount, updateAdminOrStaffAccount } from '../api/userApi';
 import { getStaffPermissions, saveStaffPermissions, MODULE_NAMES, isAdmin } from '../utils/rbac';
@@ -1120,7 +1121,7 @@ export default function Users() {
                       display: 'flex', alignItems: 'center', gap: 8,
                     }}
                   >
-                    <HiOutlineUserAdd size={16} />
+                    {isSubmitting ? <CircularSpinner size={16} color="#FFFFFF" /> : <HiOutlineUserAdd size={16} />}
                     {isSubmitting ? 'Creating Staff...' : 'Create Staff Account'}
                   </button>
                 </div>
@@ -1367,7 +1368,7 @@ export default function Users() {
                       gap: 8,
                     }}
                   >
-                    <HiOutlinePencil size={16} />
+                    {isUpdating ? <CircularSpinner size={16} color="#FFFFFF" /> : <HiOutlinePencil size={16} />}
                     {isUpdating ? 'Saving Changes...' : 'Save Changes'}
                   </button>
                 </div>

@@ -23,6 +23,7 @@ import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import MultiSelectLocationPicker from '../components/UI/MultiSelectLocationPicker';
+import CircularSpinner from '../components/UI/CircularSpinner';
 import {
   fetchMerchantsList,
   createMerchant,
@@ -743,8 +744,20 @@ export default function Merchants() {
             <button className="btn btn-outline" onClick={() => setShowAddModal(false)} disabled={isSubmitting}>
               Cancel
             </button>
-            <button className="btn btn-primary" onClick={handleAddMerchantSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Saving Merchant...' : 'Save Merchant'}
+            <button
+              className="btn btn-primary"
+              onClick={handleAddMerchantSubmit}
+              disabled={isSubmitting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <CircularSpinner size={16} color="#FFFFFF" />
+                  <span>Saving Merchant...</span>
+                </>
+              ) : (
+                'Save Merchant'
+              )}
             </button>
           </>
         }
@@ -1303,8 +1316,20 @@ export default function Merchants() {
             <button className="btn btn-outline" onClick={() => setIsEditModalOpen(false)} disabled={isUpdating}>
               Cancel
             </button>
-            <button className="btn btn-primary" onClick={handleEditSubmit} disabled={isUpdating}>
-              {isUpdating ? 'Updating Merchant...' : 'Update Merchant'}
+            <button
+              className="btn btn-primary"
+              onClick={handleEditSubmit}
+              disabled={isUpdating}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              {isUpdating ? (
+                <>
+                  <CircularSpinner size={16} color="#FFFFFF" />
+                  <span>Updating Merchant...</span>
+                </>
+              ) : (
+                'Update Merchant'
+              )}
             </button>
           </>
         }

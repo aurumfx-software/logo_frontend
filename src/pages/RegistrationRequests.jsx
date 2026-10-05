@@ -5,6 +5,7 @@ import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
+import CircularSpinner from '../components/UI/CircularSpinner';
 import { fetchRegistrationRequests, approveMerchant, rejectMerchant } from '../api/merchantApi';
 
 export default function RegistrationRequests() {
@@ -186,10 +187,22 @@ export default function RegistrationRequests() {
               {(selectedRequest.status || '').toLowerCase() !== 'approved' && (selectedRequest.status || '').toLowerCase() !== 'active' && (
                 <>
                   <button className="btn btn-danger" disabled={actionLoading} onClick={() => handleReject(selectedRequest.id)}>
-                    Reject
+                    {actionLoading ? <CircularSpinner size={14} color="#FFFFFF" /> : 'Reject'}
                   </button>
-                  <button className="btn btn-success" disabled={actionLoading} onClick={() => handleApprove(selectedRequest.id)}>
-                    Approve Merchant
+                  <button
+                    className="btn btn-success"
+                    disabled={actionLoading}
+                    onClick={() => handleApprove(selectedRequest.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    {actionLoading ? (
+                      <>
+                        <CircularSpinner size={14} color="#FFFFFF" />
+                        <span>Approving...</span>
+                      </>
+                    ) : (
+                      'Approve Merchant'
+                    )}
                   </button>
                 </>
               )}
