@@ -10,6 +10,7 @@ import { fetchRegistrationRequests, approveMerchant, rejectMerchant } from '../a
 export default function RegistrationRequests() {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [confirmApproveMerchant, setConfirmApproveMerchant] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -44,11 +45,17 @@ export default function RegistrationRequests() {
       setActionLoading(true);
       await approveMerchant(id);
       setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+      if (selectedRequest && selectedRequest.id === id) {
+        setSelectedRequest((prev) => (prev ? { ...prev, status: 'approved' } : null));
+      }
     } catch {
       setData((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
+      if (selectedRequest && selectedRequest.id === id) {
+        setSelectedRequest((prev) => (prev ? { ...prev, status: 'approved' } : null));
+      }
     } finally {
       setActionLoading(false);
-      setSelectedRequest(null);
+      setConfirmApproveMerchant(null);
     }
   };
 
@@ -84,37 +91,59 @@ export default function RegistrationRequests() {
       key: 'actions',
       label: 'Actions',
       sortable: false,
-      render: (_, row) => (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="View"
-            onClick={() => setSelectedRequest(row)}
-          >
-            <HiOutlineEye />
-          </button>
-          {row.status === 'pending' && (
-            <>
-              <button
-                className="btn btn-success btn-sm btn-icon"
-                title="Approve"
-                disabled={actionLoading}
-                onClick={() => handleApprove(row.id)}
+      render: (_, row) => {
+        const isApproved = (row.status || '').toLowerCase() === 'approved' || (row.status || '').toLowerCase() === 'active';
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="View Details"
+              onClick={() => setSelectedRequest(row)}
+            >
+              <HiOutlineEye />
+            </button>
+            {!isApproved ? (
+              <>
+                <button
+                  className="btn btn-success btn-sm btn-icon"
+                  title="Approve Merchant (Permanent & Non-Reversible)"
+                  disabled={actionLoading}
+                  onClick={() => setConfirmApproveMerchant(row)}
+                >
+                  <HiOutlineCheck />
+                </button>
+                <button
+                  className="btn btn-danger btn-sm btn-icon"
+                  title="Reject"
+                  disabled={actionLoading}
+                  onClick={() => handleReject(row.id)}
+                >
+                  <HiOutlineX />
+                </button>
+              </>
+            ) : (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#15803D',
+                  background: '#DCFCE7',
+                  border: '1px solid #86EFAC',
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  whiteSpace: 'nowrap',
+                }}
+                title="This merchant approval is permanent and non-reversible"
               >
-                <HiOutlineCheck />
-              </button>
-              <button
-                className="btn btn-danger btn-sm btn-icon"
-                title="Reject"
-                disabled={actionLoading}
-                onClick={() => handleReject(row.id)}
-              >
-                <HiOutlineX />
-              </button>
-            </>
-          )}
-        </div>
-      ),
+                🔒 Approved (Irreversible)
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -154,33 +183,53 @@ export default function RegistrationRequests() {
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* Registration Details Modal */}
       <Modal
         isOpen={!!selectedRequest}
         onClose={() => setSelectedRequest(null)}
         title="Registration Details"
         footer={
-          selectedRequest?.status === 'pending' && (
+          selectedRequest && (
             <>
               <button className="btn btn-outline" onClick={() => setSelectedRequest(null)}>
-                Cancel
+                Close
               </button>
-              <button className="btn btn-danger" disabled={actionLoading} onClick={() => handleReject(selectedRequest.id)}>
-                Reject
-              </button>
-              <button className="btn btn-success" disabled={actionLoading} onClick={() => handleApprove(selectedRequest.id)}>
-                Approve
-              </button>
+              {(selectedRequest.status || '').toLowerCase() !== 'approved' && (selectedRequest.status || '').toLowerCase() !== 'active' ? (
+                <>
+                  <button className="btn btn-danger" disabled={actionLoading} onClick={() => handleReject(selectedRequest.id)}>
+                    Reject
+                  </button>
+                  <button className="btn btn-success" disabled={actionLoading} onClick={() => setConfirmApproveMerchant(selectedRequest)}>
+                    Approve Merchant (Irreversible)
+                  </button>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#15803D', background: '#DCFCE7', border: '1px solid #86EFAC', padding: '6px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  🔒 Approved (Permanent & Non-Reversible)
+                </div>
+              )}
             </>
           )
         }
       >
         {selectedRequest && (
           <div>
+            {(selectedRequest.status || '').toLowerCase() === 'approved' || (selectedRequest.status || '').toLowerCase() === 'active' ? (
+              <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, color: '#15803D', fontWeight: 600, fontSize: 13 }}>
+                <span style={{ fontSize: 18 }}>🔒</span>
+                <div>
+                  <strong>Merchant Status: Approved (Non-Reversible)</strong>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, fontWeight: 400, color: '#166534' }}>
+                    This merchant account has been permanently approved and activated.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Business Name</label>
-                <p style={{ fontWeight: 600 }}>{selectedRequest.name}</p>
+                <p style={{ fontWeight: 600 }}>{selectedRequest.name || selectedRequest.business_name}</p>
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Category</label>
@@ -192,7 +241,7 @@ export default function RegistrationRequests() {
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Phone</label>
-                <p>{selectedRequest.phone}</p>
+                <p>{selectedRequest.phone || selectedRequest.phone_number}</p>
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>City</label>
@@ -202,6 +251,59 @@ export default function RegistrationRequests() {
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Status</label>
                 <StatusBadge status={selectedRequest.status} />
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Permanent Approval Confirmation Modal */}
+      <Modal
+        isOpen={!!confirmApproveMerchant}
+        onClose={() => setConfirmApproveMerchant(null)}
+        title="⚠️ Confirm Permanent Approval"
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => setConfirmApproveMerchant(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-success"
+              disabled={actionLoading}
+              onClick={() => {
+                if (confirmApproveMerchant) {
+                  handleApprove(confirmApproveMerchant.id);
+                }
+              }}
+            >
+              {actionLoading ? 'Approving...' : 'Confirm Permanent Approval'}
+            </button>
+          </>
+        }
+      >
+        {confirmApproveMerchant && (
+          <div style={{ textAlign: 'center', padding: '10px 0' }}>
+            <div style={{ fontSize: 42, marginBottom: 12 }}>🔒</div>
+            <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: '#1E293B' }}>
+              Approve "{confirmApproveMerchant.name || confirmApproveMerchant.business_name}"?
+            </h4>
+            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>
+              Are you sure you want to approve this merchant?
+            </p>
+            <div
+              style={{
+                marginTop: 14,
+                padding: '12px 14px',
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 8,
+                fontSize: 12,
+                color: '#991B1B',
+                fontWeight: 600,
+                textAlign: 'left',
+              }}
+            >
+              ⚠️ Warning: Once approved, this merchant activation is permanent and non-reversible!
             </div>
           </div>
         )}
