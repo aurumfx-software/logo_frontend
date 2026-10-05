@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiOutlineDownload,
@@ -6,6 +6,7 @@ import {
   HiOutlineOfficeBuilding,
   HiOutlineUsers,
   HiOutlineSwitchHorizontal,
+  HiOutlineRefresh,
 } from 'react-icons/hi';
 import {
   BarChart,
@@ -17,13 +18,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import PageHeader from '../components/UI/PageHeader';
+import { reportsApi } from '../api/operationsApi';
 
 const reportTypes = [
   {
     key: 'merchants',
     label: 'Merchants Report',
     icon: <HiOutlineOfficeBuilding />,
-    description: 'Export all merchant data including registrations, status, and performance',
+    description: 'Export all merchant data including registrations, status, and performance from PostgreSQL',
     color: '#6C63FF',
     bg: '#F0EFFF',
   },
@@ -31,21 +33,21 @@ const reportTypes = [
     key: 'users',
     label: 'Users Report',
     icon: <HiOutlineUsers />,
-    description: 'Export user accounts, activity data, and engagement metrics',
+    description: 'Export user accounts, roles, activity data, and engagement metrics from PostgreSQL',
     color: '#10B981',
     bg: '#D1FAE5',
   },
   {
     key: 'transactions',
-    label: 'Transactions Report',
+    label: 'Transactions & Complaints Report',
     icon: <HiOutlineSwitchHorizontal />,
-    description: 'Export all interactions, searches, and transaction logs',
+    description: 'Export all interactions, complaints, promotions, and activity logs from PostgreSQL',
     color: '#F59E0B',
     bg: '#FEF3C7',
   },
 ];
 
-const monthlyData = [
+const fallbackMonthlyData = [
   { month: 'Jan', merchants: 120, users: 850, transactions: 4500 },
   { month: 'Feb', merchants: 145, users: 1020, transactions: 5200 },
   { month: 'Mar', merchants: 168, users: 1180, transactions: 6100 },
@@ -58,20 +60,57 @@ const monthlyData = [
 
 export default function Reports() {
   const [selectedReport, setSelectedReport] = useState('merchants');
-  const [dateRange, setDateRange] = useState({ from: '2024-01-01', to: '2024-09-14' });
+  const [dateRange, setDateRange] = useState({ from: '2024-01-01', to: '2026-12-31' });
+  const [monthlyData, setMonthlyData] = useState(fallbackMonthlyData);
+  const [stats, setStats] = useState({ total_merchants: 0, total_users: 0, total_searches: 0, total_revenue: 0 });
+  const [loading, setLoading] = useState(false);
+
+  const loadReports = async () => {
+    setLoading(true);
+    try {
+      const data = await reportsApi.getOverview({
+        fromDate: dateRange.from,
+        toDate: dateRange.to,
+      });
+      if (data) {
+        if (data.monthly_data && data.monthly_data.length > 0) {
+          setMonthlyData(data.monthly_data);
+        }
+        setStats({
+          total_merchants: data.total_merchants,
+          total_users: data.total_users,
+          total_searches: data.total_searches,
+          total_revenue: data.total_revenue,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching reports data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const handleExportCsv = () => {
+    const url = reportsApi.getExportCsvUrl(selectedReport);
+    window.open(url, '_blank');
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
       <PageHeader
         title="Reports"
-        subtitle="Export reports of merchants, users, and transactions"
+        subtitle="Export reports of merchants, users, and transactions from PostgreSQL"
       >
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline">
-            <HiOutlineDownload /> Export CSV
+          <button className="btn btn-outline" onClick={loadReports}>
+            <HiOutlineRefresh /> Refresh
           </button>
-          <button className="btn btn-primary">
-            <HiOutlineDownload /> Export Excel
+          <button className="btn btn-primary" onClick={handleExportCsv}>
+            <HiOutlineDownload /> Export CSV
           </button>
         </div>
       </PageHeader>
@@ -145,7 +184,7 @@ export default function Reports() {
               value={dateRange.to}
               onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
             />
-            <button className="btn btn-secondary btn-sm">Apply</button>
+            <button className="btn btn-secondary btn-sm" onClick={loadReports}>Apply</button>
           </div>
         </div>
       </div>
@@ -155,7 +194,7 @@ export default function Reports() {
         <div className="card-header">
           <h3 className="card-header-title">
             <HiOutlineDocumentReport style={{ marginRight: 8, color: 'var(--primary)' }} />
-            {reportTypes.find((r) => r.key === selectedReport)?.label} — Monthly Overview
+            {reportTypes.find((r) => r.key === selectedReport)?.label} — Monthly Database Overview
           </h3>
         </div>
         <div className="card-body">
