@@ -8,7 +8,7 @@ import Modal from '../components/UI/Modal';
 import { fetchRegistrationRequests, approveMerchant, rejectMerchant } from '../api/merchantApi';
 
 export default function RegistrationRequests() {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('pending');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,11 @@ export default function RegistrationRequests() {
   const filteredData =
     activeTab === 'all'
       ? data
+      : activeTab === 'pending'
+      ? data.filter((r) => {
+          const st = (r.status || '').toLowerCase();
+          return st === 'pending' || st === 'unapproved' || st === 'submitted' || !st;
+        })
       : data.filter((r) => (r.status || '').toLowerCase() === activeTab);
 
   const handleApprove = async (id) => {
@@ -146,7 +151,7 @@ export default function RegistrationRequests() {
       />
 
       <div className="tabs">
-        {['all', 'pending', 'approved', 'rejected'].map((tab) => (
+        {['pending', 'approved', 'rejected', 'all'].map((tab) => (
           <button
             key={tab}
             className={`tab ${activeTab === tab ? 'active' : ''}`}
