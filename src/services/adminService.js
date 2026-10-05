@@ -129,20 +129,20 @@ export const adminService = {
   },
 
   /**
-   * Admin Dashboard Stats: GET /api/v1/admin/dashboard/stats or GET /api/v1/admin/dashboard
+   * Admin Dashboard: GET /api/v1/admin/dashboard
    */
-  async getDashboardStats(timeframe = 'this_month') {
+  async getDashboardStats() {
     try {
-      let response = await apiFetch(`/api/v1/admin/dashboard/stats?timeframe=${timeframe}`, { method: 'GET' });
-      if (!response.ok && response.status === 404) {
-        response = await apiFetch('/api/v1/admin/dashboard', { method: 'GET' });
+      let response = await apiFetch('/api/v1/admin/dashboard', { method: 'GET' });
+      if (!response.ok) {
+        response = await apiFetch('/api/v1/admin/dashboard/stats', { method: 'GET' });
       }
       if (response.ok) {
         const resData = await response.json();
         return resData.data || resData.stats || resData;
       }
     } catch (err) {
-      console.warn('Dashboard stats API notice:', err);
+      console.warn('Dashboard API error:', err);
     }
     return null;
   },
