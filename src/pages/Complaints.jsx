@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { HiOutlineEye, HiOutlineChatAlt, HiOutlineTrash, HiOutlineRefresh } from 'react-icons/hi';
+import { HiOutlineEye, HiOutlinePencil, HiOutlineChatAlt, HiOutlineTrash, HiOutlineRefresh } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
@@ -8,9 +8,21 @@ import Modal from '../components/UI/Modal';
 import { complaintsApi } from '../api/operationsApi';
 import { complaints as fallbackComplaints } from '../data/mockData';
 
+const complaintCategories = [
+  'Service Quality',
+  'Order Issue',
+  'Payment',
+  'Listing Accuracy',
+  'Product Quality',
+  'Delivery & Delay',
+  'Behavior & Ethics',
+  'General',
+];
+
 export default function Complaints() {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [editComplaint, setEditComplaint] = useState(null);
   const [responseText, setResponseText] = useState('');
   const [data, setData] = useState([]);
   const [counts, setCounts] = useState({ all: 0, open: 0, 'in-progress': 0, resolved: 0 });
@@ -71,11 +83,43 @@ export default function Complaints() {
     }
   };
 
+  const handleUpdateComplaint = async () => {
+    if (!editComplaint || !editComplaint.subject.trim()) return;
+    setActionLoading(true);
+    try {
+      const payload = {
+        subject: editComplaint.subject,
+        user: editComplaint.user,
+        merchant: editComplaint.merchant,
+        user_phone: editComplaint.user_phone,
+        category: editComplaint.category,
+        priority: editComplaint.priority,
+        status: editComplaint.status,
+        description: editComplaint.description,
+        admin_response: editComplaint.admin_response,
+      };
+      const updated = await complaintsApi.update(editComplaint.id, payload);
+      setData((prev) =>
+        prev.map((c) => (c.id === editComplaint.id ? { ...c, ...updated } : c))
+      );
+      // Reload counts
+      const newCounts = await complaintsApi.getCounts();
+      if (newCounts) setCounts(newCounts);
+      setEditComplaint(null);
+    } catch (err) {
+      alert(`Failed to update complaint: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this complaint record?')) return;
     try {
       await complaintsApi.delete(id);
       setData((prev) => prev.filter((c) => c.id !== id));
+      const newCounts = await complaintsApi.getCounts();
+      if (newCounts) setCounts(newCounts);
     } catch (err) {
       alert(`Failed to delete: ${err.message}`);
     }
@@ -113,13 +157,20 @@ export default function Complaints() {
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             className="btn btn-outline btn-sm btn-icon"
-            title="View Details & Respond"
+            title="View Details"
             onClick={() => {
               setSelectedComplaint(row);
               setResponseText(row.admin_response || '');
             }}
           >
             <HiOutlineEye />
+          </button>
+          <button
+            className="btn btn-outline btn-sm btn-icon"
+            title="Edit Complaint"
+            onClick={() => setEditComplaint({ ...row })}
+          >
+            <HiOutlinePencil />
           </button>
           <button
             className="btn btn-outline btn-sm btn-icon"
@@ -172,13 +223,24 @@ export default function Complaints() {
         </div>
       </div>
 
+      {/* View Complaint Modal */}
       <Modal
         isOpen={!!selectedComplaint}
         onClose={() => setSelectedComplaint(null)}
         title="Complaint Details"
         size="lg"
         footer={
-          <>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                const toEdit = { ...selectedComplaint };
+                setSelectedComplaint(null);
+                setEditComplaint(toEdit);
+              }}
+            >
+              <HiOutlinePencil /> Edit Complaint
+            </button>
             <button className="btn btn-outline" onClick={() => setSelectedComplaint(null)}>Close</button>
             {selectedComplaint?.status !== 'resolved' && (
               <button
@@ -189,7 +251,7 @@ export default function Complaints() {
                 {actionLoading ? 'Saving...' : 'Mark as Resolved'}
               </button>
             )}
-          </>
+          </div>
         }
       >
         {selectedComplaint && (
@@ -249,6 +311,119 @@ export default function Complaints() {
                   onChange={(e) => setResponseText(e.target.value)}
                 />
               )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit Complaint Modal */}
+      <Modal
+        isOpen={!!editComplaint}
+        onClose={() => setEditComplaint(null)}
+        title="Edit Complaint"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => setEditComplaint(null)}>Cancel</button>
+            <button
+              className="btn btn-primary"
+              disabled={actionLoading}
+              onClick={handleUpdateComplaint}
+            >
+              {actionLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        {editComplaint && (
+          <div>
+            <div className="form-group">
+              <label className="form-label">Subject *</label>
+              <input
+                className="form-input"
+                value={editComplaint.subject}
+                onChange={(e) => setEditComplaint({ ...editComplaint, subject: e.target.value })}
+              />
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">User Name *</label>
+                <input
+                  className="form-input"
+                  value={editComplaint.user}
+                  onChange={(e) => setEditComplaint({ ...editComplaint, user: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Merchant Name *</label>
+                <input
+                  className="form-input"
+                  value={editComplaint.merchant}
+                  onChange={(e) => setEditComplaint({ ...editComplaint, merchant: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <select
+                  className="form-select"
+                  value={editComplaint.category || 'General'}
+                  onChange={(e) => setEditComplaint({ ...editComplaint, category: e.target.value })}
+                >
+                  {complaintCategories.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Priority</label>
+                <select
+                  className="form-select"
+                  value={editComplaint.priority || 'medium'}
+                  onChange={(e) => setEditComplaint({ ...editComplaint, priority: e.target.value })}
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  className="form-select"
+                  value={editComplaint.status || 'open'}
+                  onChange={(e) => setEditComplaint({ ...editComplaint, status: e.target.value })}
+                >
+                  <option value="open">Open</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Complaint Description</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={editComplaint.description || ''}
+                onChange={(e) => setEditComplaint({ ...editComplaint, description: e.target.value })}
+                placeholder="Details of the complaint..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Admin Response</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={editComplaint.admin_response || ''}
+                onChange={(e) => setEditComplaint({ ...editComplaint, admin_response: e.target.value })}
+                placeholder="Official admin response or resolution notes..."
+              />
             </div>
           </div>
         )}

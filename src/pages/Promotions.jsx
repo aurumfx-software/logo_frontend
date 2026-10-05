@@ -23,9 +23,11 @@ const promoCategories = [
 export default function Promotions() {
   const [showModal, setShowModal] = useState(false);
   const [viewPromo, setViewPromo] = useState(null);
+  const [editPromo, setEditPromo] = useState(null);
   const [promoList, setPromoList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
   const [newPromo, setNewPromo] = useState({
     title: '',
     type: 'Featured',
@@ -85,6 +87,34 @@ export default function Promotions() {
       });
     } catch (err) {
       alert(`Failed to save promotion: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdatePromo = async () => {
+    if (!editPromo || !editPromo.title.trim()) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        title: editPromo.title,
+        category: editPromo.category,
+        type: editPromo.type,
+        placement: editPromo.placement,
+        location: editPromo.location,
+        start_date: editPromo.start_date || editPromo.startDate,
+        end_date: editPromo.end_date || editPromo.endDate,
+        status: editPromo.status,
+        impressions: parseInt(editPromo.impressions) || 0,
+        clicks: parseInt(editPromo.clicks) || 0,
+      };
+      const updated = await promotionsApi.update(editPromo.id, payload);
+      setPromoList((prev) =>
+        prev.map((p) => (p.id === editPromo.id ? { ...p, ...updated } : p))
+      );
+      setEditPromo(null);
+    } catch (err) {
+      alert(`Failed to update promotion: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -204,6 +234,13 @@ export default function Promotions() {
                     <HiOutlineEye /> View
                   </button>
                   <button
+                    className="btn btn-outline btn-sm"
+                    style={{ flex: 1 }}
+                    onClick={() => setEditPromo({ ...promo })}
+                  >
+                    <HiOutlinePencil /> Edit
+                  </button>
+                  <button
                     className="btn btn-outline btn-sm btn-icon"
                     style={{ color: 'var(--danger)' }}
                     title="Delete"
@@ -302,13 +339,159 @@ export default function Promotions() {
         </div>
       </Modal>
 
+      {/* Edit Promotion Modal */}
+      <Modal
+        isOpen={!!editPromo}
+        onClose={() => setEditPromo(null)}
+        title="Edit Promotion"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-outline" onClick={() => setEditPromo(null)}>Cancel</button>
+            <button className="btn btn-primary" disabled={submitting} onClick={handleUpdatePromo}>
+              {submitting ? 'Saving Changes...' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        {editPromo && (
+          <div>
+            <div className="form-group">
+              <label className="form-label">Promotion Title *</label>
+              <input
+                className="form-input"
+                value={editPromo.title}
+                onChange={(e) => setEditPromo({ ...editPromo, title: e.target.value })}
+              />
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Ad Category</label>
+                <select
+                  className="form-select"
+                  value={editPromo.category || 'Shopping & Fashion'}
+                  onChange={(e) => setEditPromo({ ...editPromo, category: e.target.value })}
+                >
+                  {promoCategories.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Promotion Type</label>
+                <select
+                  className="form-select"
+                  value={editPromo.type || 'Featured'}
+                  onChange={(e) => setEditPromo({ ...editPromo, type: e.target.value })}
+                >
+                  <option value="Featured">Featured Ad</option>
+                  <option value="Sponsored">Sponsored Listing</option>
+                  <option value="Banner">Banner Carousel</option>
+                  <option value="Promotion">General Promotion</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Placement Subtitle</label>
+              <input
+                className="form-input"
+                value={editPromo.placement || ''}
+                onChange={(e) => setEditPromo({ ...editPromo, placement: e.target.value })}
+                placeholder="e.g., Home Top, Food Category"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Location (Target Area / Google Maps Search)</label>
+              <GoogleMapsLocationInput
+                value={editPromo.location || ''}
+                onChange={(loc) => setEditPromo({ ...editPromo, location: loc })}
+                placeholder="e.g., Payyanur, Kannur, Kochi..."
+              />
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={editPromo.start_date || editPromo.startDate || ''}
+                  onChange={(e) => setEditPromo({ ...editPromo, start_date: e.target.value, startDate: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">End Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={editPromo.end_date || editPromo.endDate || ''}
+                  onChange={(e) => setEditPromo({ ...editPromo, end_date: e.target.value, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  className="form-select"
+                  value={editPromo.status || 'active'}
+                  onChange={(e) => setEditPromo({ ...editPromo, status: e.target.value })}
+                >
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Impressions</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="form-input"
+                  value={editPromo.impressions || 0}
+                  onChange={(e) => setEditPromo({ ...editPromo, impressions: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Clicks</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="form-input"
+                  value={editPromo.clicks || 0}
+                  onChange={(e) => setEditPromo({ ...editPromo, clicks: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* View Promotion Details Modal */}
       <Modal
         isOpen={!!viewPromo}
         onClose={() => setViewPromo(null)}
         title="Promotion Details"
         size="md"
-        footer={<button className="btn btn-primary" onClick={() => setViewPromo(null)}>Close</button>}
+        footer={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                const toEdit = { ...viewPromo };
+                setViewPromo(null);
+                setEditPromo(toEdit);
+              }}
+            >
+              <HiOutlinePencil /> Edit Promotion
+            </button>
+            <button className="btn btn-primary" onClick={() => setViewPromo(null)}>Close</button>
+          </div>
+        }
       >
         {viewPromo && (
           <div>

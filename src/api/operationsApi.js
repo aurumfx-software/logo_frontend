@@ -71,6 +71,16 @@ export const complaintsApi = {
     return json.data || { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
   },
 
+  async update(id, data) {
+    const res = await apiFetch(`/api/v1/complaints/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update complaint');
+    const json = await res.json();
+    return json.data;
+  },
+
   async resolve(id, admin_response = '') {
     const res = await apiFetch(`/api/v1/complaints/${id}/resolve`, {
       method: 'PATCH',
