@@ -74,7 +74,7 @@ const initialMerchantState = {
   twitter: '',
   youtube: '',
   service_timing: '09:00 AM - 09:00 PM',
-  status: 'APPROVED',
+  status: 'PENDING',
   photos: ['', '', '', ''],
   videoUrl: '',
 };
@@ -153,8 +153,9 @@ export default function Merchants() {
       const mediaFormData = new FormData();
       mediaFormData.append('videos', file);
       const uploadRes = await uploadMerchantMedia(mediaFormData);
-      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
-        setNewMerchant((prev) => ({ ...prev, videoUrl: uploadRes.photos[0] }));
+      const vid = (uploadRes && uploadRes.videos && uploadRes.videos[0]) || (uploadRes && uploadRes.photos && uploadRes.photos[0]);
+      if (vid) {
+        setNewMerchant((prev) => ({ ...prev, videoUrl: vid }));
       }
     } catch (err) {
       console.warn('Video upload notice:', err);
@@ -195,12 +196,18 @@ export default function Merchants() {
         merchant_photos: validPhotos,
         merchant_videos: newMerchant.videoUrl ? [newMerchant.videoUrl] : [],
         user_code: currentUserCode,
-        status: 'APPROVED',
+        status: 'PENDING',
       });
 
-      setData((prev) => [createdItem, ...prev]);
       setShowAddModal(false);
       setNewMerchant(initialMerchantState);
+
+      const goToRegistrations = window.confirm(
+        `Merchant application for "${storeName}" has been submitted successfully!\n\nAs per approval workflow, it has been sent with full details to the "Registrations" section for Admin Review & Approval.\n\nWould you like to open the Registrations page now to review and approve it?`
+      );
+      if (goToRegistrations) {
+        navigate('/registration-requests');
+      }
     } catch (err) {
       console.error('Backend merchant onboarding error:', err);
       setAddModalError(err.message || 'Merchant Onboarding Failed');
@@ -257,8 +264,9 @@ export default function Merchants() {
       const mediaFormData = new FormData();
       mediaFormData.append('videos', file);
       const uploadRes = await uploadMerchantMedia(mediaFormData);
-      if (uploadRes && uploadRes.photos && uploadRes.photos[0]) {
-        setEditFormData((prev) => ({ ...prev, videoUrl: uploadRes.photos[0] }));
+      const vid = (uploadRes && uploadRes.videos && uploadRes.videos[0]) || (uploadRes && uploadRes.photos && uploadRes.photos[0]);
+      if (vid) {
+        setEditFormData((prev) => ({ ...prev, videoUrl: vid }));
       }
     } catch (err) {
       console.warn('Edit video upload notice:', err);
@@ -453,7 +461,15 @@ export default function Merchants() {
         const currentUserCode = user?.user_code || user?.userCode;
         const apiMerchants = await fetchMerchantsList(currentUserId, currentUserCode);
         if (Array.isArray(apiMerchants)) {
-          setData(apiMerchants);
+          // Only show approved / active merchants in the Merchants directory (pending registrations stay in Registrations section)
+          const approvedMerchants = apiMerchants.filter((m) => (m.status || '').toLowerCase() !== 'pending');
+          approvedMerchants.sort((a, b) => {
+            const timeA = new Date(a.created_at || a.createdAt || a.joined || 0).getTime();
+            const timeB = new Date(b.created_at || b.createdAt || b.joined || 0).getTime();
+            if (timeB !== timeA) return timeB - timeA;
+            return (Number(b.id) || 0) - (Number(a.id) || 0);
+          });
+          setData(approvedMerchants);
         } else {
           setData([]);
         }
@@ -1126,10 +1142,6 @@ export default function Merchants() {
                             borderRadius: 8,
                             border: '1px solid #E2E8F0',
                           }}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-                          }}
                         />
                         <button
                           type="button"
@@ -1280,6 +1292,9 @@ export default function Merchants() {
                   </div>
                   <video
                     controls
+                    playsInline
+                    preload="metadata"
+                    key={newMerchant.videoUrl}
                     src={newMerchant.videoUrl}
                     style={{ width: '100%', maxHeight: 220, borderRadius: 8, display: 'block' }}
                   >
@@ -1711,10 +1726,6 @@ export default function Merchants() {
                             borderRadius: 8,
                             border: '1px solid #E2E8F0',
                           }}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-                          }}
                         />
                         <button
                           type="button"
@@ -1865,6 +1876,9 @@ export default function Merchants() {
                   </div>
                   <video
                     controls
+                    playsInline
+                    preload="metadata"
+                    key={editFormData.videoUrl}
                     src={editFormData.videoUrl}
                     style={{ width: '100%', maxHeight: 220, borderRadius: 8, display: 'block' }}
                   >
