@@ -70,7 +70,7 @@ export default function Header({ title, onToggleSidebar }) {
         </button>
 
         {/* Profile Avatar & Dropdown Container */}
-        <div style={{ position: 'relative' }} ref={dropdownRef}>
+        <div style={{ position: 'relative', zIndex: 999999 }} ref={dropdownRef}>
           <button
             className="header-avatar-btn"
             onClick={() => setDropdownOpen((prev) => !prev)}
@@ -102,20 +102,21 @@ export default function Header({ title, onToggleSidebar }) {
           <AnimatePresence>
             {dropdownOpen && (
               <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                initial={{ opacity: 0, y: -6, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
                 style={{
                   position: 'absolute',
                   right: 0,
-                  top: 'calc(100% + 10px)',
+                  top: 'calc(100% + 8px)',
                   width: 250,
+                  maxWidth: 'calc(100vw - 24px)',
                   background: 'white',
                   borderRadius: 16,
-                  boxShadow: '0 20px 35px -10px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.06)',
+                  boxShadow: '0 20px 45px -10px rgba(0,0,0,0.25), 0 6px 18px rgba(0,0,0,0.1)',
                   border: '1px solid #E5E7EB',
-                  zIndex: 1000,
+                  zIndex: 999999,
                   overflow: 'hidden',
                 }}
               >

@@ -164,49 +164,18 @@ export const adminService = {
   },
 
   /**
-   * Admin Dashboard Recent Activity: GET /api/v1/admin/dashboard/recent-activity
+   * Admin Dashboard Recent Activity: GET /api/v1/admin/dashboard/recent-activity?limit=10
    */
   async getDashboardRecentActivity(limit = 10) {
     try {
       const response = await apiFetch(`/api/v1/admin/dashboard/recent-activity?limit=${limit}`, { method: 'GET' });
       if (response.ok) {
         const resData = await response.json();
-        return resData.activities || resData.data || resData;
+        const list = resData.data || resData.recent_activity || resData.activities || (Array.isArray(resData) ? resData : []);
+        return Array.isArray(list) ? list : [];
       }
     } catch (err) {
       console.warn('Dashboard recent-activity API notice:', err);
-    }
-    return null;
-  },
-
-  /**
-   * Dashboard Charts & Trends: GET /api/v1/admin/dashboard/charts
-   */
-  async getDashboardCharts() {
-    try {
-      const response = await apiFetch('/api/v1/admin/dashboard/charts', { method: 'GET' });
-      if (response.ok) {
-        const resData = await response.json();
-        return resData.data || resData;
-      }
-    } catch (err) {
-      console.warn('Dashboard charts fallback:', err);
-    }
-    return null;
-  },
-
-  /**
-   * Dashboard Recent Activity Feed: GET /api/v1/admin/dashboard/recent-activity
-   */
-  async getDashboardRecentActivity(limit = 10) {
-    try {
-      const response = await apiFetch(`/api/v1/admin/dashboard/recent-activity?limit=${limit}`, { method: 'GET' });
-      if (response.ok) {
-        const resData = await response.json();
-        return resData.data || resData.recent_activity || [];
-      }
-    } catch (err) {
-      console.warn('Recent activity fallback:', err);
     }
     return [];
   },

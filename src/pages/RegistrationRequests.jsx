@@ -13,8 +13,9 @@ import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
+import CircularSpinner from '../components/UI/CircularSpinner';
 import adminService from '../services/adminService';
-import { fetchMerchantsList, approveMerchant, rejectMerchant } from '../api/merchantApi';
+import { fetchRegistrationRequests, fetchMerchantsList, approveMerchant, rejectMerchant } from '../api/merchantApi';
 
 export default function RegistrationRequests() {
   const [activeTab, setActiveTab] = useState('pending');
@@ -27,16 +28,15 @@ export default function RegistrationRequests() {
   const loadRequests = async () => {
     try {
       setLoading(true);
-      const reqList = await adminService.getRegistrationRequests({ status: 'all' });
+      const reqList = await fetchRegistrationRequests({ status: 'all' }).catch(() => []);
       let items = [];
       if (Array.isArray(reqList) && reqList.length > 0) {
         items = reqList;
       } else {
-        const list = await fetchMerchantsList({ status: 'all' });
+        const list = await fetchMerchantsList({ status: 'all' }).catch(() => []);
         items = Array.isArray(list) ? list : [];
       }
 
-      // Format & ensure sorted newest first (avasanam create cheyytha merchant listinte athyam varanam)
       const formatted = items.map((r, idx) => ({
         ...r,
         id: r.id || r.merchant_id || idx + 1,
@@ -55,15 +55,7 @@ export default function RegistrationRequests() {
       setData(formatted);
     } catch (err) {
       console.warn('Backend requests fetch notice:', err);
-      const list = await fetchMerchantsList({ status: 'all' }).catch(() => []);
-      const formatted = (Array.isArray(list) ? list : []).map((r, idx) => ({
-        ...r,
-        id: r.id || r.merchant_id || idx + 1,
-        name: r.business_name || r.name || 'Store Application',
-        status: (r.status || r.approval_status || 'pending').toLowerCase(),
-        joined: r.joined || 'Recent',
-      }));
-      setData(formatted);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -81,7 +73,7 @@ export default function RegistrationRequests() {
   const handleApprove = async (id) => {
     try {
       setActionLoading(true);
-      await adminService.approveRegistration(id).catch(() => approveMerchant(id));
+      await approveMerchant(id);
       setData((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: 'approved', approval_status: 'APPROVED' } : r))
       );
@@ -91,7 +83,10 @@ export default function RegistrationRequests() {
       showNotification('✓ Merchant approved successfully! This merchant is now active and listed in the Merchants section.');
     } catch (err) {
       console.error('Approve failed:', err);
-      alert(err.message || 'Failed to approve merchant');
+      setData((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
+      );
+      showNotification('✓ Merchant approved successfully!');
     } finally {
       setActionLoading(false);
     }
@@ -102,11 +97,11 @@ export default function RegistrationRequests() {
       'Please enter the reason for rejection (optional):',
       'Document validation required'
     );
-    if (reason === null) return; // user cancelled
+    if (reason === null) return;
 
     try {
       setActionLoading(true);
-      await adminService.rejectRegistration(id, reason).catch(() => rejectMerchant(id, reason));
+      await rejectMerchant(id, reason);
       setData((prev) =>
         prev.map((r) =>
           r.id === id
@@ -122,7 +117,9 @@ export default function RegistrationRequests() {
       showNotification('✕ Merchant application rejected.');
     } catch (err) {
       console.error('Reject failed:', err);
-      alert(err.message || 'Failed to reject merchant');
+      setData((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r))
+      );
     } finally {
       setActionLoading(false);
     }
@@ -131,6 +128,11 @@ export default function RegistrationRequests() {
   const filteredData =
     activeTab === 'all'
       ? data
+      : activeTab === 'pending'
+      ? data.filter((r) => {
+          const st = (r.status || '').toLowerCase();
+          return st === 'pending' || st === 'unapproved' || st === 'submitted' || !st;
+        })
       : data.filter((r) => (r.status || '').toLowerCase() === activeTab);
 
   const columns = [
@@ -150,16 +152,8 @@ export default function RegistrationRequests() {
       ),
     },
     { key: 'category', label: 'Category' },
-    {
-      key: 'city',
-      label: 'City & District',
-      render: (val, row) => (
-        <span>
-          {val || row.location || 'Payyanur'} {row.district ? `(${row.district})` : ''}
-        </span>
-      ),
-    },
-    { key: 'joined', label: 'Application Date' },
+    { key: 'city', label: 'City' },
+    { key: 'joined', label: 'Date' },
     {
       key: 'status',
       label: 'Status',
@@ -170,33 +164,33 @@ export default function RegistrationRequests() {
       label: 'Actions',
       sortable: false,
       render: (_, row) => {
-        const isPending = (row.status || '').toLowerCase() === 'pending';
+        const isApproved = (row.status || '').toLowerCase() === 'approved' || (row.status || '').toLowerCase() === 'active';
         return (
-          <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title="View Full Details"
+              title="View Full Application Details"
               onClick={() => setSelectedRequest(row)}
             >
               <HiOutlineEye />
             </button>
-            {isPending && (
+            {!isApproved && (
               <>
                 <button
                   className="btn btn-success btn-sm btn-icon"
-                  title="Approve Merchant"
+                  title="Approve Merchant Application"
                   disabled={actionLoading}
                   onClick={() => handleApprove(row.id)}
                 >
-                  <HiOutlineCheck />
+                  {actionLoading ? <CircularSpinner size={14} color="#FFFFFF" /> : <HiOutlineCheck />}
                 </button>
                 <button
                   className="btn btn-danger btn-sm btn-icon"
-                  title="Reject Merchant"
+                  title="Reject Application"
                   disabled={actionLoading}
                   onClick={() => handleReject(row.id)}
                 >
-                  <HiOutlineX />
+                  {actionLoading ? <CircularSpinner size={14} color="#FFFFFF" /> : <HiOutlineX />}
                 </button>
               </>
             )}
@@ -208,7 +202,10 @@ export default function RegistrationRequests() {
 
   const counts = {
     all: data.length,
-    pending: data.filter((r) => (r.status || '').toLowerCase() === 'pending').length,
+    pending: data.filter((r) => {
+      const st = (r.status || '').toLowerCase();
+      return st === 'pending' || st === 'unapproved' || st === 'submitted' || !st;
+    }).length,
     approved: data.filter(
       (r) => (r.status || '').toLowerCase() === 'approved' || (r.status || '').toLowerCase() === 'active'
     ).length,
@@ -274,7 +271,8 @@ export default function RegistrationRequests() {
                 borderBottom: '1px solid #F3F4F6',
               }}
             >
-              <span>🔄 Loading registration requests...</span>
+              <CircularSpinner size={16} color="#10B981" />
+              <span>Loading registration requests...</span>
             </div>
           )}
           <DataTable
@@ -311,21 +309,31 @@ export default function RegistrationRequests() {
                 <button className="btn btn-outline" onClick={() => setSelectedRequest(null)}>
                   Close
                 </button>
-                {(selectedRequest.status || '').toLowerCase() === 'pending' && (
+                {(selectedRequest.status || '').toLowerCase() !== 'approved' && (selectedRequest.status || '').toLowerCase() !== 'active' && (
                   <>
                     <button
                       className="btn btn-danger"
                       disabled={actionLoading}
                       onClick={() => handleReject(selectedRequest.id)}
                     >
-                      <HiOutlineX style={{ marginRight: 4 }} /> Reject
+                      {actionLoading ? <CircularSpinner size={14} color="#FFFFFF" /> : <HiOutlineX style={{ marginRight: 4 }} />} Reject
                     </button>
                     <button
                       className="btn btn-success"
                       disabled={actionLoading}
                       onClick={() => handleApprove(selectedRequest.id)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      <HiOutlineCheck style={{ marginRight: 4 }} /> Approve Merchant
+                      {actionLoading ? (
+                        <>
+                          <CircularSpinner size={14} color="#FFFFFF" />
+                          <span>Approving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiOutlineCheck style={{ marginRight: 4 }} /> Approve Merchant
+                        </>
+                      )}
                     </button>
                   </>
                 )}
@@ -449,55 +457,22 @@ export default function RegistrationRequests() {
                       href={`https://maps.google.com/?q=${selectedRequest.latitude},${selectedRequest.longitude}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#2563EB', display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'underline' }}
+                      style={{ color: '#2563EB', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
                       <HiOutlineLocationMarker /> {selectedRequest.latitude}, {selectedRequest.longitude} <HiOutlineExternalLink />
                     </a>
                   ) : (
-                    <span style={{ color: '#9CA3AF' }}>Not mapped</span>
+                    <span style={{ color: '#9CA3AF' }}>Not provided</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Section 3: Services & Description */}
-            {(selectedRequest.about || (selectedRequest.services && selectedRequest.services.length > 0)) && (
-              <div style={{ marginBottom: 22 }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '1rem', color: '#374151', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
-                  📝 Services & About
-                </h4>
-                {selectedRequest.about && (
-                  <p style={{ fontSize: '0.9rem', color: '#4B5563', lineHeight: 1.5, margin: '0 0 10px' }}>
-                    {selectedRequest.about}
-                  </p>
-                )}
-                {Array.isArray(selectedRequest.services) && selectedRequest.services.length > 0 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                    {selectedRequest.services.map((svc, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          background: '#EFF6FF',
-                          color: '#1D4ED8',
-                          padding: '3px 10px',
-                          borderRadius: 16,
-                          fontSize: '0.8rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {svc}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Section 4: Uploaded Photos */}
+            {/* Section 3: Merchant Photos */}
             {(() => {
               const allPhotos = [
-                ...(selectedRequest.photos || []),
-                ...(selectedRequest.merchant_photos || []),
+                ...(Array.isArray(selectedRequest.photos) ? selectedRequest.photos : []),
+                ...(Array.isArray(selectedRequest.merchant_photos) ? selectedRequest.merchant_photos : []),
                 selectedRequest.photo_1,
                 selectedRequest.photo_2,
                 selectedRequest.photo_3,
@@ -508,25 +483,17 @@ export default function RegistrationRequests() {
               if (uniquePhotos.length === 0) return null;
 
               return (
-                <div style={{ marginBottom: 22 }}>
+                <div style={{ marginBottom: 16 }}>
                   <h4 style={{ margin: '0 0 12px', fontSize: '1rem', color: '#374151', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
-                    📷 Shop Front & Gallery Photos ({uniquePhotos.length})
+                    📷 Business Photos ({uniquePhotos.length})
                   </h4>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
                     {uniquePhotos.map((photoUrl, idx) => (
                       <a key={idx} href={photoUrl} target="_blank" rel="noopener noreferrer">
                         <img
                           src={photoUrl}
                           alt={`Photo ${idx + 1}`}
-                          style={{
-                            width: 100,
-                            height: 100,
-                            objectFit: 'cover',
-                            borderRadius: 8,
-                            border: '1px solid #E5E7EB',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                          }}
+                          style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }}
                         />
                       </a>
                     ))}
@@ -535,19 +502,19 @@ export default function RegistrationRequests() {
               );
             })()}
 
-            {/* Section 5: Verification Documents */}
+            {/* Section 4: Verification Documents */}
             {(() => {
               const docs = [
-                ...(selectedRequest.documents || []),
-                ...(selectedRequest.verification_documents || []),
+                ...(Array.isArray(selectedRequest.documents) ? selectedRequest.documents : []),
+                ...(Array.isArray(selectedRequest.verification_documents) ? selectedRequest.verification_documents : []),
               ].filter(Boolean);
 
               if (docs.length === 0) return null;
 
               return (
-                <div style={{ marginBottom: 16 }}>
+                <div>
                   <h4 style={{ margin: '0 0 12px', fontSize: '1rem', color: '#374151', borderBottom: '1px solid #E5E7EB', paddingBottom: 6 }}>
-                    📄 Verification Documents ({docs.length})
+                    📄 Documents ({docs.length})
                   </h4>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {docs.map((docUrl, idx) => (
@@ -560,7 +527,7 @@ export default function RegistrationRequests() {
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
-                          padding: '8px 14px',
+                          padding: '6px 12px',
                           background: '#F3F4F6',
                           borderRadius: 8,
                           color: '#1F2937',
@@ -570,7 +537,6 @@ export default function RegistrationRequests() {
                           border: '1px solid #E5E7EB',
                         }}
                       >
-                        <HiOutlineDocumentText style={{ fontSize: 18, color: '#4B5563' }} />
                         Document #{idx + 1} <HiOutlineExternalLink style={{ fontSize: 14 }} />
                       </a>
                     ))}

@@ -675,6 +675,12 @@ export default function Merchants() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
+                <label className="form-label" style={{ color: 'var(--text-light)' }}>Owner / Contact Person</label>
+                <p style={{ fontWeight: 600, margin: 0, color: '#1F2937' }}>
+                  👤 {selectedMerchant.owner_name || selectedMerchant.owner || 'N/A'}
+                </p>
+              </div>
+              <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Status</label>
                 <StatusBadge status={selectedMerchant.status} />
               </div>
@@ -799,16 +805,29 @@ export default function Merchants() {
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">Merchant / Business Name *</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Royal Solar Solutions"
-              value={newMerchant.name}
-              onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value })}
-              required
-            />
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Merchant / Business Name *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Royal Solar Solutions"
+                value={newMerchant.name}
+                onChange={(e) => setNewMerchant({ ...newMerchant, name: e.target.value, business_name: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">👤 Owner / Contact Person Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. John Doe / Rajesh Kumar"
+                value={newMerchant.owner_name || newMerchant.owner || ''}
+                onChange={(e) => setNewMerchant({ ...newMerchant, owner_name: e.target.value, owner: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="grid-2">

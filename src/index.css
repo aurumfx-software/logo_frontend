@@ -392,7 +392,8 @@ ul, ol {
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  z-index: var(--z-header);
+  z-index: 10000;
+  overflow: visible !important;
 }
 
 .header-left {
@@ -429,6 +430,8 @@ ul, ol {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  z-index: 10001;
 }
 
 .header-search {

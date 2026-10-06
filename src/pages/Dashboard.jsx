@@ -54,12 +54,53 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+const processTopCategories = (data) => {
+  if (!Array.isArray(data) || data.length === 0) return [];
+  
+  const palette = ['#FF6B6B', '#FFB946', '#FF9800', '#3B82F6', '#9C27B0', '#10B981', '#607D8B'];
+
+  // Sort descending by value
+  const sorted = [...data].sort((a, b) => Number(b.value || b.count || 0) - Number(a.value || a.count || 0));
+
+  if (sorted.length <= 5) {
+    return sorted.map((item, idx) => ({
+      ...item,
+      name: item.name || item.category || `Category ${idx + 1}`,
+      value: Number(item.value || item.count || 0),
+      color: item.color || palette[idx % palette.length],
+    }));
+  }
+
+  const top5 = sorted.slice(0, 5).map((item, idx) => ({
+    ...item,
+    name: item.name || item.category || `Category ${idx + 1}`,
+    value: Number(item.value || item.count || 0),
+    color: item.color || palette[idx % palette.length],
+  }));
+
+  const othersSum = sorted.slice(5).reduce((sum, item) => sum + Number(item.value || item.count || 0), 0);
+
+  if (othersSum > 0) {
+    top5.push({
+      name: 'Others',
+      value: othersSum,
+      color: '#64748B', // Neutral cool gray for aggregated Others slice
+    });
+  }
+
+  return top5;
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(dashboardStats);
   const [growthData, setGrowthData] = useState(platformGrowthData);
   const [catDistribution, setCatDistribution] = useState(categoryDistribution);
   const [activityFeed, setActivityFeed] = useState(recentActivity);
+
+  const processedCatDistribution = React.useMemo(() => {
+    return processTopCategories(catDistribution);
+  }, [catDistribution]);
 
   useEffect(() => {
     async function loadLiveDashboard() {
@@ -92,9 +133,38 @@ export default function Dashboard() {
       }
 
       try {
-        const liveActivities = await adminService.getDashboardRecentActivity();
+        const liveActivities = await adminService.getDashboardRecentActivity(10);
         if (Array.isArray(liveActivities) && liveActivities.length > 0) {
-          setActivityFeed(liveActivities);
+          const formatted = liveActivities.map((act, index) => {
+            const rawType = (act.type || act.action_type || act.category || 'registration').toString().toLowerCase();
+            let type = 'registration';
+            if (rawType.includes('approve') || rawType.includes('active')) type = 'approval';
+            else if (rawType.includes('complaint')) type = 'complaint';
+            else if (rawType.includes('user')) type = 'user';
+            else if (rawType.includes('promo')) type = 'promotion';
+            else if (rawType.includes('suspend') || rawType.includes('reject')) type = 'suspension';
+
+            const defaultColorMap = {
+              registration: { color: '#6C63FF', bgColor: '#F0EFFF' },
+              approval: { color: '#10B981', bgColor: '#D1FAE5' },
+              complaint: { color: '#EF4444', bgColor: '#FEE2E2' },
+              user: { color: '#3B82F6', bgColor: '#DBEAFE' },
+              promotion: { color: '#FFB946', bgColor: '#FEF3C7' },
+              suspension: { color: '#EF4444', bgColor: '#FEE2E2' },
+            };
+
+            const colors = defaultColorMap[type] || defaultColorMap.registration;
+
+            return {
+              id: act.id || act._id || `act-${index}`,
+              type,
+              text: act.text || act.description || act.title || act.message || act.action || 'Activity recorded',
+              time: act.time || act.created_at || act.timestamp || act.formatted_time || 'Recent',
+              color: act.color || colors.color,
+              bgColor: act.bgColor || act.bg_color || colors.bgColor,
+            };
+          });
+          setActivityFeed(formatted);
         }
       } catch (actErr) {
         console.warn('Backend live recent activity notice:', actErr);
@@ -213,7 +283,7 @@ export default function Dashboard() {
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
-                    data={categoryDistribution}
+                    data={processedCatDistribution}
                     cx="50%"
                     cy="45%"
                     innerRadius={55}
@@ -221,7 +291,7 @@ export default function Dashboard() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {categoryDistribution.map((entry, index) => (
+                    {processedCatDistribution.map((entry, index) => (
                       <Cell key={index} fill={entry.color} />
                     ))}
                   </Pie>
@@ -256,7 +326,7 @@ export default function Dashboard() {
             <button className="btn btn-secondary btn-sm">View All</button>
           </div>
           <div className="card-body" style={{ padding: '12px 24px' }}>
-            {recentActivity.map((item) => (
+            {activityFeed.map((item) => (
               <div key={item.id} className="activity-item">
                 <div
                   className="activity-icon"
