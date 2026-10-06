@@ -42,6 +42,69 @@ import {
   uploadMerchantMedia,
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
+import { fetchPromotionsList } from '../api/promotionApi';
+
+// Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
+const conceptCategories = [
+  { id: 1, title: 'Food & Dining', icon: '🍽️', color: '#FFF1F2', iconColor: '#E11D48' },
+  { id: 2, title: 'Supermarkets & Groceries', icon: '🛒', color: '#FFF7ED', iconColor: '#EA580C' },
+  { id: 3, title: 'Mobiles & Electronics', icon: '📱', color: '#EFF6FF', iconColor: '#2563EB' },
+  { id: 4, title: 'Fashion & Textiles', icon: '👕', color: '#FDF2F8', iconColor: '#DB2777' },
+  { id: 5, title: 'Gold & Jewellery', icon: '💎', color: '#FFFBEB', iconColor: '#D97706' },
+  { id: 6, title: 'Healthcare & Wellness', icon: '💊', color: '#F0FDF4', iconColor: '#16A34A' },
+  { id: 7, title: 'Automobiles & Workshops', icon: '🚗', color: '#F8FAFC', iconColor: '#475569' },
+  { id: 8, title: 'Beauty, Salons & Spas', icon: '✂️', color: '#FAF5FF', iconColor: '#9333EA' },
+  { id: 9, title: 'Home, Furniture & Hardware', icon: '🏠', color: '#FEF3C7', iconColor: '#B45309' },
+  { id: 10, title: 'Local Home Services', icon: '🔧', color: '#F1F5F9', iconColor: '#0F172A' },
+  { id: 11, title: 'Education & Coaching', icon: '🎓', color: '#FFF7ED', iconColor: '#EA580C', active: true },
+  { id: 12, title: 'Professional & Events', icon: '💼', color: '#F3E8FF', iconColor: '#7E22CE' },
+];
+
+// 🔥 Featured Offers (Matching Concept Screenshot 2)
+const conceptOffers = [
+  {
+    id: 1,
+    merchant: 'Elegant Fashions',
+    title: 'Season End Sale',
+    description: 'Up to 50% off on selected ethnic and western wear collections.',
+    validity: 'Valid until 31 Dec 2026',
+    category: 'Fashion',
+    discount: 'Up to 50% OFF',
+    bgGradient: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
+  },
+  {
+    id: 2,
+    merchant: 'TechZone Electronics',
+    title: 'Smart Gadget Deals',
+    description: 'Exclusive discounts on smartwatches, audio gear and accessories.',
+    validity: 'Valid until 31 Dec 2026',
+    category: 'Electronics',
+    discount: 'Up to 40% OFF',
+    bgGradient: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+  },
+  {
+    id: 3,
+    merchant: 'PowerFit Gym',
+    title: 'First Month Free',
+    description: 'Get your first month free on any annual gym membership plan.',
+    validity: 'Valid until 31 Dec 2026',
+    category: 'Health & Fitness',
+    discount: '1 Month FREE',
+    bgGradient: 'linear-gradient(135deg, #11998E 0%, #38EF7D 100%)',
+  },
+  {
+    id: 4,
+    merchant: 'Glow Beauty Salon',
+    title: 'Bridal Package Offer',
+    description: 'Complete bridal makeup & hair styling package at exclusive prices.',
+    validity: 'Valid until 31 Dec 2026',
+    category: 'Beauty',
+    discount: 'Special Deal',
+    bgGradient: 'linear-gradient(135deg, #FAD961 0%, #F76B1C 100%)',
+  },
+];
+
+
 
 // 30 Featured Categories List (Matching Screenshot 1 & 3: category.php)
 const featuredCategoriesList = [
@@ -360,11 +423,11 @@ const promoBanners = [
     title: 'BAG BAZAAR PAYYANUR',
     subtitle: 'Top Brands & Huge Discounts',
     description: 'School bags, luggage trolleys, handbags, and travel backpacks. Wholesale & Retail.',
-    bgGradient: 'linear-gradient(135deg, #7c2d12 0%, #451a03 100%)',
+    bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
     badge: 'FEATURED STORE',
     location: 'Payyanur',
     phone: '09372 702692',
-    accentColor: '#F59E0B',
+    accentColor: '#38BDF8',
     tagline: 'Up to 65% OFF | Best Luggage Store in Town',
   },
   {
@@ -372,11 +435,11 @@ const promoBanners = [
     title: 'ONLINE ART CLASSES',
     subtitle: 'Explore Your Creativity in Just 1 Hour a Day!',
     description: 'Open to all ages (Kids & Adults). Flexible schedules, small groups & solo classes.',
-    bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+    bgGradient: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
     badge: 'EDUCATION',
     location: 'Online / Payyanur',
     phone: '07026 595769',
-    accentColor: '#38BDF8',
+    accentColor: '#90E0EF',
     tagline: 'By Arthana | Flexible Schedules | Beginner Friendly',
   },
   {
@@ -384,11 +447,11 @@ const promoBanners = [
     title: 'VR HERO MOTORS',
     subtitle: 'Hero Authorized Dealer - 3 Years Free Service',
     description: 'Special offers on Hero scooters & bikes. 5 years warranty, easy financing available.',
-    bgGradient: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+    bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)',
     badge: 'AUTOMOBILE',
     location: 'Peringome, Kannur',
     phone: '04985 219191',
-    accentColor: '#EF4444',
+    accentColor: '#38BDF8',
     tagline: '0% Down Payment | 5 Years Warranty | Easy Finance',
   },
   {
@@ -396,11 +459,11 @@ const promoBanners = [
     title: 'LIFE MEDICALS & SURGICALS',
     subtitle: 'We Care Your Life - All Medical Supplies',
     description: 'Complete range of medicines, surgical instruments, wellness care, and diagnostic tools.',
-    bgGradient: 'linear-gradient(135deg, #065f46 0%, #064e3b 100%)',
+    bgGradient: 'linear-gradient(135deg, #0096c7 0%, #03045e 100%)',
     badge: 'HEALTHCARE',
     location: 'Manna, Taliparamba',
     phone: '04672 206111',
-    accentColor: '#10B981',
+    accentColor: '#48CAE4',
     tagline: 'Essential Medicines | Surgical Equipment | 24/7 Service',
   },
   {
@@ -408,11 +471,11 @@ const promoBanners = [
     title: 'GLOBAL SOLAR POWER SOLUTION',
     subtitle: 'KSEB Approved Solar Panel Installations',
     description: 'Reduce your electricity bills with clean solar power. On-grid and off-grid solutions.',
-    bgGradient: 'linear-gradient(135deg, #1e3a8a 0%, #172554 100%)',
+    bgGradient: 'linear-gradient(135deg, #0077b6 0%, #023e8a 100%)',
     badge: 'SOLAR ENERGY',
     location: 'Payyanur - Padanna',
     phone: '08921 669652',
-    accentColor: '#3B82F6',
+    accentColor: '#CAF0F8',
     tagline: 'Govt Subsidy Eligible | Free Site Inspection | Solar Subsidy',
   },
   {
@@ -420,11 +483,11 @@ const promoBanners = [
     title: 'CASTILLO INTERIORS',
     subtitle: 'Modular Kitchen, Gypsum Ceiling, Furniture',
     description: 'Turn your dream home into reality without breaking your budget. 2D & 3D designing.',
-    bgGradient: 'linear-gradient(135deg, #4c1d95 0%, #2e1065 100%)',
+    bgGradient: 'linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%)',
     badge: 'INTERIORS',
     location: 'Payyanur',
     phone: '09562 753693',
-    accentColor: '#8B5CF6',
+    accentColor: '#38BDF8',
     tagline: 'Modular Kitchen | Gypsum Ceiling | Wardrobe & TV Units',
   },
 ];
@@ -922,10 +985,61 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [onboardSuccess, setOnboardSuccess] = useState('');
   const [categoryOptionsList, setCategoryOptionsList] = useState([]);
 
+  // Backend Promotions API Integration State
+  const [livePromotions, setLivePromotions] = useState([]);
+  const [selectedPromoModal, setSelectedPromoModal] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchPromotionsList()
+      .then((apiPromos) => {
+        if (!active) return;
+        if (Array.isArray(apiPromos) && apiPromos.length > 0) {
+          const colorThemes = [
+            { bg: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', accent: '#38BDF8' },
+            { bg: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)', accent: '#90E0EF' },
+            { bg: 'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)', accent: '#70E000' },
+            { bg: 'linear-gradient(135deg, #0096c7 0%, #03045e 100%)', accent: '#48CAE4' },
+            { bg: 'linear-gradient(135deg, #0077b6 0%, #023e8a 100%)', accent: '#CAF0F8' },
+            { bg: 'linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%)', accent: '#38BDF8' },
+          ];
+
+          const formatted = apiPromos.map((item, idx) => {
+            const theme = colorThemes[idx % colorThemes.length];
+            return {
+              id: item.id || item._id || item.promo_code || `api-promo-${idx}`,
+              title: item.title || item.name || 'Featured Promotion',
+              subtitle: item.placement || `${item.category || 'Featured'} Special Offer`,
+              description: item.description || item.details || `Exclusive offer for ${item.category || 'local services'} in ${item.location || 'Kerala'}.`,
+              bgGradient: item.bg_gradient || theme.bg,
+              badge: (item.category || item.type || item.badge || 'FEATURED').toUpperCase(),
+              location: item.location || 'Payyanur, Kerala',
+              phone: item.phone || item.contact_phone || '07026 595769',
+              accentColor: theme.accent,
+              tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : 'Limited Time Offer | Verified Merchant'),
+              bannerUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
+              category: item.category || 'General',
+              type: item.type || 'Featured',
+            };
+          });
+          setLivePromotions(formatted);
+        }
+      })
+      .catch((err) => {
+        console.warn('Backend fetchPromotionsList notice in LandingPage:', err.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const [apiCategories, setApiCategories] = useState([]);
+
   useEffect(() => {
     fetchCategoriesList()
       .then((catItems) => {
         if (Array.isArray(catItems) && catItems.length > 0) {
+          setApiCategories(catItems);
           const fetchedNames = Array.from(new Set(catItems.map((c) => c.name || c.category_name).filter(Boolean)));
           setCategoryOptionsList(fetchedNames);
         }
@@ -934,6 +1048,27 @@ export default function LandingPage({ defaultTab = 'home' }) {
         console.warn('Backend categories fetch notice in LandingPage:', err.message);
       });
   }, []);
+
+  const displayCategories = React.useMemo(() => {
+    if (apiCategories.length > 0) {
+      const colors = ['#FFF1F2', '#FFF7ED', '#EFF6FF', '#FDF2F8', '#FFFBEB', '#F0FDF4', '#F8FAFC', '#FAF5FF', '#FEF3C7', '#F1F5F9'];
+      const defaultIcons = ['🍽️', '🛒', '📱', '👕', '💎', '💊', '🚗', '✂️', '🏠', '🔧', '🎓', '💼'];
+
+      return apiCategories.map((c, idx) => ({
+        id: c.id || `api-cat-${idx}`,
+        title: c.name || c.category_name || 'Category',
+        name: c.name || c.category_name || 'Category',
+        icon: c.icon && !c.icon.startsWith('http') ? c.icon : defaultIcons[idx % defaultIcons.length],
+        icon_url: c.icon_url || (c.icon && c.icon.startsWith('http') ? c.icon : ''),
+        color: colors[idx % colors.length],
+        description: c.description || '',
+        count: c.logo_count || c.count || 0,
+        active: selectedCategory === (c.name || c.category_name),
+      }));
+    }
+    return conceptCategories;
+  }, [apiCategories, selectedCategory]);
+
 
   // Form State matching API spec:
   // POST http://168.144.18.149:8000/api/v1/merchants/onboarding
@@ -1225,13 +1360,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
     }
   }, [location]);
 
+  const displayBanners = livePromotions.length > 0 ? livePromotions : promoBanners;
+
   // Auto slide carousel
   useEffect(() => {
+    if (!displayBanners.length) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % promoBanners.length);
+      setCurrentSlide((prev) => (prev + 1) % displayBanners.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [displayBanners.length]);
+
 
   // Scroll listener for floating button
   useEffect(() => {
@@ -1401,7 +1540,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   return (
     <div className="landing-container">
-      {/* 1. Header / Navbar */}
+      {/* 1. Header (Old Model) */}
       <header className="landing-header">
         <div className="landing-header-inner">
           {/* Logo */}
@@ -1415,20 +1554,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </div>
           </div>
 
-          {/* Header Right: Logged-in User Status & Quick Actions or Customer Auth Buttons */}
-          <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-
-
-            <button
-              className="landing-mobile-nav-toggle"
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              aria-label="Toggle Navigation"
-            >
-              {mobileNavOpen ? <HiX size={24} /> : <HiMenu size={24} />}
-            </button>
-          </div>
-
-          {/* Navigation Links (Expands full width on mobile) */}
+          {/* Navigation Links */}
           <nav className={`landing-nav ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <button
               onClick={() => {
@@ -1460,11 +1586,60 @@ export default function LandingPage({ defaultTab = 'home' }) {
             >
               Contact
             </button>
-
-
           </nav>
+
+          {/* Header Right Actions */}
+          <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => setOnboardModalOpen(true)}
+              style={{ fontSize: 13 }}
+            >
+              + List Merchant
+            </button>
+            <Link to="/login" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
+              Admin Portal
+            </Link>
+            <button
+              className="landing-mobile-nav-toggle"
+              onClick={() => setMobileNavOpen(!mobileNavOpen)}
+              aria-label="Toggle Navigation"
+            >
+              {mobileNavOpen ? <HiX size={24} /> : <HiMenu size={24} />}
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* 2. Scrolling Ticker Announcement Bar */}
+      <div className="zeas-ticker-bar">
+        <div className="zeas-ticker-content">
+          ⚡ Festive Season Offers — Check Out Exclusive Deals Near You &nbsp;&bull;&nbsp;
+          📍 Explore 1000+ Local Shops, Restaurants &amp; Services in Kerala &nbsp;&bull;&nbsp;
+          💎 Gold &amp; Jewellery Collections — Trending Now &nbsp;&bull;&nbsp;
+          🍕 Top Rated Restaurants &amp; Cafes — Order or Visit Today &nbsp;&bull;&nbsp;
+          🔥 Mega Deals Festival — Up to 60% Off on Top Brands
+        </div>
+      </div>
+
+      {/* 3. Location Access Strip (Coral Banner) */}
+      <div className="zeas-location-strip">
+        <div className="zeas-location-strip-inner">
+          <div className="zeas-location-strip-text">
+            <HiLocationMarker style={{ fontSize: 20 }} />
+            <span>Find shops near you &mdash; Allow location access to discover nearby shops and services.</span>
+          </div>
+          <div className="zeas-location-strip-btns">
+            <button className="zeas-btn-white" onClick={handleDetectLocation}>
+              ✈ Use Current Location
+            </button>
+            <button className="zeas-btn-outline-white" onClick={() => scrollToSection('places-section')}>
+              Choose Location
+            </button>
+          </div>
+        </div>
+      </div>
+
 
       {/* 2. Banner Carousel Hero Section */}
       <section className="landing-hero-section">
@@ -1472,11 +1647,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
         <div className="landing-carousel-wrapper">
           <div className="landing-carousel-container">
-            {promoBanners.map((slide, idx) => {
+            {displayBanners.map((slide, idx) => {
               const isCenter = idx === currentSlide;
               const isPrev =
-                idx === (currentSlide - 1 + promoBanners.length) % promoBanners.length;
-              const isNext = idx === (currentSlide + 1) % promoBanners.length;
+                idx === (currentSlide - 1 + displayBanners.length) % displayBanners.length;
+              const isNext = idx === (currentSlide + 1) % displayBanners.length;
 
               let cardClass = 'landing-banner-card hidden';
               if (isCenter) cardClass = 'landing-banner-card active';
@@ -1487,8 +1662,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 <div
                   key={slide.id}
                   className={cardClass}
-                  style={{ background: slide.bgGradient }}
-                  onClick={() => setCurrentSlide(idx)}
+                  style={{ background: slide.bgGradient, cursor: 'pointer' }}
+                  onClick={() => {
+                    if (isCenter) {
+                      setSelectedPromoModal(slide);
+                    } else {
+                      setCurrentSlide(idx);
+                    }
+                  }}
                 >
                   <div
                     className="landing-banner-accent"
@@ -1522,7 +1703,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           <button
             onClick={() =>
               setCurrentSlide(
-                (prev) => (prev - 1 + promoBanners.length) % promoBanners.length
+                (prev) => (prev - 1 + displayBanners.length) % displayBanners.length
               )
             }
             className="landing-carousel-arrow left"
@@ -1532,7 +1713,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </button>
           <button
             onClick={() =>
-              setCurrentSlide((prev) => (prev + 1) % promoBanners.length)
+              setCurrentSlide((prev) => (prev + 1) % displayBanners.length)
             }
             className="landing-carousel-arrow right"
             aria-label="Next Slide"
@@ -1542,7 +1723,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
           {/* Dots */}
           <div className="landing-carousel-dots">
-            {promoBanners.map((_, idx) => (
+            {displayBanners.map((_, idx) => (
               <button
                 key={idx}
                 className={`landing-dot ${idx === currentSlide ? 'active' : ''}`}
@@ -1720,14 +1901,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
       {/* 5. Establishments / Services Grid Section */}
       <section id="establishments-section" className="landing-establishments-section">
-        <div className="landing-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h2 className="landing-section-title">Establishments / Services</h2>
-            <p className="landing-section-sub">
-              Showing verified local merchants and providers{' '}
-              {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
-            </p>
-          </div>
+        <div className="landing-section-header" style={{ textAlign: 'center', marginBottom: 28 }}>
+          <h2 className="landing-section-title">Establishments / Services</h2>
+          <p className="landing-section-sub">
+            Showing verified local merchants and providers{' '}
+            {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
+          </p>
         </div>
 
         {sortedEstablishments.length === 0 ? (
@@ -1817,6 +1996,80 @@ export default function LandingPage({ defaultTab = 'home' }) {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Popular Categories Grid Section */}
+      <section id="popular-categories-section" className="zeas-categories-section">
+        <div className="zeas-section-header">
+          <h2 className="zeas-section-title">Popular Categories in Kerala</h2>
+          <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
+            All Categories &gt;
+          </button>
+        </div>
+
+        <div className="zeas-categories-grid">
+          {displayCategories.map((cat) => (
+            <div
+              key={cat.id}
+              className={`zeas-cat-card ${cat.active ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedCategory(cat.title || cat.name);
+                scrollToSection('establishments-section');
+              }}
+            >
+              <div className="zeas-cat-icon-wrapper" style={{ background: cat.color }}>
+                {cat.icon_url ? (
+                  <img
+                    src={cat.icon_url}
+                    alt={cat.title || cat.name}
+                    style={{ width: 28, height: 28, objectFit: 'contain' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  cat.icon
+                )}
+              </div>
+              <span className="zeas-cat-title">{cat.title || cat.name}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 🔥 Featured Offers Section */}
+      <section id="featured-offers-section" className="zeas-offers-section">
+        <div className="zeas-section-header">
+          <h2 className="zeas-section-title">🔥 Featured Offers</h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="landing-carousel-arrow left" style={{ position: 'static', transform: 'none', width: 36, height: 36, fontSize: 18 }}>
+              &lt;
+            </button>
+            <button className="landing-carousel-arrow right" style={{ position: 'static', transform: 'none', width: 36, height: 36, fontSize: 18 }}>
+              &gt;
+            </button>
+          </div>
+        </div>
+
+        <div className="zeas-offers-grid">
+          {conceptOffers.map((offer) => (
+            <div key={offer.id} className="zeas-offer-card">
+              <div className="zeas-offer-banner" style={{ background: offer.bgGradient }}>
+                <span className="zeas-offer-badge">{offer.discount}</span>
+                <h3 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center' }}>{offer.title}</h3>
+              </div>
+              <div className="zeas-offer-body">
+                <span className="zeas-offer-merchant">{offer.merchant}</span>
+                <h4 className="zeas-offer-title">{offer.title}</h4>
+                <p className="zeas-offer-desc">{offer.description}</p>
+                <div className="zeas-offer-footer">
+                  <span className="zeas-offer-validity">{offer.validity}</span>
+                  <span className="zeas-offer-cat-pill">{offer.category}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* 6. News & Updates Section (Matching screenshot 3) */}
@@ -2415,6 +2668,265 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       )}
 
+      {/* 12. Promotion Modal Overlay (Light Blue Theme) */}
+      {selectedPromoModal && (
+        <div
+          className="modal-backdrop"
+          style={{
+            background: 'rgba(11, 23, 42, 0.75)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setSelectedPromoModal(null)}
+        >
+          <div
+            className="modal-container promo-detail-modal"
+            style={{
+              background: selectedPromoModal.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              color: '#FFFFFF',
+              borderRadius: '24px',
+              maxWidth: '620px',
+              width: '90%',
+              padding: '36px 40px',
+              position: 'relative',
+              boxShadow: '0 30px 60px -12px rgba(2, 132, 199, 0.5), 0 0 35px rgba(56, 189, 248, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Glow Accent */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '5px',
+                background: selectedPromoModal.accentColor || '#38BDF8',
+              }}
+            ></div>
+
+            <button
+              className="modal-close-btn"
+              onClick={() => setSelectedPromoModal(null)}
+              style={{
+                position: 'absolute',
+                top: '22px',
+                right: '22px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.35)',
+                borderRadius: '50%',
+                width: '38px',
+                height: '38px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF',
+                cursor: 'pointer',
+                fontSize: '18px',
+              }}
+            >
+              <HiX />
+            </button>
+
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '800',
+                letterSpacing: '1px',
+                marginBottom: '18px',
+                color: '#FFFFFF',
+                textTransform: 'uppercase',
+              }}
+            >
+              <HiStar style={{ color: '#FCD34D' }} /> {selectedPromoModal.badge}
+            </div>
+
+            <h2
+              style={{
+                fontSize: '30px',
+                fontWeight: '800',
+                margin: '0 0 8px 0',
+                color: '#FFFFFF',
+                textTransform: 'uppercase',
+                letterSpacing: '-0.5px',
+                lineHeight: '1.2',
+              }}
+            >
+              {selectedPromoModal.title}
+            </h2>
+
+            <h4
+              style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                color: 'rgba(255, 255, 255, 0.95)',
+                marginBottom: '14px',
+              }}
+            >
+              {selectedPromoModal.subtitle}
+            </h4>
+
+            <p
+              style={{
+                fontSize: '15px',
+                color: 'rgba(255, 255, 255, 0.88)',
+                lineHeight: '1.65',
+                marginBottom: '24px',
+              }}
+            >
+              {selectedPromoModal.description}
+            </p>
+
+            {selectedPromoModal.bannerUrl && (
+              <div
+                style={{
+                  width: '100%',
+                  maxHeight: '220px',
+                  overflow: 'hidden',
+                  borderRadius: '16px',
+                  marginBottom: '24px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }}
+              >
+                <img
+                  src={selectedPromoModal.bannerUrl}
+                  alt={selectedPromoModal.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                borderTop: '1px solid rgba(255, 255, 255, 0.25)',
+                paddingTop: '20px',
+                marginTop: '16px',
+              }}
+            >
+              <div
+                style={{
+                  color: '#FDE047',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(253, 224, 71, 0.15)',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(253, 224, 71, 0.35)',
+                  marginBottom: '16px',
+                }}
+              >
+                ⭐ {selectedPromoModal.tagline}
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    fontSize: '13px',
+                    color: '#FFFFFF',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                  }}
+                >
+                  <HiLocationMarker />
+                  {selectedPromoModal.location}
+                </span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    fontSize: '13px',
+                    color: '#FFFFFF',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                  }}
+                >
+                  <HiPhone />
+                  {selectedPromoModal.phone}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: '28px',
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+              }}
+            >
+              <button
+                className="btn"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  border: '1px solid rgba(255, 255, 255, 0.35)',
+                  padding: '10px 22px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                }}
+                onClick={() => setSelectedPromoModal(null)}
+              >
+                Close
+              </button>
+              <a
+                href={`tel:${selectedPromoModal.phone}`}
+                className="btn"
+                style={{
+                  background: '#FFFFFF',
+                  color: '#0284c7',
+                  fontWeight: '800',
+                  padding: '10px 26px',
+                  borderRadius: '12px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+                <HiPhone /> Call Merchant
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Floating Special Offer Button */}
+      <button className="zeas-floating-offer-btn" onClick={() => scrollToSection('featured-offers-section')}>
+        📣 SPECIAL OFFER
+      </button>
     </div>
   );
 }
+

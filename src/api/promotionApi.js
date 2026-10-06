@@ -19,15 +19,15 @@ export async function fetchPromotionsList(params = {}) {
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
-    let response = await apiFetch(`/promotions${queryString}`, { method: 'GET' });
-    if (!response.ok) {
+    let response = await apiFetch(`/api/v1/promotions${queryString}`, { method: 'GET' });
+    if (!response || !response.ok) {
+      response = await apiFetch(`/promotions${queryString}`, { method: 'GET' });
+    }
+    if (!response || !response.ok) {
       response = await apiFetch(`/admin/promotions${queryString}`, { method: 'GET' });
     }
-    if (!response.ok) {
-      response = await apiFetch(`/api/v1/admin/promotions${queryString}`, { method: 'GET' });
-    }
 
-    if (response.ok) {
+    if (response && response.ok) {
       const resData = await response.json();
       const rawPromos = resData.data || resData.promotions || resData.items || (Array.isArray(resData) ? resData : []);
       return Array.isArray(rawPromos) ? rawPromos : [];

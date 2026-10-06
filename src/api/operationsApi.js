@@ -13,37 +13,83 @@ export const promotionsApi = {
     if (search) params.append('search', search);
 
     const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await apiFetch(`/api/v1/promotions${query}`);
-    if (!res.ok) throw new Error('Failed to fetch promotions');
-    const json = await res.json();
-    return json.data || [];
+    let res = await apiFetch(`/api/v1/promotions${query}`);
+    if (!res || !res.ok) res = await apiFetch(`/promotions${query}`);
+    if (!res || !res.ok) res = await apiFetch(`/admin/promotions${query}`);
+    if (!res || !res.ok) return [];
+    const json = await res.json().catch(() => ({}));
+    const items = json.data || json.promotions || json.items || (Array.isArray(json) ? json : []);
+    return Array.isArray(items) ? items : [];
   },
 
   async create(data) {
-    const res = await apiFetch('/api/v1/promotions', {
+    let res = await apiFetch('/promotions', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to create promotion');
-    const json = await res.json();
-    return json.data;
+    if (!res || !res.ok) {
+      res = await apiFetch('/admin/promotions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    }
+    if (!res || !res.ok) {
+      res = await apiFetch('/api/v1/promotions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    }
+    if (!res || !res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || errJson.detail || 'Failed to create promotion');
+    }
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.promotion || json;
   },
 
   async update(id, data) {
-    const res = await apiFetch(`/api/v1/promotions/${id}`, {
+    let res = await apiFetch(`/promotions/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to update promotion');
-    const json = await res.json();
-    return json.data;
+    if (!res || !res.ok) {
+      res = await apiFetch(`/admin/promotions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    }
+    if (!res || !res.ok) {
+      res = await apiFetch(`/api/v1/promotions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    }
+    if (!res || !res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || errJson.detail || 'Failed to update promotion');
+    }
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.promotion || json;
   },
 
   async delete(id) {
-    const res = await apiFetch(`/api/v1/promotions/${id}`, {
+    let res = await apiFetch(`/promotions/${id}`, {
       method: 'DELETE',
     });
-    if (!res.ok) throw new Error('Failed to delete promotion');
+    if (!res || !res.ok) {
+      res = await apiFetch(`/admin/promotions/${id}`, {
+        method: 'DELETE',
+      });
+    }
+    if (!res || !res.ok) {
+      res = await apiFetch(`/api/v1/promotions/${id}`, {
+        method: 'DELETE',
+      });
+    }
+    if (!res || !res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.message || errJson.detail || 'Failed to delete promotion');
+    }
     return true;
   },
 };

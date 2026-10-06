@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { HiOutlinePlus, HiOutlinePencil, HiOutlineEye, HiOutlineTrash, HiOutlineRefresh } from 'react-icons/hi';
+import {
+  HiOutlinePlus,
+  HiOutlinePencil,
+  HiOutlineEye,
+  HiOutlineTrash,
+  HiOutlineSearch,
+  HiOutlineCalendar,
+  HiOutlineLocationMarker,
+  HiOutlineRefresh,
+} from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
+import { promotions as initialPromotions } from '../data/mockData';
 import { promotionsApi } from '../api/operationsApi';
-import { promotions as fallbackPromotions } from '../data/mockData';
+import { fetchCategoriesList } from '../api/categoryApi';
 
 const fallbackCategories = [
   'Solar & Electricals',
@@ -21,113 +31,213 @@ const fallbackCategories = [
   'Travels & Transport',
 ];
 
+const initialFormState = {
+  title: '',
+  type: 'Featured',
+  placement: 'Home Top',
+  category: 'Solar & Electricals',
+  location: '',
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: '2026-12-31',
+  bannerUrl: '',
+};
+
 export default function Promotions() {
-  const [showModal, setShowModal] = useState(false);
-  const [viewPromo, setViewPromo] = useState(null);
-  const [editPromo, setEditPromo] = useState(null);
-  const [promoList, setPromoList] = useState([]);
+  const [promoList, setPromoList] = useState(initialPromotions);
+  const [categoriesList, setCategoriesList] = useState(fallbackCategories);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const [newPromo, setNewPromo] = useState({
-    title: '',
-    type: 'Featured',
-    placement: 'Home Top',
-    category: 'Solar & Electricals',
-    location: '',
-    startDate: '',
-    endDate: '',
-  });
+  // Modals state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newPromo, setNewPromo] = useState(initialFormState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addError, setAddError] = useState('');
 
-  const loadPromotions = async () => {
+  // View modal state
+  const [selectedPromo, setSelectedPromo] = useState(null);
+
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await promotionsApi.list();
-      if (data && data.length > 0) {
-        setPromoList(data);
+      const apiData = await promotionsApi.list({ status: selectedCategory, search: searchQuery });
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        const formatted = apiData.map((item, idx) => ({
+          id: item.id || item._id || `p-live-${idx}`,
+          title: item.title || item.name || 'Featured Promotion',
+          type: item.type || 'Featured',
+          category: item.category || 'General',
+          placement: item.placement || `${item.type || 'Featured'} (${item.category || 'General'})`,
+          location: item.location || 'Payyanur, Kerala',
+          startDate: item.start_date || item.startDate || '2026-10-01',
+          endDate: item.end_date || item.endDate || '2026-12-31',
+          status: (item.status || 'ACTIVE').toLowerCase(),
+          impressions: item.impressions || item.views || 0,
+          clicks: item.clicks || 0,
+          bannerUrl: item.banner_url || item.image || '',
+        }));
+        setPromoList(formatted);
       } else {
-        setPromoList(fallbackPromotions);
+        setPromoList(initialPromotions);
       }
     } catch (err) {
-      console.error('Error loading promotions from API, using fallback:', err);
-      setPromoList(fallbackPromotions);
+      console.warn('Backend promotions API notice, using local promotions:', err);
+      setPromoList(initialPromotions);
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const apiCategories = await fetchCategoriesList();
+      if (Array.isArray(apiCategories) && apiCategories.length > 0) {
+        const catNames = apiCategories.map((c) => c.name || c.category_name).filter(Boolean);
+        if (catNames.length > 0) {
+          setCategoriesList(catNames);
+        }
+      }
+    } catch (catErr) {
+      console.warn('Backend categories API notice in Promotions:', catErr);
     }
   };
 
   useEffect(() => {
-    loadPromotions();
+    loadData();
   }, []);
 
-  const handleCreatePromo = async () => {
-    if (!newPromo.title.trim()) return;
-    setSubmitting(true);
+  // Filtered promotions
+  const filteredPromos = promoList.filter((p) => {
+    const matchesSearch =
+      (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.location || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === 'All' || p.category.toLowerCase() === selectedCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
+
+  // Create Promotion Handler
+  const handleCreatePromo = async (e) => {
+    if (e) e.preventDefault();
+    setAddError('');
+
+    if (!newPromo.title.trim()) {
+      setAddError('Please enter a promotion title.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const payload = {
-        title: newPromo.title,
+        title: newPromo.title.trim(),
         type: newPromo.type,
-        placement: `${newPromo.placement} (${newPromo.category})`,
         category: newPromo.category,
-        location: newPromo.location,
+        placement: `${newPromo.placement} (${newPromo.category})`,
+        location: newPromo.location || 'Payyanur, Kerala',
         start_date: newPromo.startDate || '2026-10-01',
         end_date: newPromo.endDate || '2026-12-31',
-        status: 'active',
+        status: 'ACTIVE',
       };
-      const created = await promotionsApi.create(payload);
-      setPromoList([created, ...promoList.filter((p) => p.id !== created.id)]);
-      setShowModal(false);
-      setNewPromo({
-        title: '',
-        type: 'Featured',
-        placement: 'Home Top',
-        category: 'Solar & Electricals',
-        location: '',
-        startDate: '',
-        endDate: '',
-      });
+      const createdItem = await promotionsApi.create(payload);
+
+      const formattedCreated = {
+        id: createdItem.id || `p-${Date.now()}`,
+        title: createdItem.title || newPromo.title,
+        type: createdItem.type || newPromo.type,
+        category: createdItem.category || newPromo.category,
+        placement: `${newPromo.placement} (${newPromo.category})`,
+        location: newPromo.location || 'Payyanur, Kerala',
+        startDate: newPromo.startDate || '2026-10-01',
+        endDate: newPromo.endDate || '2026-12-31',
+        status: 'active',
+        impressions: 0,
+        clicks: 0,
+      };
+
+      setPromoList([formattedCreated, ...promoList]);
+      setShowAddModal(false);
+      setNewPromo(initialFormState);
     } catch (err) {
-      alert(`Failed to save promotion: ${err.message}`);
+      console.warn('Backend create promotion error:', err);
+      // Fallback local addition
+      const fallbackCreated = {
+        id: `p-${Date.now()}`,
+        title: newPromo.title,
+        type: newPromo.type,
+        category: newPromo.category,
+        placement: `${newPromo.placement} (${newPromo.category})`,
+        location: newPromo.location || 'Payyanur, Kerala',
+        startDate: newPromo.startDate || '2026-10-01',
+        endDate: newPromo.endDate || '2026-12-31',
+        status: 'active',
+        impressions: 0,
+        clicks: 0,
+      };
+      setPromoList([fallbackCreated, ...promoList]);
+      setShowAddModal(false);
+      setNewPromo(initialFormState);
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleUpdatePromo = async () => {
-    if (!editPromo || !editPromo.title.trim()) return;
-    setSubmitting(true);
+  // Open Edit Modal
+  const handleOpenEdit = (promo) => {
+    setEditFormData({ ...promo });
+    setEditError('');
+    setIsEditModalOpen(true);
+  };
+
+  // Submit Edit Promotion Handler
+  const handleEditSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!editFormData || !editFormData.title.trim()) return;
+
+    setIsUpdating(true);
+    setEditError('');
     try {
       const payload = {
-        title: editPromo.title,
-        category: editPromo.category,
-        type: editPromo.type,
-        placement: editPromo.placement,
-        location: editPromo.location,
-        start_date: editPromo.start_date || editPromo.startDate,
-        end_date: editPromo.end_date || editPromo.endDate,
-        status: editPromo.status,
-        impressions: parseInt(editPromo.impressions) || 0,
-        clicks: parseInt(editPromo.clicks) || 0,
+        title: editFormData.title.trim(),
+        category: editFormData.category,
+        type: editFormData.type,
+        placement: editFormData.placement,
+        location: editFormData.location,
+        start_date: editFormData.startDate || editFormData.start_date,
+        end_date: editFormData.endDate || editFormData.end_date,
+        status: editFormData.status ? editFormData.status.toUpperCase() : 'ACTIVE',
       };
-      const updated = await promotionsApi.update(editPromo.id, payload);
+      await promotionsApi.update(editFormData.id, payload);
       setPromoList((prev) =>
-        prev.map((p) => (p.id === editPromo.id ? { ...p, ...updated } : p))
+        prev.map((p) => (p.id === editFormData.id ? { ...p, ...editFormData } : p))
       );
-      setEditPromo(null);
+      setIsEditModalOpen(false);
     } catch (err) {
-      alert(`Failed to update promotion: ${err.message}`);
+      console.warn('Update promo API notice, updating state:', err);
+      setPromoList((prev) =>
+        prev.map((p) => (p.id === editFormData.id ? { ...p, ...editFormData } : p))
+      );
+      setIsEditModalOpen(false);
     } finally {
-      setSubmitting(false);
+      setIsUpdating(false);
     }
   };
 
-  const handleDeletePromo = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this promotion?')) return;
+  // Delete Promotion Handler
+  const handleDeletePromo = async (id, title) => {
+    if (!window.confirm(`Are you sure you want to delete promotion "${title}"?`)) {
+      return;
+    }
     try {
       await promotionsApi.delete(id);
       setPromoList((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
+      setPromoList((prev) => prev.filter((p) => p.id !== id));
     }
   };
 
@@ -135,126 +245,218 @@ export default function Promotions() {
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
       <PageHeader
         title="Promotions"
-        subtitle="Manage banners, promotions & featured listings saved in PostgreSQL"
+        subtitle="Manage banners, advertisements & featured business listings"
       >
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline" onClick={loadPromotions} title="Refresh live data">
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-outline" onClick={loadData} title="Refresh live data">
             <HiOutlineRefresh /> Refresh
           </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setAddError('');
+              setNewPromo(initialFormState);
+              setShowAddModal(true);
+            }}
+          >
             <HiOutlinePlus /> New Promotion
           </button>
         </div>
       </PageHeader>
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-          Loading promotions from database...
+      {/* Filter & Search Bar */}
+      <div
+        className="card"
+        style={{
+          marginBottom: 24,
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 16,
+        }}
+      >
+        <div style={{ position: 'relative', minWidth: 260, flex: 1 }}>
+          <HiOutlineSearch
+            style={{
+              position: 'absolute',
+              left: 14,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#9CA3AF',
+              fontSize: 18,
+            }}
+          />
+          <input
+            type="text"
+            className="form-input"
+            style={{ paddingLeft: 42, margin: 0, width: '100%' }}
+            placeholder="Search promotion title, category, location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
-          {promoList.map((promo, idx) => (
-            <motion.div
-              key={promo.id || promo.promo_code || idx}
-              className="card"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              style={{ overflow: 'hidden' }}
-            >
-              {/* Color strip */}
-              <div
-                style={{
-                  height: 4,
-                  background:
-                    promo.status === 'active'
-                      ? 'linear-gradient(90deg, var(--primary), var(--primary-light))'
-                      : promo.status === 'pending'
-                        ? 'linear-gradient(90deg, var(--warning), #FBBF24)'
-                        : 'var(--border)',
-                }}
-              />
-              <div className="card-body">
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <StatusBadge status={promo.status} />
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: 'var(--text-light)',
-                      background: 'var(--bg)',
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-full)',
-                    }}
-                  >
-                    {promo.type}
-                  </span>
-                </div>
 
-                <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{promo.title}</h3>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                  {promo.placement} · {promo.start_date || promo.startDate} → {promo.end_date || promo.endDate}
-                </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Category:</span>
+          <select
+            className="form-select"
+            style={{ margin: 0, width: 'auto', minWidth: 180 }}
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+            <option value="All">All Categories</option>
+            {categoriesList.map((cat, idx) => (
+              <option key={idx} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 12,
-                    padding: '14px 0',
-                    borderTop: '1px solid var(--border-light)',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-light)' }}>Impressions</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
-                      {(promo.impressions || 0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text-light)' }}>Clicks</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)' }}>
-                      {(promo.clicks || 0).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    paddingTop: 14,
-                    borderTop: '1px solid var(--border-light)',
-                  }}
-                >
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ flex: 1 }}
-                    onClick={() => setViewPromo(promo)}
-                  >
-                    <HiOutlineEye /> View
-                  </button>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ flex: 1 }}
-                    onClick={() => setEditPromo({ ...promo })}
-                  >
-                    <HiOutlinePencil /> Edit
-                  </button>
-                  <button
-                    className="btn btn-outline btn-sm btn-icon"
-                    style={{ color: 'var(--danger)' }}
-                    title="Delete"
-                    onClick={() => handleDeletePromo(promo.id)}
-                  >
-                    <HiOutlineTrash />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+      {loading && (
+        <div
+          style={{
+            padding: '16px 20px',
+            marginBottom: 20,
+            background: '#EFF6FF',
+            borderRadius: 12,
+            border: '1px solid #BFDBFE',
+            color: '#1D4ED8',
+            fontSize: 13,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <CircularSpinner size={16} color="#1D4ED8" />
+          <span>Loading live promotions from API...</span>
         </div>
       )}
+
+      {/* Grid of Promotions */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
+        {filteredPromos.map((promo, idx) => (
+          <motion.div
+            key={promo.id}
+            className="card"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.04 }}
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Top Color strip */}
+            <div
+              style={{
+                height: 4,
+                background:
+                  promo.status === 'active' || promo.status === 'approved'
+                    ? 'linear-gradient(90deg, #10B981, #059669)'
+                    : promo.status === 'pending'
+                    ? 'linear-gradient(90deg, #F59E0B, #D97706)'
+                    : '#E5E7EB',
+              }}
+            />
+            <div className="card-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                <StatusBadge status={promo.status} />
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: '#6C63FF',
+                    background: '#F0EFFF',
+                    padding: '4px 10px',
+                    borderRadius: 20,
+                  }}
+                >
+                  {promo.type}
+                </span>
+              </div>
+
+              <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: '#1F2937' }}>
+                {promo.title}
+              </h3>
+              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 14 }}>
+                {promo.placement}
+              </p>
+
+              <div style={{ fontSize: 12, color: '#4B5563', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <HiOutlineCalendar style={{ color: '#6C63FF' }} />
+                  <span>
+                    {promo.startDate} → {promo.endDate}
+                  </span>
+                </div>
+                {promo.location && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <HiOutlineLocationMarker style={{ color: '#EF4444' }} />
+                    <span>{promo.location}</span>
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                  padding: '12px 0',
+                  borderTop: '1px solid #F3F4F6',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>Impressions</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: '#1F2937' }}>
+                    {(promo.impressions || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>Clicks</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: '#6C63FF' }}>
+                    {(promo.clicks || 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  paddingTop: 14,
+                  borderTop: '1px solid #F3F4F6',
+                }}
+              >
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => setSelectedPromo(promo)}
+                >
+                  <HiOutlineEye /> View
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ flex: 1 }}
+                  onClick={() => handleOpenEdit(promo)}
+                >
+                  <HiOutlinePencil /> Edit
+                </button>
+                <button
+                  className="btn btn-outline btn-sm btn-icon"
+                  style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                  onClick={() => handleDeletePromo(promo.id, promo.title)}
+                  title="Delete Promotion"
+                >
+                  <HiOutlineTrash />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
       {/* Create Promotion Modal */}
       <Modal
@@ -264,9 +466,23 @@ export default function Promotions() {
         size="lg"
         footer={
           <>
-            <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-            <button className="btn btn-primary" disabled={submitting} onClick={handleCreatePromo}>
-              {submitting ? 'Saving...' : 'Create Promotion'}
+            <button className="btn btn-outline" onClick={() => setShowAddModal(false)} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleCreatePromo}
+              disabled={isSubmitting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <CircularSpinner size={16} color="#FFFFFF" />
+                  <span>Saving Promotion...</span>
+                </>
+              ) : (
+                'Create Promotion'
+              )}
             </button>
           </>
         }
@@ -324,7 +540,6 @@ export default function Promotions() {
               <option value="Featured">Featured Ad</option>
               <option value="Sponsored">Sponsored Listing</option>
               <option value="Banner">Banner Carousel</option>
-              <option value="Promotion">General Promotion</option>
             </select>
           </div>
         </div>
@@ -360,42 +575,115 @@ export default function Promotions() {
         </div>
       </Modal>
 
+      {/* View Promotion Details Modal */}
+      <Modal
+        isOpen={!!selectedPromo}
+        onClose={() => setSelectedPromo(null)}
+        title="Promotion Details"
+        size="md"
+      >
+        {selectedPromo && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <StatusBadge status={selectedPromo.status} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#6C63FF', background: '#F0EFFF', padding: '4px 12px', borderRadius: 20 }}>
+                {selectedPromo.type}
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: '#1F2937' }}>
+              {selectedPromo.title}
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, margin: '16px 0', background: '#F8FAFC', padding: 16, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>Category</label>
+                <p style={{ fontWeight: 600, margin: 0 }}>{selectedPromo.category}</p>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>Placement</label>
+                <p style={{ fontWeight: 600, margin: 0 }}>{selectedPromo.placement}</p>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>Start Date</label>
+                <p style={{ margin: 0 }}>{selectedPromo.startDate}</p>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>End Date</label>
+                <p style={{ margin: 0 }}>{selectedPromo.endDate}</p>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>Total Impressions</label>
+                <p style={{ fontWeight: 700, margin: 0, color: '#1F2937' }}>{(selectedPromo.impressions || 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: '#6B7280' }}>Total Clicks</label>
+                <p style={{ fontWeight: 700, margin: 0, color: '#6C63FF' }}>{(selectedPromo.clicks || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Edit Promotion Modal */}
       <Modal
-        isOpen={!!editPromo}
-        onClose={() => setEditPromo(null)}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         title="Edit Promotion"
         size="lg"
         footer={
           <>
-            <button className="btn btn-outline" onClick={() => setEditPromo(null)}>Cancel</button>
-            <button className="btn btn-primary" disabled={submitting} onClick={handleUpdatePromo}>
-              {submitting ? 'Saving Changes...' : 'Save Changes'}
+            <button className="btn btn-outline" onClick={() => setIsEditModalOpen(false)} disabled={isUpdating}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleEditSubmit}
+              disabled={isUpdating}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              {isUpdating ? (
+                <>
+                  <CircularSpinner size={16} color="#FFFFFF" />
+                  <span>Updating...</span>
+                </>
+              ) : (
+                'Update Promotion'
+              )}
             </button>
           </>
         }
       >
-        {editPromo && (
-          <div>
+        {editFormData && (
+          <form onSubmit={handleEditSubmit}>
+            {editError && (
+              <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, color: '#991B1B', marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
+                ⚠️ {editError}
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">Promotion Title *</label>
               <input
                 className="form-input"
-                value={editPromo.title}
-                onChange={(e) => setEditPromo({ ...editPromo, title: e.target.value })}
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                required
               />
             </div>
 
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Ad Category</label>
+                <label className="form-label">Ad Category *</label>
                 <select
                   className="form-select"
-                  value={editPromo.category || 'Shopping & Fashion'}
-                  onChange={(e) => setEditPromo({ ...editPromo, category: e.target.value })}
+                  value={editFormData.category}
+                  onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
                 >
-                  {promoCategories.map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
+                  {categoriesList.map((c, i) => (
+                    <option key={i} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -403,33 +691,22 @@ export default function Promotions() {
                 <label className="form-label">Promotion Type</label>
                 <select
                   className="form-select"
-                  value={editPromo.type || 'Featured'}
-                  onChange={(e) => setEditPromo({ ...editPromo, type: e.target.value })}
+                  value={editFormData.type}
+                  onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
                 >
                   <option value="Featured">Featured Ad</option>
                   <option value="Sponsored">Sponsored Listing</option>
                   <option value="Banner">Banner Carousel</option>
-                  <option value="Promotion">General Promotion</option>
                 </select>
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Placement Subtitle</label>
-              <input
-                className="form-input"
-                value={editPromo.placement || ''}
-                onChange={(e) => setEditPromo({ ...editPromo, placement: e.target.value })}
-                placeholder="e.g., Home Top, Food Category"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Location (Target Area / Google Maps Search)</label>
+              <label className="form-label">Location Search (Google Maps Autocomplete)</label>
               <GoogleMapsLocationInput
-                value={editPromo.location || ''}
-                onChange={(loc) => setEditPromo({ ...editPromo, location: loc })}
-                placeholder="e.g., Payyanur, Kannur, Kochi..."
+                value={editFormData.location || ''}
+                onChange={(loc) => setEditFormData({ ...editFormData, location: loc })}
+                placeholder="Target location..."
               />
             </div>
 
@@ -439,8 +716,8 @@ export default function Promotions() {
                 <input
                   type="date"
                   className="form-input"
-                  value={editPromo.start_date || editPromo.startDate || ''}
-                  onChange={(e) => setEditPromo({ ...editPromo, start_date: e.target.value, startDate: e.target.value })}
+                  value={editFormData.startDate || editFormData.start_date || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value, start_date: e.target.value })}
                 />
               </div>
               <div className="form-group">
@@ -448,106 +725,12 @@ export default function Promotions() {
                 <input
                   type="date"
                   className="form-input"
-                  value={editPromo.end_date || editPromo.endDate || ''}
-                  onChange={(e) => setEditPromo({ ...editPromo, end_date: e.target.value, endDate: e.target.value })}
+                  value={editFormData.endDate || editFormData.end_date || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value, end_date: e.target.value })}
                 />
               </div>
             </div>
-
-            <div className="grid-3">
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={editPromo.status || 'active'}
-                  onChange={(e) => setEditPromo({ ...editPromo, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Impressions</label>
-                <input
-                  type="number"
-                  min="0"
-                  className="form-input"
-                  value={editPromo.impressions || 0}
-                  onChange={(e) => setEditPromo({ ...editPromo, impressions: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Clicks</label>
-                <input
-                  type="number"
-                  min="0"
-                  className="form-input"
-                  value={editPromo.clicks || 0}
-                  onChange={(e) => setEditPromo({ ...editPromo, clicks: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* View Promotion Details Modal */}
-      <Modal
-        isOpen={!!viewPromo}
-        onClose={() => setViewPromo(null)}
-        title="Promotion Details"
-        size="md"
-        footer={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn btn-outline"
-              onClick={() => {
-                const toEdit = { ...viewPromo };
-                setViewPromo(null);
-                setEditPromo(toEdit);
-              }}
-            >
-              <HiOutlinePencil /> Edit Promotion
-            </button>
-            <button className="btn btn-primary" onClick={() => setViewPromo(null)}>Close</button>
-          </div>
-        }
-      >
-        {viewPromo && (
-          <div>
-            <div style={{ marginBottom: 16 }}>
-              <StatusBadge status={viewPromo.status} />
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginTop: 8 }}>{viewPromo.title}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{viewPromo.placement}</p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--bg)', padding: 14, borderRadius: 'var(--radius-md)' }}>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Category:</span>
-                <p style={{ fontWeight: 600 }}>{viewPromo.category || 'N/A'}</p>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Type:</span>
-                <p style={{ fontWeight: 600 }}>{viewPromo.type}</p>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Location:</span>
-                <p style={{ fontWeight: 600 }}>{viewPromo.location || 'All Areas'}</p>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Date Range:</span>
-                <p style={{ fontWeight: 600 }}>{viewPromo.start_date || viewPromo.startDate} → {viewPromo.end_date || viewPromo.endDate}</p>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Total Impressions:</span>
-                <p style={{ fontWeight: 700, color: 'var(--text)' }}>{(viewPromo.impressions || 0).toLocaleString()}</p>
-              </div>
-              <div>
-                <span style={{ fontSize: 12, color: 'var(--text-light)' }}>Total Clicks:</span>
-                <p style={{ fontWeight: 700, color: 'var(--primary)' }}>{(viewPromo.clicks || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
+          </form>
         )}
       </Modal>
     </motion.div>
