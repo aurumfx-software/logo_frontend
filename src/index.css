@@ -1776,7 +1776,7 @@ ul, ol {
   width: 100%;
   height: 100%;
   max-width: 100%;
-  padding: 48px 90px;
+  padding: 32px 90px 48px;
   border-radius: 0;
   color: #ffffff;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1949,11 +1949,16 @@ ul, ol {
 }
 
 .landing-carousel-dots {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 28px;
+  margin-top: 0;
+  z-index: 20;
 }
 
 .landing-dot {
@@ -2279,7 +2284,7 @@ ul, ol {
 
 .zeas-categories-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
@@ -2848,9 +2853,9 @@ ul, ol {
 
 /* 4. Establishments Grid */
 .landing-establishments-section {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 20px auto 60px;
-  padding: 0 24px;
+  padding: 0 20px;
 }
 
 .landing-section-header {
@@ -2873,8 +2878,21 @@ ul, ol {
 
 .landing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+@media (max-width: 768px) {
+  .landing-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .establishment-card {
@@ -3777,7 +3795,7 @@ ul, ol {
 
 .places-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 

@@ -1518,9 +1518,55 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return list;
   };
 
-  // Populate exclusively from Backend API merchants when available
-  const combinedEstablishmentsList = apiMerchants.length > 0 ? filteredEstablishments : [...filteredFeaturedAds, ...filteredEstablishments];
-  const sortedEstablishments = sortItems(combinedEstablishmentsList);
+  // In-Grid Advertisement Option State & Frequency
+  const [showGridAds, setShowGridAds] = useState(true);
+  const [adFrequency, setAdFrequency] = useState(4); // Every 4 cards (1 full row)
+
+  // Interleave Featured Advertisements between Establishment Cards based on user preference using API data exclusively
+  const interleavedEstablishments = React.useMemo(() => {
+    const baseList = sortItems(filteredEstablishments);
+    // Use LIVE API PROMOTIONS exclusively when available from backend
+    const adsPool = livePromotions.length > 0 ? livePromotions : (filteredFeaturedAds.length > 0 ? filteredFeaturedAds : []);
+
+    if (!showGridAds || adFrequency <= 0 || adsPool.length === 0) return baseList;
+
+    const result = [];
+    let adIdx = 0;
+
+    baseList.forEach((item, index) => {
+      // If merchant itself is sponsored or has adBadge
+      if (item.adBadge || item.isSponsored) {
+        result.push({
+          ...item,
+          isAdCard: true,
+        });
+      } else {
+        result.push(item);
+      }
+
+      // Interleave advertisement card in a line after every N establishment cards
+      if ((index + 1) % adFrequency === 0 && adIdx < adsPool.length * 4) {
+        const adItem = adsPool[adIdx % adsPool.length];
+        const colorThemes = [
+          'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+          'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
+          'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)',
+          'linear-gradient(135deg, #0096c7 0%, #03045e 100%)',
+        ];
+        result.push({
+          ...adItem,
+          id: `interleaved-ad-line-${adItem.id || adIdx}-${index}`,
+          isAdCard: true,
+          adBadge: adItem.adBadge || adItem.badge || 'SPONSORED AD',
+          bgGradient: adItem.bgGradient || colorThemes[adIdx % colorThemes.length],
+        });
+        adIdx++;
+      }
+    });
+
+    return result;
+  }, [filteredEstablishments, livePromotions, filteredFeaturedAds, sortBy, showGridAds, adFrequency]);
+  const sortedEstablishments = interleavedEstablishments;
 
   const handleSelectPlace = (placeObj) => {
     const nameStr = typeof placeObj === 'string' ? placeObj : placeObj?.name || '';
@@ -1590,16 +1636,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
           {/* Header Right Actions */}
           <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => setOnboardModalOpen(true)}
-              style={{ fontSize: 13 }}
-            >
-              + List Merchant
-            </button>
-            <Link to="/login" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
-              Admin Portal
-            </Link>
             <button
               className="landing-mobile-nav-toggle"
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -1794,6 +1830,28 @@ export default function LandingPage({ defaultTab = 'home' }) {
             )}
           </div>
 
+          <div className="landing-category-filter">
+            <span className="filter-label">Category:</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                scrollToSection('establishments-section');
+              }}
+              className="landing-select"
+            >
+              <option value="all">All Categories</option>
+              {displayCategories.map((cat) => {
+                const catName = cat.title || cat.name;
+                return (
+                  <option key={cat.id} value={catName}>
+                    {catName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           <div className="landing-district-filter">
             <span className="filter-label">District:</span>
             <select
@@ -1928,72 +1986,165 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         ) : (
           <div className="landing-grid">
-            {sortedEstablishments.map((item) => (
-              <div
-                key={item.id}
-                className="establishment-card"
-                onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
-              >
-                <div className="establishment-image-wrapper">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="establishment-image"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src =
-                        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-                    }}
-                  />
+            {sortedEstablishments.map((item) => {
+              if (item.isAdCard) {
+                return (
                   <div
-                    className={`establishment-category-tag ${
-                      item.adBadge === 'SPONSORED'
-                        ? 'ad-badge-blue'
-                        : item.adBadge
-                        ? 'ad-badge-orange'
-                        : ''
-                    }`}
+                    key={item.id}
+                    className="ad-banner-line-card"
+                    style={{
+                      gridColumn: '1 / -1',
+                      width: '100%',
+                      background: item.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                      borderRadius: '16px',
+                      padding: '24px 32px',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '20px',
+                      boxShadow: '0 12px 30px rgba(2, 132, 199, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      cursor: 'pointer',
+                      margin: '12px 0',
+                    }}
+                    onClick={() => {
+                      if (item.title || item.description) {
+                        setSelectedPromoModal(item);
+                      } else {
+                        navigate(`/place/${item.id}`, { state: { merchant: item } });
+                      }
+                    }}
                   >
-                    {item.adBadge || item.category}
-                  </div>
-                  <div className="establishment-rating">
-                    <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
-                  </div>
-                </div>
+                    {/* Left Info: Badge, Title & Subtitle */}
+                    <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ background: '#FDE047', color: '#0F172A', fontWeight: '800', fontSize: '11px', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          📢 {item.adBadge || item.badge || 'FEATURED PROMOTION'}
+                        </span>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)' }}>
+                          {item.subtitle || item.category}
+                        </span>
+                      </div>
+                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
+                        {item.name || item.title}
+                      </h3>
+                      <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)', margin: 0, lineHeight: '1.5' }}>
+                        {item.description || item.tagline || `Exclusive offer for ${item.category || 'local services'} in ${item.location || 'Kerala'}.`}
+                      </p>
+                    </div>
 
-                <div className="establishment-card-content">
-                  <h3 className="establishment-name">{item.name}</h3>
-
-                  <div className="establishment-meta">
-                    <span
-                      className="meta-item meta-map-link"
-                      onClick={(e) => openGoogleMaps(item.name, item.address, e)}
-                      title="Open location in Google Maps"
-                    >
-                      <HiLocationMarker className="meta-icon map-pin-icon" />
-                      <span className="location-txt-link">{item.location} (Map)</span>
-                    </span>
-                    <span className="meta-item">
-                      <HiPhone className="meta-icon" /> {item.phone}
-                    </span>
-                    {item.offerTag && (
-                      <span className="meta-item ad-offer-tag">
-                        ⭐ {item.offerTag}
+                    {/* Middle Info: Location & Contact */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '1px solid rgba(255, 255, 255, 0.2)', paddingLeft: '20px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#FFFFFF' }}>
+                        <HiLocationMarker style={{ color: '#FDE047' }} /> {item.location}
                       </span>
-                    )}
+                      {item.phone && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#FFFFFF' }}>
+                          <HiPhone style={{ color: '#FDE047' }} /> {item.phone}
+                        </span>
+                      )}
+                      {item.tagline && (
+                        <span style={{ fontSize: '12px', color: '#FDE047', fontWeight: '700' }}>
+                          ⭐ {item.tagline}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Right CTA Button */}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <button
+                        className="btn"
+                        style={{
+                          background: '#FFFFFF',
+                          color: '#0284c7',
+                          fontWeight: '800',
+                          padding: '10px 22px',
+                          borderRadius: '12px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          fontSize: '14px',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                        }}
+                      >
+                        View Offer <HiChevronRight />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={item.id}
+                  className="establishment-card"
+                  onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
+                >
+                  <div className="establishment-image-wrapper">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="establishment-image"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src =
+                          'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                      }}
+                    />
+                    <div
+                      className={`establishment-category-tag ${
+                        item.adBadge === 'SPONSORED'
+                          ? 'ad-badge-blue'
+                          : item.adBadge
+                          ? 'ad-badge-orange'
+                          : ''
+                      }`}
+                    >
+                      {item.adBadge || item.category}
+                    </div>
+                    <div className="establishment-rating">
+                      <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
+                    </div>
                   </div>
 
-                  <div className="establishment-card-footer">
-                    <span className="establishment-category-sub">
-                      {item.category}
-                    </span>
-                    <div className="establishment-arrow-btn">
-                      <HiChevronRight />
+                  <div className="establishment-card-content">
+                    <h3 className="establishment-name">{item.name}</h3>
+
+                    <div className="establishment-meta">
+                      <span
+                        className="meta-item meta-map-link"
+                        onClick={(e) => openGoogleMaps(item.name, item.address, e)}
+                        title="Open location in Google Maps"
+                      >
+                        <HiLocationMarker className="meta-icon map-pin-icon" />
+                        <span className="location-txt-link">{item.location} (Map)</span>
+                      </span>
+                      <span className="meta-item">
+                        <HiPhone className="meta-icon" /> {item.phone}
+                      </span>
+                      {item.offerTag && (
+                        <span className="meta-item ad-offer-tag">
+                          ⭐ {item.offerTag}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="establishment-card-footer">
+                      <span className="establishment-category-sub">
+                        {item.category}
+                      </span>
+                      <div className="establishment-arrow-btn">
+                        <HiChevronRight />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
