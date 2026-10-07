@@ -1050,7 +1050,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   }, []);
 
   const displayCategories = React.useMemo(() => {
-    if (apiCategories.length > 0) {
+    if (Array.isArray(apiCategories) && apiCategories.length > 0) {
       const colors = ['#FFF1F2', '#FFF7ED', '#EFF6FF', '#FDF2F8', '#FFFBEB', '#F0FDF4', '#F8FAFC', '#FAF5FF', '#FEF3C7', '#F1F5F9'];
       const defaultIcons = ['🍽️', '🛒', '📱', '👕', '💎', '💊', '🚗', '✂️', '🏠', '🔧', '🎓', '💼'];
 
@@ -1066,8 +1066,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
         active: selectedCategory === (c.name || c.category_name),
       }));
     }
-    return conceptCategories;
+    return conceptCategories || [];
   }, [apiCategories, selectedCategory]);
+
+  // Category Pagination Calculation (8 categories per page)
+  const categoriesPerPage = 8;
+  const safeCategories = displayCategories || [];
+  const totalCategoryPages = Math.ceil(safeCategories.length / categoriesPerPage) || 1;
+  const paginatedCategories = React.useMemo(() => {
+    const start = (categoryPage - 1) * categoriesPerPage;
+    return safeCategories.slice(start, start + categoriesPerPage);
+  }, [safeCategories, categoryPage, categoriesPerPage]);
 
 
   // Form State matching API spec:
@@ -1106,7 +1115,22 @@ export default function LandingPage({ defaultTab = 'home' }) {
     fetchMerchantsList(queryParams)
       .then((data) => {
         if (active && Array.isArray(data)) {
-          setApiMerchants(data);
+          const formatted = data.map((item, idx) => ({
+            id: item.id || item._id || `backend-m-${idx}`,
+            name: item.business_name || item.name || item.owner_name || 'Merchant',
+            category: item.category || (item.categories && item.categories[0]) || 'General',
+            categoryKey: (item.category || (item.categories && item.categories[0]) || 'general').toLowerCase(),
+            location: item.city || item.district || item.location || 'Kerala',
+            address: item.address || item.landmark || `${item.city || 'Payyanur'}, Kerala`,
+            phone: item.phone_number || item.phone || '',
+            rating: item.rating || (4.0 + (idx % 10) * 0.1).toFixed(1),
+            image: item.merchant_photos?.[0] || item.image || item.logo_url || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+            adBadge: item.is_sponsored || item.isSponsored ? 'SPONSORED' : item.badge || item.category?.toUpperCase() || '',
+            services: item.services || [],
+            service_timing: item.service_timing || '09:00 AM - 09:00 PM',
+            ...item
+          }));
+          setApiMerchants(formatted);
         }
       })
       .catch((err) => {
@@ -1448,8 +1472,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
-  // Use backend API merchants exclusively when loaded from server
-  const sourceEstablishments = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
+  // Use backend API merchants strictly
+  const sourceEstablishments = apiMerchants;
 
   // Filter Establishments list
   const filteredEstablishments = sourceEstablishments.filter((item) => {
@@ -1471,24 +1495,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Helper to count items per category key under active location
   const getCategoryCount = (catKey) => {
     if (catKey === 'all') {
-      return (
-        sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length +
-        (apiMerchants.length > 0 ? 0 : featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length)
-      );
+      return sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length;
     }
-    const estCount = sourceEstablishments.filter(
+    return sourceEstablishments.filter(
       (item) =>
         (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
         matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')
     ).length;
-    const adCount = apiMerchants.length > 0
-      ? 0
-      : featuredAdsList.filter(
-          (item) =>
-            (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
-            matchesLocationFilter(item.location, item.address)
-        ).length;
-    return estCount + adCount;
   };
 
   const resetAllFilters = () => {
@@ -1520,13 +1533,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   // In-Grid Advertisement Option State & Frequency
   const [showGridAds, setShowGridAds] = useState(true);
-  const [adFrequency, setAdFrequency] = useState(4); // Every 4 cards (1 full row)
+  const [adFrequency, setAdFrequency] = useState(8); // Every 8 cards (exactly 2 full rows of 4 cards)
 
-  // Interleave Featured Advertisements between Establishment Cards based on user preference using API data exclusively
+  // Interleave Featured Advertisements using live API promotions strictly from backend
   const interleavedEstablishments = React.useMemo(() => {
     const baseList = sortItems(filteredEstablishments);
-    // Use LIVE API PROMOTIONS exclusively when available from backend
-    const adsPool = livePromotions.length > 0 ? livePromotions : (filteredFeaturedAds.length > 0 ? filteredFeaturedAds : []);
+    // Use LIVE API PROMOTIONS strictly from backend
+    const adsPool = livePromotions;
 
     if (!showGridAds || adFrequency <= 0 || adsPool.length === 0) return baseList;
 
@@ -1534,17 +1547,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
     let adIdx = 0;
 
     baseList.forEach((item, index) => {
-      // If merchant itself is sponsored or has adBadge
-      if (item.adBadge || item.isSponsored) {
-        result.push({
-          ...item,
-          isAdCard: true,
-        });
-      } else {
-        result.push(item);
-      }
+      // Standard merchant card remains in 4-column grid layout
+      result.push(item);
 
-      // Interleave advertisement card in a line after every N establishment cards
+      // Interleave full-width advertisement banner after every 2 full rows (8 cards)
       if ((index + 1) % adFrequency === 0 && adIdx < adsPool.length * 4) {
         const adItem = adsPool[adIdx % adsPool.length];
         const colorThemes = [
@@ -1657,25 +1663,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
           🔥 Mega Deals Festival — Up to 60% Off on Top Brands
         </div>
       </div>
-
-      {/* 3. Location Access Strip (Coral Banner) */}
-      <div className="zeas-location-strip">
-        <div className="zeas-location-strip-inner">
-          <div className="zeas-location-strip-text">
-            <HiLocationMarker style={{ fontSize: 20 }} />
-            <span>Find shops near you &mdash; Allow location access to discover nearby shops and services.</span>
-          </div>
-          <div className="zeas-location-strip-btns">
-            <button className="zeas-btn-white" onClick={handleDetectLocation}>
-              ✈ Use Current Location
-            </button>
-            <button className="zeas-btn-outline-white" onClick={() => scrollToSection('places-section')}>
-              Choose Location
-            </button>
-          </div>
-        </div>
-      </div>
-
 
       {/* 2. Banner Carousel Hero Section */}
       <section className="landing-hero-section">
@@ -2151,15 +2138,78 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
       {/* Popular Categories Grid Section */}
       <section id="popular-categories-section" className="zeas-categories-section">
-        <div className="zeas-section-header">
-          <h2 className="zeas-section-title">Popular Categories in Kerala</h2>
-          <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
-            All Categories &gt;
-          </button>
+        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 className="zeas-section-title" style={{ margin: 0 }}>Popular Categories in Kerala</h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
+              Showing {displayCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, displayCategories.length)} of ${displayCategories.length}` : '0'} categories
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {totalCategoryPages > 1 && (
+              <div className="category-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  aria-label="Previous Category Page"
+                  disabled={categoryPage === 1}
+                  onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid #cbd5e1',
+                    background: categoryPage === 1 ? '#f1f5f9' : '#ffffff',
+                    color: categoryPage === 1 ? '#94a3b8' : '#0f172a',
+                    cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  &lt;
+                </button>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>
+                  {categoryPage} / {totalCategoryPages}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next Category Page"
+                  disabled={categoryPage === totalCategoryPages}
+                  onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid #cbd5e1',
+                    background: categoryPage === totalCategoryPages ? '#f1f5f9' : '#ffffff',
+                    color: categoryPage === totalCategoryPages ? '#94a3b8' : '#0f172a',
+                    cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
+            <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
+              All Categories &gt;
+            </button>
+          </div>
         </div>
 
         <div className="zeas-categories-grid">
-          {displayCategories.map((cat) => (
+          {paginatedCategories.map((cat) => (
             <div
               key={cat.id}
               className={`zeas-cat-card ${cat.active ? 'active' : ''}`}
@@ -2186,6 +2236,34 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </div>
           ))}
         </div>
+
+        {totalCategoryPages > 1 && (
+          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
+            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1).map((pNum) => (
+              <button
+                key={pNum}
+                type="button"
+                onClick={() => setCategoryPage(pNum)}
+                style={{
+                  minWidth: '36px',
+                  height: '36px',
+                  padding: '0 12px',
+                  borderRadius: '10px',
+                  border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
+                  background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
+                  color: categoryPage === pNum ? '#ffffff' : '#475569',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {pNum}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 🔥 Featured Offers Section */}
