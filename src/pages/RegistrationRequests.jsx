@@ -53,6 +53,9 @@ export default function RegistrationRequests() {
       });
 
       setData(formatted);
+      const pendingCount = formatted.filter((r) => r.status === 'pending').length;
+      localStorage.setItem('registration_requests_count', String(pendingCount));
+      window.dispatchEvent(new Event('registration-count-updated'));
     } catch (err) {
       console.warn('Backend requests fetch notice:', err);
       setData([]);

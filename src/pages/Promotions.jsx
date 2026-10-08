@@ -70,6 +70,7 @@ export default function Promotions() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedType, setSelectedType] = useState('All');
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -140,10 +141,13 @@ export default function Promotions() {
     const matchesSearch =
       (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.location || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory =
       selectedCategory === 'All' || p.category.toLowerCase() === selectedCategory.toLowerCase();
-    return matchesSearch && matchesCategory;
+    const matchesType =
+      selectedType === 'All' || (p.type || '').toLowerCase() === selectedType.toLowerCase();
+    return matchesSearch && matchesCategory && matchesType;
   });
 
   // Create Promotion Handler
@@ -343,7 +347,7 @@ export default function Promotions() {
           <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Category:</span>
           <select
             className="form-select"
-            style={{ margin: 0, width: 'auto', minWidth: 180 }}
+            style={{ margin: 0, width: 'auto', minWidth: 160 }}
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
@@ -353,6 +357,21 @@ export default function Promotions() {
                 {cat}
               </option>
             ))}
+          </select>
+
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', marginLeft: 4 }}>Type:</span>
+          <select
+            className="form-select"
+            style={{ margin: 0, width: 'auto', minWidth: 160 }}
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+          >
+            <option value="All">All Types</option>
+            <option value="Featured">Featured Ad</option>
+            <option value="Sponsored">Sponsored Listing</option>
+            <option value="Banner">Banner Carousel</option>
+            <option value="Text Carousel">Text Carousel</option>
+            <option value="Footer Ads">Footer Ads</option>
           </select>
         </div>
       </div>
@@ -622,6 +641,8 @@ export default function Promotions() {
               <option value="Featured">Featured Ad</option>
               <option value="Sponsored">Sponsored Listing</option>
               <option value="Banner">Banner Carousel</option>
+              <option value="Text Carousel">Text Carousel</option>
+              <option value="Footer Ads">Footer Ads</option>
             </select>
           </div>
         </div>
@@ -874,6 +895,8 @@ export default function Promotions() {
                   <option value="Featured">Featured Ad</option>
                   <option value="Sponsored">Sponsored Listing</option>
                   <option value="Banner">Banner Carousel</option>
+                  <option value="Text Carousel">Text Carousel</option>
+                  <option value="Footer Ads">Footer Ads</option>
                 </select>
               </div>
             </div>

@@ -49,6 +49,16 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [staffPerms, setStaffPerms] = useState(() => getStaffPermissions());
+  const [regBadgeCount, setRegBadgeCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem('registration_requests_count');
+      if (stored !== null) {
+        const parsed = parseInt(stored, 10);
+        return isNaN(parsed) ? 12 : Math.max(0, parsed);
+      }
+    } catch (e) {}
+    return 12;
+  });
 
   const userRole = normalizeRole(user);
   const isAdminUser = userRole === ROLES.ADMIN;
@@ -57,9 +67,21 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     const handlePermChange = () => {
       setStaffPerms(getStaffPermissions());
     };
+    const handleCountChange = () => {
+      try {
+        const stored = localStorage.getItem('registration_requests_count');
+        if (stored !== null) {
+          const parsed = parseInt(stored, 10);
+          setRegBadgeCount(isNaN(parsed) ? 0 : Math.max(0, parsed));
+        }
+      } catch (e) {}
+    };
+
     window.addEventListener('staff-permissions-updated', handlePermChange);
+    window.addEventListener('registration-count-updated', handleCountChange);
     return () => {
       window.removeEventListener('staff-permissions-updated', handlePermChange);
+      window.removeEventListener('registration-count-updated', handleCountChange);
     };
   }, []);
 
@@ -71,11 +93,19 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
 
   // Filter navigation items dynamically based on role and permissions set by Admin
   const navSections = ALL_NAV_ITEMS.map((section) => {
-    const allowedItems = section.items.filter((item) => {
-      if (isAdminUser) return true;
-      // For Staff users, check if Admin has granted permission for this module
-      return !!staffPerms[item.key];
-    });
+    const allowedItems = section.items
+      .filter((item) => {
+        if (isAdminUser) return true;
+        // For Staff users, check if Admin has granted permission for this module
+        return !!staffPerms[item.key];
+      })
+      .map((item) => {
+        if (item.key === 'registrations') {
+          return { ...item, badge: regBadgeCount };
+        }
+        return item;
+      });
+
     return {
       title: section.title,
       items: allowedItems,
@@ -121,7 +151,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 {(!collapsed || mobileOpen) && (
                   <>
                     <span>{item.label}</span>
-                    {item.badge && (
+                    {Number(item.badge) > 0 && (
                       <span className="sidebar-link-badge">{item.badge}</span>
                     )}
                   </>

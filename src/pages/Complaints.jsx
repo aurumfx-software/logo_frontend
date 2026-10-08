@@ -339,48 +339,52 @@ export default function Complaints() {
         {editComplaint && (
           <div>
             <div className="form-group">
-              <label className="form-label">Subject *</label>
+              <label className="form-label" style={{ color: '#4B5563', fontWeight: 600 }}>Subject (Read Only)</label>
               <input
                 className="form-input"
                 value={editComplaint.subject}
-                onChange={(e) => setEditComplaint({ ...editComplaint, subject: e.target.value })}
+                disabled
+                readOnly
+                style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'not-allowed' }}
               />
             </div>
 
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">User Name *</label>
+                <label className="form-label" style={{ color: '#4B5563', fontWeight: 600 }}>User Name (Read Only)</label>
                 <input
                   className="form-input"
                   value={editComplaint.user}
-                  onChange={(e) => setEditComplaint({ ...editComplaint, user: e.target.value })}
+                  disabled
+                  readOnly
+                  style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'not-allowed' }}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Merchant Name *</label>
+                <label className="form-label" style={{ color: '#4B5563', fontWeight: 600 }}>Merchant Name (Read Only)</label>
                 <input
                   className="form-input"
                   value={editComplaint.merchant}
-                  onChange={(e) => setEditComplaint({ ...editComplaint, merchant: e.target.value })}
+                  disabled
+                  readOnly
+                  style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'not-allowed' }}
                 />
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  className="form-select"
+                <label className="form-label" style={{ color: '#4B5563', fontWeight: 600 }}>Category (Read Only)</label>
+                <input
+                  className="form-input"
                   value={editComplaint.category || 'General'}
-                  onChange={(e) => setEditComplaint({ ...editComplaint, category: e.target.value })}
-                >
-                  {complaintCategories.map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
-                  ))}
-                </select>
+                  disabled
+                  readOnly
+                  style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'not-allowed' }}
+                />
               </div>
               <div className="form-group">
-                <label className="form-label">Priority</label>
+                <label className="form-label" style={{ fontWeight: 600 }}>Priority *</label>
                 <select
                   className="form-select"
                   value={editComplaint.priority || 'medium'}
@@ -392,7 +396,7 @@ export default function Complaints() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Status</label>
+                <label className="form-label" style={{ fontWeight: 600 }}>Status *</label>
                 <select
                   className="form-select"
                   value={editComplaint.status || 'open'}
@@ -406,18 +410,19 @@ export default function Complaints() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Complaint Description</label>
+              <label className="form-label" style={{ color: '#4B5563', fontWeight: 600 }}>Complaint Description (Read Only)</label>
               <textarea
                 className="form-input"
                 rows={3}
                 value={editComplaint.description || ''}
-                onChange={(e) => setEditComplaint({ ...editComplaint, description: e.target.value })}
-                placeholder="Details of the complaint..."
+                disabled
+                readOnly
+                style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'not-allowed' }}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Admin Response</label>
+              <label className="form-label" style={{ fontWeight: 600 }}>Admin Response / Resolution Notes</label>
               <textarea
                 className="form-input"
                 rows={3}

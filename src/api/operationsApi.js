@@ -104,44 +104,76 @@ export const complaintsApi = {
     if (search) params.append('search', search);
 
     const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await apiFetch(`/api/v1/complaints${query}`);
-    if (!res.ok) throw new Error('Failed to fetch complaints');
-    const json = await res.json();
-    return json.data || [];
+    let res = await apiFetch(`/api/v1/complaints${query}`).catch(() => null);
+    if (!res || !res.ok) res = await apiFetch(`/complaints${query}`).catch(() => null);
+    if (!res || !res.ok) res = await apiFetch(`/admin/complaints${query}`).catch(() => null);
+    if (!res || !res.ok) return [];
+
+    const json = await res.json().catch(() => ({}));
+    const items = json.data || json.complaints || json.items || (Array.isArray(json) ? json : []);
+    return Array.isArray(items) ? items : [];
   },
 
   async getCounts() {
-    const res = await apiFetch('/api/v1/complaints/counts');
-    if (!res.ok) return { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
-    const json = await res.json();
-    return json.data || { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
+    let res = await apiFetch('/api/v1/complaints/counts').catch(() => null);
+    if (!res || !res.ok) res = await apiFetch('/complaints/counts').catch(() => null);
+    if (!res || !res.ok) return { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
+
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.counts || { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
   },
 
   async update(id, data) {
-    const res = await apiFetch(`/api/v1/complaints/${id}`, {
+    let res = await apiFetch(`/api/v1/complaints/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to update complaint');
-    const json = await res.json();
-    return json.data;
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      res = await apiFetch(`/complaints/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }).catch(() => null);
+    }
+    if (!res || !res.ok) {
+      const errJson = await res?.json().catch(() => ({}));
+      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to update complaint');
+    }
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.complaint || json;
   },
 
   async resolve(id, admin_response = '') {
-    const res = await apiFetch(`/api/v1/complaints/${id}/resolve`, {
+    let res = await apiFetch(`/api/v1/complaints/${id}/resolve`, {
       method: 'PATCH',
       body: JSON.stringify({ admin_response, status: 'resolved' }),
-    });
-    if (!res.ok) throw new Error('Failed to resolve complaint');
-    const json = await res.json();
-    return json.data;
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      res = await apiFetch(`/complaints/${id}/resolve`, {
+        method: 'PATCH',
+        body: JSON.stringify({ admin_response, status: 'resolved' }),
+      }).catch(() => null);
+    }
+    if (!res || !res.ok) {
+      const errJson = await res?.json().catch(() => ({}));
+      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to resolve complaint');
+    }
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.complaint || json;
   },
 
   async delete(id) {
-    const res = await apiFetch(`/api/v1/complaints/${id}`, {
+    let res = await apiFetch(`/api/v1/complaints/${id}`, {
       method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete complaint');
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      res = await apiFetch(`/complaints/${id}`, {
+        method: 'DELETE',
+      }).catch(() => null);
+    }
+    if (!res || !res.ok) {
+      const errJson = await res?.json().catch(() => ({}));
+      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to delete complaint');
+    }
     return true;
   },
 };
