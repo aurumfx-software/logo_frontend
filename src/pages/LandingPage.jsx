@@ -43,6 +43,7 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
+import { promotions as mockPromotions } from '../data/mockData';
 
 // Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
 const conceptCategories = [
@@ -1139,7 +1140,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
               tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : 'Limited Time Offer | Verified Merchant'),
               bannerUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
               category: item.category || 'General',
-              type: item.type || 'Featured',
+              type: item.type || item.promotion_type || 'Featured',
+              placement: item.placement || '',
+              media_url: item.media_url || item.mediaUrl || item.image_url || item.banner_url || item.bannerUrl || item.image || '',
+              media_type: item.media_type || item.mediaType || 'image',
             };
           });
           setLivePromotions(formatted);
@@ -1152,6 +1156,28 @@ export default function LandingPage({ defaultTab = 'home' }) {
       active = false;
     };
   }, []);
+
+  // Top of Footer Ads State & Auto-Rotation
+  const [footerAdIndex, setFooterAdIndex] = useState(0);
+
+  const footerAdsList = React.useMemo(() => {
+    const apiFooter = livePromotions.filter(
+      (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
+    );
+    if (apiFooter.length > 0) return apiFooter;
+    const mockFooter = mockPromotions.filter(
+      (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
+    );
+    return mockFooter.length > 0 ? mockFooter : promoBanners.slice(0, 3);
+  }, [livePromotions]);
+
+  useEffect(() => {
+    if (footerAdsList.length <= 1) return;
+    const timer = setInterval(() => {
+      setFooterAdIndex((prev) => (prev + 1) % footerAdsList.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [footerAdsList.length]);
 
   const [apiCategories, setApiCategories] = useState([]);
 
@@ -1708,11 +1734,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return (sortedEstablishments || []).slice(start, start + establishmentsPerPage);
   }, [sortedEstablishments, establishmentPage, establishmentsPerPage]);
 
-  // Featured Offers Carousel State (8 cards per slide = 2 rows x 4 columns)
+  // Featured Offers Carousel State (8 items per single view = 2 rows x 4 columns)
   const [offerSlideIndex, setOfferSlideIndex] = useState(0);
   const offersPerPage = 8;
   const allFeaturedOffers = React.useMemo(() => {
-    return livePromotions.length > 0 ? livePromotions : conceptOffers;
+    const merged = [...livePromotions];
+    conceptOffers.forEach((co) => {
+      if (!merged.some((m) => m.id === co.id || m.title === co.title)) {
+        merged.push(co);
+      }
+    });
+    return merged;
   }, [livePromotions]);
   const totalOfferSlides = Math.ceil(allFeaturedOffers.length / offersPerPage) || 1;
   const currentSlideOffers = React.useMemo(() => {
@@ -2810,6 +2842,132 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         </div>
       </section>
+
+      {/* 7.5 Top of Footer Advertisement Banner / Carousel Section */}
+      {footerAdsList && footerAdsList.length > 0 && (
+        <section className="top-of-footer-ads-section" aria-label="Top of Footer Advertisements">
+          <div className="top-of-footer-ads-container">
+            {footerAdsList.map((ad, idx) => {
+              if (idx !== footerAdIndex) return null;
+              const hasMedia = !!(ad.bannerUrl || ad.media_url);
+              return (
+                <div
+                  key={ad.id || `footer-ad-${idx}`}
+                  className={`top-footer-ad-card ${hasMedia ? 'with-media' : 'plain-bg'}`}
+                  style={!hasMedia ? { background: '#1e293b', color: '#ffffff' } : {}}
+                >
+                  <div className="top-footer-ad-header">
+                    <span className="top-footer-ad-badge">
+                      <HiStar style={{ marginRight: 6, color: '#F59E0B' }} />
+                      {ad.badge || 'FOOTER SPONSORED AD'}
+                    </span>
+                    {footerAdsList.length > 1 && (
+                      <div className="top-footer-ad-counter">
+                        AD {footerAdIndex + 1} OF {footerAdsList.length}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="top-footer-ad-body">
+                    {(ad.bannerUrl || ad.media_url) ? (
+                      <div className="top-footer-ad-media">
+                        {(ad.media_type === 'video' || (ad.media_url && ad.media_url.match(/\.(mp4|webm|mov)$/i))) ? (
+                          <video
+                            src={ad.media_url || ad.bannerUrl}
+                            controls
+                            className="top-footer-ad-img"
+                          />
+                        ) : (
+                          <img
+                            src={ad.bannerUrl || ad.media_url}
+                            alt={ad.title}
+                            className="top-footer-ad-img"
+                          />
+                        )}
+                      </div>
+                    ) : null}
+
+                    <div className="top-footer-ad-info">
+                      <h3 className="top-footer-ad-title">{ad.title}</h3>
+                      <p className="top-footer-ad-subtitle">{ad.subtitle || ad.description}</p>
+                      {ad.tagline && <p className="top-footer-ad-tagline">{ad.tagline}</p>}
+
+                      <div className="top-footer-ad-meta">
+                        {ad.location && (
+                          <span className="top-footer-ad-location">
+                            <HiLocationMarker style={{ color: '#38BDF8', marginRight: 4 }} />
+                            {ad.location}
+                          </span>
+                        )}
+                        {ad.phone && (
+                          <span className="top-footer-ad-phone">
+                            <HiPhone style={{ color: '#34D399', marginRight: 4 }} />
+                            {ad.phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="top-footer-ad-actions">
+                      {ad.phone && (
+                        <a
+                          href={`tel:${ad.phone.replace(/[^0-9+]/g, '')}`}
+                          className="top-footer-ad-btn call-btn"
+                        >
+                          <HiPhone /> Call Now
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPromoModal(ad)}
+                        className="top-footer-ad-btn detail-btn"
+                      >
+                        Explore Offer
+                      </button>
+                    </div>
+                  </div>
+
+                  {footerAdsList.length > 1 && (
+                    <div className="top-footer-ad-nav">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFooterAdIndex((prev) => (prev === 0 ? footerAdsList.length - 1 : prev - 1))
+                        }
+                        className="top-footer-ad-nav-btn"
+                        aria-label="Previous advertisement"
+                      >
+                        <HiChevronLeft />
+                      </button>
+                      <div className="top-footer-ad-dots">
+                        {footerAdsList.map((_, dotIdx) => (
+                          <button
+                            key={`f-ad-dot-${dotIdx}`}
+                            type="button"
+                            onClick={() => setFooterAdIndex(dotIdx)}
+                            className={`top-footer-ad-dot ${footerAdIndex === dotIdx ? 'active' : ''}`}
+                            aria-label={`Go to ad ${dotIdx + 1}`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFooterAdIndex((prev) => (prev + 1) % footerAdsList.length)
+                        }
+                        className="top-footer-ad-nav-btn"
+                        aria-label="Next advertisement"
+                      >
+                        <HiChevronRight />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 8. Full Width Blue Footer (Matching reference screenshot 1 & 4) */}
       <footer id="contact-section" className="landing-full-footer">
