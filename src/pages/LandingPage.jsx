@@ -1708,6 +1708,27 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return (sortedEstablishments || []).slice(start, start + establishmentsPerPage);
   }, [sortedEstablishments, establishmentPage, establishmentsPerPage]);
 
+  // Featured Offers Carousel State (8 cards per slide = 2 rows x 4 columns)
+  const [offerSlideIndex, setOfferSlideIndex] = useState(0);
+  const offersPerPage = 8;
+  const allFeaturedOffers = React.useMemo(() => {
+    return livePromotions.length > 0 ? livePromotions : conceptOffers;
+  }, [livePromotions]);
+  const totalOfferSlides = Math.ceil(allFeaturedOffers.length / offersPerPage) || 1;
+  const currentSlideOffers = React.useMemo(() => {
+    const start = offerSlideIndex * offersPerPage;
+    return allFeaturedOffers.slice(start, start + offersPerPage);
+  }, [allFeaturedOffers, offerSlideIndex, offersPerPage]);
+
+  // Auto slide featured offers carousel every 5s
+  useEffect(() => {
+    if (totalOfferSlides <= 1) return;
+    const timer = setInterval(() => {
+      setOfferSlideIndex((prev) => (prev + 1) % totalOfferSlides);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [totalOfferSlides]);
+
   const handleSelectPlace = (placeObj) => {
     const nameStr = typeof placeObj === 'string' ? placeObj : placeObj?.name || '';
     const foundDistrict = placesList.find(
@@ -2609,37 +2630,85 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
       {/* 🔥 Featured Offers Section */}
       <section id="featured-offers-section" className="zeas-offers-section">
-        <div className="zeas-section-header">
-          <h2 className="zeas-section-title">🔥 Featured Offers</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="landing-carousel-arrow left" style={{ position: 'static', transform: 'none', width: 36, height: 36, fontSize: 18 }}>
-              &lt;
-            </button>
-            <button className="landing-carousel-arrow right" style={{ position: 'static', transform: 'none', width: 36, height: 36, fontSize: 18 }}>
-              &gt;
-            </button>
-          </div>
+        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <h2 className="zeas-section-title" style={{ margin: 0 }}>🔥 Featured Offers</h2>
+          {totalOfferSlides > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="landing-carousel-arrow left"
+                onClick={() => setOfferSlideIndex((prev) => (prev - 1 + totalOfferSlides) % totalOfferSlides)}
+                style={{
+                  position: 'static',
+                  transform: 'none',
+                  width: 38,
+                  height: 38,
+                  fontSize: 18,
+                  cursor: 'pointer',
+                }}
+                aria-label="Previous Offers Slide"
+              >
+                &lt;
+              </button>
+              <button
+                className="landing-carousel-arrow right"
+                onClick={() => setOfferSlideIndex((prev) => (prev + 1) % totalOfferSlides)}
+                style={{
+                  position: 'static',
+                  transform: 'none',
+                  width: 38,
+                  height: 38,
+                  fontSize: 18,
+                  cursor: 'pointer',
+                }}
+                aria-label="Next Offers Slide"
+              >
+                &gt;
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="zeas-offers-grid">
-          {conceptOffers.map((offer) => (
+          {currentSlideOffers.map((offer) => (
             <div key={offer.id} className="zeas-offer-card">
-              <div className="zeas-offer-banner" style={{ background: offer.bgGradient }}>
-                <span className="zeas-offer-badge">{offer.discount}</span>
-                <h3 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center' }}>{offer.title}</h3>
+              <div className="zeas-offer-banner" style={{ background: offer.bgGradient || 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' }}>
+                <span className="zeas-offer-badge">{offer.discount || offer.badge || 'PROMO'}</span>
+                <h3 style={{ fontSize: 18, fontWeight: 800, textAlign: 'center' }}>{offer.title || offer.name}</h3>
               </div>
               <div className="zeas-offer-body">
-                <span className="zeas-offer-merchant">{offer.merchant}</span>
-                <h4 className="zeas-offer-title">{offer.title}</h4>
-                <p className="zeas-offer-desc">{offer.description}</p>
+                <span className="zeas-offer-merchant">{offer.merchant || offer.business_name || 'Verified Merchant'}</span>
+                <h4 className="zeas-offer-title">{offer.title || offer.name}</h4>
+                <p className="zeas-offer-desc">{offer.description || offer.subtitle || 'Exclusive local deal for services and products.'}</p>
                 <div className="zeas-offer-footer">
-                  <span className="zeas-offer-validity">{offer.validity}</span>
-                  <span className="zeas-offer-cat-pill">{offer.category}</span>
+                  <span className="zeas-offer-validity">{offer.validity || offer.tagline || 'Limited Period'}</span>
+                  <span className="zeas-offer-cat-pill">{offer.category || 'Offer'}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {totalOfferSlides > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 24 }}>
+            {Array.from({ length: totalOfferSlides }).map((_, idx) => (
+              <button
+                key={`offer-dot-${idx}`}
+                type="button"
+                onClick={() => setOfferSlideIndex(idx)}
+                style={{
+                  width: offerSlideIndex === idx ? 24 : 8,
+                  height: 8,
+                  borderRadius: 4,
+                  border: 'none',
+                  background: offerSlideIndex === idx ? '#6C63FF' : '#CBD5E1',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                }}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 6. News & Updates Section (Matching screenshot 3) */}

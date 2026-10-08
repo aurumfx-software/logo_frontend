@@ -9,6 +9,11 @@ import {
   HiOutlineCalendar,
   HiOutlineLocationMarker,
   HiOutlineRefresh,
+  HiOutlinePhotograph,
+  HiOutlineVideoCamera,
+  HiOutlineUpload,
+  HiOutlineX,
+  HiOutlinePlay,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import StatusBadge from '../components/UI/StatusBadge';
@@ -40,6 +45,23 @@ const initialFormState = {
   startDate: new Date().toISOString().split('T')[0],
   endDate: '2026-12-31',
   bannerUrl: '',
+  videoUrl: '',
+  mediaType: 'image', // 'image' | 'video'
+};
+
+const handleMediaFileUpload = (e, type, formState, setFormState) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    if (type === 'image') {
+      setFormState({ ...formState, bannerUrl: reader.result, mediaType: 'image' });
+    } else {
+      setFormState({ ...formState, videoUrl: reader.result, mediaType: 'video' });
+    }
+  };
+  reader.readAsDataURL(file);
 };
 
 export default function Promotions() {
@@ -81,7 +103,9 @@ export default function Promotions() {
           status: (item.status || 'ACTIVE').toLowerCase(),
           impressions: item.impressions || item.views || 0,
           clicks: item.clicks || 0,
-          bannerUrl: item.banner_url || item.image || '',
+          bannerUrl: item.banner_url || item.image || item.bannerUrl || '',
+          videoUrl: item.video_url || item.video || item.videoUrl || '',
+          mediaType: item.media_type || item.mediaType || (item.video_url || item.video ? 'video' : 'image'),
         }));
         setPromoList(formatted);
       } else {
@@ -143,6 +167,9 @@ export default function Promotions() {
         start_date: newPromo.startDate || '2026-10-01',
         end_date: newPromo.endDate || '2026-12-31',
         status: 'ACTIVE',
+        banner_url: newPromo.bannerUrl || '',
+        video_url: newPromo.videoUrl || '',
+        media_type: newPromo.mediaType || 'image',
       };
       const createdItem = await promotionsApi.create(payload);
 
@@ -158,6 +185,9 @@ export default function Promotions() {
         status: 'active',
         impressions: 0,
         clicks: 0,
+        bannerUrl: newPromo.bannerUrl || '',
+        videoUrl: newPromo.videoUrl || '',
+        mediaType: newPromo.mediaType || 'image',
       };
 
       setPromoList([formattedCreated, ...promoList]);
@@ -178,6 +208,9 @@ export default function Promotions() {
         status: 'active',
         impressions: 0,
         clicks: 0,
+        bannerUrl: newPromo.bannerUrl || '',
+        videoUrl: newPromo.videoUrl || '',
+        mediaType: newPromo.mediaType || 'image',
       };
       setPromoList([fallbackCreated, ...promoList]);
       setShowAddModal(false);
@@ -189,7 +222,12 @@ export default function Promotions() {
 
   // Open Edit Modal
   const handleOpenEdit = (promo) => {
-    setEditFormData({ ...promo });
+    setEditFormData({
+      ...promo,
+      bannerUrl: promo.bannerUrl || promo.banner_url || '',
+      videoUrl: promo.videoUrl || promo.video_url || '',
+      mediaType: promo.mediaType || promo.media_type || (promo.videoUrl || promo.video_url ? 'video' : 'image'),
+    });
     setEditError('');
     setIsEditModalOpen(true);
   };
@@ -211,6 +249,9 @@ export default function Promotions() {
         start_date: editFormData.startDate || editFormData.start_date,
         end_date: editFormData.endDate || editFormData.end_date,
         status: editFormData.status ? editFormData.status.toUpperCase() : 'ACTIVE',
+        banner_url: editFormData.bannerUrl || '',
+        video_url: editFormData.videoUrl || '',
+        media_type: editFormData.mediaType || 'image',
       };
       await promotionsApi.update(editFormData.id, payload);
       setPromoList((prev) =>
@@ -348,18 +389,59 @@ export default function Promotions() {
             transition={{ delay: idx * 0.04 }}
             style={{ overflow: 'hidden' }}
           >
-            {/* Top Color strip */}
-            <div
-              style={{
-                height: 4,
-                background:
-                  promo.status === 'active' || promo.status === 'approved'
-                    ? 'linear-gradient(90deg, #10B981, #059669)'
-                    : promo.status === 'pending'
-                    ? 'linear-gradient(90deg, #F59E0B, #D97706)'
-                    : '#E5E7EB',
-              }}
-            />
+            {/* Media Header (Image or Video preview) */}
+            {(promo.bannerUrl || promo.videoUrl) ? (
+              <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
+                {promo.mediaType === 'video' || promo.videoUrl ? (
+                  <video
+                    src={promo.videoUrl}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    muted
+                    loop
+                    onMouseOver={(e) => e.target.play().catch(() => {})}
+                    onMouseOut={(e) => e.target.pause()}
+                  />
+                ) : (
+                  <img
+                    src={promo.bannerUrl}
+                    alt={promo.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                )}
+                {(promo.mediaType === 'video' || promo.videoUrl) && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 8,
+                      right: 8,
+                      background: 'rgba(0,0,0,0.75)',
+                      color: '#FFF',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <HiOutlinePlay size={12} /> VIDEO
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  height: 4,
+                  background:
+                    promo.status === 'active' || promo.status === 'approved'
+                      ? 'linear-gradient(90deg, #10B981, #059669)'
+                      : promo.status === 'pending'
+                      ? 'linear-gradient(90deg, #F59E0B, #D97706)'
+                      : '#E5E7EB',
+                }}
+              />
+            )}
             <div className="card-body">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                 <StatusBadge status={promo.status} />
@@ -573,6 +655,91 @@ export default function Promotions() {
             />
           </div>
         </div>
+
+        {/* Media Attachment (Photo or Video) */}
+        <div className="form-group" style={{ marginTop: 16 }}>
+          <label className="form-label" style={{ fontWeight: 600 }}>Media Attachment (Photo or Video)</label>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+            <button
+              type="button"
+              className={`btn ${newPromo.mediaType === 'image' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
+              onClick={() => setNewPromo({ ...newPromo, mediaType: 'image' })}
+            >
+              <HiOutlinePhotograph style={{ fontSize: 18 }} />
+              <span>Photo / Image</span>
+            </button>
+            <button
+              type="button"
+              className={`btn ${newPromo.mediaType === 'video' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
+              onClick={() => setNewPromo({ ...newPromo, mediaType: 'video' })}
+            >
+              <HiOutlineVideoCamera style={{ fontSize: 18 }} />
+              <span>Video</span>
+            </button>
+          </div>
+
+          {newPromo.mediaType === 'image' ? (
+            <div>
+              {newPromo.bannerUrl ? (
+                <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#F9FAFB', maxHeight: 200, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <img src={newPromo.bannerUrl} alt="Promotion Banner" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+                  <button
+                    type="button"
+                    onClick={() => setNewPromo({ ...newPromo, bannerUrl: '' })}
+                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+                    title="Remove Photo"
+                  >
+                    <HiOutlineX size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', newPromo, setNewPromo)} />
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Image URL:</span>
+                    <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/banner-image.jpg" value={newPromo.bannerUrl || ''} onChange={(e) => setNewPromo({ ...newPromo, bannerUrl: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {newPromo.videoUrl ? (
+                <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#000', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <video src={newPromo.videoUrl} controls style={{ width: '100%', maxHeight: 220, objectFit: 'contain' }} />
+                  <button
+                    type="button"
+                    onClick={() => setNewPromo({ ...newPromo, videoUrl: '' })}
+                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10 }}
+                    title="Remove Video"
+                  >
+                    <HiOutlineX size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <HiOutlineVideoCamera style={{ fontSize: 28, color: '#6C63FF' }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Video</span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
+                    <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', newPromo, setNewPromo)} />
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Video URL:</span>
+                    <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/promo-video.mp4" value={newPromo.videoUrl || ''} onChange={(e) => setNewPromo({ ...newPromo, videoUrl: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* View Promotion Details Modal */}
@@ -584,6 +751,16 @@ export default function Promotions() {
       >
         {selectedPromo && (
           <div>
+            {(selectedPromo.videoUrl || selectedPromo.mediaType === 'video') ? (
+              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#000', marginBottom: 16, maxHeight: 260, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <video src={selectedPromo.videoUrl} controls autoPlay style={{ width: '100%', maxHeight: 260, objectFit: 'contain' }} />
+              </div>
+            ) : selectedPromo.bannerUrl ? (
+              <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 16, maxHeight: 240 }}>
+                <img src={selectedPromo.bannerUrl} alt={selectedPromo.title} style={{ width: '100%', maxHeight: 240, objectFit: 'cover' }} />
+              </div>
+            ) : null}
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <StatusBadge status={selectedPromo.status} />
               <span style={{ fontSize: 12, fontWeight: 700, color: '#6C63FF', background: '#F0EFFF', padding: '4px 12px', borderRadius: 20 }}>
@@ -729,6 +906,91 @@ export default function Promotions() {
                   onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value, end_date: e.target.value })}
                 />
               </div>
+            </div>
+
+            {/* Media Attachment (Photo or Video) */}
+            <div className="form-group" style={{ marginTop: 16 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>Media Attachment (Photo or Video)</label>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className={`btn ${editFormData.mediaType === 'image' ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
+                  onClick={() => setEditFormData({ ...editFormData, mediaType: 'image' })}
+                >
+                  <HiOutlinePhotograph style={{ fontSize: 18 }} />
+                  <span>Photo / Image</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${editFormData.mediaType === 'video' ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
+                  onClick={() => setEditFormData({ ...editFormData, mediaType: 'video' })}
+                >
+                  <HiOutlineVideoCamera style={{ fontSize: 18 }} />
+                  <span>Video</span>
+                </button>
+              </div>
+
+              {editFormData.mediaType === 'image' ? (
+                <div>
+                  {editFormData.bannerUrl ? (
+                    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#F9FAFB', maxHeight: 200, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <img src={editFormData.bannerUrl} alt="Promotion Banner" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, bannerUrl: '' })}
+                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+                        title="Remove Photo"
+                      >
+                        <HiOutlineX size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
+                        <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', editFormData, setEditFormData)} />
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Image URL:</span>
+                        <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/banner-image.jpg" value={editFormData.bannerUrl || ''} onChange={(e) => setEditFormData({ ...editFormData, bannerUrl: e.target.value })} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {editFormData.videoUrl ? (
+                    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#000', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <video src={editFormData.videoUrl} controls style={{ width: '100%', maxHeight: 220, objectFit: 'contain' }} />
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, videoUrl: '' })}
+                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10 }}
+                        title="Remove Video"
+                      >
+                        <HiOutlineX size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        <HiOutlineVideoCamera style={{ fontSize: 28, color: '#6C63FF' }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Video</span>
+                        <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
+                        <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', editFormData, setEditFormData)} />
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Video URL:</span>
+                        <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/promo-video.mp4" value={editFormData.videoUrl || ''} onChange={(e) => setEditFormData({ ...editFormData, videoUrl: e.target.value })} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </form>
         )}
