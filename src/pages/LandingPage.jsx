@@ -43,10 +43,13 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
+import ZeashellNavbar from '../components/landing/ZeashellNavbar';
 import ZeashellBannerSlider from '../components/landing/ZeashellBannerSlider';
+import ZeashellMiddleBannerSlider from '../components/landing/ZeashellMiddleBannerSlider';
 import ZeashellCategoryRow from '../components/landing/ZeashellCategoryRow';
 import ZeashellMerchantCard from '../components/landing/ZeashellMerchantCard';
 import ZeashellOffersCarousel from '../components/landing/ZeashellOffersCarousel';
+import ZeashellSpecialOfferWidget from '../components/landing/ZeashellSpecialOfferWidget';
 import '../components/landing/zeashell-landing.css';
 
 // Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
@@ -1011,18 +1014,26 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
           const formatted = apiPromos.map((item, idx) => {
             const theme = colorThemes[idx % colorThemes.length];
+            const img = item.image_url || item.banner_url || item.bannerUrl || item.image || '';
+            const tgt = item.target_url || item.targetUrl || '#';
             return {
               id: item.id || item._id || item.promo_code || `api-promo-${idx}`,
               title: item.title || item.name || 'Featured Promotion',
+              placement: item.placement || 'Home Top',
               subtitle: item.placement || `${item.category || 'Featured'} Special Offer`,
               description: item.description || item.details || `Exclusive offer for ${item.category || 'local services'} in ${item.location || 'Kerala'}.`,
               bgGradient: item.bg_gradient || theme.bg,
-              badge: (item.category || item.type || item.badge || 'FEATURED').toUpperCase(),
+              badge: (item.badge || item.category || item.type || 'FEATURED').toUpperCase(),
+              discount: item.badge || item.discount || 'SPECIAL OFFER',
               location: item.location || 'Payyanur, Kerala',
               phone: item.phone || item.contact_phone || '07026 595769',
               accentColor: theme.accent,
               tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : 'Limited Time Offer | Verified Merchant'),
-              bannerUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
+              bannerUrl: img,
+              imageUrl: img,
+              image_url: img,
+              targetUrl: tgt,
+              target_url: tgt,
               category: item.category || 'General',
               type: item.type || 'Featured',
             };
@@ -1037,6 +1048,172 @@ export default function LandingPage({ defaultTab = 'home' }) {
       active = false;
     };
   }, []);
+
+  const displayTopBanners = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const top = livePromotions.filter(
+        (p) =>
+          !p.placement ||
+          p.placement === 'Home Top' ||
+          p.placement.toLowerCase().includes('top')
+      );
+      if (top.length > 0) return top;
+    }
+    return [
+      {
+        id: 'def-1',
+        title: 'BAG BAZAAR',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
+        targetUrl: '#',
+        placement: 'Home Top',
+      },
+      {
+        id: 'def-2',
+        title: 'Fatima Jewellery',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/7c6b1ef681754e98a7bf2a3f6d50cafa.jpeg',
+        targetUrl: '#',
+        placement: 'Home Top',
+      },
+      {
+        id: 'def-3',
+        title: 'VR HERO MOTORS',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
+        targetUrl: '#',
+        placement: 'Home Top',
+      },
+      {
+        id: 'def-4',
+        title: 'Pavizham Associates',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
+        targetUrl: '#',
+        placement: 'Home Top',
+      },
+    ];
+  }, [livePromotions]);
+
+  const displayMiddleBanners = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const mid = livePromotions.filter(
+        (p) =>
+          p.placement &&
+          (p.placement === 'Home Middle' || p.placement.toLowerCase().includes('middle'))
+      );
+      if (mid.length > 0) return mid;
+    }
+    return [
+      {
+        id: 'mid-1',
+        title: 'Grand Malabar Food Festival',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
+        targetUrl: '#',
+        placement: 'Home Middle',
+      },
+      {
+        id: 'mid-2',
+        title: 'VR HERO MOTORS — Onam Mega Exchange',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
+        targetUrl: '#',
+        placement: 'Home Middle',
+      },
+      {
+        id: 'mid-3',
+        title: 'Life Medicals — 20% Health Discount',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/df515a74b6b746a8bb961f1b71097873.jpeg',
+        targetUrl: '#',
+        placement: 'Home Middle',
+      },
+    ];
+  }, [livePromotions]);
+
+  const displayFeaturedOffers = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const feat = livePromotions.filter(
+        (p) =>
+          (p.placement && (p.placement === 'Featured Offers' || p.placement.toLowerCase().includes('offer'))) ||
+          p.type === 'Featured' ||
+          p.type === 'Promotion'
+      );
+      if (feat.length > 0) return feat;
+    }
+    return [
+      {
+        id: 'fo-1',
+        title: 'BAG BAZAAR — Buy 1 Get 1 Free on Travel Bags',
+        merchant: 'BAG BAZAAR',
+        category: 'Retail & Shopping',
+        discount: 'BUY 1 GET 1',
+        description: 'Exclusive festival offer on premium suitcases and travel bags.',
+        validity: 'Limited Time',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
+      },
+      {
+        id: 'fo-2',
+        title: 'Fatima Jewellery — 0% Making Charge on Gold',
+        merchant: 'Fatima Jewellery',
+        category: 'Shopping & Fashion',
+        discount: '0% MAKING CHARGE',
+        description: 'HUID 916 Hallmark wedding jewellery collection discounts.',
+        validity: 'Festive Season',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/7c6b1ef681754e98a7bf2a3f6d50cafa.jpeg',
+      },
+      {
+        id: 'fo-3',
+        title: 'Pavizham Associates — Free Interior Design Consultation',
+        merchant: 'Pavizham Associates',
+        category: 'Interiors & Furniture',
+        discount: 'FREE 3D DESIGN',
+        description: 'Complete home interior and modular kitchen consultation voucher.',
+        validity: 'Valid Till Month End',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/ef965d5520a7472dbf44707f49736de9.jpg',
+      },
+    ];
+  }, [livePromotions]);
+
+  const displaySpecialOffers = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const spec = livePromotions.filter(
+        (p) =>
+          (p.placement && (p.placement === 'Special Offer' || p.placement.toLowerCase().includes('special'))) ||
+          p.type === 'Special Offer'
+      );
+      if (spec.length > 0) return spec;
+    }
+    return [
+      {
+        id: 'sp-1',
+        title: 'Flash Mega Sale — Flat 50% Off at Bag Bazaar',
+        description: 'Get up to 50% discount on branded travel trolleys, backpacks and luggage.',
+        merchant: 'BAG BAZAAR',
+        category: 'Retail & Shopping',
+        badge: 'FLAT 50% OFF',
+        validity: 'Limited Time Offer',
+        phone: '9400400285',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
+      },
+      {
+        id: 'sp-2',
+        title: 'Exclusive Festival Gold Discount — Fatima Jewellery',
+        description: 'Special 0% making charges on lightweight wedding collections & diamond jewellery.',
+        merchant: 'Fatima Jewellery',
+        category: 'Shopping & Fashion',
+        badge: '0% MAKING CHARGE',
+        validity: 'Festive Season',
+        phone: '04985205901',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/7c6b1ef681754e98a7bf2a3f6d50cafa.jpeg',
+      },
+      {
+        id: 'sp-3',
+        title: 'Free Consultation & Service Voucher — Pavizham',
+        description: 'Complimentary modular kitchen 3D visualization and home decor estimate.',
+        merchant: 'Pavizham Associates',
+        category: 'Interiors & Furniture',
+        badge: 'FREE 3D DESIGN',
+        validity: 'Valid Till Month End',
+        phone: '9847123456',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
+      },
+    ];
+  }, [livePromotions]);
 
   const [apiCategories, setApiCategories] = useState([]);
 
@@ -1574,7 +1751,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const sortedEstablishments = sortItems(combinedEstablishmentsList);
 
   const [establishmentPage, setEstablishmentPage] = useState(1);
-  const itemsPerPage = 18;
+  const itemsPerPage = 20;
   const totalEstablishmentPages = Math.ceil(sortedEstablishments.length / itemsPerPage);
   const paginatedEstablishments = sortedEstablishments.slice(
     (establishmentPage - 1) * itemsPerPage,
@@ -1620,76 +1797,54 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   return (
     <div className="landing-container">
-      {/* 1. Header (Old Model) */}
-      <header className="landing-header">
-        <div className="landing-header-inner">
-          {/* Logo */}
-          <div className="landing-brand" onClick={() => { setActiveNavTab('home'); setMobileNavOpen(false); scrollToTop(); }}>
-            <div className="landing-brand-icon">
-              <HiLocationMarker />
-            </div>
-            <div className="landing-brand-title">
-              <span className="landing-brand-name">Logo</span>
-              <span className="landing-brand-sub">My Locality Info</span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className={`landing-nav ${mobileNavOpen ? 'mobile-open' : ''}`}>
-            <button
-              onClick={() => {
-                setActiveNavTab('home');
-                setMobileNavOpen(false);
-                scrollToTop();
-              }}
-              className={`landing-nav-link ${activeNavTab === 'home' ? 'active' : ''}`}
-            >
-              Home
-            </button>
-            <button
-              onClick={() => {
-                setActiveNavTab('establishments');
-                setMobileNavOpen(false);
-                scrollToSection('establishments-section');
-              }}
-              className={`landing-nav-link ${activeNavTab === 'establishments' ? 'active' : ''}`}
-            >
-              Establishments
-            </button>
-            <button
-              onClick={() => {
-                setActiveNavTab('contact');
-                setMobileNavOpen(false);
-                scrollToSection('contact-section');
-              }}
-              className={`landing-nav-link ${activeNavTab === 'contact' ? 'active' : ''}`}
-            >
-              Contact
-            </button>
-          </nav>
-
-          {/* Header Right Actions */}
-          <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => setOnboardModalOpen(true)}
-              style={{ fontSize: 13 }}
-            >
-              + List Merchant
-            </button>
-            <Link to="/login" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
-              Admin Portal
-            </Link>
-            <button
-              className="landing-mobile-nav-toggle"
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              aria-label="Toggle Navigation"
-            >
-              {mobileNavOpen ? <HiX size={24} /> : <HiMenu size={24} />}
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* 1. Exact Zeashell Navbar (Royal Blue Theme) */}
+      <ZeashellNavbar
+        currentLocationName={
+          selectedDistrict !== 'all'
+            ? `${getDistrictName(selectedDistrict)}, Kerala`
+            : selectedLocation !== 'all'
+            ? `${selectedLocation.toUpperCase()}, Kerala`
+            : 'Kerala'
+        }
+        onDetectGPS={handleDetectLocation}
+        isDetectingGPS={isLocating}
+        onSelectTownOrDistrict={(type, val) => {
+          if (type === 'district') {
+            setSelectedDistrict(val.toLowerCase());
+            setSelectedLocation('all');
+          } else {
+            setSelectedLocation(val.toLowerCase());
+          }
+          scrollToSection('establishments-section');
+        }}
+        searchQuery={searchQuery}
+        onSearchChange={(q) => {
+          setSearchQuery(q);
+          setShowSuggestions(true);
+        }}
+        onSearchSubmit={() => {
+          handleBackendSearch(searchQuery);
+          scrollToSection('establishments-section');
+        }}
+        searchSuggestions={getSearchSuggestions()}
+        onSelectSuggestion={(sug) => {
+          handleSelectSuggestion(sug);
+          scrollToSection('establishments-section');
+        }}
+        favoritesCount={userFavorites.length}
+        onOpenOnboardModal={() => setOnboardModalOpen(true)}
+        categories={displayCategories}
+        activeCategory={selectedCategory}
+        onSelectCategory={(catName) => {
+          setSelectedCategory(catName);
+          scrollToSection('establishments-section');
+        }}
+        onOpenAllCategories={() => {
+          const catModalBtn = document.querySelector('.zeas-blue-see-all-link');
+          if (catModalBtn) catModalBtn.click();
+          else scrollToSection('categories-section');
+        }}
+      />
 
       {/* 2. Scrolling Ticker Announcement Bar */}
       <div className="zeas-ticker-bar">
@@ -1702,42 +1857,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       </div>
 
-      {/* 2. Zeashell Location Access Prompt (LOGO Royal Blue Theme) */}
-      <div className="zeas-blue-location-prompt">
-        <div className="zeas-blue-location-prompt-inner">
-          <div className="zeas-blue-location-prompt-text">
-            <div className="zeas-blue-location-prompt-icon">
-              <HiLocationMarker />
-            </div>
-            <div className="zeas-blue-location-prompt-titles">
-              <h3>Find shops near you</h3>
-              <p>Allow location access to discover nearby verified shops and services.</p>
-            </div>
-          </div>
-          <div className="zeas-blue-location-prompt-actions">
-            <button
-              type="button"
-              className="zeas-blue-btn-white"
-              onClick={handleDetectLocation}
-              disabled={isLocating}
-            >
-              <HiLocationMarker size={16} />
-              {isLocating ? 'Detecting Location...' : 'Use Current Location'}
-            </button>
-            <button
-              type="button"
-              className="zeas-blue-btn-outline"
-              onClick={() => scrollToSection('categories-section')}
-            >
-              Choose Location
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Full-Width Advertisement Banner Slider (Zeashell Style) */}
+      {/* 3. Full-Width Advertisement Banner Slider (Zeashell Style - Uncropped Full View) */}
       <ZeashellBannerSlider
-        banners={displayBanners}
+        banners={displayTopBanners}
         onBannerClick={(banner) => setSelectedPromoModal(banner)}
       />
 
@@ -1959,7 +2081,28 @@ export default function LandingPage({ defaultTab = 'home' }) {
         ) : (
           <>
             <div className="zeas-blue-merchant-grid">
-              {paginatedEstablishments.map((merchant) => (
+              {paginatedEstablishments.slice(0, 5).map((merchant) => (
+                <ZeashellMerchantCard
+                  key={merchant.id}
+                  merchant={merchant}
+                  userCoordinates={userCoordinates}
+                  isFavorite={userFavorites.includes(merchant.id)}
+                  onToggleFavorite={handleToggleFavorite}
+                  onViewShop={handleSelectMerchantCard}
+                  onDirections={handleCardDirections}
+                  onCall={handleCardCall}
+                />
+              ))}
+
+              {/* Middle In-Between Auto-Sliding Advertisement Banner */}
+              {displayMiddleBanners.length > 0 && (
+                <ZeashellMiddleBannerSlider
+                  banners={displayMiddleBanners}
+                  onBannerClick={(b) => setSelectedPromoModal(b)}
+                />
+              )}
+
+              {paginatedEstablishments.slice(5).map((merchant) => (
                 <ZeashellMerchantCard
                   key={merchant.id}
                   merchant={merchant}
@@ -2067,9 +2210,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
         )}
       </section>
 
-      {/* 7. 🔥 Featured Offers Carousel (Zeashell Style) */}
+      {/* 7. 🔥 Featured Offers Carousel (Zeashell Style - Dynamic from Database) */}
       <ZeashellOffersCarousel
-        offers={conceptOffers}
+        offers={displayFeaturedOffers}
         onSelectOffer={(offer) => setSelectedPromoModal(offer)}
       />
 
@@ -2923,10 +3066,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         </div>
       )}
-      {/* Floating Special Offer Button */}
-      <button className="zeas-floating-offer-btn" onClick={() => scrollToSection('featured-offers-section')}>
-        📣 SPECIAL OFFER
-      </button>
+      {/* Floating Zeashell Special Offer Button & Popup Widget */}
+      <ZeashellSpecialOfferWidget
+        offers={displaySpecialOffers}
+        onViewOffer={(offer) => setSelectedPromoModal(offer)}
+        onCallMerchant={handleCardCall}
+        onExploreAll={() => scrollToSection('featured-offers-section')}
+      />
     </div>
   );
 }

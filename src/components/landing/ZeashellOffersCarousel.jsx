@@ -83,20 +83,30 @@ export default function ZeashellOffersCarousel({ offers = [], onSelectOffer }) {
                   'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
               }}
             >
+              {(offer.imageUrl || offer.image_url || offer.bannerUrl) ? (
+                <img
+                  src={offer.imageUrl || offer.image_url || offer.bannerUrl}
+                  alt={offer.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : null}
               <span className="zeas-blue-offer-badge">
                 {offer.discount || offer.badge || 'SPECIAL OFFER'}
               </span>
-              <h3
-                style={{
-                  fontSize: 18,
-                  fontWeight: 800,
-                  textAlign: 'center',
-                  margin: 0,
-                  textShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                }}
-              >
-                {offer.title}
-              </h3>
+              {!(offer.imageUrl || offer.image_url || offer.bannerUrl) && (
+                <h3
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    textAlign: 'center',
+                    margin: 0,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    padding: '0 16px',
+                  }}
+                >
+                  {offer.title}
+                </h3>
+              )}
             </div>
 
             {/* Offer Body */}

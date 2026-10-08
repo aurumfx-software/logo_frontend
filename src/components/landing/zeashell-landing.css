@@ -1,5 +1,7 @@
 /* ==========================================================================
    LOGO APP — ZEASHELL MODERN UI LAYOUT (ROYAL BLUE THEME)
+   Full-width banners (uncropped full-view), 5-column merchant grid,
+   in-between middle ad slider, Zeashell navbar, and special offer widget.
    ========================================================================== */
 
 :root {
@@ -26,113 +28,555 @@
   --logo-transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* 1. Location Access Prompt Banner */
-.zeas-blue-location-prompt {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
-  color: #ffffff;
-  padding: 16px 24px;
-  box-shadow: 0 4px 14px rgba(30, 64, 175, 0.25);
-  position: relative;
-  overflow: hidden;
+/* ==========================================================================
+   1. ZEASHELL NAVBAR (EXACT OLX/ZEASHELL TWO-TIER DESIGN IN ROYAL BLUE)
+   ========================================================================== */
+
+.zeas-blue-navbar-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 990;
+  background: #ffffff;
+  border-bottom: 1px solid var(--logo-border);
+  transition: box-shadow 0.25s ease;
 }
 
-.zeas-blue-location-prompt-inner {
-  max-width: 1320px;
+.zeas-blue-navbar-wrapper.is-scrolled {
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+}
+
+.zeas-blue-navbar-main {
+  padding: 12px 24px;
+  background: #ffffff;
+}
+
+.zeas-blue-navbar-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Brand Logo */
+.zeas-blue-navbar-logo {
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.zeas-blue-logo-text {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.zeas-blue-logo-dot {
+  font-size: 28px;
+  font-weight: 900;
+  color: #ef4444;
+  line-height: 0;
+}
+
+.zeas-blue-logo-sub {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 1px;
+  margin-left: 3px;
+}
+
+/* Location Selector Pill with Attached Dropdown */
+.zeas-blue-loc-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.zeas-blue-loc-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 2px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  color: var(--logo-text-dark);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--logo-transition);
+  max-width: 200px;
+}
+
+.zeas-blue-loc-pill:hover,
+.zeas-blue-loc-pill.active {
+  background: #eff6ff;
+  border-color: var(--logo-primary);
+  color: var(--logo-primary);
+}
+
+.zeas-blue-loc-pill-icon {
+  color: var(--logo-primary);
+  flex-shrink: 0;
+}
+
+.zeas-blue-loc-pill-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zeas-blue-loc-pill-chevron {
+  color: #94a3b8;
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.zeas-blue-loc-pill-chevron.rotate {
+  transform: rotate(180deg);
+}
+
+/* Location Dropdown Popover */
+.zeas-blue-loc-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 330px;
+  max-height: 480px;
+  background: #ffffff;
+  border-radius: var(--logo-radius-md);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.16);
+  border: 1px solid var(--logo-border);
+  z-index: 1000;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: popoverFadeIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zeas-blue-loc-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--logo-border);
+  border-radius: var(--logo-radius-sm);
+  padding: 8px 12px;
+}
+
+.zeas-blue-loc-search-icon {
+  color: #94a3b8;
+}
+
+.zeas-blue-loc-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 13px;
+  color: var(--logo-text-dark);
+}
+
+.zeas-blue-loc-search-clear {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.zeas-blue-gps-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #eff6ff;
+  border: 1px dashed var(--logo-primary);
+  border-radius: var(--logo-radius-sm);
+  cursor: pointer;
+  transition: var(--logo-transition);
+  text-align: left;
+}
+
+.zeas-blue-gps-btn:hover {
+  background: #dbeafe;
+}
+
+.zeas-blue-gps-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--logo-primary);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.zeas-blue-gps-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--logo-primary-dark);
+}
+
+.zeas-blue-gps-subtitle {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.zeas-blue-popover-divider {
+  border: none;
+  height: 1px;
+  background: var(--logo-border-light);
+  margin: 2px 0;
+}
+
+.zeas-blue-loc-group-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.zeas-blue-loc-list-scroll {
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zeas-blue-loc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--logo-radius-sm);
+  color: var(--logo-text-body);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.zeas-blue-loc-item:hover {
+  background: #f1f5f9;
+  color: var(--logo-primary);
+}
+
+.zeas-blue-loc-item-icon {
+  color: #cbd5e1;
+}
+
+/* Center Attached Search Bar */
+.zeas-blue-search-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.zeas-blue-search-form {
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  overflow: hidden;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.zeas-blue-search-form:focus-within {
+  border-color: var(--logo-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.zeas-blue-search-input {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--logo-text-dark);
+}
+
+.zeas-blue-search-clear-btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.zeas-blue-search-submit-btn {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  border: none;
+  color: #ffffff;
+  padding: 10px 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.zeas-blue-search-submit-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Suggestions Dropdown */
+.zeas-blue-suggestions-box {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: var(--logo-radius-md);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+  border: 1px solid var(--logo-border);
+  z-index: 1000;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.zeas-blue-suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--logo-radius-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.zeas-blue-suggestion-row:hover {
+  background: #f1f5f9;
+}
+
+.zeas-blue-sug-icon {
+  color: var(--logo-primary);
+  flex-shrink: 0;
+}
+
+.zeas-blue-sug-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.zeas-blue-sug-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--logo-text-dark);
+}
+
+.zeas-blue-sug-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Right Actions */
+.zeas-blue-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.zeas-blue-action-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--logo-text-body);
+  text-decoration: none;
+  padding: 4px 8px;
+}
+
+.zeas-blue-badge-wrap {
+  position: relative;
+}
+
+.zeas-blue-badge-dot {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zeas-blue-action-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.zeas-blue-btn-list-merchant {
+  background: #ffffff;
+  color: var(--logo-primary);
+  border: 2px solid var(--logo-primary);
+  border-radius: var(--logo-radius-full);
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--logo-transition);
+  white-space: nowrap;
+}
+
+.zeas-blue-btn-list-merchant:hover {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.zeas-blue-btn-admin-portal {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--logo-radius-full);
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transition: var(--logo-transition);
+  white-space: nowrap;
+}
+
+.zeas-blue-btn-admin-portal:hover {
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Secondary Category Strip */
+.zeas-blue-cat-strip {
+  border-top: 1px solid var(--logo-border-light);
+  background: #f8fafc;
+  padding: 8px 24px;
+}
+
+.zeas-blue-cat-strip-inner {
+  max-width: 1440px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
-.zeas-blue-location-prompt-text {
+.zeas-blue-all-cats-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.zeas-blue-location-prompt-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: #ffffff;
-  flex-shrink: 0;
-}
-
-.zeas-blue-location-prompt-titles h3 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 2px 0;
-  letter-spacing: -0.2px;
-  color: #ffffff;
-}
-
-.zeas-blue-location-prompt-titles p {
-  font-size: 13px;
-  margin: 0;
-  opacity: 0.9;
-  color: #e0e7ff;
-}
-
-.zeas-blue-location-prompt-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.zeas-blue-btn-white {
-  background: #ffffff;
-  color: var(--logo-primary);
+  gap: 8px;
+  background: transparent;
   border: none;
-  padding: 9px 20px;
-  border-radius: var(--logo-radius-full);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--logo-text-dark);
   cursor: pointer;
-  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: var(--logo-radius-sm);
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.zeas-blue-all-cats-btn:hover {
+  background: #e2e8f0;
+}
+
+.zeas-blue-quick-cats {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: var(--logo-transition);
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.zeas-blue-btn-white:hover {
-  background: #eff6ff;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+.zeas-blue-quick-cats::-webkit-scrollbar {
+  display: none;
 }
 
-.zeas-blue-btn-outline {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(4px);
-  padding: 9px 18px;
-  border-radius: var(--logo-radius-full);
+.zeas-blue-quick-cat-item {
+  border: none;
+  background: transparent;
+  color: #475569;
   font-size: 13px;
   font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--logo-radius-full);
   cursor: pointer;
-  transition: var(--logo-transition);
+  white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
-.zeas-blue-btn-outline:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255, 255, 255, 0.7);
+.zeas-blue-quick-cat-item:hover {
+  color: var(--logo-primary);
+  background: #eff6ff;
 }
 
-/* 2. Full-Width Banner Slider (Zero Left/Right Empty Gaps) */
+.zeas-blue-quick-cat-item.active {
+  background: var(--logo-primary);
+  color: #ffffff;
+}
+
+.zeas-blue-date-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: var(--logo-radius-full);
+  border: 1px solid var(--logo-border);
+}
+
+/* ==========================================================================
+   2. FULL-VIEW BANNER SLIDER (ZERO CROPPING AT TOP OR BOTTOM)
+   ========================================================================== */
+
 .zeas-blue-banner-slider-container {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: #0f172a;
+  background: #090e1a;
   user-select: none;
   margin: 0;
   padding: 0;
@@ -154,53 +598,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0b132b;
+  background: #090e1a;
   cursor: pointer;
 }
 
+/* FULL VIEW: height auto, max-height 520px, object-fit contain so ads are NEVER cut off */
 .zeas-blue-banner-image {
   width: 100%;
-  height: clamp(170px, 32vw, 440px);
-  object-fit: cover;
+  height: auto;
+  max-height: 520px;
+  object-fit: contain;
   object-position: center;
   display: block;
-  transition: opacity 0.25s ease, transform 0.4s ease;
+  margin: 0 auto;
+  transition: opacity 0.25s ease;
 }
 
 .zeas-blue-banner-slide:hover .zeas-blue-banner-image {
-  opacity: 0.96;
-  transform: scale(1.01);
+  opacity: 0.98;
 }
 
-/* Banner Overlay Details (if banner is graphic or text) */
-.zeas-blue-banner-caption {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 32px 36px;
-  background: linear-gradient(0deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.4) 50%, transparent 100%);
-  color: #ffffff;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  pointer-events: none;
-}
-
-.zeas-blue-banner-title {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0 0 4px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-}
-
-.zeas-blue-banner-desc {
-  font-size: 13px;
-  margin: 0;
-  opacity: 0.9;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
+/* Chevrons */
 .zeas-blue-banner-arrow {
   position: absolute;
   top: 50%;
@@ -210,14 +628,14 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
   color: var(--logo-text-dark);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: var(--logo-transition);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
 }
 
 .zeas-blue-banner-arrow:hover {
@@ -235,16 +653,16 @@
   right: 20px;
 }
 
+/* Dots */
 .zeas-blue-banner-dots {
   position: absolute;
-  bottom: 14px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: center;
   gap: 8px;
   z-index: 10;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   padding: 6px 14px;
   border-radius: var(--logo-radius-full);
@@ -254,11 +672,11 @@
   width: 8px;
   height: 8px;
   border-radius: var(--logo-radius-full);
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.5);
   border: none;
   cursor: pointer;
-  padding: 0;
   transition: all 0.25s ease;
+  padding: 0;
 }
 
 .zeas-blue-banner-dot.active {
@@ -266,14 +684,17 @@
   background: #ffffff;
 }
 
-/* 3. Popular Categories in Kerala (Zeashell / OLX Style Grid) */
-.zeas-blue-category-section {
-  max-width: 1320px;
-  margin: 36px auto 28px;
+/* ==========================================================================
+   3. CATEGORIES ROW & MODAL
+   ========================================================================== */
+
+.zeas-blue-categories-section {
+  max-width: 1440px;
+  margin: 28px auto;
   padding: 0 24px;
 }
 
-.zeas-blue-category-header {
+.zeas-blue-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -285,95 +706,79 @@
   font-weight: 800;
   color: var(--logo-text-dark);
   letter-spacing: -0.3px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin: 0;
 }
 
-.zeas-blue-view-all-btn {
+.zeas-blue-see-all-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--logo-primary);
   background: transparent;
   border: none;
-  color: var(--logo-primary);
-  font-size: 14px;
-  font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
-  transition: var(--logo-transition);
+  transition: color 0.15s ease;
 }
 
-.zeas-blue-view-all-btn:hover {
-  color: var(--logo-primary-hover);
-  transform: translateX(3px);
+.zeas-blue-see-all-link:hover {
+  color: var(--logo-primary-dark);
+  text-decoration: underline;
 }
 
-.zeas-blue-category-grid-olx {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
+.zeas-blue-category-row-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 2px 14px;
 }
 
-@media (max-width: 1100px) {
-  .zeas-blue-category-grid-olx {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-  }
-}
-
-@media (max-width: 768px) {
-  .zeas-blue-category-grid-olx {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .zeas-blue-category-grid-olx {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
+.zeas-blue-category-row-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .zeas-blue-category-card {
-  background: var(--logo-bg-card);
-  border: 1.5px solid var(--logo-border);
+  min-width: 130px;
+  background: #ffffff;
+  border: 1px solid var(--logo-border);
   border-radius: var(--logo-radius-md);
-  padding: 18px 12px 14px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   text-align: center;
   gap: 10px;
   cursor: pointer;
   transition: var(--logo-transition);
   box-shadow: var(--logo-shadow-sm);
+  flex-shrink: 0;
 }
 
 .zeas-blue-category-card:hover {
+  transform: translateY(-4px);
   border-color: var(--logo-primary);
-  transform: translateY(-3px);
   box-shadow: var(--logo-shadow-hover);
 }
 
 .zeas-blue-category-card.active {
+  background: #eff6ff;
   border-color: var(--logo-primary);
-  background: var(--logo-primary-light);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 2px var(--logo-primary);
 }
 
 .zeas-blue-category-icon-box {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--logo-primary-light);
+  width: 50px;
+  height: 50px;
+  border-radius: var(--logo-radius-md);
+  background: #f0f7ff;
+  color: var(--logo-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  color: var(--logo-primary);
-  transition: var(--logo-transition);
+  font-size: 22px;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .zeas-blue-category-card:hover .zeas-blue-category-icon-box {
@@ -382,61 +787,55 @@
   transform: scale(1.08);
 }
 
-.zeas-blue-category-name {
+.zeas-blue-category-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--logo-text-dark);
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.25;
 }
 
-/* 4. Search & Filter Bar (Pill Container) */
+/* ==========================================================================
+   4. FILTER & SEARCH PILL BOX
+   ========================================================================== */
+
 .zeas-blue-filter-container {
-  max-width: 1320px;
-  margin: 16px auto 32px;
+  max-width: 1440px;
+  margin: 0 auto 28px;
   padding: 0 24px;
 }
 
 .zeas-blue-search-pill-box {
   background: #ffffff;
-  border: 1.5px solid var(--logo-border);
+  border: 1px solid var(--logo-border);
   border-radius: var(--logo-radius-lg);
-  padding: 12px 18px;
+  padding: 12px 16px;
+  box-shadow: var(--logo-shadow-card);
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: var(--logo-shadow-card);
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .zeas-blue-search-input-group {
   flex: 2;
   min-width: 260px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8fafc;
-  border: 1px solid var(--logo-border);
-  border-radius: var(--logo-radius-md);
-  padding: 8px 14px;
-  position: relative;
 }
 
 .zeas-blue-search-input-group input {
+  width: 100%;
   border: none;
-  background: transparent;
   outline: none;
   font-size: 14px;
   color: var(--logo-text-dark);
-  width: 100%;
 }
 
 .zeas-blue-filter-select-group {
   flex: 1;
-  min-width: 160px;
+  min-width: 180px;
 }
 
 .zeas-blue-filter-select {
@@ -456,9 +855,12 @@
   border-color: var(--logo-primary);
 }
 
-/* 5. Nearby Merchants Section (Zeashell Style Grid) */
+/* ==========================================================================
+   5. 5-COLUMN MERCHANT CARDS GRID & IN-BETWEEN AD SLIDER
+   ========================================================================== */
+
 .zeas-blue-merchants-section {
-  max-width: 1320px;
+  max-width: 1440px;
   margin: 0 auto 48px;
   padding: 0 24px;
 }
@@ -467,13 +869,13 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .zeas-blue-merchants-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--logo-text-dark);
   letter-spacing: -0.3px;
@@ -507,171 +909,173 @@
   cursor: pointer;
 }
 
+/* EXACT 5 CARDS IN A ROW ON DESKTOP */
 .zeas-blue-merchant-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1380px) {
   .zeas-blue-merchant-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1080px) {
+  .zeas-blue-merchant-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .zeas-blue-merchant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
   .zeas-blue-merchant-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 }
 
-/* Zeashell-Style Merchant Card with LOGO Blue Theme */
+/* Individual Card (Zeashell Style adapted to 5 columns) */
 .zeas-blue-merchant-card {
   background: var(--logo-bg-card);
   border: 1px solid var(--logo-border);
-  border-radius: var(--logo-radius-lg);
+  border-radius: var(--logo-radius-md);
+  box-shadow: var(--logo-shadow-sm);
   overflow: hidden;
-  box-shadow: var(--logo-shadow-card);
-  transition: var(--logo-transition);
   display: flex;
   flex-direction: column;
-  position: relative;
+  transition: var(--logo-transition);
   cursor: pointer;
+  position: relative;
 }
 
 .zeas-blue-merchant-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--logo-shadow-hover);
-  border-color: rgba(37, 99, 235, 0.3);
+  border-color: var(--logo-primary);
 }
 
-/* Image 16:10 aspect ratio */
 .zeas-blue-merchant-card-image {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  position: relative;
+  background: #f1f5f9;
   overflow: hidden;
-  background: #0f172a;
 }
 
 .zeas-blue-merchant-card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.35s ease;
+  transition: transform 0.4s ease;
 }
 
 .zeas-blue-merchant-card:hover .zeas-blue-merchant-card-image img {
-  transform: scale(1.05);
+  transform: scale(1.06);
 }
 
 .zeas-blue-merchant-fav-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.9);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  color: #64748b;
   z-index: 2;
-  transition: var(--logo-transition);
 }
 
 .zeas-blue-merchant-fav-btn:hover {
   background: #ffffff;
-  color: #ef4444;
   transform: scale(1.1);
-}
-
-.zeas-blue-merchant-fav-btn.active {
-  color: #ef4444;
 }
 
 .zeas-blue-merchant-badge-verified {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  background: rgba(37, 99, 235, 0.95);
+  top: 8px;
+  left: 8px;
+  background: #2563eb;
   color: #ffffff;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  backdrop-filter: blur(4px);
-  z-index: 2;
-  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--logo-radius-full);
+  display: flex;
   align-items: center;
   gap: 3px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  z-index: 2;
 }
 
-/* Card Body */
 .zeas-blue-merchant-card-body {
-  padding: 16px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
 .zeas-blue-merchant-card-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--logo-text-dark);
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .zeas-blue-merchant-card-cat {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--logo-primary);
-  background: var(--logo-primary-light);
-  padding: 2px 8px;
+  background: #eff6ff;
+  padding: 2px 7px;
   border-radius: 6px;
   display: inline-block;
-  margin-bottom: 8px;
-  width: fit-content;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .zeas-blue-merchant-meta-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--logo-text-body);
-  margin-bottom: 12px;
-}
-
-.zeas-blue-merchant-meta-item {
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
+  margin: 6px 0;
+  font-size: 11px;
 }
 
 .zeas-blue-merchant-rating {
-  font-weight: 700;
-  color: var(--logo-text-dark);
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .zeas-blue-merchant-distance {
-  color: var(--logo-text-muted);
-  font-weight: 600;
+  color: var(--logo-primary);
+  font-weight: 700;
 }
 
 .zeas-blue-merchant-status-open {
@@ -680,40 +1084,35 @@
 }
 
 .zeas-blue-merchant-address {
-  font-size: 12px;
-  color: var(--logo-text-muted);
-  margin: 0 0 14px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  font-size: 11px;
+  color: #64748b;
   overflow: hidden;
-  margin-top: auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
 }
 
-/* Card Action Buttons (View Shop, Directions, Call) */
 .zeas-blue-merchant-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  gap: 4px;
+  padding: 8px 10px 10px;
   border-top: 1px solid var(--logo-border-light);
+  margin-top: auto;
 }
 
 .zeas-blue-btn-action-primary {
-  flex: 1.2;
+  flex: 1;
   background: var(--logo-primary);
   color: #ffffff;
   border: none;
-  padding: 8px 12px;
   border-radius: var(--logo-radius-sm);
-  font-size: 12px;
+  padding: 6px 8px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: var(--logo-transition);
+  transition: background 0.2s ease;
+  white-space: nowrap;
 }
 
 .zeas-blue-btn-action-primary:hover {
@@ -721,32 +1120,148 @@
 }
 
 .zeas-blue-btn-action-secondary {
-  flex: 1;
-  background: #ffffff;
-  color: var(--logo-text-body);
+  background: #f1f5f9;
+  color: var(--logo-text-dark);
   border: 1px solid var(--logo-border);
-  padding: 8px 10px;
   border-radius: var(--logo-radius-sm);
-  font-size: 12px;
-  font-weight: 600;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: var(--logo-transition);
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .zeas-blue-btn-action-secondary:hover {
-  border-color: var(--logo-primary);
-  color: var(--logo-primary);
-  background: var(--logo-primary-light);
+  background: #e2e8f0;
 }
 
-/* 6. 🔥 Featured Offers Carousel (Zeashell Style) */
+/* ==========================================================================
+   6. IN-BETWEEN MIDDLE AD SLIDER (Placed between merchant rows)
+   ========================================================================== */
+
+.zeas-middle-ad-wrapper {
+  grid-column: 1 / -1;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--logo-radius-md);
+  margin: 18px 0;
+  background: #090e1a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.zeas-middle-ad-badge {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  background: rgba(37, 99, 235, 0.9);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  z-index: 10;
+  letter-spacing: 0.5px;
+}
+
+.zeas-middle-ad-track {
+  display: flex;
+  width: 100%;
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.zeas-middle-ad-slide {
+  min-width: 100%;
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #090e1a;
+  cursor: pointer;
+}
+
+.zeas-middle-ad-image {
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+.zeas-middle-ad-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.zeas-middle-ad-arrow:hover {
+  background: var(--logo-primary);
+  color: #ffffff;
+}
+
+.zeas-middle-ad-arrow.prev {
+  left: 14px;
+}
+
+.zeas-middle-ad-arrow.next {
+  right: 14px;
+}
+
+.zeas-middle-ad-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 10px;
+  border-radius: var(--logo-radius-full);
+}
+
+.zeas-middle-ad-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.zeas-middle-ad-dot.active {
+  width: 18px;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+/* ==========================================================================
+   7. FEATURED OFFERS SECTION (Horizontal Carousel)
+   ========================================================================== */
+
 .zeas-blue-offers-section {
-  max-width: 1320px;
-  margin: 36px auto 48px;
+  max-width: 1440px;
+  margin: 40px auto;
   padding: 0 24px;
 }
 
@@ -774,7 +1289,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: var(--logo-transition);
+  transition: all 0.2s ease;
 }
 
 .zeas-blue-offers-arrow-btn:hover {
@@ -785,11 +1300,11 @@
 
 .zeas-blue-offers-carousel {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   overflow-x: auto;
   scroll-behavior: smooth;
-  padding: 6px 4px 16px;
   scrollbar-width: none;
+  padding: 4px 2px 14px;
 }
 
 .zeas-blue-offers-carousel::-webkit-scrollbar {
@@ -797,11 +1312,11 @@
 }
 
 .zeas-blue-offer-card {
-  min-width: 320px;
-  max-width: 340px;
+  min-width: 310px;
+  max-width: 330px;
   background: #ffffff;
-  border-radius: var(--logo-radius-lg);
-  box-shadow: var(--logo-shadow-card);
+  border-radius: var(--logo-radius-md);
+  box-shadow: var(--logo-shadow-sm);
   border: 1px solid var(--logo-border);
   overflow: hidden;
   flex-shrink: 0;
@@ -825,24 +1340,25 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  padding: 16px;
+  background: #0f172a;
 }
 
 .zeas-blue-offer-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   background: #ffffff;
   color: #ef4444;
   padding: 4px 10px;
   border-radius: var(--logo-radius-full);
   font-size: 11px;
   font-weight: 800;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 2;
 }
 
 .zeas-blue-offer-body {
-  padding: 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -850,32 +1366,411 @@
 
 .zeas-blue-offer-merchant {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--logo-primary);
   margin-bottom: 4px;
 }
 
 .zeas-blue-offer-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--logo-text-dark);
   margin: 0 0 6px 0;
 }
 
 .zeas-blue-offer-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--logo-text-body);
   line-height: 1.4;
-  margin: 0 0 14px 0;
+  margin: 0 0 12px 0;
 }
 
 .zeas-blue-offer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--logo-border-light);
   margin-top: auto;
   font-size: 12px;
   color: var(--logo-text-muted);
+}
+
+/* ==========================================================================
+   8. ZEASHELL FLOATING SPECIAL OFFER BUTTON & POPUP WIDGET
+   ========================================================================== */
+
+.zeas-floating-special-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 998;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 2px solid #ef4444;
+  border-radius: var(--logo-radius-full);
+  padding: 6px 16px 6px 8px;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35), 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+  animation: specialOfferFloat 3s ease-in-out infinite;
+}
+
+@keyframes specialOfferFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.zeas-floating-special-btn:hover {
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 12px 30px rgba(239, 68, 68, 0.45);
+}
+
+.zeas-floating-special-btn.active {
+  background: #ef4444;
+  border-color: #dc2626;
+}
+
+.zeas-floating-special-btn.active .zeas-floating-btn-text {
+  color: #ffffff;
+}
+
+.zeas-floating-btn-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.zeas-floating-special-btn.active .zeas-floating-btn-icon-wrap {
+  background: #ffffff;
+  color: #ef4444;
+}
+
+.zeas-floating-btn-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #dc2626;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.zeas-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: pulseBeacon 1.8s infinite;
+}
+
+.zeas-floating-special-btn.active .zeas-pulse-dot {
+  background: #ffffff;
+}
+
+@keyframes pulseBeacon {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Offer Popup Card */
+.zeas-offer-popup-card {
+  position: fixed;
+  bottom: 84px;
+  right: 24px;
+  width: 390px;
+  max-width: calc(100vw - 48px);
+  max-height: 540px;
+  background: #ffffff;
+  border-radius: var(--logo-radius-lg);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
+  border: 1px solid var(--logo-border);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popupSlideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes popupSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.zeas-offer-popup-header {
+  padding: 16px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 60%, #2563eb 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zeas-offer-popup-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zeas-offer-popup-fire-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.zeas-offer-popup-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fef08a;
+  text-transform: uppercase;
+}
+
+.zeas-offer-popup-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 2px 0;
+}
+
+.zeas-offer-popup-subtitle {
+  font-size: 11px;
+  color: #e0e7ff;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.zeas-offer-popup-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.zeas-offer-popup-close-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.zeas-offer-popup-body {
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+}
+
+.zeas-offer-popup-item {
+  background: #f8fafc;
+  border: 1px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zeas-offer-popup-item:hover {
+  background: #eff6ff;
+  border-color: var(--logo-primary);
+  transform: translateY(-2px);
+}
+
+.zeas-offer-popup-item-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--logo-radius-sm);
+  overflow: hidden;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.zeas-offer-popup-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.zeas-offer-popup-item-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.zeas-offer-popup-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.zeas-offer-popup-merchant {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--logo-primary);
+}
+
+.zeas-offer-popup-badge {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.zeas-offer-popup-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--logo-text-dark);
+  margin: 0 0 3px 0;
+  line-height: 1.3;
+}
+
+.zeas-offer-popup-item-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.zeas-offer-popup-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  font-size: 11px;
+}
+
+.zeas-offer-popup-cat {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.zeas-offer-popup-call-btn {
+  background: #ffffff;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zeas-offer-popup-claim {
+  color: var(--logo-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.zeas-offer-popup-footer {
+  padding: 12px;
+  background: #f8fafc;
+  border-top: 1px solid var(--logo-border-light);
+}
+
+.zeas-offer-popup-viewall-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--logo-radius-md);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.2s ease;
+}
+
+.zeas-offer-popup-viewall-btn:hover {
+  opacity: 0.94;
+}
+
+/* ==========================================================================
+   9. TICKER BAR
+   ========================================================================== */
+
+.zeas-ticker-bar {
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.zeas-ticker-content {
+  display: inline-block;
+  padding-left: 100%;
+  animation: zeasTickerScroll 35s linear infinite;
+}
+
+@keyframes zeasTickerScroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-100%, 0, 0);
+  }
 }

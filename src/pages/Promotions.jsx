@@ -351,9 +351,11 @@ export default function Promotions() {
             onChange={(e) => setSelectedPlacement(e.target.value)}
           >
             <option value="All">All Placements</option>
-            <option value="Home Top">Home Top (Slider)</option>
-            <option value="Featured">Featured Offers</option>
-            <option value="Category">Category Header</option>
+            <option value="Home Top">Home Top (Top Banner Slider)</option>
+            <option value="Home Middle">Home Middle (Between Merchants Slider)</option>
+            <option value="Featured Offers">Featured Offers (Offers Carousel)</option>
+            <option value="Special Offer">Special Offer (Floating Deals Popup)</option>
+            <option value="Category Header">Category Header</option>
           </select>
 
           <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Type:</span>
@@ -717,9 +719,10 @@ export default function Promotions() {
               onChange={(e) => setNewPromo({ ...newPromo, placement: e.target.value })}
             >
               <option value="Home Top">Home Top (Full-Width Banner Slider)</option>
-              <option value="Featured Offers">Featured Offers Carousel</option>
+              <option value="Home Middle">Home Middle (Between Merchants Auto-Slider)</option>
+              <option value="Featured Offers">Featured Offers (Offers Carousel)</option>
+              <option value="Special Offer">Special Offer (Floating Deals Popup)</option>
               <option value="Category Header">Category Header Banner</option>
-              <option value="Home Middle">Home Middle Strip</option>
             </select>
           </div>
           <div className="form-group">
@@ -731,6 +734,7 @@ export default function Promotions() {
             >
               <option value="Banner">Banner</option>
               <option value="Featured">Featured Ad</option>
+              <option value="Special Offer">Special Offer</option>
               <option value="Sponsored">Sponsored Listing</option>
               <option value="Promotion">Special Promotion</option>
               <option value="Text Carousel">Text Carousel</option>
@@ -926,9 +930,10 @@ export default function Promotions() {
                   onChange={(e) => setEditFormData({ ...editFormData, placement: e.target.value })}
                 >
                   <option value="Home Top">Home Top (Full-Width Banner Slider)</option>
-                  <option value="Featured Offers">Featured Offers Carousel</option>
+                  <option value="Home Middle">Home Middle (Between Merchants Auto-Slider)</option>
+                  <option value="Featured Offers">Featured Offers (Offers Carousel)</option>
+                  <option value="Special Offer">Special Offer (Floating Deals Popup)</option>
                   <option value="Category Header">Category Header Banner</option>
-                  <option value="Home Middle">Home Middle Strip</option>
                 </select>
               </div>
               <div className="form-group">
@@ -940,6 +945,7 @@ export default function Promotions() {
                 >
                   <option value="Banner">Banner</option>
                   <option value="Featured">Featured Ad</option>
+                  <option value="Special Offer">Special Offer</option>
                   <option value="Sponsored">Sponsored Listing</option>
                   <option value="Promotion">Special Promotion</option>
                   <option value="Text Carousel">Text Carousel</option>
