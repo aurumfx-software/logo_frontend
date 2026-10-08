@@ -43,7 +43,7 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
-import { promotions as mockPromotions } from '../data/mockData';
+import { promotions as mockPromotions, demoPromotions } from '../data/mockData';
 
 // Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
 const conceptCategories = [
@@ -71,6 +71,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Fashion',
     discount: 'Up to 50% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
   },
   {
@@ -81,6 +82,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Electronics',
     discount: 'Up to 40% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
   },
   {
@@ -91,6 +93,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Health & Fitness',
     discount: '1 Month FREE',
+    bannerUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #11998E 0%, #38EF7D 100%)',
   },
   {
@@ -101,6 +104,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Beauty',
     discount: 'Special Deal',
+    bannerUrl: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #FAD961 0%, #F76B1C 100%)',
   },
   {
@@ -111,6 +115,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Dining',
     discount: 'FLAT 30% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)',
   },
   {
@@ -121,6 +126,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Automobile',
     discount: 'FREE Checkup',
+    bannerUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%)',
   },
   {
@@ -131,6 +137,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Grocery',
     discount: 'BUY 1 GET 1',
+    bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #f857a6 0%, #ff5858 100%)',
   },
   {
@@ -141,6 +148,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Healthcare',
     discount: '50% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
   },
   {
@@ -151,6 +159,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Jewellery',
     discount: '0% Making Charge',
+    bannerUrl: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #F39C12 0%, #D35400 100%)',
   },
   {
@@ -161,6 +170,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Grocery',
     discount: 'Save Up to 35%',
+    bannerUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #27AE60 0%, #2ECC71 100%)',
   },
   {
@@ -171,6 +181,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Footwear',
     discount: 'FLAT 25% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
   },
   {
@@ -181,6 +192,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Home Decor',
     discount: 'Up to 45% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)',
   },
   {
@@ -191,6 +203,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Services',
     discount: 'FREE Drone Video',
+    bannerUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #2980B9 0%, #3498DB 100%)',
   },
   {
@@ -201,6 +214,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Agriculture',
     discount: '20% OFF',
+    bannerUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #16A085 0%, #1ABC9C 100%)',
   },
   {
@@ -211,6 +225,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Education',
     discount: '30% Scholarship',
+    bannerUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #34495E 0%, #2C3E50 100%)',
   },
   {
@@ -221,6 +236,7 @@ const conceptOffers = [
     validity: 'Valid until 31 Dec 2026',
     category: 'Travel & Stay',
     discount: 'FREE Spa Voucher',
+    bannerUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80',
     bgGradient: 'linear-gradient(135deg, #E67E22 0%, #F39C12 100%)',
   },
 ];
@@ -545,6 +561,7 @@ const promoBanners = [
     subtitle: 'Top Brands & Huge Discounts',
     description: 'School bags, luggage trolleys, handbags, and travel backpacks. Wholesale & Retail.',
     bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=1200&auto=format&fit=crop&q=80',
     badge: 'FEATURED STORE',
     location: 'Payyanur',
     phone: '09372 702692',
@@ -557,6 +574,7 @@ const promoBanners = [
     subtitle: 'Explore Your Creativity in Just 1 Hour a Day!',
     description: 'Open to all ages (Kids & Adults). Flexible schedules, small groups & solo classes.',
     bgGradient: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1200&auto=format&fit=crop&q=80',
     badge: 'EDUCATION',
     location: 'Online / Payyanur',
     phone: '07026 595769',
@@ -569,6 +587,7 @@ const promoBanners = [
     subtitle: 'Hero Authorized Dealer - 3 Years Free Service',
     description: 'Special offers on Hero scooters & bikes. 5 years warranty, easy financing available.',
     bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&auto=format&fit=crop&q=80',
     badge: 'AUTOMOBILE',
     location: 'Peringome, Kannur',
     phone: '04985 219191',
@@ -581,6 +600,7 @@ const promoBanners = [
     subtitle: 'We Care Your Life - All Medical Supplies',
     description: 'Complete range of medicines, surgical instruments, wellness care, and diagnostic tools.',
     bgGradient: 'linear-gradient(135deg, #0096c7 0%, #03045e 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=1200&auto=format&fit=crop&q=80',
     badge: 'HEALTHCARE',
     location: 'Manna, Taliparamba',
     phone: '04672 206111',
@@ -593,6 +613,7 @@ const promoBanners = [
     subtitle: 'KSEB Approved Solar Panel Installations',
     description: 'Reduce your electricity bills with clean solar power. On-grid and off-grid solutions.',
     bgGradient: 'linear-gradient(135deg, #0077b6 0%, #023e8a 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80',
     badge: 'SOLAR ENERGY',
     location: 'Payyanur - Padanna',
     phone: '08921 669652',
@@ -605,6 +626,7 @@ const promoBanners = [
     subtitle: 'Modular Kitchen, Gypsum Ceiling, Furniture',
     description: 'Turn your dream home into reality without breaking your budget. 2D & 3D designing.',
     bgGradient: 'linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%)',
+    bannerUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1200&auto=format&fit=crop&q=80',
     badge: 'INTERIORS',
     location: 'Payyanur',
     phone: '09562 753693',
@@ -1165,10 +1187,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
       (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
     );
     if (apiFooter.length > 0) return apiFooter;
-    const mockFooter = mockPromotions.filter(
-      (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
-    );
-    return mockFooter.length > 0 ? mockFooter : promoBanners.slice(0, 3);
+    const demoFooter = demoPromotions['Footer Ads'] || [];
+    return demoFooter.length > 0 ? demoFooter : promoBanners.slice(0, 3);
   }, [livePromotions]);
 
   useEffect(() => {
@@ -1872,7 +1892,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 <div
                   key={slide.id}
                   className={cardClass}
-                  style={{ background: slide.bgGradient, cursor: 'pointer' }}
+                  style={{
+                    background: (slide.bannerUrl || slide.media_url)
+                      ? `linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.75)), url(${slide.bannerUrl || slide.media_url}) center/cover no-repeat`
+                      : slide.bgGradient,
+                    cursor: 'pointer'
+                  }}
                   onClick={() => {
                     if (isCenter) {
                       setSelectedPromoModal(slide);
@@ -2243,7 +2268,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
                       style={{
                         gridColumn: '1 / -1',
                         width: '100%',
-                        background: item.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                        background: (item.bannerUrl || item.image_url || item.image || item.media_url)
+                          ? `linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.75)), url(${item.bannerUrl || item.image_url || item.image || item.media_url}) center/cover no-repeat`
+                          : item.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                         borderRadius: '16px',
                         padding: '24px 32px',
                         color: '#ffffff',
@@ -2701,23 +2728,72 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
 
         <div className="zeas-offers-grid">
-          {currentSlideOffers.map((offer) => (
-            <div key={offer.id} className="zeas-offer-card">
-              <div className="zeas-offer-banner" style={{ background: offer.bgGradient || 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' }}>
-                <span className="zeas-offer-badge">{offer.discount || offer.badge || 'PROMO'}</span>
-                <h3 style={{ fontSize: 18, fontWeight: 800, textAlign: 'center' }}>{offer.title || offer.name}</h3>
-              </div>
-              <div className="zeas-offer-body">
-                <span className="zeas-offer-merchant">{offer.merchant || offer.business_name || 'Verified Merchant'}</span>
-                <h4 className="zeas-offer-title">{offer.title || offer.name}</h4>
-                <p className="zeas-offer-desc">{offer.description || offer.subtitle || 'Exclusive local deal for services and products.'}</p>
-                <div className="zeas-offer-footer">
-                  <span className="zeas-offer-validity">{offer.validity || offer.tagline || 'Limited Period'}</span>
-                  <span className="zeas-offer-cat-pill">{offer.category || 'Offer'}</span>
+          {currentSlideOffers.map((offer) => {
+            const rawUrl = offer.bannerUrl || offer.image_url || offer.image || offer.media_url || offer.banner_url;
+            let bgImage = rawUrl;
+            if (!bgImage) {
+              const cat = (offer.category || offer.badge || offer.title || '').toLowerCase();
+              if (cat.includes('fashion') || cat.includes('wear') || cat.includes('cloth')) {
+                bgImage = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('electr') || cat.includes('gadget') || cat.includes('tech') || cat.includes('mobile')) {
+                bgImage = 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('health') || cat.includes('gym') || cat.includes('fit')) {
+                bgImage = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('beauty') || cat.includes('salon') || cat.includes('spa')) {
+                bgImage = 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('din') || cat.includes('food') || cat.includes('restau') || cat.includes('hotel')) {
+                bgImage = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('auto') || cat.includes('car') || cat.includes('motor')) {
+                bgImage = 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('groc') || cat.includes('super') || cat.includes('mart') || cat.includes('fruit')) {
+                bgImage = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('care') || cat.includes('dent') || cat.includes('medic') || cat.includes('pharm')) {
+                bgImage = 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('jewel') || cat.includes('gold')) {
+                bgImage = 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('solar') || cat.includes('power') || cat.includes('elect')) {
+                bgImage = 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('stat') || cat.includes('book') || cat.includes('edu') || cat.includes('class')) {
+                bgImage = 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('decor') || cat.includes('furnit') || cat.includes('interi')) {
+                bgImage = 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&auto=format&fit=crop&q=80';
+              } else if (cat.includes('footwear') || cat.includes('shoe')) {
+                bgImage = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80';
+              } else {
+                bgImage = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80';
+              }
+            }
+
+            return (
+              <div
+                key={offer.id}
+                className="zeas-offer-card"
+              >
+                <div
+                  className="zeas-offer-banner"
+                  style={{
+                    background: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.65)), url(${bgImage}) center/cover no-repeat`,
+                  }}
+                >
+                  <span className="zeas-offer-badge">{offer.discount || offer.badge || 'PROMO'}</span>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, textAlign: 'center', margin: 0, padding: '0 10px', textShadow: '0 2px 4px rgba(0,0,0,0.7)', color: '#FFFFFF' }}>
+                    {offer.title || offer.name}
+                  </h3>
+                </div>
+                <div className="zeas-offer-body">
+                  <span className="zeas-offer-merchant">{offer.merchant || offer.business_name || 'Verified Merchant'}</span>
+                  <h4 className="zeas-offer-title">{offer.title || offer.name}</h4>
+                  <p className="zeas-offer-desc">{offer.description || offer.subtitle || 'Exclusive local deal for services and products.'}</p>
+                  <div className="zeas-offer-footer">
+                    <span className="zeas-offer-validity">
+                      {offer.validity || offer.tagline || (offer.start_date && offer.end_date ? `Valid: ${offer.start_date} to ${offer.end_date}` : 'Limited Period')}
+                    </span>
+                    <span className="zeas-offer-cat-pill">{offer.category || 'Offer'}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {totalOfferSlides > 1 && (
@@ -3465,264 +3541,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       )}
 
-      {/* 12. Promotion Modal Overlay (Light Blue Theme) */}
-      {selectedPromoModal && (
-        <div
-          className="modal-backdrop"
-          style={{
-            background: 'rgba(11, 23, 42, 0.75)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-          }}
-          onClick={() => setSelectedPromoModal(null)}
-        >
-          <div
-            className="modal-container promo-detail-modal"
-            style={{
-              background: selectedPromoModal.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              color: '#FFFFFF',
-              borderRadius: '24px',
-              maxWidth: '620px',
-              width: '90%',
-              padding: '36px 40px',
-              position: 'relative',
-              boxShadow: '0 30px 60px -12px rgba(2, 132, 199, 0.5), 0 0 35px rgba(56, 189, 248, 0.35)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Top Glow Accent */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '5px',
-                background: selectedPromoModal.accentColor || '#38BDF8',
-              }}
-            ></div>
-
-            <button
-              className="modal-close-btn"
-              onClick={() => setSelectedPromoModal(null)}
-              style={{
-                position: 'absolute',
-                top: '22px',
-                right: '22px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255, 255, 255, 0.35)',
-                borderRadius: '50%',
-                width: '38px',
-                height: '38px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#FFFFFF',
-                cursor: 'pointer',
-                fontSize: '18px',
-              }}
-            >
-              <HiX />
-            </button>
-
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                background: 'rgba(255, 255, 255, 0.22)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.4)',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '800',
-                letterSpacing: '1px',
-                marginBottom: '18px',
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
-              }}
-            >
-              <HiStar style={{ color: '#FCD34D' }} /> {selectedPromoModal.badge}
-            </div>
-
-            <h2
-              style={{
-                fontSize: '30px',
-                fontWeight: '800',
-                margin: '0 0 8px 0',
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
-                letterSpacing: '-0.5px',
-                lineHeight: '1.2',
-              }}
-            >
-              {selectedPromoModal.title}
-            </h2>
-
-            <h4
-              style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: 'rgba(255, 255, 255, 0.95)',
-                marginBottom: '14px',
-              }}
-            >
-              {selectedPromoModal.subtitle}
-            </h4>
-
-            <p
-              style={{
-                fontSize: '15px',
-                color: 'rgba(255, 255, 255, 0.88)',
-                lineHeight: '1.65',
-                marginBottom: '24px',
-              }}
-            >
-              {selectedPromoModal.description}
-            </p>
-
-            {selectedPromoModal.bannerUrl && (
-              <div
-                style={{
-                  width: '100%',
-                  maxHeight: '220px',
-                  overflow: 'hidden',
-                  borderRadius: '16px',
-                  marginBottom: '24px',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                }}
-              >
-                <img
-                  src={selectedPromoModal.bannerUrl}
-                  alt={selectedPromoModal.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              </div>
-            )}
-
-            <div
-              style={{
-                borderTop: '1px solid rgba(255, 255, 255, 0.25)',
-                paddingTop: '20px',
-                marginTop: '16px',
-              }}
-            >
-              <div
-                style={{
-                  color: '#FDE047',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(253, 224, 71, 0.15)',
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  border: '1px solid rgba(253, 224, 71, 0.35)',
-                  marginBottom: '16px',
-                }}
-              >
-                ⭐ {selectedPromoModal.tagline}
-              </div>
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    padding: '8px 14px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                  }}
-                >
-                  <HiLocationMarker />
-                  {selectedPromoModal.location}
-                </span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    padding: '8px 14px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                  }}
-                >
-                  <HiPhone />
-                  {selectedPromoModal.phone}
-                </span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: '28px',
-                display: 'flex',
-                gap: '12px',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-              }}
-            >
-              <button
-                className="btn"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  color: '#FFFFFF',
-                  border: '1px solid rgba(255, 255, 255, 0.35)',
-                  padding: '10px 22px',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                }}
-                onClick={() => setSelectedPromoModal(null)}
-              >
-                Close
-              </button>
-              <a
-                href={`tel:${selectedPromoModal.phone}`}
-                className="btn"
-                style={{
-                  background: '#FFFFFF',
-                  color: '#0284c7',
-                  fontWeight: '800',
-                  padding: '10px 26px',
-                  borderRadius: '12px',
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.2)',
-                }}
-              >
-                <HiPhone /> Call Merchant
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Floating Special Offer Button */}
-      <button className="zeas-floating-offer-btn" onClick={() => scrollToSection('featured-offers-section')}>
-        📣 SPECIAL OFFER
-      </button>
     </div>
   );
 }
