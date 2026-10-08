@@ -43,6 +43,11 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
+import ZeashellBannerSlider from '../components/landing/ZeashellBannerSlider';
+import ZeashellCategoryRow from '../components/landing/ZeashellCategoryRow';
+import ZeashellMerchantCard from '../components/landing/ZeashellMerchantCard';
+import ZeashellOffersCarousel from '../components/landing/ZeashellOffersCarousel';
+import '../components/landing/zeashell-landing.css';
 
 // Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
 const conceptCategories = [
@@ -102,126 +107,6 @@ const conceptOffers = [
     discount: 'Special Deal',
     bgGradient: 'linear-gradient(135deg, #FAD961 0%, #F76B1C 100%)',
   },
-  {
-    id: 5,
-    merchant: 'TopForm Hotel & Restaurant',
-    title: 'Flat 30% Off Dining',
-    description: 'Enjoy delicious Malabar cuisines & buffet with 30% flat discount.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Dining',
-    discount: 'FLAT 30% OFF',
-    bgGradient: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)',
-  },
-  {
-    id: 6,
-    merchant: 'Apex Auto Care & Spares',
-    title: 'Free Car Wash & Checkup',
-    description: 'Complimentary car wash and 25-point inspection on major service.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Automobile',
-    discount: 'FREE Checkup',
-    bgGradient: 'linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%)',
-  },
-  {
-    id: 7,
-    merchant: 'Organic Fresh Mart',
-    title: 'Buy 1 Get 1 Free',
-    description: 'Buy 1 Get 1 free on selected fresh fruits & organic dairy products.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Grocery',
-    discount: 'BUY 1 GET 1',
-    bgGradient: 'linear-gradient(135deg, #f857a6 0%, #ff5858 100%)',
-  },
-  {
-    id: 8,
-    merchant: 'Royal Dental Clinic',
-    title: '50% Off Teeth Whitening',
-    description: 'Get advanced laser teeth whitening consultation at half price.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Healthcare',
-    discount: '50% OFF',
-    bgGradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  },
-  {
-    id: 9,
-    merchant: 'Malabar Jewellers',
-    title: 'Zero Making Charge',
-    description: 'Zero making charges on selected gold ornament purchases above 25g.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Jewellery',
-    discount: '0% Making Charge',
-    bgGradient: 'linear-gradient(135deg, #F39C12 0%, #D35400 100%)',
-  },
-  {
-    id: 10,
-    merchant: 'City Supermarket',
-    title: 'Weekend Grocery Fest',
-    description: 'Save big on household staples, spices, and beverages every weekend.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Grocery',
-    discount: 'Save Up to 35%',
-    bgGradient: 'linear-gradient(135deg, #27AE60 0%, #2ECC71 100%)',
-  },
-  {
-    id: 11,
-    merchant: 'Grand Footwear',
-    title: 'Festive Footwear Sale',
-    description: 'Flat 25% discount on branded sports shoes and leather footwear.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Footwear',
-    discount: 'FLAT 25% OFF',
-    bgGradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
-  },
-  {
-    id: 12,
-    merchant: 'Bright Home Furnishings',
-    title: 'Living Room Makeover',
-    description: 'Up to 45% off luxury sofa sets, curtains, and interior décor items.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Home Decor',
-    discount: 'Up to 45% OFF',
-    bgGradient: 'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)',
-  },
-  {
-    id: 13,
-    merchant: 'Pixel Digital Studio',
-    title: 'Wedding Package Promo',
-    description: 'Free drone video coverage on premium wedding photography packages.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Services',
-    discount: 'FREE Drone Video',
-    bgGradient: 'linear-gradient(135deg, #2980B9 0%, #3498DB 100%)',
-  },
-  {
-    id: 14,
-    merchant: 'Green Agro Fertilizers',
-    title: 'Agri Supply Discount',
-    description: 'Special seasonal price drop on organic fertilizers and plant seeds.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Agriculture',
-    discount: '20% OFF',
-    bgGradient: 'linear-gradient(135deg, #16A085 0%, #1ABC9C 100%)',
-  },
-  {
-    id: 15,
-    merchant: 'Apex Computer Academy',
-    title: 'Full Stack Course Deal',
-    description: 'Get 30% scholarship on IT certification and diploma courses.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Education',
-    discount: '30% Scholarship',
-    bgGradient: 'linear-gradient(135deg, #34495E 0%, #2C3E50 100%)',
-  },
-  {
-    id: 16,
-    merchant: 'Ocean breeze Resort',
-    title: 'Weekend Getaway Offer',
-    description: 'Book 2 nights stay and get complimentary breakfast + spa voucher.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Travel & Stay',
-    discount: 'FREE Spa Voucher',
-    bgGradient: 'linear-gradient(135deg, #E67E22 0%, #F39C12 100%)',
-  },
 ];
 
 
@@ -265,272 +150,272 @@ const renderCategoryIcon = (key) => {
     case 'helmets':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 36C12 22.7 22.7 12 36 12C49.3 12 60 22.7 60 36V44H36C28 44 24 48 20 48H12V36Z" />
-          <circle cx="26" cy="36" r="3" fill="currentColor" />
-          <path d="M32 24H52" />
+          <path d="M12 36C12 22.7 22.7 12 36 12C49.3 12 60 22.7 60 36V44H36C28 44 24 48 20 48H12V36Z"/>
+          <circle cx="26" cy="36" r="3" fill="currentColor"/>
+          <path d="M32 24H52"/>
         </svg>
       );
     case 'software':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="14" y="12" width="36" height="24" rx="3" />
-          <path d="M22 20L18 24L22 28M42 20L46 24L42 28M34 18L30 30" />
-          <path d="M32 36V46M20 46H44" />
+          <rect x="14" y="12" width="36" height="24" rx="3"/>
+          <path d="M22 20L18 24L22 28M42 20L46 24L42 28M34 18L30 30"/>
+          <path d="M32 36V46M20 46H44"/>
         </svg>
       );
     case 'agri_research':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M26 12V24L14 44C12.5 46.5 14.3 50 17.3 50H46.7C49.7 50 51.5 46.5 50 44L38 24V12" />
-          <path d="M22 12H42M32 26V16M32 16C32 12 38 10 40 6M32 20C32 16 26 14 24 10" />
-          <circle cx="42" cy="38" r="7" />
-          <path d="M47 43L53 49" />
+          <path d="M26 12V24L14 44C12.5 46.5 14.3 50 17.3 50H46.7C49.7 50 51.5 46.5 50 44L38 24V12"/>
+          <path d="M22 12H42M32 26V16M32 16C32 12 38 10 40 6M32 20C32 16 26 14 24 10"/>
+          <circle cx="42" cy="38" r="7"/>
+          <path d="M47 43L53 49"/>
         </svg>
       );
     case 'cleaning':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10 48L32 20L42 24L20 52H10V48Z" />
-          <path d="M32 20L44 10L52 14L40 26" />
-          <circle cx="48" cy="46" r="6" />
-          <path d="M24 40H42M14 52H54" />
+          <path d="M10 48L32 20L42 24L20 52H10V48Z"/>
+          <path d="M32 20L44 10L52 14L40 26"/>
+          <circle cx="48" cy="46" r="6"/>
+          <path d="M24 40H42M14 52H54"/>
         </svg>
       );
     case 'bakery':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 28V50H52V28" />
-          <path d="M8 28H56L52 16H12L8 28Z" />
-          <path d="M20 38H44V50H20V38Z" />
-          <path d="M28 28C28 32 36 32 36 28" />
+          <path d="M12 28V50H52V28"/>
+          <path d="M8 28H56L52 16H12L8 28Z"/>
+          <path d="M20 38H44V50H20V38Z"/>
+          <path d="M28 28C28 32 36 32 36 28"/>
         </svg>
       );
     case 'agri_office':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="16" y="20" width="32" height="32" rx="2" />
-          <path d="M28 12H36V20H28V12Z" />
-          <rect x="22" y="26" width="6" height="6" />
-          <rect x="36" y="26" width="6" height="6" />
-          <rect x="22" y="36" width="6" height="6" />
-          <rect x="36" y="36" width="6" height="6" />
-          <path d="M28 52V44H36V52" />
+          <rect x="16" y="20" width="32" height="32" rx="2"/>
+          <path d="M28 12H36V20H28V12Z"/>
+          <rect x="22" y="26" width="6" height="6"/>
+          <rect x="36" y="26" width="6" height="6"/>
+          <rect x="22" y="36" width="6" height="6"/>
+          <rect x="36" y="36" width="6" height="6"/>
+          <path d="M28 52V44H36V52"/>
         </svg>
       );
     case 'physiotherapy':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="36" cy="14" r="5" fill="currentColor" />
-          <path d="M20 50C24 40 30 32 40 28C48 24 50 18 42 16C34 14 26 22 20 30C14 38 12 44 20 50Z" />
-          <path d="M12 40C20 48 34 52 52 42" />
+          <circle cx="36" cy="14" r="5" fill="currentColor"/>
+          <path d="M20 50C24 40 30 32 40 28C48 24 50 18 42 16C34 14 26 22 20 30C14 38 12 44 20 50Z"/>
+          <path d="M12 40C20 48 34 52 52 42"/>
         </svg>
       );
     case 'police':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 24L32 14L52 24V50H12V24Z" />
-          <path d="M8 24H56" />
-          <circle cx="32" cy="24" r="4" />
-          <rect x="24" y="34" width="16" height="16" />
-          <path d="M32 34V50" />
+          <path d="M12 24L32 14L52 24V50H12V24Z"/>
+          <path d="M8 24H56"/>
+          <circle cx="32" cy="24" r="4"/>
+          <rect x="24" y="34" width="16" height="16"/>
+          <path d="M32 34V50"/>
         </svg>
       );
     case 'catering':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="44" cy="16" r="5" />
-          <path d="M44 21V32M36 32H50M24 38C34 38 40 34 44 32L38 48H32L28 54H16L20 44" />
-          <path d="M24 36H48M12 36H24" />
+          <circle cx="44" cy="16" r="5"/>
+          <path d="M44 21V32M36 32H50M24 38C34 38 40 34 44 32L38 48H32L28 54H16L20 44"/>
+          <path d="M24 36H48M12 36H24"/>
         </svg>
       );
     case 'supplyco':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 26L32 14L48 26V50H16V26Z" />
-          <rect x="24" y="32" width="16" height="18" />
-          <rect x="28" y="20" width="8" height="6" />
+          <path d="M16 26L32 14L48 26V50H16V26Z"/>
+          <rect x="24" y="32" width="16" height="18"/>
+          <rect x="28" y="20" width="8" height="6"/>
         </svg>
       );
     case 'lighthouse':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M26 20L22 52H42L38 20H26Z" />
-          <path d="M24 20H40V14L32 8L24 14V20Z" />
-          <path d="M20 52C28 48 36 54 44 50" />
-          <path d="M24 30H40M23 40H41" />
+          <path d="M26 20L22 52H42L38 20H26Z"/>
+          <path d="M24 20H40V14L32 8L24 14V20Z"/>
+          <path d="M20 52C28 48 36 54 44 50"/>
+          <path d="M24 30H40M23 40H41"/>
         </svg>
       );
     case 'ration':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10 24L32 12L54 24V50H10V24Z" />
-          <rect x="20" y="30" width="24" height="20" />
-          <path d="M20 38H44M20 44H44M32 30V50" />
+          <path d="M10 24L32 12L54 24V50H10V24Z"/>
+          <rect x="20" y="30" width="24" height="20"/>
+          <path d="M20 38H44M20 44H44M32 30V50"/>
         </svg>
       );
     case 'museum':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 22L32 10L56 22V26H8V22Z" />
-          <path d="M14 26V46M26 26V46M38 26V46M50 26V46" />
-          <path d="M8 46H56V52H8V46Z" />
+          <path d="M8 22L32 10L56 22V26H8V22Z"/>
+          <path d="M14 26V46M26 26V46M38 26V46M50 26V46"/>
+          <path d="M8 46H56V52H8V46Z"/>
         </svg>
       );
     case 'child_welfare':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M32 10C42 10 50 18 50 30C50 44 32 54 32 54C32 54 14 44 14 30C14 18 22 10 32 10Z" />
-          <circle cx="32" cy="26" r="4" />
-          <path d="M26 40C26 34 38 34 38 40" />
+          <path d="M32 10C42 10 50 18 50 30C50 44 32 54 32 54C32 54 14 44 14 30C14 18 22 10 32 10Z"/>
+          <circle cx="32" cy="26" r="4"/>
+          <path d="M26 40C26 34 38 34 38 40"/>
         </svg>
       );
     case 'juice':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 24H50L46 50H18L14 24Z" />
-          <path d="M10 24H54L48 14H16L10 24Z" />
-          <path d="M24 34V42M32 32V44M40 34V42" />
-          <path d="M38 14L44 6" />
+          <path d="M14 24H50L46 50H18L14 24Z"/>
+          <path d="M10 24H54L48 14H16L10 24Z"/>
+          <path d="M24 34V42M32 32V44M40 34V42"/>
+          <path d="M38 14L44 6"/>
         </svg>
       );
     case 'pastry':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 24H52V50H12V24Z" />
-          <path d="M8 24C12 20 20 20 24 24C28 20 36 20 40 24C44 20 52 20 56 24" />
-          <path d="M20 34H44M20 42H44" />
-          <path d="M32 12V20" />
+          <path d="M12 24H52V50H12V24Z"/>
+          <path d="M8 24C12 20 20 20 24 24C28 20 36 20 40 24C44 20 52 20 56 24"/>
+          <path d="M20 34H44M20 42H44"/>
+          <path d="M32 12V20"/>
         </svg>
       );
     case 'poultry':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 48L24 28L36 34L48 20" />
-          <circle cx="48" cy="18" r="4" />
-          <path d="M10 50H54" />
-          <path d="M20 50C20 42 28 40 32 50" />
+          <path d="M14 48L24 28L36 34L48 20"/>
+          <circle cx="48" cy="18" r="4"/>
+          <path d="M10 50H54"/>
+          <path d="M20 50C20 42 28 40 32 50"/>
         </svg>
       );
     case 'temple':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M32 8L44 20H20L32 8Z" />
-          <path d="M16 20H48V30H16V20Z" />
-          <path d="M12 30H52V42H12V30Z" />
-          <path d="M8 42H56V52H8V42Z" />
-          <path d="M28 52V42H36V52" />
+          <path d="M32 8L44 20H20L32 8Z"/>
+          <path d="M16 20H48V30H16V20Z"/>
+          <path d="M12 30H52V42H12V30Z"/>
+          <path d="M8 42H56V52H8V42Z"/>
+          <path d="M28 52V42H36V52"/>
         </svg>
       );
     case 'homeo':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 28L32 12L52 28V52H12V28Z" />
-          <path d="M32 30V44M25 37H39" />
+          <path d="M12 28L32 12L52 28V52H12V28Z"/>
+          <path d="M32 30V44M25 37H39"/>
         </svg>
       );
     case 'health_center':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="14" y="16" width="36" height="36" rx="3" />
-          <circle cx="32" cy="26" r="6" />
-          <path d="M32 23V29M29 26H35" />
-          <rect x="22" y="38" width="6" height="14" />
-          <rect x="36" y="38" width="6" height="14" />
+          <rect x="14" y="16" width="36" height="36" rx="3"/>
+          <circle cx="32" cy="26" r="6"/>
+          <path d="M32 23V29M29 26H35"/>
+          <rect x="22" y="38" width="6" height="14"/>
+          <rect x="36" y="38" width="6" height="14"/>
         </svg>
       );
     case 'hotel':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="14" y="20" width="24" height="32" rx="2" />
-          <rect x="38" y="28" width="14" height="24" rx="2" />
-          <circle cx="48" cy="14" r="5" />
-          <path d="M20 28H26M30 28H34M20 36H26M30 36H34M20 44H26M30 44H34" />
+          <rect x="14" y="20" width="24" height="32" rx="2"/>
+          <rect x="38" y="28" width="14" height="24" rx="2"/>
+          <circle cx="48" cy="14" r="5"/>
+          <path d="M20 28H26M30 28H34M20 36H26M30 36H34M20 44H26M30 44H34"/>
         </svg>
       );
     case 'petrol':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="16" y="14" width="24" height="38" rx="3" />
-          <rect x="22" y="20" width="12" height="10" />
-          <path d="M40 24H48C50 24 52 26 52 28V42C52 45 49 46 47 44L44 41" />
-          <circle cx="44" cy="41" r="2" fill="currentColor" />
+          <rect x="16" y="14" width="24" height="38" rx="3"/>
+          <rect x="22" y="20" width="12" height="10"/>
+          <path d="M40 24H48C50 24 52 26 52 28V42C52 45 49 46 47 44L44 41"/>
+          <circle cx="44" cy="41" r="2" fill="currentColor"/>
         </svg>
       );
     case 'anganvadi':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="32" cy="32" r="20" />
-          <path d="M24 38C26 30 38 30 40 38" />
-          <circle cx="26" cy="26" r="3" />
-          <circle cx="38" cy="26" r="3" />
+          <circle cx="32" cy="32" r="20"/>
+          <path d="M24 38C26 30 38 30 40 38"/>
+          <circle cx="26" cy="26" r="3"/>
+          <circle cx="38" cy="26" r="3"/>
         </svg>
       );
     case 'ev':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="16" y="14" width="24" height="38" rx="3" />
-          <path d="M28 22L24 32H30L26 42" />
-          <path d="M40 24H48V38C48 41 46 43 43 43" />
-          <path d="M41 43V48M45 43V48" />
+          <rect x="16" y="14" width="24" height="38" rx="3"/>
+          <path d="M28 22L24 32H30L26 42"/>
+          <path d="M40 24H48V38C48 41 46 43 43 43"/>
+          <path d="M41 43V48M45 43V48"/>
         </svg>
       );
     case 'atm':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="14" y="12" width="36" height="40" rx="3" />
-          <rect x="20" y="18" width="24" height="10" />
-          <rect x="20" y="32" width="24" height="4" />
-          <rect x="24" y="40" width="16" height="8" />
+          <rect x="14" y="12" width="36" height="40" rx="3"/>
+          <rect x="20" y="18" width="24" height="10"/>
+          <rect x="20" y="32" width="24" height="4"/>
+          <rect x="24" y="40" width="16" height="8"/>
         </svg>
       );
     case 'furnishing':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 36H52V46H12V36Z" />
-          <path d="M16 26H48V36H16V26Z" />
-          <path d="M14 46V52M50 46V52" />
-          <path d="M20 14L28 26M28 14H20" />
+          <path d="M12 36H52V46H12V36Z"/>
+          <path d="M16 26H48V36H16V26Z"/>
+          <path d="M14 46V52M50 46V52"/>
+          <path d="M20 14L28 26M28 14H20"/>
         </svg>
       );
     case 'job':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="22" cy="20" r="5" />
-          <circle cx="42" cy="20" r="5" />
-          <path d="M14 36C14 30 30 30 30 36" />
-          <path d="M34 36C34 30 50 30 50 36" />
-          <path d="M12 44H52" />
+          <circle cx="22" cy="20" r="5"/>
+          <circle cx="42" cy="20" r="5"/>
+          <path d="M14 36C14 30 30 30 30 36"/>
+          <path d="M34 36C34 30 50 30 50 36"/>
+          <path d="M12 44H52"/>
         </svg>
       );
     case 'homestay':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 28L32 12L52 28V52H12V28Z" />
-          <path d="M20 44H44V36H20V44Z" />
-          <circle cx="26" cy="32" r="3" />
+          <path d="M12 28L32 12L52 28V52H12V28Z"/>
+          <path d="M20 44H44V36H20V44Z"/>
+          <circle cx="26" cy="32" r="3"/>
         </svg>
       );
     case 'lottery':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="32" cy="32" r="20" />
-          <path d="M20 36L32 20L44 36H20Z" />
-          <circle cx="32" cy="40" r="2" fill="currentColor" />
+          <circle cx="32" cy="32" r="20"/>
+          <path d="M20 36L32 20L44 36H20Z"/>
+          <circle cx="32" cy="40" r="2" fill="currentColor"/>
         </svg>
       );
     case 'furniture':
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 32H36V44H14V32Z" />
-          <path d="M18 24H32V32H18V24Z" />
-          <rect x="42" y="20" width="12" height="28" rx="2" />
-          <path d="M16 44V50M34 44V50M44 48V50M52 48V50" />
+          <path d="M14 32H36V44H14V32Z"/>
+          <path d="M18 24H32V32H18V24Z"/>
+          <rect x="42" y="20" width="12" height="28" rx="2"/>
+          <path d="M16 44V50M34 44V50M44 48V50M52 48V50"/>
         </svg>
       );
     default:
       return (
         <svg viewBox="0 0 64 64" width="54" height="54" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="16" y="16" width="32" height="32" rx="4" />
+          <rect x="16" y="16" width="32" height="32" rx="4"/>
         </svg>
       );
   }
@@ -1170,7 +1055,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
   }, []);
 
   const displayCategories = React.useMemo(() => {
-    if (Array.isArray(apiCategories) && apiCategories.length > 0) {
+    if (apiCategories.length > 0) {
       const colors = ['#FFF1F2', '#FFF7ED', '#EFF6FF', '#FDF2F8', '#FFFBEB', '#F0FDF4', '#F8FAFC', '#FAF5FF', '#FEF3C7', '#F1F5F9'];
       const defaultIcons = ['🍽️', '🛒', '📱', '👕', '💎', '💊', '🚗', '✂️', '🏠', '🔧', '🎓', '💼'];
 
@@ -1186,17 +1071,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
         active: selectedCategory === (c.name || c.category_name),
       }));
     }
-    return conceptCategories || [];
+    return conceptCategories;
   }, [apiCategories, selectedCategory]);
-
-  // Category Pagination Calculation (20 categories per page = 5 rows of 4 categories)
-  const categoriesPerPage = 20;
-  const safeCategories = displayCategories || [];
-  const totalCategoryPages = Math.ceil(safeCategories.length / categoriesPerPage) || 1;
-  const paginatedCategories = React.useMemo(() => {
-    const start = (categoryPage - 1) * categoriesPerPage;
-    return safeCategories.slice(start, start + categoriesPerPage);
-  }, [safeCategories, categoryPage, categoriesPerPage]);
 
 
   // Form State matching API spec:
@@ -1235,22 +1111,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     fetchMerchantsList(queryParams)
       .then((data) => {
         if (active && Array.isArray(data)) {
-          const formatted = data.map((item, idx) => ({
-            id: item.id || item._id || `backend-m-${idx}`,
-            name: item.business_name || item.name || item.owner_name || 'Merchant',
-            category: item.category || (item.categories && item.categories[0]) || 'General',
-            categoryKey: (item.category || (item.categories && item.categories[0]) || 'general').toLowerCase(),
-            location: item.city || item.district || item.location || 'Kerala',
-            address: item.address || item.landmark || `${item.city || 'Payyanur'}, Kerala`,
-            phone: item.phone_number || item.phone || '',
-            rating: item.rating || (4.0 + (idx % 10) * 0.1).toFixed(1),
-            image: item.merchant_photos?.[0] || item.image || item.logo_url || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
-            adBadge: item.is_sponsored || item.isSponsored ? 'SPONSORED' : item.badge || item.category?.toUpperCase() || '',
-            services: item.services || [],
-            service_timing: item.service_timing || '09:00 AM - 09:00 PM',
-            ...item
-          }));
-          setApiMerchants(formatted);
+          setApiMerchants(data);
         }
       })
       .catch((err) => {
@@ -1401,6 +1262,41 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return found ? found.name : districtId;
   };
 
+  const [userCoordinates, setUserCoordinates] = useState(null);
+  const [userFavorites, setUserFavorites] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('logo_user_favs') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleFavorite = (merchantId) => {
+    setUserFavorites((prev) => {
+      const next = prev.includes(merchantId)
+        ? prev.filter((id) => id !== merchantId)
+        : [...prev, merchantId];
+      try {
+        localStorage.setItem('logo_user_favs', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
+    const R = 6371; // km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   const openGoogleMaps = (name, address, e) => {
     if (e) e.stopPropagation();
     const query = encodeURIComponent(`${name}, ${address}`);
@@ -1416,17 +1312,23 @@ export default function LandingPage({ defaultTab = 'home' }) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
+        setUserCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
         setSelectedDistrict('kannur');
         setSelectedLocation('payyanur');
+        setSortBy('nearest');
         scrollToSection('establishments-section');
       },
       (error) => {
         setIsLocating(false);
+        setUserCoordinates({ lat: 12.0988, lng: 75.2045 });
         setSelectedDistrict('kannur');
         setSelectedLocation('all');
         scrollToSection('establishments-section');
       },
-      { timeout: 5000 }
+      { timeout: 7000 }
     );
   };
 
@@ -1458,6 +1360,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
         suggestions.push({ type: 'location', text: place.name, category: 'District Location', location: place.name });
       }
     });
+
     return suggestions.slice(0, 6);
   };
 
@@ -1591,8 +1494,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
-  // Use backend API merchants strictly
-  const sourceEstablishments = apiMerchants;
+  // Use backend API merchants exclusively when loaded from server
+  const sourceEstablishments = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
 
   // Filter Establishments list
   const filteredEstablishments = sourceEstablishments.filter((item) => {
@@ -1614,13 +1517,24 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Helper to count items per category key under active location
   const getCategoryCount = (catKey) => {
     if (catKey === 'all') {
-      return sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length;
+      return (
+        sourceEstablishments.filter((item) => matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')).length +
+        (apiMerchants.length > 0 ? 0 : featuredAdsList.filter((item) => matchesLocationFilter(item.location, item.address)).length)
+      );
     }
-    return sourceEstablishments.filter(
+    const estCount = sourceEstablishments.filter(
       (item) =>
         (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
         matchesLocationFilter(item.location || item.city || item.district || '', item.address || '')
     ).length;
+    const adCount = apiMerchants.length > 0
+      ? 0
+      : featuredAdsList.filter(
+          (item) =>
+            (item.categoryKey === catKey || (item.category && item.category.toLowerCase().includes(catKey.toLowerCase()))) &&
+            matchesLocationFilter(item.location, item.address)
+        ).length;
+    return estCount + adCount;
   };
 
   const resetAllFilters = () => {
@@ -1631,103 +1545,46 @@ export default function LandingPage({ defaultTab = 'home' }) {
   };
 
   // Sorting Option State & Logic
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy] = useState('recommended');
 
   const sortItems = (items) => {
     const list = [...items];
-    if (sortBy === 'location_asc') {
-      return list.sort((a, b) => (a.location || '').localeCompare(b.location || ''));
+    if (sortBy === 'nearest') {
+      const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
+      return list.sort((a, b) => {
+        const distA = calculateDistance(uCoords.lat, uCoords.lng, Number(a.latitude), Number(a.longitude));
+        const distB = calculateDistance(uCoords.lat, uCoords.lng, Number(b.latitude), Number(b.longitude));
+        return distA - distB;
+      });
+    }
+    if (sortBy === 'rating' || sortBy === 'rating_desc') {
+      return list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
+    }
+    if (sortBy === 'name' || sortBy === 'name_asc') {
+      return list.sort((a, b) => (a.business_name || a.name || '').localeCompare(b.business_name || b.name || ''));
     }
     if (sortBy === 'category_asc') {
       return list.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
     }
-    if (sortBy === 'rating_desc') {
-      return list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    }
-    if (sortBy === 'name_asc') {
-      return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }
     return list;
   };
 
-  // In-Grid Advertisement Option State & Frequency
-  const [showGridAds, setShowGridAds] = useState(true);
-  const [adFrequency, setAdFrequency] = useState(8); // Every 8 cards (exactly 2 full rows of 4 cards)
+  // Populate exclusively from Backend API merchants when available
+  const combinedEstablishmentsList = apiMerchants.length > 0 ? filteredEstablishments : [...filteredFeaturedAds, ...filteredEstablishments];
+  const sortedEstablishments = sortItems(combinedEstablishmentsList);
 
-  // Interleave Featured Advertisements using live API promotions strictly from backend
-  const interleavedEstablishments = React.useMemo(() => {
-    const baseList = sortItems(filteredEstablishments);
-    // Use LIVE API PROMOTIONS strictly from backend
-    const adsPool = livePromotions;
-
-    if (!showGridAds || adFrequency <= 0 || adsPool.length === 0) return baseList;
-
-    const result = [];
-    let adIdx = 0;
-
-    baseList.forEach((item, index) => {
-      // Standard merchant card remains in 4-column grid layout
-      result.push(item);
-
-      // Interleave full-width advertisement banner after every 2 full rows (8 cards)
-      if ((index + 1) % adFrequency === 0 && adIdx < adsPool.length * 4) {
-        const adItem = adsPool[adIdx % adsPool.length];
-        const colorThemes = [
-          'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-          'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
-          'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)',
-          'linear-gradient(135deg, #0096c7 0%, #03045e 100%)',
-        ];
-        result.push({
-          ...adItem,
-          id: `interleaved-ad-line-${adItem.id || adIdx}-${index}`,
-          isAdCard: true,
-          adBadge: adItem.adBadge || adItem.badge || 'SPONSORED AD',
-          bgGradient: adItem.bgGradient || colorThemes[adIdx % colorThemes.length],
-        });
-        adIdx++;
-      }
-    });
-
-    return result;
-  }, [filteredEstablishments, livePromotions, filteredFeaturedAds, sortBy, showGridAds, adFrequency]);
-  const sortedEstablishments = interleavedEstablishments;
-
-  // Establishments Pagination State (16 cards per page = 4 full rows of 4 cards)
   const [establishmentPage, setEstablishmentPage] = useState(1);
-  const establishmentsPerPage = 16;
+  const itemsPerPage = 18;
+  const totalEstablishmentPages = Math.ceil(sortedEstablishments.length / itemsPerPage);
+  const paginatedEstablishments = sortedEstablishments.slice(
+    (establishmentPage - 1) * itemsPerPage,
+    establishmentPage * itemsPerPage
+  );
 
+  // Reset page when filters change
   useEffect(() => {
     setEstablishmentPage(1);
   }, [selectedCategory, selectedDistrict, selectedLocation, searchQuery, sortBy]);
-
-  const totalEstablishmentPages = Math.ceil((sortedEstablishments?.length || 0) / establishmentsPerPage) || 1;
-
-  const paginatedEstablishments = React.useMemo(() => {
-    const start = (establishmentPage - 1) * establishmentsPerPage;
-    return (sortedEstablishments || []).slice(start, start + establishmentsPerPage);
-  }, [sortedEstablishments, establishmentPage, establishmentsPerPage]);
-
-  // Featured Offers Carousel State (8 cards per slide = 2 rows x 4 columns)
-  const [offerSlideIndex, setOfferSlideIndex] = useState(0);
-  const offersPerPage = 8;
-  const allFeaturedOffers = React.useMemo(() => {
-    return livePromotions.length > 0 ? livePromotions : conceptOffers;
-  }, [livePromotions]);
-  const totalOfferSlides = Math.ceil(allFeaturedOffers.length / offersPerPage) || 1;
-  const currentSlideOffers = React.useMemo(() => {
-    const start = offerSlideIndex * offersPerPage;
-    return allFeaturedOffers.slice(start, start + offersPerPage);
-  }, [allFeaturedOffers, offerSlideIndex, offersPerPage]);
-
-  // Auto slide featured offers carousel every 5s
-  useEffect(() => {
-    if (totalOfferSlides <= 1) return;
-    const timer = setInterval(() => {
-      setOfferSlideIndex((prev) => (prev + 1) % totalOfferSlides);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [totalOfferSlides]);
 
   const handleSelectPlace = (placeObj) => {
     const nameStr = typeof placeObj === 'string' ? placeObj : placeObj?.name || '';
@@ -1741,6 +1598,22 @@ export default function LandingPage({ defaultTab = 'home' }) {
       setSelectedLocation(nameStr.toLowerCase());
     }
     scrollToSection('establishments-section');
+  };
+
+  const handleCardDirections = (m) => {
+    const lat = m.latitude;
+    const lng = m.longitude;
+    if (lat && lng) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    } else {
+      openGoogleMaps(m.business_name || m.name, m.address || m.location);
+    }
+  };
+
+  const handleCardCall = (phone) => {
+    if (phone) {
+      window.open(`tel:${phone}`, '_self');
+    }
   };
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -1798,6 +1671,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
           {/* Header Right Actions */}
           <div className="landing-header-right" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
             <button
+              className="btn btn-outline btn-sm"
+              onClick={() => setOnboardModalOpen(true)}
+              style={{ fontSize: 13 }}
+            >
+              + List Merchant
+            </button>
+            <Link to="/login" className="btn btn-primary btn-sm" style={{ textDecoration: 'none' }}>
+              Admin Portal
+            </Link>
+            <button
               className="landing-mobile-nav-toggle"
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
               aria-label="Toggle Navigation"
@@ -1819,130 +1702,85 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       </div>
 
-      {/* 2. Banner Carousel Hero Section */}
-      <section className="landing-hero-section">
-        <div className="landing-hero-backdrop"></div>
-
-        <div className="landing-carousel-wrapper">
-          <div className="landing-carousel-container">
-            {displayBanners.map((slide, idx) => {
-              const isCenter = idx === currentSlide;
-              const isPrev =
-                idx === (currentSlide - 1 + displayBanners.length) % displayBanners.length;
-              const isNext = idx === (currentSlide + 1) % displayBanners.length;
-
-              let cardClass = 'landing-banner-card hidden';
-              if (isCenter) cardClass = 'landing-banner-card active';
-              else if (isPrev) cardClass = 'landing-banner-card prev';
-              else if (isNext) cardClass = 'landing-banner-card next';
-
-              return (
-                <div
-                  key={slide.id}
-                  className={cardClass}
-                  style={{ background: slide.bgGradient, cursor: 'pointer' }}
-                  onClick={() => {
-                    if (isCenter) {
-                      setSelectedPromoModal(slide);
-                    } else {
-                      setCurrentSlide(idx);
-                    }
-                  }}
-                >
-                  <div
-                    className="landing-banner-accent"
-                    style={{ background: slide.accentColor }}
-                  ></div>
-                  <div className="landing-banner-badge">{slide.badge}</div>
-
-                  <h2 className="landing-banner-title">{slide.title}</h2>
-                  <h4 className="landing-banner-sub">{slide.subtitle}</h4>
-                  <p className="landing-banner-desc">{slide.description}</p>
-
-                  <div className="landing-banner-footer">
-                    <span className="landing-banner-tagline">
-                      ⭐ {slide.tagline}
-                    </span>
-                    <div className="landing-banner-info">
-                      <span>
-                        <HiLocationMarker /> {slide.location}
-                      </span>
-                      <span>
-                        <HiPhone /> {slide.phone}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* 2. Zeashell Location Access Prompt (LOGO Royal Blue Theme) */}
+      <div className="zeas-blue-location-prompt">
+        <div className="zeas-blue-location-prompt-inner">
+          <div className="zeas-blue-location-prompt-text">
+            <div className="zeas-blue-location-prompt-icon">
+              <HiLocationMarker />
+            </div>
+            <div className="zeas-blue-location-prompt-titles">
+              <h3>Find shops near you</h3>
+              <p>Allow location access to discover nearby verified shops and services.</p>
+            </div>
           </div>
-
-          {/* Controls */}
-          <button
-            onClick={() =>
-              setCurrentSlide(
-                (prev) => (prev - 1 + displayBanners.length) % displayBanners.length
-              )
-            }
-            className="landing-carousel-arrow left"
-            aria-label="Previous Slide"
-          >
-            <HiChevronLeft />
-          </button>
-          <button
-            onClick={() =>
-              setCurrentSlide((prev) => (prev + 1) % displayBanners.length)
-            }
-            className="landing-carousel-arrow right"
-            aria-label="Next Slide"
-          >
-            <HiChevronRight />
-          </button>
-
-          {/* Dots */}
-          <div className="landing-carousel-dots">
-            {displayBanners.map((_, idx) => (
-              <button
-                key={idx}
-                className={`landing-dot ${idx === currentSlide ? 'active' : ''}`}
-                onClick={() => setCurrentSlide(idx)}
-              />
-            ))}
+          <div className="zeas-blue-location-prompt-actions">
+            <button
+              type="button"
+              className="zeas-blue-btn-white"
+              onClick={handleDetectLocation}
+              disabled={isLocating}
+            >
+              <HiLocationMarker size={16} />
+              {isLocating ? 'Detecting Location...' : 'Use Current Location'}
+            </button>
+            <button
+              type="button"
+              className="zeas-blue-btn-outline"
+              onClick={() => scrollToSection('categories-section')}
+            >
+              Choose Location
+            </button>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* 4. Filter & Search Section */}
-      <section id="categories-section" className="landing-filter-section">
-        <div className="landing-filter-container">
-          <div className="landing-search-box-wrapper">
-            <div className="landing-search-box">
-              <HiSearch className="landing-search-icon" />
-              <input
-                type="text"
-                placeholder="Search establishments, services, categories, or locations..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowSuggestions(true);
+      {/* 3. Full-Width Advertisement Banner Slider (Zeashell Style) */}
+      <ZeashellBannerSlider
+        banners={displayBanners}
+        onBannerClick={(banner) => setSelectedPromoModal(banner)}
+      />
+
+      {/* 4. Popular Categories in Kerala (Zeashell OLX Style Grid) */}
+      <ZeashellCategoryRow
+        categories={displayCategories}
+        allCategories={apiCategories}
+        activeCategory={selectedCategory}
+        onSelectCategory={(catName) => {
+          setSelectedCategory(catName);
+          scrollToSection('establishments-section');
+        }}
+      />
+
+      {/* 5. Filter & Search Section (Zeashell Style Pill Box) */}
+      <section id="categories-section" className="zeas-blue-filter-container">
+        <div className="zeas-blue-search-pill-box">
+          <div className="zeas-blue-search-input-group">
+            <HiSearch size={20} color="#64748b" />
+            <input
+              type="text"
+              placeholder="Search 1,000+ shops, services, or locations in Kerala..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setShowSuggestions(false);
                 }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                className="landing-search-input"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowSuggestions(false);
-                  }}
-                  className="landing-search-clear"
-                  aria-label="Clear search"
-                >
-                  <HiX />
-                </button>
-              )}
-            </div>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                aria-label="Clear search"
+              >
+                <HiX size={18} />
+              </button>
+            )}
 
             {/* Live Auto-Fill Suggestions Dropdown */}
             {showSuggestions && searchQuery.trim().length > 0 && (
@@ -1972,39 +1810,15 @@ export default function LandingPage({ defaultTab = 'home' }) {
             )}
           </div>
 
-          <div className="landing-category-filter">
-            <span className="filter-label">Category:</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                scrollToSection('establishments-section');
-              }}
-              className="landing-select"
-            >
-              <option value="all">All Categories</option>
-              {displayCategories.map((cat) => {
-                const catName = cat.title || cat.name;
-                return (
-                  <option key={cat.id} value={catName}>
-                    {catName}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          <div className="landing-district-filter">
-            <span className="filter-label">District:</span>
+          <div className="zeas-blue-filter-select-group">
             <select
               value={selectedDistrict}
               onChange={(e) => {
-                const newDistrict = e.target.value;
-                setSelectedDistrict(newDistrict);
+                setSelectedDistrict(e.target.value);
                 setSelectedLocation('all');
                 scrollToSection('establishments-section');
               }}
-              className="landing-select"
+              className="zeas-blue-filter-select"
             >
               <option value="all">All Districts (Kerala)</option>
               {placesList.map((p) => (
@@ -2015,19 +1829,18 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </select>
           </div>
 
-          <div className="landing-location-filter">
-            <span className="filter-label">Location:</span>
+          <div className="zeas-blue-filter-select-group">
             <select
               value={selectedLocation}
               onChange={(e) => {
                 setSelectedLocation(e.target.value);
                 scrollToSection('establishments-section');
               }}
-              className="landing-select"
+              className="zeas-blue-filter-select"
             >
               <option value="all">
                 {selectedDistrict === 'all'
-                  ? 'All Locations (Kerala)'
+                  ? 'All Towns (Kerala)'
                   : `All Towns in ${getDistrictName(selectedDistrict)}`}
               </option>
               {getAvailableLocations().map((loc) => (
@@ -2036,21 +1849,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 </option>
               ))}
             </select>
-
-            <button
-              onClick={handleDetectLocation}
-              className="gps-locate-btn"
-              title="Detect nearest district location"
-            >
-              <HiLocationMarker />
-              <span>{isLocating ? 'Locating...' : 'Near Me'}</span>
-            </button>
           </div>
         </div>
 
         {/* Active Filter Chips Bar */}
         {(selectedDistrict !== 'all' || selectedLocation !== 'all' || selectedCategory !== 'all' || searchQuery.trim() !== '') && (
-          <div className="active-filters-chips-bar">
+          <div className="active-filters-chips-bar" style={{ marginTop: 12 }}>
             <span className="chips-title">Active Filters:</span>
             {selectedDistrict !== 'all' && (
               <button
@@ -2099,88 +1903,45 @@ export default function LandingPage({ defaultTab = 'home' }) {
         )}
       </section>
 
-      {/* 5. Establishments / Services Grid Section */}
-      <section id="establishments-section" className="landing-establishments-section">
-        <div className="landing-section-header" style={{ textAlign: 'center', marginBottom: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <h2 className="landing-section-title" style={{ margin: 0 }}>Establishments / Services</h2>
-          <p className="landing-section-sub" style={{ margin: 0 }}>
-            Showing {sortedEstablishments.length > 0 ? `${(establishmentPage - 1) * establishmentsPerPage + 1}–${Math.min(establishmentPage * establishmentsPerPage, sortedEstablishments.length)} of ${sortedEstablishments.length}` : '0'} verified local merchants and providers{' '}
-            {selectedLocation !== 'all' ? `in "${selectedLocation.toUpperCase()}"` : 'in your locality'}
-          </p>
+      {/* 6. Nearby Shops Section (Zeashell Style Cards with Real GPS Proximity) */}
+      <section id="establishments-section" className="zeas-blue-merchants-section">
+        <div className="zeas-blue-merchants-header">
+          <div>
+            <h2 className="zeas-blue-merchants-title">
+              {selectedDistrict !== 'all'
+                ? `Shops in ${getDistrictName(selectedDistrict)}`
+                : selectedLocation !== 'all'
+                ? `Shops in ${selectedLocation.toUpperCase()}`
+                : userCoordinates
+                ? 'Shops near you'
+                : 'Fresh Recommendations'}
+            </h2>
+            <p className="zeas-blue-merchants-subtitle">
+              {sortedEstablishments.length} verified shops found
+              {userCoordinates ? ' • Nearest to you first' : ' in Kerala'}
+            </p>
+          </div>
 
-          {totalEstablishmentPages > 1 && (
-            <div className="establishment-pagination-controls" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '6px' }}>
-              <button
-                type="button"
-                aria-label="Previous Establishment Page"
-                disabled={establishmentPage === 1}
-                onClick={() => {
-                  setEstablishmentPage((prev) => Math.max(prev - 1, 1));
-                  scrollToSection('establishments-section');
-                }}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  border: '1px solid #cbd5e1',
-                  background: establishmentPage === 1 ? '#f1f5f9' : '#ffffff',
-                  color: establishmentPage === 1 ? '#94a3b8' : '#0f172a',
-                  cursor: establishmentPage === 1 ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                &lt;
-              </button>
-              <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>
-                Page {establishmentPage} of {totalEstablishmentPages}
-              </span>
-              <button
-                type="button"
-                aria-label="Next Establishment Page"
-                disabled={establishmentPage === totalEstablishmentPages}
-                onClick={() => {
-                  setEstablishmentPage((prev) => Math.min(prev + 1, totalEstablishmentPages));
-                  scrollToSection('establishments-section');
-                }}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  border: '1px solid #cbd5e1',
-                  background: establishmentPage === totalEstablishmentPages ? '#f1f5f9' : '#ffffff',
-                  color: establishmentPage === totalEstablishmentPages ? '#94a3b8' : '#0f172a',
-                  cursor: establishmentPage === totalEstablishmentPages ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                &gt;
-              </button>
-            </div>
-          )}
+          <div className="zeas-blue-sort-wrap">
+            <label htmlFor="sort-select">Sort by:</label>
+            <select
+              id="sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="zeas-blue-sort-select"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="nearest">Nearest (GPS Distance)</option>
+              <option value="rating">Top Rated</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </div>
         </div>
 
         {isLoadingMerchants ? (
-          <div className="landing-grid">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div key={`skel-est-${idx}`} className="establishment-card" style={{ padding: 16 }}>
-                <div className="skeleton-box" style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 12 }} />
-                <div className="skeleton-box" style={{ width: '70%', height: 18, marginBottom: 8 }} />
-                <div className="skeleton-box" style={{ width: '40%', height: 14, marginBottom: 8 }} />
-                <div className="skeleton-box" style={{ width: '90%', height: 14 }} />
-              </div>
-            ))}
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#2563eb' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Loading genuine shops from database...</div>
+            <div style={{ fontSize: 13, color: '#64748b' }}>Accessing 1,034 verified merchants in Kerala</div>
           </div>
         ) : sortedEstablishments.length === 0 ? (
           <div className="landing-empty-state">
@@ -2188,11 +1949,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <h3>No establishments found</h3>
             <p>Try searching for a different term or select "All Locations".</p>
             <button
-              onClick={() => {
-                setSelectedCategory('all');
-                setSelectedLocation('all');
-                setSearchQuery('');
-              }}
+              onClick={resetAllFilters}
               className="btn btn-primary"
               style={{ marginTop: 12 }}
             >
@@ -2201,200 +1958,64 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         ) : (
           <>
-            <div className="landing-grid">
-              {paginatedEstablishments.map((item) => {
-                if (item.isAdCard) {
-                  return (
-                    <div
-                      key={item.id}
-                      className="ad-banner-line-card"
-                      style={{
-                        gridColumn: '1 / -1',
-                        width: '100%',
-                        background: item.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                        borderRadius: '16px',
-                        padding: '24px 32px',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '20px',
-                        boxShadow: '0 12px 30px rgba(2, 132, 199, 0.25)',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        cursor: 'pointer',
-                        margin: '12px 0',
-                      }}
-                      onClick={() => {
-                        if (item.title || item.description) {
-                          setSelectedPromoModal(item);
-                        } else {
-                          navigate(`/place/${item.id}`, { state: { merchant: item } });
-                        }
-                      }}
-                    >
-                      {/* Left Info: Badge, Title & Subtitle */}
-                      <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ background: '#FDE047', color: '#0F172A', fontWeight: '800', fontSize: '11px', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            📢 {item.adBadge || item.badge || 'FEATURED PROMOTION'}
-                          </span>
-                          <span style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)' }}>
-                            {item.subtitle || item.category}
-                          </span>
-                        </div>
-                        <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#FFFFFF', margin: 0, letterSpacing: '-0.3px' }}>
-                          {item.name || item.title}
-                        </h3>
-                        <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.9)', margin: 0, lineHeight: '1.5' }}>
-                          {item.description || item.tagline || `Exclusive offer for ${item.category || 'local services'} in ${item.location || 'Kerala'}.`}
-                        </p>
-                      </div>
-
-                      {/* Middle Info: Location & Contact */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '1px solid rgba(255, 255, 255, 0.2)', paddingLeft: '20px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#FFFFFF' }}>
-                          <HiLocationMarker style={{ color: '#FDE047' }} /> {item.location}
-                        </span>
-                        {item.phone && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#FFFFFF' }}>
-                            <HiPhone style={{ color: '#FDE047' }} /> {item.phone}
-                          </span>
-                        )}
-                        {item.tagline && (
-                          <span style={{ fontSize: '12px', color: '#FDE047', fontWeight: '700' }}>
-                            ⭐ {item.tagline}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Right CTA Button */}
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <button
-                          className="btn"
-                          style={{
-                            background: '#FFFFFF',
-                            color: '#0284c7',
-                            fontWeight: '800',
-                            padding: '10px 22px',
-                            borderRadius: '12px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontSize: '14px',
-                            boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-                          }}
-                        >
-                          View Offer <HiChevronRight />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div
-                    key={item.id}
-                    className="establishment-card"
-                    onClick={() => navigate(`/place/${item.id}`, { state: { merchant: item } })}
-                  >
-                    <div className="establishment-image-wrapper">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="establishment-image"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src =
-                            'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-                        }}
-                      />
-                      <div
-                        className={`establishment-category-tag ${item.adBadge === 'SPONSORED'
-                            ? 'ad-badge-blue'
-                            : item.adBadge
-                              ? 'ad-badge-orange'
-                              : ''
-                          }`}
-                      >
-                        {item.adBadge || item.category}
-                      </div>
-                      <div className="establishment-rating">
-                        <HiStar style={{ color: '#F59E0B' }} /> {item.rating}
-                      </div>
-                    </div>
-
-                    <div className="establishment-card-content">
-                      <h3 className="establishment-name">{item.name}</h3>
-
-                      <div className="establishment-meta">
-                        <span
-                          className="meta-item meta-map-link"
-                          onClick={(e) => openGoogleMaps(item.name, item.address, e)}
-                          title="Open location in Google Maps"
-                        >
-                          <HiLocationMarker className="meta-icon map-pin-icon" />
-                          <span className="location-txt-link">{item.location} (Map)</span>
-                        </span>
-                        <span className="meta-item">
-                          <HiPhone className="meta-icon" /> {item.phone}
-                        </span>
-                        {item.offerTag && (
-                          <span className="meta-item ad-offer-tag">
-                            ⭐ {item.offerTag}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="establishment-card-footer">
-                        <span className="establishment-category-sub">
-                          {item.category}
-                        </span>
-                        <div className="establishment-arrow-btn">
-                          <HiChevronRight />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="zeas-blue-merchant-grid">
+              {paginatedEstablishments.map((merchant) => (
+                <ZeashellMerchantCard
+                  key={merchant.id}
+                  merchant={merchant}
+                  userCoordinates={userCoordinates}
+                  isFavorite={userFavorites.includes(merchant.id)}
+                  onToggleFavorite={handleToggleFavorite}
+                  onViewShop={handleSelectMerchantCard}
+                  onDirections={handleCardDirections}
+                  onCall={handleCardCall}
+                />
+              ))}
             </div>
 
+            {/* Pagination Controls */}
             {totalEstablishmentPages > 1 && (
-              <div className="establishment-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '32px', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginTop: '36px',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <button
                   type="button"
-                  aria-label="Previous Establishment Page"
                   disabled={establishmentPage === 1}
                   onClick={() => {
                     setEstablishmentPage((prev) => Math.max(prev - 1, 1));
                     scrollToSection('establishments-section');
                   }}
+                  className="btn btn-outline btn-sm"
                   style={{
-                    height: '36px',
-                    padding: '0 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    background: '#ffffff',
-                    color: establishmentPage === 1 ? '#cbd5e1' : '#475569',
-                    fontWeight: '700',
-                    fontSize: '13px',
+                    borderRadius: 8,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
                     cursor: establishmentPage === 1 ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
+                    opacity: establishmentPage === 1 ? 0.5 : 1,
                   }}
                 >
                   &lt; Prev
                 </button>
 
                 {Array.from({ length: totalEstablishmentPages }, (_, idx) => idx + 1)
-                  .filter((p) => p === 1 || p === totalEstablishmentPages || Math.abs(p - establishmentPage) <= 1)
+                  .filter((p) => p === 1 || p === totalEstablishmentPages || Math.abs(p - establishmentPage) <= 2)
                   .map((pNum, index, array) => {
                     const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
                     return (
                       <React.Fragment key={pNum}>
-                        {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
+                        {showEllipsisBefore && (
+                          <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>
+                            ...
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -2402,17 +2023,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
                             scrollToSection('establishments-section');
                           }}
                           style={{
-                            minWidth: '36px',
-                            height: '36px',
-                            padding: '0 12px',
-                            borderRadius: '10px',
-                            border: establishmentPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
-                            background: establishmentPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
-                            color: establishmentPage === pNum ? '#ffffff' : '#475569',
+                            minWidth: '38px',
+                            height: '38px',
+                            padding: '0 10px',
+                            borderRadius: '8px',
+                            border: establishmentPage === pNum ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                            background: establishmentPage === pNum ? '#2563eb' : '#ffffff',
+                            color: establishmentPage === pNum ? '#ffffff' : '#334155',
                             fontWeight: '700',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             cursor: 'pointer',
-                            boxShadow: establishmentPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
                             transition: 'all 0.2s ease',
                           }}
                         >
@@ -2424,23 +2044,19 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
                 <button
                   type="button"
-                  aria-label="Next Establishment Page"
                   disabled={establishmentPage === totalEstablishmentPages}
                   onClick={() => {
                     setEstablishmentPage((prev) => Math.min(prev + 1, totalEstablishmentPages));
                     scrollToSection('establishments-section');
                   }}
+                  className="btn btn-outline btn-sm"
                   style={{
-                    height: '36px',
-                    padding: '0 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    background: '#ffffff',
-                    color: establishmentPage === totalEstablishmentPages ? '#cbd5e1' : '#475569',
-                    fontWeight: '700',
-                    fontSize: '13px',
+                    borderRadius: 8,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
                     cursor: establishmentPage === totalEstablishmentPages ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
+                    opacity: establishmentPage === totalEstablishmentPages ? 0.5 : 1,
                   }}
                 >
                   Next &gt;
@@ -2451,265 +2067,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
         )}
       </section>
 
-      {/* Popular Categories Grid Section */}
-      <section id="popular-categories-section" className="zeas-categories-section">
-        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 className="zeas-section-title" style={{ margin: 0 }}>Popular Categories in Kerala</h2>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-              Showing {displayCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, displayCategories.length)} of ${displayCategories.length}` : '0'} categories
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {totalCategoryPages > 1 && (
-              <div className="category-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  aria-label="Previous Category Page"
-                  disabled={categoryPage === 1}
-                  onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    border: '1px solid #cbd5e1',
-                    background: categoryPage === 1 ? '#f1f5f9' : '#ffffff',
-                    color: categoryPage === 1 ? '#94a3b8' : '#0f172a',
-                    cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  &lt;
-                </button>
-                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>
-                  {categoryPage} / {totalCategoryPages}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next Category Page"
-                  disabled={categoryPage === totalCategoryPages}
-                  onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    border: '1px solid #cbd5e1',
-                    background: categoryPage === totalCategoryPages ? '#f1f5f9' : '#ffffff',
-                    color: categoryPage === totalCategoryPages ? '#94a3b8' : '#0f172a',
-                    cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  &gt;
-                </button>
-              </div>
-            )}
-            <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
-              All Categories &gt;
-            </button>
-          </div>
-        </div>
-
-        <div className="zeas-categories-grid">
-          {paginatedCategories.map((cat) => (
-            <div
-              key={cat.id}
-              className={`zeas-cat-card ${cat.active ? 'active' : ''}`}
-              onClick={() => {
-                setSelectedCategory(cat.title || cat.name);
-                scrollToSection('establishments-section');
-              }}
-            >
-              <div className="zeas-cat-icon-wrapper" style={{ background: cat.color }}>
-                {cat.icon_url ? (
-                  <img
-                    src={cat.icon_url}
-                    alt={cat.title || cat.name}
-                    style={{ width: 28, height: 28, objectFit: 'contain' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  cat.icon
-                )}
-              </div>
-              <span className="zeas-cat-title">{cat.title || cat.name}</span>
-            </div>
-          ))}
-        </div>
-
-        {totalCategoryPages > 1 && (
-          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              disabled={categoryPage === 1}
-              onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
-              style={{
-                height: '36px',
-                padding: '0 14px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
-                color: categoryPage === 1 ? '#cbd5e1' : '#475569',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              &lt; Prev
-            </button>
-
-            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1)
-              .filter((p) => p === 1 || p === totalCategoryPages || Math.abs(p - categoryPage) <= 1)
-              .map((pNum, index, array) => {
-                const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
-                return (
-                  <React.Fragment key={pNum}>
-                    {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
-                    <button
-                      type="button"
-                      onClick={() => setCategoryPage(pNum)}
-                      style={{
-                        minWidth: '36px',
-                        height: '36px',
-                        padding: '0 12px',
-                        borderRadius: '10px',
-                        border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
-                        background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
-                        color: categoryPage === pNum ? '#ffffff' : '#475569',
-                        fontWeight: '700',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {pNum}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-
-            <button
-              type="button"
-              disabled={categoryPage === totalCategoryPages}
-              onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
-              style={{
-                height: '36px',
-                padding: '0 14px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
-                color: categoryPage === totalCategoryPages ? '#cbd5e1' : '#475569',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Next &gt;
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* 🔥 Featured Offers Section */}
-      <section id="featured-offers-section" className="zeas-offers-section">
-        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <h2 className="zeas-section-title" style={{ margin: 0 }}>🔥 Featured Offers</h2>
-          {totalOfferSlides > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="landing-carousel-arrow left"
-                onClick={() => setOfferSlideIndex((prev) => (prev - 1 + totalOfferSlides) % totalOfferSlides)}
-                style={{
-                  position: 'static',
-                  transform: 'none',
-                  width: 38,
-                  height: 38,
-                  fontSize: 18,
-                  cursor: 'pointer',
-                }}
-                aria-label="Previous Offers Slide"
-              >
-                &lt;
-              </button>
-              <button
-                className="landing-carousel-arrow right"
-                onClick={() => setOfferSlideIndex((prev) => (prev + 1) % totalOfferSlides)}
-                style={{
-                  position: 'static',
-                  transform: 'none',
-                  width: 38,
-                  height: 38,
-                  fontSize: 18,
-                  cursor: 'pointer',
-                }}
-                aria-label="Next Offers Slide"
-              >
-                &gt;
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="zeas-offers-grid">
-          {currentSlideOffers.map((offer) => (
-            <div key={offer.id} className="zeas-offer-card">
-              <div className="zeas-offer-banner" style={{ background: offer.bgGradient || 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' }}>
-                <span className="zeas-offer-badge">{offer.discount || offer.badge || 'PROMO'}</span>
-                <h3 style={{ fontSize: 18, fontWeight: 800, textAlign: 'center' }}>{offer.title || offer.name}</h3>
-              </div>
-              <div className="zeas-offer-body">
-                <span className="zeas-offer-merchant">{offer.merchant || offer.business_name || 'Verified Merchant'}</span>
-                <h4 className="zeas-offer-title">{offer.title || offer.name}</h4>
-                <p className="zeas-offer-desc">{offer.description || offer.subtitle || 'Exclusive local deal for services and products.'}</p>
-                <div className="zeas-offer-footer">
-                  <span className="zeas-offer-validity">{offer.validity || offer.tagline || 'Limited Period'}</span>
-                  <span className="zeas-offer-cat-pill">{offer.category || 'Offer'}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {totalOfferSlides > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 24 }}>
-            {Array.from({ length: totalOfferSlides }).map((_, idx) => (
-              <button
-                key={`offer-dot-${idx}`}
-                type="button"
-                onClick={() => setOfferSlideIndex(idx)}
-                style={{
-                  width: offerSlideIndex === idx ? 24 : 8,
-                  height: 8,
-                  borderRadius: 4,
-                  border: 'none',
-                  background: offerSlideIndex === idx ? '#6C63FF' : '#CBD5E1',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                }}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* 7. 🔥 Featured Offers Carousel (Zeashell Style) */}
+      <ZeashellOffersCarousel
+        offers={conceptOffers}
+        onSelectOffer={(offer) => setSelectedPromoModal(offer)}
+      />
 
       {/* 6. News & Updates Section (Matching screenshot 3) */}
       <section className="landing-news-section">

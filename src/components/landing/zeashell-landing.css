@@ -1,0 +1,881 @@
+/* ==========================================================================
+   LOGO APP — ZEASHELL MODERN UI LAYOUT (ROYAL BLUE THEME)
+   ========================================================================== */
+
+:root {
+  --logo-primary: #2563eb;
+  --logo-primary-hover: #1d4ed8;
+  --logo-primary-dark: #1e40af;
+  --logo-primary-light: #eff6ff;
+  --logo-primary-soft: #dbeafe;
+  --logo-accent: #3b82f6;
+  --logo-text-dark: #0f172a;
+  --logo-text-body: #334155;
+  --logo-text-muted: #64748b;
+  --logo-border: #e2e8f0;
+  --logo-border-light: #f1f5f9;
+  --logo-bg-card: #ffffff;
+  --logo-bg-page: #f8fafc;
+  --logo-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --logo-shadow-card: 0 4px 16px rgba(15, 23, 42, 0.06);
+  --logo-shadow-hover: 0 12px 28px rgba(37, 99, 235, 0.12);
+  --logo-radius-sm: 8px;
+  --logo-radius-md: 12px;
+  --logo-radius-lg: 16px;
+  --logo-radius-full: 9999px;
+  --logo-transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 1. Location Access Prompt Banner */
+.zeas-blue-location-prompt {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+  color: #ffffff;
+  padding: 16px 24px;
+  box-shadow: 0 4px 14px rgba(30, 64, 175, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.zeas-blue-location-prompt-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.zeas-blue-location-prompt-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zeas-blue-location-prompt-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.zeas-blue-location-prompt-titles h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.2px;
+  color: #ffffff;
+}
+
+.zeas-blue-location-prompt-titles p {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.9;
+  color: #e0e7ff;
+}
+
+.zeas-blue-location-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zeas-blue-btn-white {
+  background: #ffffff;
+  color: var(--logo-primary);
+  border: none;
+  padding: 9px 20px;
+  border-radius: var(--logo-radius-full);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-btn-white:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.zeas-blue-btn-outline {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(4px);
+  padding: 9px 18px;
+  border-radius: var(--logo-radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+/* 2. Full-Width Banner Slider (Zero Left/Right Empty Gaps) */
+.zeas-blue-banner-slider-container {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+  user-select: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zeas-blue-banner-slider-track {
+  display: flex;
+  width: 100%;
+  transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.zeas-blue-banner-slide {
+  min-width: 100%;
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b132b;
+  cursor: pointer;
+}
+
+.zeas-blue-banner-image {
+  width: 100%;
+  height: clamp(170px, 32vw, 440px);
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transition: opacity 0.25s ease, transform 0.4s ease;
+}
+
+.zeas-blue-banner-slide:hover .zeas-blue-banner-image {
+  opacity: 0.96;
+  transform: scale(1.01);
+}
+
+/* Banner Overlay Details (if banner is graphic or text) */
+.zeas-blue-banner-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 32px 36px;
+  background: linear-gradient(0deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.4) 50%, transparent 100%);
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.zeas-blue-banner-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.zeas-blue-banner-desc {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.9;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.zeas-blue-banner-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--logo-text-dark);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: var(--logo-transition);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.zeas-blue-banner-arrow:hover {
+  background: var(--logo-primary);
+  color: #ffffff;
+  border-color: var(--logo-primary);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.zeas-blue-banner-arrow.prev {
+  left: 20px;
+}
+
+.zeas-blue-banner-arrow.next {
+  right: 20px;
+}
+
+.zeas-blue-banner-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  padding: 6px 14px;
+  border-radius: var(--logo-radius-full);
+}
+
+.zeas-blue-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--logo-radius-full);
+  background: rgba(255, 255, 255, 0.55);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s ease;
+}
+
+.zeas-blue-banner-dot.active {
+  width: 24px;
+  background: #ffffff;
+}
+
+/* 3. Popular Categories in Kerala (Zeashell / OLX Style Grid) */
+.zeas-blue-category-section {
+  max-width: 1320px;
+  margin: 36px auto 28px;
+  padding: 0 24px;
+}
+
+.zeas-blue-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.zeas-blue-section-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--logo-text-dark);
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zeas-blue-view-all-btn {
+  background: transparent;
+  border: none;
+  color: var(--logo-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-view-all-btn:hover {
+  color: var(--logo-primary-hover);
+  transform: translateX(3px);
+}
+
+.zeas-blue-category-grid-olx {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+.zeas-blue-category-card {
+  background: var(--logo-bg-card);
+  border: 1.5px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  padding: 18px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: var(--logo-transition);
+  box-shadow: var(--logo-shadow-sm);
+}
+
+.zeas-blue-category-card:hover {
+  border-color: var(--logo-primary);
+  transform: translateY(-3px);
+  box-shadow: var(--logo-shadow-hover);
+}
+
+.zeas-blue-category-card.active {
+  border-color: var(--logo-primary);
+  background: var(--logo-primary-light);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
+}
+
+.zeas-blue-category-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--logo-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--logo-primary);
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-category-card:hover .zeas-blue-category-icon-box {
+  background: var(--logo-primary);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.zeas-blue-category-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--logo-text-dark);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 4. Search & Filter Bar (Pill Container) */
+.zeas-blue-filter-container {
+  max-width: 1320px;
+  margin: 16px auto 32px;
+  padding: 0 24px;
+}
+
+.zeas-blue-search-pill-box {
+  background: #ffffff;
+  border: 1.5px solid var(--logo-border);
+  border-radius: var(--logo-radius-lg);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--logo-shadow-card);
+  flex-wrap: wrap;
+}
+
+.zeas-blue-search-input-group {
+  flex: 2;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  padding: 8px 14px;
+  position: relative;
+}
+
+.zeas-blue-search-input-group input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--logo-text-dark);
+  width: 100%;
+}
+
+.zeas-blue-filter-select-group {
+  flex: 1;
+  min-width: 160px;
+}
+
+.zeas-blue-filter-select {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--logo-border);
+  border-radius: var(--logo-radius-md);
+  background: #f8fafc;
+  color: var(--logo-text-dark);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.zeas-blue-filter-select:focus {
+  border-color: var(--logo-primary);
+}
+
+/* 5. Nearby Merchants Section (Zeashell Style Grid) */
+.zeas-blue-merchants-section {
+  max-width: 1320px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+}
+
+.zeas-blue-merchants-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.zeas-blue-merchants-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--logo-text-dark);
+  letter-spacing: -0.3px;
+  margin: 0 0 4px 0;
+}
+
+.zeas-blue-merchants-subtitle {
+  font-size: 13px;
+  color: var(--logo-text-muted);
+  font-weight: 500;
+  margin: 0;
+}
+
+.zeas-blue-sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--logo-text-muted);
+}
+
+.zeas-blue-sort-select {
+  padding: 6px 12px;
+  border-radius: var(--logo-radius-sm);
+  border: 1px solid var(--logo-border);
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--logo-text-dark);
+  cursor: pointer;
+}
+
+.zeas-blue-merchant-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .zeas-blue-merchant-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .zeas-blue-merchant-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Zeashell-Style Merchant Card with LOGO Blue Theme */
+.zeas-blue-merchant-card {
+  background: var(--logo-bg-card);
+  border: 1px solid var(--logo-border);
+  border-radius: var(--logo-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--logo-shadow-card);
+  transition: var(--logo-transition);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: pointer;
+}
+
+.zeas-blue-merchant-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--logo-shadow-hover);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+/* Image 16:10 aspect ratio */
+.zeas-blue-merchant-card-image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.zeas-blue-merchant-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.zeas-blue-merchant-card:hover .zeas-blue-merchant-card-image img {
+  transform: scale(1.05);
+}
+
+.zeas-blue-merchant-fav-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  z-index: 2;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-merchant-fav-btn:hover {
+  background: #ffffff;
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.zeas-blue-merchant-fav-btn.active {
+  color: #ef4444;
+}
+
+.zeas-blue-merchant-badge-verified {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(37, 99, 235, 0.95);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Card Body */
+.zeas-blue-merchant-card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.zeas-blue-merchant-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--logo-text-dark);
+  margin: 0 0 6px 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.zeas-blue-merchant-card-cat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--logo-primary);
+  background: var(--logo-primary-light);
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+
+.zeas-blue-merchant-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--logo-text-body);
+  margin-bottom: 12px;
+}
+
+.zeas-blue-merchant-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zeas-blue-merchant-rating {
+  font-weight: 700;
+  color: var(--logo-text-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.zeas-blue-merchant-distance {
+  color: var(--logo-text-muted);
+  font-weight: 600;
+}
+
+.zeas-blue-merchant-status-open {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.zeas-blue-merchant-address {
+  font-size: 12px;
+  color: var(--logo-text-muted);
+  margin: 0 0 14px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+/* Card Action Buttons (View Shop, Directions, Call) */
+.zeas-blue-merchant-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--logo-border-light);
+}
+
+.zeas-blue-btn-action-primary {
+  flex: 1.2;
+  background: var(--logo-primary);
+  color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--logo-radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-btn-action-primary:hover {
+  background: var(--logo-primary-hover);
+}
+
+.zeas-blue-btn-action-secondary {
+  flex: 1;
+  background: #ffffff;
+  color: var(--logo-text-body);
+  border: 1px solid var(--logo-border);
+  padding: 8px 10px;
+  border-radius: var(--logo-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-btn-action-secondary:hover {
+  border-color: var(--logo-primary);
+  color: var(--logo-primary);
+  background: var(--logo-primary-light);
+}
+
+/* 6. 🔥 Featured Offers Carousel (Zeashell Style) */
+.zeas-blue-offers-section {
+  max-width: 1320px;
+  margin: 36px auto 48px;
+  padding: 0 24px;
+}
+
+.zeas-blue-offers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.zeas-blue-offers-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zeas-blue-offers-arrow-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--logo-border);
+  background: #ffffff;
+  color: var(--logo-text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--logo-transition);
+}
+
+.zeas-blue-offers-arrow-btn:hover {
+  background: var(--logo-primary);
+  color: #ffffff;
+  border-color: var(--logo-primary);
+}
+
+.zeas-blue-offers-carousel {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 6px 4px 16px;
+  scrollbar-width: none;
+}
+
+.zeas-blue-offers-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.zeas-blue-offer-card {
+  min-width: 320px;
+  max-width: 340px;
+  background: #ffffff;
+  border-radius: var(--logo-radius-lg);
+  box-shadow: var(--logo-shadow-card);
+  border: 1px solid var(--logo-border);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: var(--logo-transition);
+  cursor: pointer;
+}
+
+.zeas-blue-offer-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--logo-shadow-hover);
+  border-color: var(--logo-primary);
+}
+
+.zeas-blue-offer-banner {
+  height: 140px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  padding: 16px;
+}
+
+.zeas-blue-offer-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #ffffff;
+  color: #ef4444;
+  padding: 4px 10px;
+  border-radius: var(--logo-radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.zeas-blue-offer-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.zeas-blue-offer-merchant {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--logo-primary);
+  margin-bottom: 4px;
+}
+
+.zeas-blue-offer-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--logo-text-dark);
+  margin: 0 0 6px 0;
+}
+
+.zeas-blue-offer-desc {
+  font-size: 13px;
+  color: var(--logo-text-body);
+  line-height: 1.4;
+  margin: 0 0 14px 0;
+}
+
+.zeas-blue-offer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--logo-border-light);
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--logo-text-muted);
+}

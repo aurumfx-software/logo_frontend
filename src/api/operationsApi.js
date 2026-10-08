@@ -23,20 +23,25 @@ export const promotionsApi = {
   },
 
   async create(data) {
-    let res = await apiFetch('/promotions', {
+    const payload = {
+      ...data,
+      image_url: data.image_url || data.bannerUrl || data.banner_url || data.image || null,
+      target_url: data.target_url || data.targetUrl || '#',
+    };
+    let res = await apiFetch('/api/v1/promotions', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     if (!res || !res.ok) {
-      res = await apiFetch('/admin/promotions', {
+      res = await apiFetch('/promotions', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
     }
     if (!res || !res.ok) {
-      res = await apiFetch('/api/v1/promotions', {
+      res = await apiFetch('/admin/promotions', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
     }
     if (!res || !res.ok) {
@@ -48,20 +53,25 @@ export const promotionsApi = {
   },
 
   async update(id, data) {
-    let res = await apiFetch(`/promotions/${id}`, {
+    const payload = {
+      ...data,
+      image_url: data.image_url !== undefined ? data.image_url : (data.bannerUrl || data.banner_url || data.image || null),
+      target_url: data.target_url !== undefined ? data.target_url : (data.targetUrl || '#'),
+    };
+    let res = await apiFetch(`/api/v1/promotions/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     if (!res || !res.ok) {
-      res = await apiFetch(`/admin/promotions/${id}`, {
+      res = await apiFetch(`/promotions/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
     }
     if (!res || !res.ok) {
-      res = await apiFetch(`/api/v1/promotions/${id}`, {
+      res = await apiFetch(`/admin/promotions/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
     }
     if (!res || !res.ok) {
@@ -73,16 +83,16 @@ export const promotionsApi = {
   },
 
   async delete(id) {
-    let res = await apiFetch(`/promotions/${id}`, {
+    let res = await apiFetch(`/api/v1/promotions/${id}`, {
       method: 'DELETE',
     });
     if (!res || !res.ok) {
-      res = await apiFetch(`/admin/promotions/${id}`, {
+      res = await apiFetch(`/promotions/${id}`, {
         method: 'DELETE',
       });
     }
     if (!res || !res.ok) {
-      res = await apiFetch(`/api/v1/promotions/${id}`, {
+      res = await apiFetch(`/admin/promotions/${id}`, {
         method: 'DELETE',
       });
     }

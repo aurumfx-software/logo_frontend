@@ -50,46 +50,32 @@ export async function createPromotion(promoData) {
     location: promoData.location || '',
     start_date: promoData.startDate || promoData.start_date || new Date().toISOString().split('T')[0],
     end_date: promoData.endDate || promoData.end_date || '2026-12-31',
-    status: (promoData.status || 'ACTIVE').toUpperCase(),
-    banner_url: promoData.bannerUrl || promoData.image || '',
+    status: (promoData.status || 'ACTIVE').toLowerCase(),
+    image_url: promoData.image_url || promoData.banner_url || promoData.bannerUrl || promoData.image || null,
+    target_url: promoData.target_url || promoData.targetUrl || '#',
     merchant_id: promoData.merchantId || promoData.merchant_id || null,
   };
 
-  let response;
-  try {
+  let response = await apiFetch('/api/v1/promotions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!response || !response.ok) {
     response = await apiFetch('/promotions', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      response = await apiFetch('/admin/promotions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    }
-    if (!response.ok) {
-      response = await apiFetch('/api/v1/promotions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    }
-  } catch (err) {
-    try {
-      response = await apiFetch('/admin/promotions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    } catch (e2) {
-      response = await apiFetch('/api/v1/promotions', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    }
+  }
+  if (!response || !response.ok) {
+    response = await apiFetch('/admin/promotions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   const resData = await response.json().catch(() => ({}));
 
-  if (!response.ok || resData.success === false) {
+  if (!response || !response.ok || resData.success === false) {
     throw new Error(resData.message || resData.detail || 'Failed to create promotion');
   }
 
@@ -97,31 +83,35 @@ export async function createPromotion(promoData) {
 }
 
 /**
- * Update promotion: PUT /promotions/{id} or PUT /admin/promotions/{id}
+ * Update promotion: PUT /api/v1/promotions/{id}
  */
 export async function updatePromotion(id, promoData) {
-  let response;
-  try {
+  const payload = {
+    ...promoData,
+    image_url: promoData.image_url !== undefined ? promoData.image_url : (promoData.bannerUrl || promoData.banner_url || promoData.image || null),
+    target_url: promoData.target_url !== undefined ? promoData.target_url : (promoData.targetUrl || '#'),
+  };
+
+  let response = await apiFetch(`/api/v1/promotions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  if (!response || !response.ok) {
     response = await apiFetch(`/promotions/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(promoData),
+      body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      response = await apiFetch(`/admin/promotions/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(promoData),
-      });
-    }
-  } catch (err) {
-    response = await apiFetch(`/api/v1/promotions/${id}`, {
+  }
+  if (!response || !response.ok) {
+    response = await apiFetch(`/admin/promotions/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(promoData),
+      body: JSON.stringify(payload),
     });
   }
 
   const resData = await response.json().catch(() => ({}));
 
-  if (!response.ok || resData.success === false) {
+  if (!response || !response.ok || resData.success === false) {
     throw new Error(resData.message || resData.detail || 'Failed to update promotion');
   }
 
@@ -129,29 +119,20 @@ export async function updatePromotion(id, promoData) {
 }
 
 /**
- * Delete promotion: DELETE /promotions/{id} or DELETE /admin/promotions/{id}
+ * Delete promotion: DELETE /api/v1/promotions/{id}
  */
 export async function deletePromotion(id) {
-  let response;
-  try {
+  let response = await apiFetch(`/api/v1/promotions/${id}`, { method: 'DELETE' });
+  if (!response || !response.ok) {
     response = await apiFetch(`/promotions/${id}`, { method: 'DELETE' });
-    if (!response.ok) {
-      response = await apiFetch(`/admin/promotions/${id}`, { method: 'DELETE' });
-    }
-    if (!response.ok) {
-      response = await apiFetch(`/api/v1/promotions/${id}`, { method: 'DELETE' });
-    }
-  } catch (err) {
-    try {
-      response = await apiFetch(`/admin/promotions/${id}`, { method: 'DELETE' });
-    } catch (e2) {
-      response = await apiFetch(`/api/v1/promotions/${id}`, { method: 'DELETE' });
-    }
+  }
+  if (!response || !response.ok) {
+    response = await apiFetch(`/admin/promotions/${id}`, { method: 'DELETE' });
   }
 
   const resData = await response.json().catch(() => ({}));
 
-  if (!response.ok || resData.success === false) {
+  if (!response || !response.ok || resData.success === false) {
     throw new Error(resData.message || resData.detail || 'Failed to delete promotion');
   }
 
