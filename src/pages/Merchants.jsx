@@ -640,6 +640,7 @@ export default function Merchants() {
           <DataTable
             columns={columns}
             data={filteredData}
+            loading={loadingMerchants}
             searchPlaceholder="Search merchant name, category, city..."
             onRowClick={(row) => navigate(`/merchants/${row.id}`, { state: { merchant: row } })}
           />

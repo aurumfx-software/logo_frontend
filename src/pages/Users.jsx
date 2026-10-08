@@ -856,6 +856,7 @@ export default function Users() {
               key={activeTab}
               columns={columns}
               data={sortedData}
+              loading={loadingUsers}
               searchPlaceholder="Search accounts by name, email, city or role..."
             />
           </div>

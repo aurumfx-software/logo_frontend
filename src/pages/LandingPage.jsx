@@ -2030,7 +2030,18 @@ export default function LandingPage({ defaultTab = 'home' }) {
           )}
         </div>
 
-        {sortedEstablishments.length === 0 ? (
+        {isLoadingMerchants ? (
+          <div className="landing-grid">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={`skel-est-${idx}`} className="establishment-card" style={{ padding: 16 }}>
+                <div className="skeleton-box" style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 12 }} />
+                <div className="skeleton-box" style={{ width: '70%', height: 18, marginBottom: 8 }} />
+                <div className="skeleton-box" style={{ width: '40%', height: 14, marginBottom: 8 }} />
+                <div className="skeleton-box" style={{ width: '90%', height: 14 }} />
+              </div>
+            ))}
+          </div>
+        ) : sortedEstablishments.length === 0 ? (
           <div className="landing-empty-state">
             <HiInformationCircle className="empty-icon" />
             <h3>No establishments found</h3>
@@ -2211,33 +2222,88 @@ export default function LandingPage({ defaultTab = 'home' }) {
             </div>
 
             {totalEstablishmentPages > 1 && (
-              <div className="establishment-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '32px' }}>
-                {Array.from({ length: totalEstablishmentPages }, (_, idx) => idx + 1).map((pNum) => (
-                  <button
-                    key={pNum}
-                    type="button"
-                    onClick={() => {
-                      setEstablishmentPage(pNum);
-                      scrollToSection('establishments-section');
-                    }}
-                    style={{
-                      minWidth: '36px',
-                      height: '36px',
-                      padding: '0 12px',
-                      borderRadius: '10px',
-                      border: establishmentPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
-                      background: establishmentPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
-                      color: establishmentPage === pNum ? '#ffffff' : '#475569',
-                      fontWeight: '700',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      boxShadow: establishmentPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {pNum}
-                  </button>
-                ))}
+              <div className="establishment-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '32px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  aria-label="Previous Establishment Page"
+                  disabled={establishmentPage === 1}
+                  onClick={() => {
+                    setEstablishmentPage((prev) => Math.max(prev - 1, 1));
+                    scrollToSection('establishments-section');
+                  }}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #e2e8f0',
+                    background: '#ffffff',
+                    color: establishmentPage === 1 ? '#cbd5e1' : '#475569',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: establishmentPage === 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  &lt; Prev
+                </button>
+
+                {Array.from({ length: totalEstablishmentPages }, (_, idx) => idx + 1)
+                  .filter((p) => p === 1 || p === totalEstablishmentPages || Math.abs(p - establishmentPage) <= 1)
+                  .map((pNum, index, array) => {
+                    const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
+                    return (
+                      <React.Fragment key={pNum}>
+                        {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEstablishmentPage(pNum);
+                            scrollToSection('establishments-section');
+                          }}
+                          style={{
+                            minWidth: '36px',
+                            height: '36px',
+                            padding: '0 12px',
+                            borderRadius: '10px',
+                            border: establishmentPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
+                            background: establishmentPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
+                            color: establishmentPage === pNum ? '#ffffff' : '#475569',
+                            fontWeight: '700',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            boxShadow: establishmentPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          {pNum}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  type="button"
+                  aria-label="Next Establishment Page"
+                  disabled={establishmentPage === totalEstablishmentPages}
+                  onClick={() => {
+                    setEstablishmentPage((prev) => Math.min(prev + 1, totalEstablishmentPages));
+                    scrollToSection('establishments-section');
+                  }}
+                  style={{
+                    height: '36px',
+                    padding: '0 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #e2e8f0',
+                    background: '#ffffff',
+                    color: establishmentPage === totalEstablishmentPages ? '#cbd5e1' : '#475569',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: establishmentPage === totalEstablishmentPages ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  Next &gt;
+                </button>
               </div>
             )}
           </>
@@ -2346,30 +2412,77 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
 
         {totalCategoryPages > 1 && (
-          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
-            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1).map((pNum) => (
-              <button
-                key={pNum}
-                type="button"
-                onClick={() => setCategoryPage(pNum)}
-                style={{
-                  minWidth: '36px',
-                  height: '36px',
-                  padding: '0 12px',
-                  borderRadius: '10px',
-                  border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
-                  background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
-                  color: categoryPage === pNum ? '#ffffff' : '#475569',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {pNum}
-              </button>
-            ))}
+          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={categoryPage === 1}
+              onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: categoryPage === 1 ? '#cbd5e1' : '#475569',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              &lt; Prev
+            </button>
+
+            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1)
+              .filter((p) => p === 1 || p === totalCategoryPages || Math.abs(p - categoryPage) <= 1)
+              .map((pNum, index, array) => {
+                const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
+                return (
+                  <React.Fragment key={pNum}>
+                    {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
+                    <button
+                      type="button"
+                      onClick={() => setCategoryPage(pNum)}
+                      style={{
+                        minWidth: '36px',
+                        height: '36px',
+                        padding: '0 12px',
+                        borderRadius: '10px',
+                        border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
+                        background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
+                        color: categoryPage === pNum ? '#ffffff' : '#475569',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {pNum}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
+            <button
+              type="button"
+              disabled={categoryPage === totalCategoryPages}
+              onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: categoryPage === totalCategoryPages ? '#cbd5e1' : '#475569',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Next &gt;
+            </button>
           </div>
         )}
       </section>

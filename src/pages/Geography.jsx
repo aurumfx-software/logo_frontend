@@ -199,6 +199,7 @@ export default function Geography() {
           <DataTable
             columns={columns}
             data={data}
+            loading={loading}
             searchPlaceholder="Search cities or states..."
           />
         </div>

@@ -278,6 +278,7 @@ export default function RegistrationRequests() {
           <DataTable
             columns={columns}
             data={filteredData}
+            loading={loading}
             searchPlaceholder="Search business name, owner, city, phone..."
             onRowClick={(row) => setSelectedRequest(row)}
           />

@@ -218,6 +218,7 @@ export default function Complaints() {
           <DataTable
             columns={columns}
             data={filteredData}
+            loading={loading}
             searchPlaceholder="Search complaints..."
           />
         </div>

@@ -91,6 +91,37 @@
   --z-tooltip: 300;
 }
 
+/* ========== KEYFRAMES & LOADING ANIMATIONS ========== */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 0.9s linear infinite;
+  display: inline-block;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%);
+  background-size: 200px 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  border-radius: 8px;
+}
+
 /* ========== RESET & BASE ========== */
 *,
 *::before,
@@ -2486,17 +2517,19 @@ ul, ol {
 
 /* 3. Filter Section */
 .landing-filter-section {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 30px auto 0;
-  padding: 0 24px;
+  padding: 0 20px;
 }
 
 .landing-filter-container {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 14px;
   background: #ffffff;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
@@ -2532,7 +2565,7 @@ ul, ol {
 
   .landing-select {
     flex: 1;
-    max-width: 200px;
+    max-width: 100%;
   }
 }
 
@@ -2576,32 +2609,35 @@ ul, ol {
 .landing-location-filter {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: 8px;
+  flex-shrink: 1;
 }
 
 .filter-label {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   color: #475569;
   white-space: nowrap;
 }
 
 .landing-select {
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   color: #0f172a;
   outline: none;
   cursor: pointer;
+  max-width: 180px;
+  text-overflow: ellipsis;
 }
 
 /* Autofill Suggestions & Sort Filter Extensions */
 .landing-search-box-wrapper {
   position: relative;
-  flex: 1;
+  flex: 1 1 220px;
+  min-width: 180px;
 }
 
 .autofill-suggestions-dropdown {

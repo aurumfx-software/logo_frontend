@@ -4,6 +4,7 @@ import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight } from 're
 export default function DataTable({
   columns,
   data = [],
+  loading = false,
   searchable = true,
   searchPlaceholder = 'Search all fields (name, email, phone, city, state...)...',
   pageSize = 8,
@@ -104,7 +105,17 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody>
-            {paginated.length === 0 ? (
+            {loading ? (
+              Array.from({ length: Math.min(pageSize, 5) }).map((_, rIdx) => (
+                <tr key={`skel-row-${rIdx}`}>
+                  {columns.map((col, cIdx) => (
+                    <td key={`skel-cell-${rIdx}-${cIdx}`} style={{ padding: '14px 16px' }}>
+                      <div className="skeleton-box" style={{ height: 16, width: cIdx === 0 ? '75%' : '50%' }} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-light)' }}>
                   No results found

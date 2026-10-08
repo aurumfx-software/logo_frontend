@@ -43,6 +43,8 @@ export default function Categories() {
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [copiedId, setCopiedId] = useState(null);
+  const [allMerchants, setAllMerchants] = useState([]);
+  const [merchantSearch, setMerchantSearch] = useState({});
 
   // Modal & Edit state
   const [showModal, setShowModal] = useState(false);
@@ -61,9 +63,33 @@ export default function Categories() {
   const [deleteConfirmCat, setDeleteConfirmCat] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Merchants per category state
-  const [allMerchants, setAllMerchants] = useState([]);
-  const [merchantSearch, setMerchantSearch] = useState({});
+  // Category Search & Pagination State
+  const [catSearchQuery, setCatSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Filter Categories by search term
+  const filteredCategories = React.useMemo(() => {
+    if (!catSearchQuery.trim()) return data;
+    const q = catSearchQuery.toLowerCase().trim();
+    return data.filter((cat) => {
+      const name = (cat.name || cat.category_name || '').toLowerCase();
+      const desc = (cat.description || '').toLowerCase();
+      return name.includes(q) || desc.includes(q);
+    });
+  }, [data, catSearchQuery]);
+
+  // Reset to page 1 when search query or category list changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [catSearchQuery, data.length]);
+
+  const totalPages = Math.ceil(filteredCategories.length / itemsPerPage) || 1;
+
+  const paginatedCategories = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredCategories.slice(start, start + itemsPerPage);
+  }, [filteredCategories, currentPage, itemsPerPage]);
 
   // Category form state (no slug, no icon/emoji)
   const [formData, setFormData] = useState({
@@ -282,8 +308,19 @@ export default function Categories() {
       </PageHeader>
 
       {loading && (
-        <div style={{ padding: '12px 16px', background: '#F0FDF4', color: '#15803D', borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16, border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <HiOutlineRefresh className="animate-spin" /> Fetching live categories...
+        <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+          <div style={{ padding: '12px 16px', background: '#F0FDF4', color: '#15803D', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <HiOutlineRefresh className="animate-spin" /> Fetching live categories...
+          </div>
+          {Array.from({ length: 5 }).map((_, sIdx) => (
+            <div key={`skel-cat-${sIdx}`} className="card" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div className="skeleton-box" style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="skeleton-box" style={{ width: '40%', height: 18, marginBottom: 8 }} />
+                <div className="skeleton-box" style={{ width: '70%', height: 14 }} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -302,8 +339,132 @@ export default function Categories() {
         </div>
       )}
 
+      {/* Category Search & Filter Toolbar */}
+      {!loading && data.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div style={{ position: 'relative', flex: '1 1 300px', maxWidth: 450 }}>
+            <HiOutlineSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 18 }} />
+            <input
+              type="text"
+              placeholder="Search categories by name or description..."
+              value={catSearchQuery}
+              onChange={(e) => setCatSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                paddingLeft: 38,
+                paddingRight: catSearchQuery ? 34 : 12,
+                height: 42,
+                borderRadius: 10,
+                border: '1.5px solid #CBD5E1',
+                fontSize: 14,
+                outline: 'none',
+                background: '#FFFFFF',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+              }}
+              onFocus={(e) => (e.target.style.borderColor = '#6C63FF')}
+              onBlur={(e) => (e.target.style.borderColor = '#CBD5E1')}
+            />
+            {catSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setCatSearchQuery('')}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}
+              >
+                <HiOutlineX size={16} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
+              Showing {filteredCategories.length > 0 ? `${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, filteredCategories.length)} of ${filteredCategories.length}` : 0} categories
+            </span>
+
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              style={{
+                height: 38,
+                padding: '0 12px',
+                borderRadius: 8,
+                border: '1px solid #CBD5E1',
+                fontSize: 13,
+                color: '#334155',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+                background: '#FFFFFF',
+              }}
+            >
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+            </select>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  style={{
+                    height: 34,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                  }}
+                >
+                  &lt; Prev
+                </button>
+                <span style={{ fontSize: 12, color: '#475569', fontWeight: 700, padding: '0 4px' }}>
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  style={{
+                    height: 34,
+                    padding: '0 10px',
+                    borderRadius: 8,
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                  }}
+                >
+                  Next &gt;
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Categories List */}
+      {filteredCategories.length === 0 && data.length > 0 && (
+        <div className="card" style={{ padding: 36, textAlign: 'center' }}>
+          <HiOutlineSearch style={{ fontSize: 36, color: '#94A3B8', display: 'block', margin: '0 auto 8px' }} />
+          <h4 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px 0' }}>No categories match "{catSearchQuery}"</h4>
+          <p style={{ color: '#64748B', fontSize: 13, margin: 0 }}>Try searching for a different keyword or clear the search filter.</p>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gap: 12 }}>
-        {data.map((cat, idx) => {
+        {paginatedCategories.map((cat, idx) => {
           const catName = cat.name || cat.category_name || '';
           const merchants = getMerchantsForCategory(catName);
           const isExpanded = expanded[cat.id];
@@ -485,7 +646,6 @@ export default function Categories() {
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0,
-                              alignSelf: 'flex-start',
                               transition: 'all 0.15s',
                             }}
                           >
@@ -501,6 +661,69 @@ export default function Categories() {
           );
         })}
       </div>
+
+      {/* Pagination Footer Controls */}
+      {!loading && filteredCategories.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginTop: 24, padding: '16px 20px', background: '#FFFFFF', borderRadius: 12, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <div style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
+            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({filteredCategories.length} total categories)
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                style={{ height: 34, padding: '0 12px', opacity: currentPage === 1 ? 0.5 : 1 }}
+              >
+                &lt; Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .map((pNum, index, array) => {
+                  const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
+                  return (
+                    <React.Fragment key={pNum}>
+                      {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: 13 }}>...</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(pNum)}
+                        style={{
+                          minWidth: 34,
+                          height: 34,
+                          borderRadius: 8,
+                          border: currentPage === pNum ? '2px solid #6C63FF' : '1px solid #E2E8F0',
+                          background: currentPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#FFFFFF',
+                          color: currentPage === pNum ? '#FFFFFF' : '#475569',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          boxShadow: currentPage === pNum ? '0 4px 12px rgba(108,99,255,0.3)' : 'none',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {pNum}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                style={{ height: 34, padding: '0 12px', opacity: currentPage === totalPages ? 0.5 : 1 }}
+              >
+                Next &gt;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add / Edit Category Modal */}
       <Modal
