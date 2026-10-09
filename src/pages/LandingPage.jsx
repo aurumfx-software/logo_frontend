@@ -1972,15 +1972,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
               else if (isPrev) cardClass = 'landing-banner-card prev';
               else if (isNext) cardClass = 'landing-banner-card next';
 
+              const mediaUrl = slide.bannerUrl || slide.media_url || slide.image || slide.image_url;
+              const isVideo =
+                slide.media_type === 'video' ||
+                (typeof mediaUrl === 'string' &&
+                  (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.webm') || mediaUrl.endsWith('.mov')));
+
               return (
                 <div
-                  key={slide.id}
+                  key={slide.id || idx}
                   className={cardClass}
                   style={{
-                    background: (slide.bannerUrl || slide.media_url)
-                      ? `linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.75)), url(${slide.bannerUrl || slide.media_url}) center/cover no-repeat`
-                      : slide.bgGradient,
-                    cursor: 'pointer'
+                    padding: 0,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    background: slide.bgGradient || '#0f172a'
                   }}
                   onClick={() => {
                     if (isCenter) {
@@ -1990,29 +1996,27 @@ export default function LandingPage({ defaultTab = 'home' }) {
                     }
                   }}
                 >
-                  <div
-                    className="landing-banner-accent"
-                    style={{ background: slide.accentColor }}
-                  ></div>
-                  <div className="landing-banner-badge">{slide.badge}</div>
-
-                  <h2 className="landing-banner-title">{slide.title}</h2>
-                  <h4 className="landing-banner-sub">{slide.subtitle}</h4>
-                  <p className="landing-banner-desc">{slide.description}</p>
-
-                  <div className="landing-banner-footer">
-                    <span className="landing-banner-tagline">
-                      ⭐ {slide.tagline}
-                    </span>
-                    <div className="landing-banner-info">
-                      <span>
-                        <HiLocationMarker /> {slide.location}
-                      </span>
-                      <span>
-                        <HiPhone /> {slide.phone}
-                      </span>
+                  {isVideo ? (
+                    <video
+                      src={mediaUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : mediaUrl ? (
+                    <img
+                      src={mediaUrl}
+                      alt={slide.title || 'Banner'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ padding: '30px 50px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: slide.bgGradient || '#0f172a', color: '#fff' }}>
+                      <h2 className="landing-banner-title">{slide.title}</h2>
+                      <h4 className="landing-banner-sub">{slide.subtitle}</h4>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
