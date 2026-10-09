@@ -781,7 +781,47 @@ const placesList = [
     image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80',
     description: 'Northernmost district of Kerala, famous for majestic sea-side Bekal Fort and Ranipuram hill station.',
   },
-];
+// Geolocation distance and coordinate calculation helpers for nearest proximity sorting
+const getLocationCoords = (item) => {
+  if (item.latitude && item.longitude) {
+    return { lat: Number(item.latitude), lng: Number(item.longitude) };
+  }
+  if (item.lat && item.lng) {
+    return { lat: Number(item.lat), lng: Number(item.lng) };
+  }
+  const locStr = `${item.location || ''} ${item.address || ''} ${item.city || ''} ${item.name || ''}`.toLowerCase();
+  if (locStr.includes('payyanur')) return { lat: 12.0988, lng: 75.2045 };
+  if (locStr.includes('taliparamba')) return { lat: 12.0402, lng: 75.3582 };
+  if (locStr.includes('kanhangad')) return { lat: 12.3168, lng: 75.0906 };
+  if (locStr.includes('kasaragod')) return { lat: 12.5102, lng: 74.9852 };
+  if (locStr.includes('kozhikode') || locStr.includes('calicut')) return { lat: 11.2588, lng: 75.7804 };
+  if (locStr.includes('kochi') || locStr.includes('cochin') || locStr.includes('ernakulam')) return { lat: 9.9312, lng: 76.2673 };
+  if (locStr.includes('thrissur')) return { lat: 10.5276, lng: 76.2144 };
+  if (locStr.includes('trivandrum') || locStr.includes('thiruvananthapuram')) return { lat: 8.5241, lng: 76.9366 };
+  if (locStr.includes('kannur')) return { lat: 11.8745, lng: 75.3704 };
+  if (locStr.includes('wayanad') || locStr.includes('kalpetta')) return { lat: 11.6103, lng: 76.0827 };
+  if (locStr.includes('palakkad')) return { lat: 10.7867, lng: 76.6548 };
+  if (locStr.includes('malappuram')) return { lat: 11.0732, lng: 76.0740 };
+  if (locStr.includes('kottayam')) return { lat: 9.5916, lng: 76.5222 };
+  if (locStr.includes('alappuzha') || locStr.includes('alleppey')) return { lat: 9.4981, lng: 76.3388 };
+  if (locStr.includes('kollam')) return { lat: 8.8932, lng: 76.6141 };
+  return { lat: 12.0988, lng: 75.2045 };
+};
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 999;
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
 // Initial Establishments list
 const initialEstablishments = [
