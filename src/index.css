@@ -1793,7 +1793,8 @@ ul, ol {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 480px;
+  height: 380px;
+  min-height: 350px;
   position: relative;
   width: 100%;
 }
@@ -5321,7 +5322,8 @@ ul, ol {
 /* Tablet & Mobile Layout Adaptations (<= 1024px) */
 @media (max-width: 1024px) {
   .landing-carousel-container {
-    min-height: 420px;
+    height: 340px;
+    min-height: 300px;
   }
 
   .landing-banner-card {
@@ -5364,7 +5366,8 @@ ul, ol {
   }
 
   .landing-carousel-container {
-    min-height: 380px;
+    height: 260px;
+    min-height: 220px;
   }
 
   .landing-banner-card {
@@ -5475,7 +5478,8 @@ ul, ol {
 /* Small Mobile Screens (<= 480px) */
 @media (max-width: 480px) {
   .landing-carousel-container {
-    min-height: 360px;
+    height: 210px;
+    min-height: 180px;
   }
 
   .landing-banner-card {

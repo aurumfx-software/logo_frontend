@@ -31,6 +31,7 @@ import {
   FaInstagram,
   FaYoutube,
   FaTwitter,
+  FaWhatsapp,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
@@ -554,7 +555,7 @@ const renderCategoryIcon = (key) => {
 };
 
 // Banner promotional slides data (matching screenshots)
-const promoBanners = [
+export const promoBanners = [
   {
     id: 1,
     title: 'BAG BAZAAR PAYYANUR',
@@ -781,6 +782,8 @@ const placesList = [
     image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80',
     description: 'Northernmost district of Kerala, famous for majestic sea-side Bekal Fort and Ranipuram hill station.',
   },
+];
+
 // Geolocation distance and coordinate calculation helpers for nearest proximity sorting
 const getLocationCoords = (item) => {
   if (item.latitude && item.longitude) {
@@ -816,9 +819,9 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -1155,6 +1158,34 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [userCoordinates, setUserCoordinates] = useState(null);
+
+  // Initial Page Load: Automatic GPS Location Detection & Nearest Proximity Sorting
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setIsLocating(false);
+          setUserCoordinates({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setSortBy('nearest');
+        },
+        (error) => {
+          console.warn('Initial GPS detection fallback (Payyanur/Kannur region):', error.message);
+          setIsLocating(false);
+          setUserCoordinates({ lat: 12.0988, lng: 75.2045 });
+          setSortBy('nearest');
+        },
+        { timeout: 7000, enableHighAccuracy: true }
+      );
+    } else {
+      setUserCoordinates({ lat: 12.0988, lng: 75.2045 });
+      setSortBy('nearest');
+    }
+  }, []);
 
   // Backend API Merchant Integration State
   const [apiMerchants, setApiMerchants] = useState([]);
@@ -1502,17 +1533,20 @@ export default function LandingPage({ defaultTab = 'home' }) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
-        setSelectedDistrict('kannur');
-        setSelectedLocation('payyanur');
+        setUserCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setSortBy('nearest');
         scrollToSection('establishments-section');
       },
       (error) => {
         setIsLocating(false);
-        setSelectedDistrict('kannur');
-        setSelectedLocation('all');
+        setUserCoordinates({ lat: 12.0988, lng: 75.2045 });
+        setSortBy('nearest');
         scrollToSection('establishments-section');
       },
-      { timeout: 5000 }
+      { timeout: 7000, enableHighAccuracy: true }
     );
   };
 
@@ -1716,11 +1750,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
     setSearchQuery('');
   };
 
-  // Sorting Option State & Logic
-  const [sortBy, setSortBy] = useState('default');
+  // Sorting Option State & Logic (Default: nearest proximity sorting)
+  const [sortBy, setSortBy] = useState('nearest');
 
   const sortItems = (items) => {
     const list = [...items];
+    if (sortBy === 'nearest' || sortBy === 'default' || !sortBy) {
+      const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
+      return list.sort((a, b) => {
+        const coordsA = getLocationCoords(a);
+        const coordsB = getLocationCoords(b);
+        const distA = calculateDistance(uCoords.lat, uCoords.lng, coordsA.lat, coordsA.lng);
+        const distB = calculateDistance(uCoords.lat, uCoords.lng, coordsB.lat, coordsB.lng);
+        return distA - distB;
+      });
+    }
     if (sortBy === 'location_asc') {
       return list.sort((a, b) => (a.location || '').localeCompare(b.location || ''));
     }
@@ -1940,7 +1984,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   }}
                   onClick={() => {
                     if (isCenter) {
-                      setSelectedPromoModal(slide);
+                      navigate(`/ad-detail/${slide.id}`, { state: { ad: slide, merchant: slide } });
                     } else {
                       setCurrentSlide(idx);
                     }
@@ -2325,11 +2369,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                         margin: '12px 0',
                       }}
                       onClick={() => {
-                        if (item.title || item.description) {
-                          setSelectedPromoModal(item);
-                        } else {
-                          navigate(`/place/${item.id}`, { state: { merchant: item } });
-                        }
+                        navigate(`/ad-detail/${item.id}`, { state: { ad: item, merchant: item } });
                       }}
                     >
                       {/* Left Info: Badge, Title & Subtitle */}
@@ -2412,10 +2452,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
                       />
                       <div
                         className={`establishment-category-tag ${item.adBadge === 'SPONSORED'
-                            ? 'ad-badge-blue'
-                            : item.adBadge
-                              ? 'ad-badge-orange'
-                              : ''
+                          ? 'ad-badge-blue'
+                          : item.adBadge
+                            ? 'ad-badge-orange'
+                            : ''
                           }`}
                       >
                         {item.adBadge || item.category}
@@ -2437,6 +2477,29 @@ export default function LandingPage({ defaultTab = 'home' }) {
                           <HiLocationMarker className="meta-icon map-pin-icon" />
                           <span className="location-txt-link">{item.location} (Map)</span>
                         </span>
+                        {(() => {
+                          const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
+                          const dist = calculateDistance(uCoords.lat, uCoords.lng, getLocationCoords(item).lat, getLocationCoords(item).lng);
+                          return (
+                            <span
+                              className="meta-item proximity-tag"
+                              style={{
+                                color: '#0284c7',
+                                fontWeight: '700',
+                                background: 'rgba(2, 132, 199, 0.1)',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontSize: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title="Calculated Proximity Distance from your GPS location"
+                            >
+                              📍 {dist.toFixed(1)} km away
+                            </span>
+                          );
+                        })()}
                         <span className="meta-item">
                           <HiPhone className="meta-icon" /> {item.phone}
                         </span>
@@ -2808,6 +2871,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div
                 key={offer.id}
                 className="zeas-offer-card"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/ad-detail/${offer.id}`, { state: { ad: offer, merchant: offer } })}
               >
                 <div
                   className="zeas-offer-banner"
@@ -2868,7 +2933,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
         <div className="news-grid">
           {/* Card 1 */}
-          <div className="news-card card-red">
+          <div className="news-card card-red" style={{ cursor: 'pointer' }} onClick={() => setOnboardModalOpen(true)}>
             <div className="news-card-badge">JOIN US</div>
             <div className="news-card-content">
               <h3>My Locality Info</h3>
@@ -2898,7 +2963,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
 
           {/* Card 2 */}
-          <div className="news-card card-black">
+          <div className="news-card card-black" style={{ cursor: 'pointer' }} onClick={() => setOnboardModalOpen(true)}>
             <div className="news-card-badge dark">PREMIUM SUBSCRIPTION</div>
             <div className="news-card-content">
               <h3>My Locality Info</h3>
@@ -2970,7 +3035,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 <div
                   key={ad.id || `footer-ad-${idx}`}
                   className={`top-footer-ad-card ${hasMedia ? 'with-media' : 'plain-bg'}`}
-                  style={!hasMedia ? { background: '#1e293b', color: '#ffffff' } : {}}
+                  style={{ cursor: 'pointer', ...(!hasMedia ? { background: '#1e293b', color: '#ffffff' } : {}) }}
+                  onClick={() => navigate(`/ad-detail/${ad.id}`, { state: { ad, merchant: ad } })}
                 >
                   <div className="top-footer-ad-header">
                     <span className="top-footer-ad-badge">
@@ -3029,13 +3095,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
                         <a
                           href={`tel:${ad.phone.replace(/[^0-9+]/g, '')}`}
                           className="top-footer-ad-btn call-btn"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <HiPhone /> Call Now
                         </a>
                       )}
                       <button
                         type="button"
-                        onClick={() => setSelectedPromoModal(ad)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/ad-detail/${ad.id}`, { state: { ad, merchant: ad } });
+                        }}
                         className="top-footer-ad-btn detail-btn"
                       >
                         Explore Offer
@@ -3266,6 +3336,267 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 onClick={() => setSelectedMerchant(null)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. AD DETAILS PROMOTION MODAL */}
+      {selectedPromoModal && (
+        <div className="modal-backdrop" onClick={() => setSelectedPromoModal(null)}>
+          <div
+            className="modal-container ad-details-modal"
+            style={{
+              maxWidth: 680,
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              borderRadius: '20px',
+              padding: 0,
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              background: '#FFFFFF',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Banner & Close */}
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '220px',
+                background: (selectedPromoModal.bannerUrl || selectedPromoModal.image || selectedPromoModal.media_url)
+                  ? `linear-gradient(180deg, rgba(15,23,42,0.4) 0%, rgba(15,23,42,0.9) 100%), url(${selectedPromoModal.bannerUrl || selectedPromoModal.image || selectedPromoModal.media_url}) center/cover no-repeat`
+                  : selectedPromoModal.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0f172a 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '20px 24px',
+                color: '#FFFFFF',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span
+                  style={{
+                    background: '#FDE047',
+                    color: '#0F172A',
+                    fontWeight: '800',
+                    fontSize: '11px',
+                    padding: '5px 14px',
+                    borderRadius: '20px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.6px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  📢 {selectedPromoModal.badge || selectedPromoModal.adBadge || 'EXCLUSIVE AD & PROMOTION'}
+                </span>
+                <button
+                  className="modal-close-btn"
+                  style={{
+                    background: 'rgba(0,0,0,0.5)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setSelectedPromoModal(null)}
+                >
+                  <HiX size={20} />
+                </button>
+              </div>
+
+              <div style={{ marginTop: '30px' }}>
+                <h2 style={{ fontSize: '26px', fontWeight: '800', margin: '8px 0 4px 0', color: '#FFFFFF', letterSpacing: '-0.3px' }}>
+                  {selectedPromoModal.title || selectedPromoModal.name}
+                </h2>
+                <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.9)', margin: 0, fontWeight: '500' }}>
+                  {selectedPromoModal.merchant ? `by ${selectedPromoModal.merchant}` : selectedPromoModal.subtitle || selectedPromoModal.category}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Content Body */}
+            <div style={{ padding: '24px', background: '#FFFFFF', color: '#1E293B' }}>
+              {/* Offer Badge & Tagline */}
+              {(selectedPromoModal.tagline || selectedPromoModal.offerTag) && (
+                <div
+                  style={{
+                    background: '#FEF3C7',
+                    borderLeft: '4px solid #F59E0B',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    color: '#92400E',
+                  }}
+                >
+                  <HiStar style={{ color: '#F59E0B', fontSize: '20px', flexShrink: 0 }} />
+                  <span>{selectedPromoModal.tagline || selectedPromoModal.offerTag}</span>
+                </div>
+              )}
+
+              {/* Proximity & Location Info */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  marginBottom: '20px',
+                  padding: '12px 16px',
+                  background: '#F8FAFC',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                }}
+              >
+                {selectedPromoModal.location && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '600', color: '#334155' }}>
+                    <HiLocationMarker style={{ color: '#0284c7' }} />
+                    {selectedPromoModal.location}
+                  </span>
+                )}
+                {(() => {
+                  const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
+                  const coords = getLocationCoords(selectedPromoModal);
+                  const dist = calculateDistance(uCoords.lat, uCoords.lng, coords.lat, coords.lng);
+                  return (
+                    <span
+                      style={{
+                        color: '#0284c7',
+                        fontWeight: '700',
+                        background: 'rgba(2, 132, 199, 0.1)',
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      📍 {dist.toFixed(1)} km away
+                    </span>
+                  );
+                })()}
+              </div>
+
+              {/* Ad Description */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#0F172A', marginBottom: '8px' }}>
+                  About this Special Offer / Service
+                </h4>
+                <p style={{ fontSize: '14px', lineHeight: '1.7', color: '#475569', margin: 0 }}>
+                  {selectedPromoModal.description ||
+                    `Discover premium quality services and special deals provided by ${selectedPromoModal.name || selectedPromoModal.title || 'our featured merchant'}. Contact today for exclusive quotes, appointments, and store visits.`}
+                </p>
+              </div>
+
+              {/* Direct Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                {selectedPromoModal.phone && (
+                  <a
+                    href={`tel:${selectedPromoModal.phone.replace(/[^0-9+]/g, '')}`}
+                    className="btn"
+                    style={{
+                      background: '#0284c7',
+                      color: '#FFFFFF',
+                      fontWeight: '700',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      textDecoration: 'none',
+                      boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                    }}
+                  >
+                    <HiPhone /> Call Now
+                  </a>
+                )}
+                {selectedPromoModal.phone && (
+                  <a
+                    href={`https://wa.me/${selectedPromoModal.phone.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn"
+                    style={{
+                      background: '#25D366',
+                      color: '#FFFFFF',
+                      fontWeight: '700',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      textDecoration: 'none',
+                      boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
+                    }}
+                  >
+                    <FaWhatsapp /> WhatsApp
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={(e) => openGoogleMaps(selectedPromoModal.name || selectedPromoModal.title, selectedPromoModal.address || selectedPromoModal.location, e)}
+                  style={{
+                    background: '#F1F5F9',
+                    color: '#0F172A',
+                    fontWeight: '700',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1px solid #CBD5E1',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <HiLocationMarker style={{ color: '#0284c7' }} /> Directions
+                </button>
+              </div>
+
+              {/* View Full Merchant Details Page Navigation Button */}
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                  color: '#FFFFFF',
+                  fontWeight: '800',
+                  padding: '14px 20px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  fontSize: '15px',
+                  boxShadow: '0 6px 20px rgba(15, 23, 42, 0.3)',
+                }}
+                onClick={() => {
+                  const mId = selectedPromoModal.id || selectedPromoModal.merchantId || 1;
+                  setSelectedPromoModal(null);
+                  navigate(`/place/${mId}`, { state: { merchant: selectedPromoModal } });
+                }}
+              >
+                View Full Ad &amp; Establishment Details Page <HiChevronRight />
               </button>
             </div>
           </div>

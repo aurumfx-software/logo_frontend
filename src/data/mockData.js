@@ -356,7 +356,7 @@ export const demoPromotions = {
       status: 'active',
       impressions: 63000,
       clicks: 5200,
-      bannerUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800'
+      bannerUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80'
     },
     {
       id: 'BNR-009',
@@ -372,7 +372,7 @@ export const demoPromotions = {
       status: 'active',
       impressions: 48900,
       clicks: 3900,
-      bannerUrl: 'https://images.unsplash.com/photo-1543352634-6ef4f2d3c9f2?w=800'
+      bannerUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80'
     },
     {
       id: 'BNR-010',
@@ -388,7 +388,7 @@ export const demoPromotions = {
       status: 'active',
       impressions: 31200,
       clicks: 2840,
-      bannerUrl: 'https://images.unsplash.com/photo-1529101091764-c3526daf38fe?w=800'
+      bannerUrl: 'https://images.unsplash.com/photo-1555245413-7c8173228f4c?w=800&auto=format&fit=crop&q=80'
     }
   ]
 };

@@ -23,6 +23,7 @@ import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import { promotions as initialPromotions } from '../data/mockData';
 import { promotionsApi } from '../api/operationsApi';
 import { fetchCategoriesList } from '../api/categoryApi';
+import { uploadPromotionMedia } from '../api/promotionApi';
 
 const fallbackCategories = [
   'Solar & Electricals',
@@ -49,19 +50,49 @@ const initialFormState = {
   mediaType: 'image', // 'image' | 'video'
 };
 
-const handleMediaFileUpload = (e, type, formState, setFormState) => {
+const handleMediaFileUpload = async (e, type, formState, setFormState, setUploading = () => {}) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    if (type === 'image') {
-      setFormState({ ...formState, bannerUrl: reader.result, mediaType: 'image' });
+  try {
+    setUploading(true);
+    const uploadedData = await uploadPromotionMedia(file);
+    const mediaUrl = uploadedData.url || uploadedData.video_url || uploadedData.image_url;
+    const mediaType = uploadedData.media_type || (file.type.startsWith('video/') ? 'video' : 'image');
+
+    if (mediaType === 'video' || type === 'video') {
+      setFormState({
+        ...formState,
+        videoUrl: mediaUrl,
+        video_url: mediaUrl,
+        mediaType: 'video',
+        media_type: 'video',
+        bannerUrl: formState.bannerUrl || uploadedData.image_url || uploadedData.thumbnail_url || '',
+      });
     } else {
-      setFormState({ ...formState, videoUrl: reader.result, mediaType: 'video' });
+      setFormState({
+        ...formState,
+        bannerUrl: mediaUrl,
+        image_url: mediaUrl,
+        thumbnail_url: mediaUrl,
+        mediaType: 'image',
+        media_type: 'image',
+      });
     }
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    console.warn('CDN upload failed, using local preview fallback:', err);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (type === 'image') {
+        setFormState({ ...formState, bannerUrl: reader.result, image_url: reader.result, mediaType: 'image' });
+      } else {
+        setFormState({ ...formState, videoUrl: reader.result, video_url: reader.result, mediaType: 'video' });
+      }
+    };
+    reader.readAsDataURL(file);
+  } finally {
+    setUploading(false);
+  }
 };
 
 export default function Promotions() {

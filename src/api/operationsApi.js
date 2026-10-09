@@ -7,6 +7,33 @@ const BASE_URL = API_BASE_URL.replace(/\/$/, '');
 // PROMOTIONS API
 // ========================
 export const promotionsApi = {
+  async uploadMedia(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('video', file);
+    formData.append('image', file);
+
+    const res = await apiFetch('/api/v1/promotions/upload-media', {
+      method: 'POST',
+      body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res || !res.ok || json.success === false) {
+      throw new Error(json.message || json.detail || 'Failed to upload media to CDN');
+    }
+    return json.data || json;
+  },
+
+  async fetchActiveHeroBanners(placement = 'Home Top') {
+    let res = await apiFetch(`/api/v1/promotions/active?placement=${encodeURIComponent(placement)}`);
+    if (!res || !res.ok) res = await apiFetch('/api/v1/promotions/hero-banners');
+    if (!res || !res.ok) res = await apiFetch('/api/v1/promotions');
+    if (!res || !res.ok) return [];
+    const json = await res.json().catch(() => ({}));
+    const items = json.data || json.promotions || json.items || (Array.isArray(json) ? json : []);
+    return Array.isArray(items) ? items : [];
+  },
+
   async list({ status = '', search = '' } = {}) {
     const params = new URLSearchParams();
     if (status && status !== 'all') params.append('status', status);
