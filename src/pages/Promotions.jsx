@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
 import {
   HiOutlinePlus,
@@ -15,6 +16,7 @@ import {
   HiXCircle,
   HiTag,
   HiEye,
+  HiOutlineInformationCircle,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
@@ -105,6 +107,8 @@ const initialFormState = {
   startDate: new Date().toISOString().split('T')[0],
   endDate: '2027-12-31',
   mediaType: 'image', // 'image' or 'video'
+  imagePosition: 'center',
+  crop: { x: 0, y: 0 },
   imageUrl: '',
   videoUrl: '',
   targetUrl: '',
@@ -252,7 +256,7 @@ export default function Promotions() {
       return;
     }
 
-    const currentPlacement = newPromo.placement || activeTab || 'Home Top';
+    const currentPlacement = activeTab || 'Home Top';
 
     if (currentPlacement !== 'Moving Text' && !newPromo.imageUrl?.trim() && !newPromo.videoUrl?.trim()) {
       setAddError(`Please upload a banner image or enter an image URL for "${currentPlacement}". An image is required to display this banner on the landing page.`);
@@ -264,14 +268,14 @@ export default function Promotions() {
       const payload = {
         title: newPromo.title.trim(),
         description: newPromo.description ? newPromo.description.trim() : null,
-        type: newPromo.type || (currentPlacement === 'Moving Text' ? 'Text Carousel' : 'Banner'),
+        type: currentPlacement === 'Moving Text' ? 'Text Carousel' : 'Banner',
         category: newPromo.category || 'Retail & Shopping',
         placement: currentPlacement,
         location: newPromo.location || 'Kerala',
         start_date: newPromo.startDate || '2026-10-01',
         end_date: newPromo.endDate || '2027-12-31',
         status: (newPromo.status || 'ACTIVE').toLowerCase(),
-        image_url: newPromo.imageUrl ? newPromo.imageUrl.trim() : null,
+        image_url: newPromo.imageUrl ? `${newPromo.imageUrl.trim().split('#pos=')[0]}${newPromo.imagePosition && newPromo.imagePosition !== 'center' ? `#pos=${newPromo.imagePosition}` : ''}` : null,
         video_url: newPromo.videoUrl ? newPromo.videoUrl.trim() : null,
         media_type: newPromo.mediaType || (newPromo.videoUrl ? 'video' : 'image'),
         target_url: newPromo.targetUrl || '#',
@@ -292,7 +296,7 @@ export default function Promotions() {
         status: (createdItem.status || 'active').toLowerCase(),
         impressions: 0,
         clicks: 0,
-        imageUrl: createdItem.image_url || newPromo.imageUrl || '',
+        imageUrl: createdItem.image_url || (newPromo.imageUrl ? `${newPromo.imageUrl.trim().split('#pos=')[0]}${newPromo.imagePosition && newPromo.imagePosition !== 'center' ? `#pos=${newPromo.imagePosition}` : ''}` : ''),
         videoUrl: createdItem.video_url || newPromo.videoUrl || '',
         mediaType: createdItem.media_type || newPromo.mediaType || (newPromo.videoUrl ? 'video' : 'image'),
         targetUrl: createdItem.target_url || newPromo.targetUrl || '#',
@@ -317,6 +321,7 @@ export default function Promotions() {
       imageUrl: promo.imageUrl || '',
       videoUrl: promo.videoUrl || '',
       mediaType: promo.mediaType || (promo.videoUrl ? 'video' : 'image'),
+      imagePosition: (promo.imageUrl || '').match(/#pos=(top|center|bottom)/)?.[1] || 'center',
       targetUrl: promo.targetUrl || '',
     });
     setEditError('');
@@ -351,7 +356,7 @@ export default function Promotions() {
         start_date: editFormData.startDate,
         end_date: editFormData.endDate,
         status: editFormData.status.toLowerCase(),
-        image_url: editFormData.imageUrl ? editFormData.imageUrl.trim() : null,
+        image_url: editFormData.imageUrl ? `${editFormData.imageUrl.trim().split('#pos=')[0]}${editFormData.imagePosition && editFormData.imagePosition !== 'center' ? `#pos=${editFormData.imagePosition}` : ''}` : null,
         video_url: editFormData.videoUrl ? editFormData.videoUrl.trim() : null,
         media_type: editFormData.mediaType || (editFormData.videoUrl ? 'video' : 'image'),
         target_url: editFormData.targetUrl || '#',
@@ -372,7 +377,7 @@ export default function Promotions() {
                 startDate: updated.start_date || editFormData.startDate,
                 endDate: updated.end_date || editFormData.endDate,
                 status: (updated.status || editFormData.status).toLowerCase(),
-                imageUrl: updated.image_url || editFormData.imageUrl,
+                imageUrl: updated.image_url || (editFormData.imageUrl ? `${editFormData.imageUrl.trim().split('#pos=')[0]}${editFormData.imagePosition && editFormData.imagePosition !== 'center' ? `#pos=${editFormData.imagePosition}` : ''}` : ''),
                 videoUrl: updated.video_url || editFormData.videoUrl,
                 mediaType: updated.media_type || editFormData.mediaType || (editFormData.videoUrl ? 'video' : 'image'),
                 targetUrl: updated.target_url || editFormData.targetUrl,
@@ -1185,8 +1190,28 @@ export default function Promotions() {
               : `+ Add Advertisement (${newPromo.placement})`
           }
           maxWidth="640px"
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowAddModal(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                form="add-promo-form"
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSubmitting || uploadingImage}
+              >
+                {isSubmitting ? 'Saving to Database...' : 'Create & Publish Ad'}
+              </button>
+            </>
+          }
         >
-          <form onSubmit={handleCreatePromo}>
+          <form id="add-promo-form" onSubmit={handleCreatePromo}>
             {addError && (
               <div
                 style={{
@@ -1245,43 +1270,20 @@ export default function Promotions() {
               />
             </div>
 
-            {/* Placement & Category */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div className="form-group">
-                <label className="form-label">Ad Placement / Position</label>
-                <select
-                  className="form-select"
-                  value={newPromo.placement}
-                  onChange={(e) =>
-                    setNewPromo({
-                      ...newPromo,
-                      placement: e.target.value,
-                      type: e.target.value === 'Moving Text' ? 'Text Carousel' : 'Banner',
-                    })
-                  }
-                >
-                  <option value="Home Top">Home Top (Top Banner Slider)</option>
-                  <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
-                  <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
-                  <option value="Special Offer">Special Offer (Floating Widget)</option>
-                  <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  className="form-select"
-                  value={newPromo.category}
-                  onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
-                >
-                  {categoriesList.map((c, i) => (
-                    <option key={i} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Category */}
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select
+                className="form-select"
+                value={newPromo.category}
+                onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
+              >
+                {categoriesList.map((c, i) => (
+                  <option key={i} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Media Format Selector or Moving Text Note */}
@@ -1371,8 +1373,16 @@ export default function Promotions() {
                 textAlign: 'center',
               }}
             >
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
                 {newPromo.mediaType === 'video' ? '🎬 Ad Video (MP4, WebM, MOV)' : '📸 Ad Banner Image (JPG, PNG, WebP)'}
+                {newPromo.mediaType === 'image' && (
+                  <HiOutlineInformationCircle 
+                    size={16} 
+                    color="#64748b" 
+                    style={{ cursor: 'help' }} 
+                    title="Recommended Image Specifications:&#10;• Aspect Ratio: 16:5&#10;• Best Resolution: 1920×500px&#10;• Format: JPG, PNG, or WebP&#10;• Tip: Use panoramic images and center the subject." 
+                  />
+                )}
               </label>
               <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>
                 {newPromo.mediaType === 'video'
@@ -1453,19 +1463,26 @@ export default function Promotions() {
                 </div>
               ) : newPromo.imageUrl ? (
                 <div style={{ marginTop: 12 }}>
-                  <img
-                    src={newPromo.imageUrl}
-                    alt="Preview"
-                    style={{
-                      maxHeight: 120,
-                      maxWidth: '100%',
-                      borderRadius: 8,
-                      border: '1px solid #e2e8f0',
-                      objectFit: 'contain',
-                    }}
-                  />
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Image Loaded & Ready
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/5', borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', background: '#000' }}>
+                    <Cropper
+                      image={newPromo.imageUrl}
+                      crop={newPromo.crop || { x: 0, y: 0 }}
+                      zoom={1}
+                      aspect={16 / 5}
+                      showGrid={false}
+                      objectFit="horizontal-cover"
+                      onCropChange={(crop) => setNewPromo((prev) => ({ ...prev, crop }))}
+                      onCropComplete={(croppedArea) => {
+                        const cssY = croppedArea.height < 100 ? (croppedArea.y / (100 - croppedArea.height)) * 100 : 50;
+                        const cssX = croppedArea.width < 100 ? (croppedArea.x / (100 - croppedArea.width)) * 100 : 50;
+                        setNewPromo((prev) => ({ ...prev, imagePosition: `${cssX.toFixed(2)}% ${cssY.toFixed(2)}%` }));
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                      ✓ Image Loaded & Ready. Drag to crop.
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -1532,21 +1549,6 @@ export default function Promotions() {
                 </select>
               </div>
             </div>
-
-            {/* Modal Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowAddModal(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={isSubmitting || uploadingImage}>
-                {isSubmitting ? 'Saving to Database...' : 'Create & Publish Ad'}
-              </button>
-            </div>
           </form>
         </Modal>
       )}
@@ -1564,8 +1566,28 @@ export default function Promotions() {
               : `Edit Advertisement (#${editFormData.id})`
           }
           maxWidth="640px"
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsEditModalOpen(false)}
+                disabled={isUpdating}
+              >
+                Cancel
+              </button>
+              <button
+                form="edit-promo-form"
+                type="submit"
+                className="btn btn-primary"
+                disabled={isUpdating || editUploadingImage}
+              >
+                {isUpdating ? 'Saving to Database...' : 'Save Changes'}
+              </button>
+            </>
+          }
         >
-          <form onSubmit={handleEditSubmit}>
+          <form id="edit-promo-form" onSubmit={handleEditSubmit}>
             {editError && (
               <div
                 style={{
@@ -1623,42 +1645,19 @@ export default function Promotions() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div className="form-group">
-                <label className="form-label">Ad Placement / Position</label>
-                <select
-                  className="form-select"
-                  value={editFormData.placement}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      placement: e.target.value,
-                      type: e.target.value === 'Moving Text' ? 'Text Carousel' : 'Banner',
-                    })
-                  }
-                >
-                  <option value="Home Top">Home Top (Top Banner Slider)</option>
-                  <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
-                  <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
-                  <option value="Special Offer">Special Offer (Floating Widget)</option>
-                  <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  className="form-select"
-                  value={editFormData.category}
-                  onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-                >
-                  {categoriesList.map((c, i) => (
-                    <option key={i} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select
+                className="form-select"
+                value={editFormData.category}
+                onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+              >
+                {categoriesList.map((c, i) => (
+                  <option key={i} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Media Format Selector or Moving Text Note */}
@@ -1748,8 +1747,16 @@ export default function Promotions() {
                 textAlign: 'center',
               }}
             >
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
                 {editFormData.mediaType === 'video' ? '🎬 Update Banner Video (CDN)' : '📸 Update Banner Image (CDN)'}
+                {editFormData.mediaType === 'image' && (
+                  <HiOutlineInformationCircle 
+                    size={16} 
+                    color="#64748b" 
+                    style={{ cursor: 'help' }} 
+                    title="Recommended Image Specifications:&#10;• Aspect Ratio: 16:5&#10;• Best Resolution: 1920×500px&#10;• Format: JPG, PNG, or WebP&#10;• Tip: Use panoramic images and center the subject." 
+                  />
+                )}
               </label>
 
               <input
@@ -1825,19 +1832,26 @@ export default function Promotions() {
                 </div>
               ) : editFormData.imageUrl ? (
                 <div style={{ marginTop: 12 }}>
-                  <img
-                    src={editFormData.imageUrl}
-                    alt="Current banner"
-                    style={{
-                      maxHeight: 120,
-                      maxWidth: '100%',
-                      borderRadius: 8,
-                      border: '1px solid #e2e8f0',
-                      objectFit: 'contain',
-                    }}
-                  />
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Image Active
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/5', borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', background: '#000' }}>
+                    <Cropper
+                      image={editFormData.imageUrl}
+                      crop={editFormData.crop || { x: 0, y: 0 }}
+                      zoom={1}
+                      aspect={16 / 5}
+                      showGrid={false}
+                      objectFit="horizontal-cover"
+                      onCropChange={(crop) => setEditFormData((prev) => ({ ...prev, crop }))}
+                      onCropComplete={(croppedArea) => {
+                        const cssY = croppedArea.height < 100 ? (croppedArea.y / (100 - croppedArea.height)) * 100 : 50;
+                        const cssX = croppedArea.width < 100 ? (croppedArea.x / (100 - croppedArea.width)) * 100 : 50;
+                        setEditFormData((prev) => ({ ...prev, imagePosition: `${cssX.toFixed(2)}% ${cssY.toFixed(2)}%` }));
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                      ✓ Image Active. Drag to crop.
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -1881,19 +1895,6 @@ export default function Promotions() {
               </select>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsEditModalOpen(false)}
-                disabled={isUpdating}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={isUpdating || editUploadingImage}>
-                {isUpdating ? 'Saving to Database...' : 'Save Changes'}
-              </button>
-            </div>
           </form>
         </Modal>
       )}

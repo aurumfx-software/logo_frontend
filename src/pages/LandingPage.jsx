@@ -1036,14 +1036,25 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return conceptCategories || [];
   }, [apiCategories, selectedCategory]);
 
-  // Category Pagination Calculation (20 categories per page = 5 rows of 4 categories)
+  // Category Search & Pagination
+  const filteredCategories = React.useMemo(() => {
+    const query = categorySearchQuery.trim().toLowerCase();
+    const allCats = displayCategories || [];
+    if (!query) return allCats;
+    return allCats.filter((c) => (c.title || c.name || '').toLowerCase().includes(query));
+  }, [displayCategories, categorySearchQuery]);
+
   const categoriesPerPage = 20;
-  const safeCategories = displayCategories || [];
+  const safeCategories = filteredCategories;
   const totalCategoryPages = Math.ceil(safeCategories.length / categoriesPerPage) || 1;
   const paginatedCategories = React.useMemo(() => {
     const start = (categoryPage - 1) * categoriesPerPage;
     return safeCategories.slice(start, start + categoriesPerPage);
   }, [safeCategories, categoryPage, categoriesPerPage]);
+
+  useEffect(() => {
+    setCategoryPage(1);
+  }, [categorySearchQuery]);
 
 
   // Form State matching API spec:
@@ -1726,10 +1737,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 else if (isNext) cardClass = 'landing-banner-card next';
 
                 const mediaUrl = slide.bannerUrl || slide.media_url || slide.image || slide.image_url;
+                const posMatch = (typeof mediaUrl === 'string') ? mediaUrl.match(/#pos=(top|center|bottom)/) : null;
+                const objectPosition = posMatch ? posMatch[1] : 'center';
                 const isVideo =
                   slide.media_type === 'video' ||
                   (typeof mediaUrl === 'string' &&
-                    (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.webm') || mediaUrl.endsWith('.mov')));
+                    (mediaUrl.split('#')[0].endsWith('.mp4') || mediaUrl.split('#')[0].endsWith('.webm') || mediaUrl.split('#')[0].endsWith('.mov')));
 
                 return (
                   <div
@@ -1762,7 +1775,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                       <img
                         src={mediaUrl}
                         alt={slide.title || 'Banner'}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition, display: 'block' }}
                       />
                     ) : (
                       <div style={{ padding: '30px 50px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: slide.bgGradient || '#0f172a', color: '#fff' }}>
@@ -2004,11 +2017,29 @@ export default function LandingPage({ defaultTab = 'home' }) {
           <div>
             <h2 className="zeas-section-title" style={{ margin: 0 }}>Popular Categories in Kerala</h2>
             <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-              Showing {displayCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, displayCategories.length)} of ${displayCategories.length}` : '0'} categories
+              Showing {safeCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, safeCategories.length)} of ${safeCategories.length}` : '0'} categories
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ position: 'relative', width: '200px' }}>
+              <HiSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search category..."
+                value={categorySearchQuery}
+                onChange={(e) => setCategorySearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 12px 6px 32px',
+                  borderRadius: '20px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  outline: 'none',
+                  background: '#f8fafc',
+                }}
+              />
+            </div>
             {totalCategoryPages > 1 && (
               <div className="category-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
