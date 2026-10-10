@@ -1712,103 +1712,103 @@ export default function LandingPage({ defaultTab = 'home' }) {
         <section className="landing-hero-section">
           <div className="landing-hero-backdrop"></div>
 
-        <div className="landing-carousel-wrapper">
-          <div className="landing-carousel-container">
-            {displayBanners.map((slide, idx) => {
-              const isCenter = idx === currentSlide;
-              const isPrev =
-                idx === (currentSlide - 1 + displayBanners.length) % displayBanners.length;
-              const isNext = idx === (currentSlide + 1) % displayBanners.length;
+          <div className="landing-carousel-wrapper">
+            <div className="landing-carousel-container">
+              {displayBanners.map((slide, idx) => {
+                const isCenter = idx === currentSlide;
+                const isPrev =
+                  idx === (currentSlide - 1 + displayBanners.length) % displayBanners.length;
+                const isNext = idx === (currentSlide + 1) % displayBanners.length;
 
-              let cardClass = 'landing-banner-card hidden';
-              if (isCenter) cardClass = 'landing-banner-card active';
-              else if (isPrev) cardClass = 'landing-banner-card prev';
-              else if (isNext) cardClass = 'landing-banner-card next';
+                let cardClass = 'landing-banner-card hidden';
+                if (isCenter) cardClass = 'landing-banner-card active';
+                else if (isPrev) cardClass = 'landing-banner-card prev';
+                else if (isNext) cardClass = 'landing-banner-card next';
 
-              const mediaUrl = slide.bannerUrl || slide.media_url || slide.image || slide.image_url;
-              const isVideo =
-                slide.media_type === 'video' ||
-                (typeof mediaUrl === 'string' &&
-                  (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.webm') || mediaUrl.endsWith('.mov')));
+                const mediaUrl = slide.bannerUrl || slide.media_url || slide.image || slide.image_url;
+                const isVideo =
+                  slide.media_type === 'video' ||
+                  (typeof mediaUrl === 'string' &&
+                    (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.webm') || mediaUrl.endsWith('.mov')));
 
-              return (
-                <div
-                  key={slide.id || idx}
-                  className={cardClass}
-                  style={{
-                    padding: 0,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    background: slide.bgGradient || '#0f172a'
-                  }}
-                  onClick={() => {
-                    if (isCenter) {
-                      navigate(`/ad-detail/${slide.id}`, { state: { ad: slide, merchant: slide } });
-                    } else {
-                      setCurrentSlide(idx);
-                    }
-                  }}
-                >
-                  {isVideo ? (
-                    <video
-                      src={mediaUrl}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : mediaUrl ? (
-                    <img
-                      src={mediaUrl}
-                      alt={slide.title || 'Banner'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    <div style={{ padding: '30px 50px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: slide.bgGradient || '#0f172a', color: '#fff' }}>
-                      <h2 className="landing-banner-title">{slide.title}</h2>
-                      <h4 className="landing-banner-sub">{slide.subtitle}</h4>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={slide.id || idx}
+                    className={cardClass}
+                    style={{
+                      padding: 0,
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      background: slide.bgGradient || '#0f172a'
+                    }}
+                    onClick={() => {
+                      if (isCenter) {
+                        navigate(`/ad-detail/${slide.id}`, { state: { ad: slide, merchant: slide } });
+                      } else {
+                        setCurrentSlide(idx);
+                      }
+                    }}
+                  >
+                    {isVideo ? (
+                      <video
+                        src={mediaUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : mediaUrl ? (
+                      <img
+                        src={mediaUrl}
+                        alt={slide.title || 'Banner'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ padding: '30px 50px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: slide.bgGradient || '#0f172a', color: '#fff' }}>
+                        <h2 className="landing-banner-title">{slide.title}</h2>
+                        <h4 className="landing-banner-sub">{slide.subtitle}</h4>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Controls */}
+            <button
+              onClick={() =>
+                setCurrentSlide(
+                  (prev) => (prev - 1 + displayBanners.length) % displayBanners.length
+                )
+              }
+              className="landing-carousel-arrow left"
+              aria-label="Previous Slide"
+            >
+              <HiChevronLeft />
+            </button>
+            <button
+              onClick={() =>
+                setCurrentSlide((prev) => (prev + 1) % displayBanners.length)
+              }
+              className="landing-carousel-arrow right"
+              aria-label="Next Slide"
+            >
+              <HiChevronRight />
+            </button>
+
+            {/* Dots */}
+            <div className="landing-carousel-dots">
+              {displayBanners.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`landing-dot ${idx === currentSlide ? 'active' : ''}`}
+                  onClick={() => setCurrentSlide(idx)}
+                />
+              ))}
+            </div>
           </div>
-
-          {/* Controls */}
-          <button
-            onClick={() =>
-              setCurrentSlide(
-                (prev) => (prev - 1 + displayBanners.length) % displayBanners.length
-              )
-            }
-            className="landing-carousel-arrow left"
-            aria-label="Previous Slide"
-          >
-            <HiChevronLeft />
-          </button>
-          <button
-            onClick={() =>
-              setCurrentSlide((prev) => (prev + 1) % displayBanners.length)
-            }
-            className="landing-carousel-arrow right"
-            aria-label="Next Slide"
-          >
-            <HiChevronRight />
-          </button>
-
-          {/* Dots */}
-          <div className="landing-carousel-dots">
-            {displayBanners.map((_, idx) => (
-              <button
-                key={idx}
-                className={`landing-dot ${idx === currentSlide ? 'active' : ''}`}
-                onClick={() => setCurrentSlide(idx)}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
       )}
 
 
@@ -1998,6 +1998,183 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         )}
       </section>
+      {/* Popular Categories Grid Section */}
+      <section id="popular-categories-section" className="zeas-categories-section">
+        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 className="zeas-section-title" style={{ margin: 0 }}>Popular Categories in Kerala</h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
+              Showing {displayCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, displayCategories.length)} of ${displayCategories.length}` : '0'} categories
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {totalCategoryPages > 1 && (
+              <div className="category-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  aria-label="Previous Category Page"
+                  disabled={categoryPage === 1}
+                  onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid #cbd5e1',
+                    background: categoryPage === 1 ? '#f1f5f9' : '#ffffff',
+                    color: categoryPage === 1 ? '#94a3b8' : '#0f172a',
+                    cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  &lt;
+                </button>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>
+                  {categoryPage} / {totalCategoryPages}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next Category Page"
+                  disabled={categoryPage === totalCategoryPages}
+                  onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid #cbd5e1',
+                    background: categoryPage === totalCategoryPages ? '#f1f5f9' : '#ffffff',
+                    color: categoryPage === totalCategoryPages ? '#94a3b8' : '#0f172a',
+                    cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
+            <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
+              All Categories &gt;
+            </button>
+          </div>
+        </div>
+
+        <div className="zeas-categories-grid">
+          {paginatedCategories.map((cat) => (
+            <div
+              key={cat.id}
+              className={`zeas-cat-card ${cat.active ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedCategory(cat.title || cat.name);
+                scrollToSection('establishments-section');
+              }}
+            >
+              <div className="zeas-cat-icon-wrapper" style={{ background: cat.color }}>
+                {cat.icon_url ? (
+                  <img
+                    src={cat.icon_url}
+                    alt={cat.title || cat.name}
+                    style={{ width: 28, height: 28, objectFit: 'contain' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  cat.icon
+                )}
+              </div>
+              <span className="zeas-cat-title">{cat.title || cat.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {totalCategoryPages > 1 && (
+          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={categoryPage === 1}
+              onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: categoryPage === 1 ? '#cbd5e1' : '#475569',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              &lt; Prev
+            </button>
+
+            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1)
+              .filter((p) => p === 1 || p === totalCategoryPages || Math.abs(p - categoryPage) <= 1)
+              .map((pNum, index, array) => {
+                const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
+                return (
+                  <React.Fragment key={pNum}>
+                    {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
+                    <button
+                      type="button"
+                      onClick={() => setCategoryPage(pNum)}
+                      style={{
+                        minWidth: '36px',
+                        height: '36px',
+                        padding: '0 12px',
+                        borderRadius: '10px',
+                        border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
+                        background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
+                        color: categoryPage === pNum ? '#ffffff' : '#475569',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {pNum}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
+            <button
+              type="button"
+              disabled={categoryPage === totalCategoryPages}
+              onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: categoryPage === totalCategoryPages ? '#cbd5e1' : '#475569',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Next &gt;
+            </button>
+          </div>
+        )}
+      </section>
+
 
       {/* 5. Establishments / Services Grid Section */}
       <section id="establishments-section" className="landing-establishments-section">
@@ -2372,182 +2549,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
         )}
       </section>
 
-      {/* Popular Categories Grid Section */}
-      <section id="popular-categories-section" className="zeas-categories-section">
-        <div className="zeas-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 className="zeas-section-title" style={{ margin: 0 }}>Popular Categories in Kerala</h2>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>
-              Showing {displayCategories.length > 0 ? `${(categoryPage - 1) * categoriesPerPage + 1}–${Math.min(categoryPage * categoriesPerPage, displayCategories.length)} of ${displayCategories.length}` : '0'} categories
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {totalCategoryPages > 1 && (
-              <div className="category-pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  aria-label="Previous Category Page"
-                  disabled={categoryPage === 1}
-                  onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    border: '1px solid #cbd5e1',
-                    background: categoryPage === 1 ? '#f1f5f9' : '#ffffff',
-                    color: categoryPage === 1 ? '#94a3b8' : '#0f172a',
-                    cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  &lt;
-                </button>
-                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>
-                  {categoryPage} / {totalCategoryPages}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next Category Page"
-                  disabled={categoryPage === totalCategoryPages}
-                  onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    border: '1px solid #cbd5e1',
-                    background: categoryPage === totalCategoryPages ? '#f1f5f9' : '#ffffff',
-                    color: categoryPage === totalCategoryPages ? '#94a3b8' : '#0f172a',
-                    cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  &gt;
-                </button>
-              </div>
-            )}
-            <button className="zeas-section-link" onClick={() => scrollToSection('categories-section')}>
-              All Categories &gt;
-            </button>
-          </div>
-        </div>
-
-        <div className="zeas-categories-grid">
-          {paginatedCategories.map((cat) => (
-            <div
-              key={cat.id}
-              className={`zeas-cat-card ${cat.active ? 'active' : ''}`}
-              onClick={() => {
-                setSelectedCategory(cat.title || cat.name);
-                scrollToSection('establishments-section');
-              }}
-            >
-              <div className="zeas-cat-icon-wrapper" style={{ background: cat.color }}>
-                {cat.icon_url ? (
-                  <img
-                    src={cat.icon_url}
-                    alt={cat.title || cat.name}
-                    style={{ width: 28, height: 28, objectFit: 'contain' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  cat.icon
-                )}
-              </div>
-              <span className="zeas-cat-title">{cat.title || cat.name}</span>
-            </div>
-          ))}
-        </div>
-
-        {totalCategoryPages > 1 && (
-          <div className="category-page-numbers" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              disabled={categoryPage === 1}
-              onClick={() => setCategoryPage((prev) => Math.max(prev - 1, 1))}
-              style={{
-                height: '36px',
-                padding: '0 14px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
-                color: categoryPage === 1 ? '#cbd5e1' : '#475569',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: categoryPage === 1 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              &lt; Prev
-            </button>
-
-            {Array.from({ length: totalCategoryPages }, (_, idx) => idx + 1)
-              .filter((p) => p === 1 || p === totalCategoryPages || Math.abs(p - categoryPage) <= 1)
-              .map((pNum, index, array) => {
-                const showEllipsisBefore = index > 0 && pNum - array[index - 1] > 1;
-                return (
-                  <React.Fragment key={pNum}>
-                    {showEllipsisBefore && <span style={{ color: '#94A3B8', fontSize: '14px', fontWeight: '700', padding: '0 4px' }}>...</span>}
-                    <button
-                      type="button"
-                      onClick={() => setCategoryPage(pNum)}
-                      style={{
-                        minWidth: '36px',
-                        height: '36px',
-                        padding: '0 12px',
-                        borderRadius: '10px',
-                        border: categoryPage === pNum ? '2px solid #6C63FF' : '1px solid #e2e8f0',
-                        background: categoryPage === pNum ? 'linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%)' : '#ffffff',
-                        color: categoryPage === pNum ? '#ffffff' : '#475569',
-                        fontWeight: '700',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        boxShadow: categoryPage === pNum ? '0 4px 14px rgba(108, 99, 255, 0.35)' : 'none',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {pNum}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-
-            <button
-              type="button"
-              disabled={categoryPage === totalCategoryPages}
-              onClick={() => setCategoryPage((prev) => Math.min(prev + 1, totalCategoryPages))}
-              style={{
-                height: '36px',
-                padding: '0 14px',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
-                color: categoryPage === totalCategoryPages ? '#cbd5e1' : '#475569',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: categoryPage === totalCategoryPages ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Next &gt;
-            </button>
-          </div>
-        )}
-      </section>
 
       {/* 🔥 Featured Offers Section */}
       <section id="featured-offers-section" className="zeas-offers-section">
@@ -2682,6 +2683,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         )}
       </section>
+
 
       {/* 6. News & Updates Section (Matching screenshot 3) */}
       <section className="landing-news-section">
