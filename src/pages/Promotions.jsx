@@ -1,31 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiOutlinePlus,
   HiOutlinePencil,
-  HiOutlineEye,
   HiOutlineTrash,
   HiOutlineSearch,
   HiOutlineCalendar,
   HiOutlineLocationMarker,
   HiOutlineRefresh,
   HiOutlinePhotograph,
-  HiOutlineVideoCamera,
-  HiOutlineUpload,
-  HiOutlineX,
-  HiOutlinePlay,
+  HiOutlineExternalLink,
+  HiOutlineCheck,
+  HiCheckCircle,
+  HiXCircle,
+  HiTag,
+  HiEye,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
-import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
-import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
-import { promotions as initialPromotions } from '../data/mockData';
-import { promotionsApi } from '../api/operationsApi';
+import {
+  fetchPromotionsList,
+  createPromotion,
+  updatePromotion,
+  deletePromotion,
+  uploadPromotionMedia,
+} from '../api/promotionApi';
 import { fetchCategoriesList } from '../api/categoryApi';
-import { uploadPromotionMedia } from '../api/promotionApi';
+import { uploadMerchantMedia } from '../api/merchantApi';
 
 const fallbackCategories = [
+  'Retail & Shopping',
   'Solar & Electricals',
   'Automobile & Spares',
   'Shopping & Fashion',
@@ -37,338 +42,133 @@ const fallbackCategories = [
   'Travels & Transport',
 ];
 
+const AD_SECTIONS = [
+  {
+    id: 'Home Top',
+    label: 'Top Banners',
+    badge: 'Home Top',
+    icon: '🎯',
+    headline: 'Top Landing Page Banner Slider',
+    description:
+      'Full-width auto-sliding commercial advertisement banners & video showcases displayed prominently at the very top of the landing page.',
+    recommendedRatio: 'Recommended Aspect Ratio: 16:5 (e.g. 1920×500px or 1600×450px) | MP4, WebM Videos supported',
+  },
+  {
+    id: 'Home Middle',
+    label: 'Middle Ads',
+    badge: 'Home Middle',
+    icon: '📢',
+    headline: 'In-Between Sponsored Ad Slider (After 3 Rows)',
+    description:
+      'Auto-sliding sponsored advertisement banner placed directly after 3 rows of merchant cards (15 shops).',
+    recommendedRatio: 'Recommended Aspect Ratio: 16:5 Panoramic (e.g. 1600×400px)',
+  },
+  {
+    id: 'Featured Offers',
+    label: 'Featured Offers',
+    badge: 'Featured Offers',
+    icon: '🔥',
+    headline: 'Featured Offers & Discounts Carousel',
+    description:
+      'Interactive auto-scrolling deals carousel with discount badges, merchant links, and validity dates.',
+    recommendedRatio: 'Recommended Aspect Ratio: Card format (e.g. 600×380px)',
+  },
+  {
+    id: 'Special Offer',
+    label: 'Special Deals',
+    badge: 'Special Offer',
+    icon: '⚡',
+    headline: 'Floating Special Offer Widget',
+    description:
+      'High-conversion deals displayed inside the red floating flame button and popup card on the bottom-right.',
+    recommendedRatio: 'Recommended Aspect Ratio: Banner or Square (e.g. 500×350px)',
+  },
+  {
+    id: 'Moving Text',
+    label: 'Moving Text',
+    badge: 'Moving Text',
+    icon: '📢',
+    headline: 'Scrolling Announcement Ticker Bar',
+    description:
+      'Continuous marquee moving announcements displayed below the top navbar on the Landing Page. Add, edit, or toggle active status with real-time PostgreSQL synchronization.',
+    recommendedRatio: 'Text Announcement (e.g. "⚡ Festive Season Offers — Up to 50% Off")',
+  },
+];
+
 const initialFormState = {
   title: '',
-  type: 'Featured',
+  description: '',
+  type: 'Banner',
   placement: 'Home Top',
-  category: 'Solar & Electricals',
-  location: '',
+  category: 'Retail & Shopping',
+  location: 'Kerala',
   startDate: new Date().toISOString().split('T')[0],
-  endDate: '2026-12-31',
-  bannerUrl: '',
+  endDate: '2027-12-31',
+  mediaType: 'image', // 'image' or 'video'
+  imageUrl: '',
   videoUrl: '',
-  mediaType: 'image', // 'image' | 'video'
-};
-
-const handleMediaFileUpload = async (e, type, formState, setFormState, setUploading = () => {}, openEditor = null, targetForm = 'create') => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-
-  try {
-    setUploading(true);
-    const uploadedData = await uploadPromotionMedia(file);
-    const mediaUrl = uploadedData.url || uploadedData.video_url || uploadedData.image_url;
-    const mediaType = uploadedData.media_type || (file.type.startsWith('video/') ? 'video' : 'image');
-
-    if (mediaType === 'video' || type === 'video') {
-      setFormState({
-        ...formState,
-        videoUrl: mediaUrl,
-        video_url: mediaUrl,
-        mediaType: 'video',
-        media_type: 'video',
-        bannerUrl: formState.bannerUrl || uploadedData.image_url || uploadedData.thumbnail_url || '',
-      });
-    } else {
-      setFormState({
-        ...formState,
-        bannerUrl: mediaUrl,
-        image_url: mediaUrl,
-        thumbnail_url: mediaUrl,
-        mediaType: 'image',
-        media_type: 'image',
-      });
-      if (openEditor) {
-        openEditor(mediaUrl, targetForm);
-      }
-    }
-  } catch (err) {
-    console.warn('CDN upload failed, using local preview fallback:', err);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (type === 'image') {
-        setFormState({ ...formState, bannerUrl: reader.result, image_url: reader.result, mediaType: 'image' });
-        if (openEditor) {
-          openEditor(reader.result, targetForm);
-        }
-      } else {
-        setFormState({ ...formState, videoUrl: reader.result, video_url: reader.result, mediaType: 'video' });
-      }
-    };
-    reader.readAsDataURL(file);
-  } finally {
-    setUploading(false);
-  }
+  targetUrl: '',
+  status: 'active',
 };
 
 export default function Promotions() {
-  const [promoList, setPromoList] = useState(initialPromotions);
+  const [promoList, setPromoList] = useState([]);
   const [categoriesList, setCategoriesList] = useState(fallbackCategories);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('Home Top');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPromo, setNewPromo] = useState(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState('');
-
-  // View modal state
-  const [selectedPromo, setSelectedPromo] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editUploadingImage, setEditUploadingImage] = useState(false);
 
-  // Image Crop & Fit Editor state
-  const [cropModalOpen, setCropModalOpen] = useState(false);
-  const [cropImageSrc, setCropImageSrc] = useState('');
-  const [cropTargetForm, setCropTargetForm] = useState('create'); // 'create' | 'edit'
-  const [cropScale, setCropScale] = useState(1);
-  const [cropRotation, setCropRotation] = useState(0);
-  const [cropBrightness, setCropBrightness] = useState(100);
-  const [cropContrast, setCropContrast] = useState(100);
-  const [cropFitMode, setCropFitMode] = useState('cover'); // 'cover' | 'contain'
-  const [cropAspectRatio, setCropAspectRatio] = useState('16:9'); // '16:9' | '3:1' | '1:1' | '4:3'
+  // View preview modal state
+  const [previewPromo, setPreviewPromo] = useState(null);
 
-  const openImageEditor = (src, target = 'create') => {
-    setCropImageSrc(src);
-    setCropTargetForm(target);
-    setCropScale(1);
-    setCropRotation(0);
-    setCropBrightness(100);
-    setCropContrast(100);
-    setCropFitMode('cover');
-    setCropAspectRatio('16:9');
-    setCropModalOpen(true);
-  };
-
-  const handleApplyCroppedImage = () => {
-    if (!cropImageSrc) return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = cropImageSrc;
-    img.onload = () => {
-      let targetWidth = 1200;
-      let targetHeight = 675; // 16:9
-      if (cropAspectRatio === '3:1') {
-        targetHeight = 400;
-      } else if (cropAspectRatio === '1:1') {
-        targetHeight = 1200;
-      } else if (cropAspectRatio === '4:3') {
-        targetHeight = 900;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      ctx.save();
-      ctx.filter = `brightness(${cropBrightness}%) contrast(${cropContrast}%)`;
-      ctx.translate(targetWidth / 2, targetHeight / 2);
-      ctx.rotate((cropRotation * Math.PI) / 180);
-      ctx.scale(cropScale, cropScale);
-
-      let drawW = img.width;
-      let drawH = img.height;
-
-      if (cropFitMode === 'cover') {
-        const scaleW = targetWidth / img.width;
-        const scaleH = targetHeight / img.height;
-        const scale = Math.max(scaleW, scaleH);
-        drawW = img.width * scale;
-        drawH = img.height * scale;
-      } else {
-        const scaleW = targetWidth / img.width;
-        const scaleH = targetHeight / img.height;
-        const scale = Math.min(scaleW, scaleH);
-        drawW = img.width * scale;
-        drawH = img.height * scale;
-      }
-
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-      ctx.restore();
-
-      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
-      if (cropTargetForm === 'create') {
-        setNewPromo((prev) => ({
-          ...prev,
-          bannerUrl: croppedDataUrl,
-          image_url: croppedDataUrl,
-          mediaType: 'image',
-        }));
-      } else {
-        setEditFormData((prev) => ({
-          ...prev,
-          bannerUrl: croppedDataUrl,
-          image_url: croppedDataUrl,
-          mediaType: 'image',
-        }));
-      }
-      setCropModalOpen(false);
-    };
-  };
-
-  const renderCardMedia = (promo) => {
-    const cardMediaSrc =
-      promo.bannerUrl ||
-      promo.banner_url ||
-      promo.image_url ||
-      promo.image ||
-      promo.media_url ||
-      promo.mediaUrl ||
-      promo.banner_image ||
-      promo.url;
-    const cardVideoSrc = promo.videoUrl || promo.video_url || promo.video;
-    const isCardVideo =
-      promo.mediaType === 'video' ||
-      promo.media_type === 'video' ||
-      (cardVideoSrc && cardVideoSrc.length > 0);
-
-    if (isCardVideo && cardVideoSrc) {
-      return (
-        <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
-          <video
-            src={cardVideoSrc}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            muted
-            loop
-            onMouseOver={(e) => e.target.play().catch(() => {})}
-            onMouseOut={(e) => e.target.pause()}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              bottom: 8,
-              right: 8,
-              background: 'rgba(0,0,0,0.75)',
-              color: '#FFF',
-              fontSize: 10,
-              padding: '2px 8px',
-              borderRadius: 4,
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <HiOutlinePlay size={10} /> VIDEO
-          </span>
-        </div>
-      );
-    }
-
-    if (cardMediaSrc) {
-      return (
-        <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
-          <img
-            src={cardMediaSrc}
-            alt={promo.title}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div
-        style={{
-          height: 4,
-          background:
-            promo.status === 'active' || promo.status === 'approved'
-              ? 'linear-gradient(90deg, #10B981, #059669)'
-              : promo.status === 'pending'
-              ? 'linear-gradient(90deg, #F59E0B, #D97706)'
-              : '#E5E7EB',
-        }}
-      />
-    );
-  };
-
-  const renderModalMedia = (promo) => {
-    if (!promo) return null;
-    const mediaSrc =
-      promo.bannerUrl ||
-      promo.banner_url ||
-      promo.image_url ||
-      promo.image ||
-      promo.media_url ||
-      promo.mediaUrl ||
-      promo.banner_image ||
-      promo.url;
-
-    const videoSrc =
-      promo.videoUrl ||
-      promo.video_url ||
-      promo.video;
-
-    const isVideo =
-      promo.mediaType === 'video' ||
-      promo.media_type === 'video' ||
-      (typeof videoSrc === 'string' && videoSrc.length > 0) ||
-      (typeof mediaSrc === 'string' && (mediaSrc.endsWith('.mp4') || mediaSrc.endsWith('.webm') || mediaSrc.endsWith('.mov')));
-
-    if (isVideo && videoSrc) {
-      return (
-        <div style={{ borderRadius: 12, overflow: 'hidden', background: '#000', marginBottom: 16, maxHeight: 280, display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-          <video src={videoSrc} controls autoPlay style={{ width: '100%', maxHeight: 280, objectFit: 'contain' }} />
-        </div>
-      );
-    }
-
-    if (mediaSrc) {
-      return (
-        <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 16, maxHeight: 280, background: '#0F172A', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-          <img src={mediaSrc} alt={promo.title || 'Promotion Media'} style={{ width: '100%', maxHeight: 280, objectFit: promo.bannerFit || 'cover', display: 'block' }} />
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ borderRadius: 12, background: 'linear-gradient(135deg, #1E293B, #0F172A)', padding: '24px 16px', color: '#FFF', textAlign: 'center', marginBottom: 16 }}>
-        <HiOutlinePhotograph style={{ fontSize: 36, color: '#94A3B8', marginBottom: 6 }} />
-        <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', fontWeight: 600 }}>No image or video attached to this promotion</p>
-      </div>
-    );
-  };
+  const fileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const apiData = await promotionsApi.list({ status: selectedCategory, search: searchQuery });
+      const apiData = await fetchPromotionsList();
       if (Array.isArray(apiData) && apiData.length > 0) {
         const formatted = apiData.map((item, idx) => ({
-          id: item.id || item._id || `p-live-${idx}`,
+          id: item.id || item._id || `p-db-${idx}`,
           title: item.title || item.name || 'Featured Promotion',
-          type: item.type || 'Featured',
-          category: item.category || 'General',
-          placement: item.placement || `${item.type || 'Featured'} (${item.category || 'General'})`,
-          location: item.location || 'Payyanur, Kerala',
+          description: item.description || '',
+          type: item.type || 'Banner',
+          category: item.category || 'Retail & Shopping',
+          placement: item.placement || 'Home Top',
+          location: item.location || 'Kerala',
           startDate: item.start_date || item.startDate || '2026-10-01',
-          endDate: item.end_date || item.endDate || '2026-12-31',
+          endDate: item.end_date || item.endDate || '2027-12-31',
           status: (item.status || 'ACTIVE').toLowerCase(),
           impressions: item.impressions || item.views || 0,
           clicks: item.clicks || 0,
-          bannerUrl: item.banner_url || item.image_url || item.image || item.bannerUrl || item.media_url || item.mediaUrl || item.banner_image || item.url || '',
-          videoUrl: item.video_url || item.videoUrl || item.video || (typeof item.media_url === 'string' && item.media_url.endsWith('.mp4') ? item.media_url : '') || '',
-          mediaType: item.media_type || item.mediaType || (item.video_url || item.video ? 'video' : 'image'),
+          imageUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
+          videoUrl: item.video_url || item.videoUrl || '',
+          mediaType: item.media_type || (item.video_url || item.videoUrl ? 'video' : 'image'),
+          targetUrl: item.target_url || item.targetUrl || '#',
+          phone: item.phone || '',
         }));
         setPromoList(formatted);
       } else {
-        setPromoList(initialPromotions);
+        setPromoList([]);
       }
     } catch (err) {
-      console.warn('Backend promotions API notice, using local promotions:', err);
-      setPromoList(initialPromotions);
+      console.warn('Backend fetchPromotionsList error:', err);
     } finally {
       setLoading(false);
     }
@@ -376,13 +176,15 @@ export default function Promotions() {
     try {
       const apiCategories = await fetchCategoriesList();
       if (Array.isArray(apiCategories) && apiCategories.length > 0) {
-        const catNames = apiCategories.map((c) => c.name || c.category_name).filter(Boolean);
+        const catNames = apiCategories
+          .map((c) => c.name || c.category_name)
+          .filter((name) => name && !name.startsWith('http'));
         if (catNames.length > 0) {
-          setCategoriesList(catNames);
+          setCategoriesList(Array.from(new Set([...fallbackCategories, ...catNames])));
         }
       }
     } catch (catErr) {
-      console.warn('Backend categories API notice in Promotions:', catErr);
+      console.warn('Backend categories fetch notice:', catErr);
     }
   };
 
@@ -390,19 +192,50 @@ export default function Promotions() {
     loadData();
   }, []);
 
-  // Filtered promotions
-  const filteredPromos = promoList.filter((p) => {
-    const matchesSearch =
-      (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.location || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'All' || p.category.toLowerCase() === selectedCategory.toLowerCase();
-    const matchesType =
-      selectedType === 'All' || (p.type || '').toLowerCase() === selectedType.toLowerCase();
-    return matchesSearch && matchesCategory && matchesType;
-  });
+  // Upload image or video to DigitalOcean Spaces CDN
+  const handleFileUpload = async (file, isEdit = false) => {
+    if (!file) return;
+
+    try {
+      if (isEdit) setEditUploadingImage(true);
+      else setUploadingImage(true);
+
+      const res = await uploadPromotionMedia(file);
+      const uploadedUrl = res.media_url || res.url || res.image_url || res.video_url || '';
+      const isVideoFile = file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(file.name);
+      const detectedMediaType = res.media_type || (isVideoFile ? 'video' : 'image');
+
+      if (uploadedUrl) {
+        if (isEdit) {
+          setEditFormData((prev) => ({
+            ...prev,
+            imageUrl: detectedMediaType === 'image' ? uploadedUrl : prev.imageUrl,
+            videoUrl: detectedMediaType === 'video' ? uploadedUrl : prev.videoUrl,
+            mediaType: detectedMediaType,
+          }));
+          setEditError('');
+        } else {
+          setNewPromo((prev) => ({
+            ...prev,
+            imageUrl: detectedMediaType === 'image' ? uploadedUrl : prev.imageUrl,
+            videoUrl: detectedMediaType === 'video' ? uploadedUrl : prev.videoUrl,
+            mediaType: detectedMediaType,
+          }));
+          setAddError('');
+        }
+      } else {
+        throw new Error('Upload server did not return a valid media URL');
+      }
+    } catch (uploadErr) {
+      console.error('Media upload failed:', uploadErr);
+      const errMsg = uploadErr.message || 'Media upload failed. Please try a valid PNG, JPG, or MP4 video file.';
+      if (isEdit) setEditError(errMsg);
+      else setAddError(errMsg);
+    } finally {
+      if (isEdit) setEditUploadingImage(false);
+      else setUploadingImage(false);
+    }
+  };
 
   // Create Promotion Handler
   const handleCreatePromo = async (e) => {
@@ -410,7 +243,19 @@ export default function Promotions() {
     setAddError('');
 
     if (!newPromo.title.trim()) {
-      setAddError('Please enter a promotion title.');
+      setAddError('Please enter an advertisement title.');
+      return;
+    }
+
+    if (uploadingImage) {
+      setAddError('Image/media upload is in progress. Please wait until it completes.');
+      return;
+    }
+
+    const currentPlacement = newPromo.placement || activeTab || 'Home Top';
+
+    if (currentPlacement !== 'Moving Text' && !newPromo.imageUrl?.trim() && !newPromo.videoUrl?.trim()) {
+      setAddError(`Please upload a banner image or enter an image URL for "${currentPlacement}". An image is required to display this banner on the landing page.`);
       return;
     }
 
@@ -418,61 +263,47 @@ export default function Promotions() {
     try {
       const payload = {
         title: newPromo.title.trim(),
-        type: newPromo.type,
-        category: newPromo.category,
-        placement: `${newPromo.placement} (${newPromo.category})`,
-        location: newPromo.location || 'Payyanur, Kerala',
+        description: newPromo.description ? newPromo.description.trim() : null,
+        type: newPromo.type || (currentPlacement === 'Moving Text' ? 'Text Carousel' : 'Banner'),
+        category: newPromo.category || 'Retail & Shopping',
+        placement: currentPlacement,
+        location: newPromo.location || 'Kerala',
         start_date: newPromo.startDate || '2026-10-01',
-        end_date: newPromo.endDate || '2026-12-31',
-        status: 'ACTIVE',
-        banner_url: newPromo.bannerUrl || '',
-        video_url: newPromo.videoUrl || '',
-        media_type: newPromo.mediaType || 'image',
+        end_date: newPromo.endDate || '2027-12-31',
+        status: (newPromo.status || 'ACTIVE').toLowerCase(),
+        image_url: newPromo.imageUrl ? newPromo.imageUrl.trim() : null,
+        video_url: newPromo.videoUrl ? newPromo.videoUrl.trim() : null,
+        media_type: newPromo.mediaType || (newPromo.videoUrl ? 'video' : 'image'),
+        target_url: newPromo.targetUrl || '#',
       };
-      const createdItem = await promotionsApi.create(payload);
+
+      const createdItem = await createPromotion(payload);
 
       const formattedCreated = {
         id: createdItem.id || `p-${Date.now()}`,
         title: createdItem.title || newPromo.title,
+        description: createdItem.description || newPromo.description || '',
         type: createdItem.type || newPromo.type,
         category: createdItem.category || newPromo.category,
-        placement: `${newPromo.placement} (${newPromo.category})`,
-        location: newPromo.location || 'Payyanur, Kerala',
-        startDate: newPromo.startDate || '2026-10-01',
-        endDate: newPromo.endDate || '2026-12-31',
-        status: 'active',
+        placement: createdItem.placement || currentPlacement,
+        location: createdItem.location || newPromo.location,
+        startDate: createdItem.start_date || newPromo.startDate,
+        endDate: createdItem.end_date || newPromo.endDate,
+        status: (createdItem.status || 'active').toLowerCase(),
         impressions: 0,
         clicks: 0,
-        bannerUrl: newPromo.bannerUrl || '',
-        videoUrl: newPromo.videoUrl || '',
-        mediaType: newPromo.mediaType || 'image',
+        imageUrl: createdItem.image_url || newPromo.imageUrl || '',
+        videoUrl: createdItem.video_url || newPromo.videoUrl || '',
+        mediaType: createdItem.media_type || newPromo.mediaType || (newPromo.videoUrl ? 'video' : 'image'),
+        targetUrl: createdItem.target_url || newPromo.targetUrl || '#',
       };
 
-      setPromoList([formattedCreated, ...promoList]);
+      setPromoList((prev) => [formattedCreated, ...prev]);
       setShowAddModal(false);
       setNewPromo(initialFormState);
     } catch (err) {
-      console.warn('Backend create promotion error:', err);
-      // Fallback local addition
-      const fallbackCreated = {
-        id: `p-${Date.now()}`,
-        title: newPromo.title,
-        type: newPromo.type,
-        category: newPromo.category,
-        placement: `${newPromo.placement} (${newPromo.category})`,
-        location: newPromo.location || 'Payyanur, Kerala',
-        startDate: newPromo.startDate || '2026-10-01',
-        endDate: newPromo.endDate || '2026-12-31',
-        status: 'active',
-        impressions: 0,
-        clicks: 0,
-        bannerUrl: newPromo.bannerUrl || '',
-        videoUrl: newPromo.videoUrl || '',
-        mediaType: newPromo.mediaType || 'image',
-      };
-      setPromoList([fallbackCreated, ...promoList]);
-      setShowAddModal(false);
-      setNewPromo(initialFormState);
+      console.error('Failed to create promotion:', err);
+      setAddError(err.message || 'Failed to save promotion to database');
     } finally {
       setIsSubmitting(false);
     }
@@ -482,9 +313,11 @@ export default function Promotions() {
   const handleOpenEdit = (promo) => {
     setEditFormData({
       ...promo,
-      bannerUrl: promo.bannerUrl || promo.banner_url || '',
-      videoUrl: promo.videoUrl || promo.video_url || '',
-      mediaType: promo.mediaType || promo.media_type || (promo.videoUrl || promo.video_url ? 'video' : 'image'),
+      description: promo.description || '',
+      imageUrl: promo.imageUrl || '',
+      videoUrl: promo.videoUrl || '',
+      mediaType: promo.mediaType || (promo.videoUrl ? 'video' : 'image'),
+      targetUrl: promo.targetUrl || '',
     });
     setEditError('');
     setIsEditModalOpen(true);
@@ -495,33 +328,62 @@ export default function Promotions() {
     if (e) e.preventDefault();
     if (!editFormData || !editFormData.title.trim()) return;
 
+    if (editUploadingImage) {
+      setEditError('Image/media upload is in progress. Please wait until it completes.');
+      return;
+    }
+
+    if (editFormData.placement !== 'Moving Text' && !editFormData.imageUrl?.trim() && !editFormData.videoUrl?.trim()) {
+      setEditError(`Please upload a banner image or enter an image URL for "${editFormData.placement}".`);
+      return;
+    }
+
     setIsUpdating(true);
     setEditError('');
     try {
       const payload = {
         title: editFormData.title.trim(),
+        description: editFormData.description ? editFormData.description.trim() : null,
         category: editFormData.category,
         type: editFormData.type,
         placement: editFormData.placement,
         location: editFormData.location,
-        start_date: editFormData.startDate || editFormData.start_date,
-        end_date: editFormData.endDate || editFormData.end_date,
-        status: editFormData.status ? editFormData.status.toUpperCase() : 'ACTIVE',
-        banner_url: editFormData.bannerUrl || '',
-        video_url: editFormData.videoUrl || '',
-        media_type: editFormData.mediaType || 'image',
+        start_date: editFormData.startDate,
+        end_date: editFormData.endDate,
+        status: editFormData.status.toLowerCase(),
+        image_url: editFormData.imageUrl ? editFormData.imageUrl.trim() : null,
+        video_url: editFormData.videoUrl ? editFormData.videoUrl.trim() : null,
+        media_type: editFormData.mediaType || (editFormData.videoUrl ? 'video' : 'image'),
+        target_url: editFormData.targetUrl || '#',
       };
-      await promotionsApi.update(editFormData.id, payload);
+
+      const updated = await updatePromotion(editFormData.id, payload);
+
       setPromoList((prev) =>
-        prev.map((p) => (p.id === editFormData.id ? { ...p, ...editFormData } : p))
+        prev.map((item) =>
+          item.id === editFormData.id
+            ? {
+                ...item,
+                title: updated.title || editFormData.title,
+                description: updated.description !== undefined ? updated.description : editFormData.description,
+                category: updated.category || editFormData.category,
+                placement: updated.placement || editFormData.placement,
+                location: updated.location || editFormData.location,
+                startDate: updated.start_date || editFormData.startDate,
+                endDate: updated.end_date || editFormData.endDate,
+                status: (updated.status || editFormData.status).toLowerCase(),
+                imageUrl: updated.image_url || editFormData.imageUrl,
+                videoUrl: updated.video_url || editFormData.videoUrl,
+                mediaType: updated.media_type || editFormData.mediaType || (editFormData.videoUrl ? 'video' : 'image'),
+                targetUrl: updated.target_url || editFormData.targetUrl,
+              }
+            : item
+        )
       );
       setIsEditModalOpen(false);
     } catch (err) {
-      console.warn('Update promo API notice, updating state:', err);
-      setPromoList((prev) =>
-        prev.map((p) => (p.id === editFormData.id ? { ...p, ...editFormData } : p))
-      );
-      setIsEditModalOpen(false);
+      console.error('Failed to update promotion:', err);
+      setEditError(err.message || 'Failed to update promotion');
     } finally {
       setIsUpdating(false);
     }
@@ -529,51 +391,340 @@ export default function Promotions() {
 
   // Delete Promotion Handler
   const handleDeletePromo = async (id, title) => {
-    if (!window.confirm(`Are you sure you want to delete promotion "${title}"?`)) {
+    if (!window.confirm(`Are you sure you want to delete advertisement "${title}"?`)) {
       return;
     }
     try {
-      await promotionsApi.delete(id);
+      await deletePromotion(id);
       setPromoList((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
+      console.warn('Delete promo notice:', err);
       setPromoList((prev) => prev.filter((p) => p.id !== id));
     }
   };
 
+  // Toggle Active/Inactive Status
+  const handleToggleStatus = async (promo) => {
+    const nextStatus = promo.status === 'active' ? 'inactive' : 'active';
+    try {
+      await updatePromotion(promo.id, {
+        ...promo,
+        status: nextStatus,
+        start_date: promo.startDate,
+        end_date: promo.endDate,
+        image_url: promo.imageUrl,
+        target_url: promo.targetUrl,
+      });
+      setPromoList((prev) =>
+        prev.map((p) => (p.id === promo.id ? { ...p, status: nextStatus } : p))
+      );
+    } catch (err) {
+      console.warn('Status toggle error:', err);
+    }
+  };
+
+  // Filter ads by Active Placement Tab + Search Query + Category
+  const currentSection = AD_SECTIONS.find((s) => s.id === activeTab) || AD_SECTIONS[0];
+
+  const displayedPromos = promoList.filter((p) => {
+    // Placement filter
+    const matchesPlacement =
+      activeTab === 'Moving Text'
+        ? p.placement &&
+          (p.placement.toLowerCase().includes('moving') ||
+            p.placement.toLowerCase().includes('ticker'))
+        : p.placement &&
+          (p.placement.toLowerCase() === activeTab.toLowerCase() ||
+           p.placement.toLowerCase().startsWith(activeTab.toLowerCase()));
+
+    // Category filter
+    const matchesCategory =
+      selectedCategoryFilter === 'All' ||
+      (p.category && p.category.toLowerCase() === selectedCategoryFilter.toLowerCase());
+
+    // Search query
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.placement || '').toLowerCase().includes(q) ||
+      (p.location || '').toLowerCase().includes(q);
+
+    return matchesPlacement && matchesCategory && matchesSearch;
+  });
+
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: 60 }}>
       <PageHeader
-        title="Promotions"
-        subtitle="Manage banners, advertisements & featured business listings"
+        title="Promotions & Banner Ads"
+        subtitle="Manage landing page top slider, middle in-between ads, moving ticker text & featured offers synced to PostgreSQL"
       >
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-outline" onClick={loadData} title="Refresh live data">
+          <button className="btn btn-outline" onClick={loadData} title="Refresh from PostgreSQL">
             <HiOutlineRefresh /> Refresh
           </button>
           <button
             className="btn btn-primary"
             onClick={() => {
               setAddError('');
-              setNewPromo(initialFormState);
+              setNewPromo({
+                ...initialFormState,
+                placement: activeTab || 'Home Top',
+                type: activeTab === 'Moving Text' ? 'Text Carousel' : 'Banner',
+              });
               setShowAddModal(true);
             }}
           >
-            <HiOutlinePlus /> New Promotion
+            <HiOutlinePlus /> + Add New Ad
           </button>
         </div>
       </PageHeader>
 
-      {/* Filter & Search Bar */}
+      {/* ========================================================
+          1. DEDICATED POSITION TABS (TOP BANNERS, MIDDLE ADS, OFFERS, SPECIAL, MOVING TEXT)
+          ======================================================== */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          marginBottom: 20,
+          overflowX: 'auto',
+          paddingBottom: 4,
+        }}
+      >
+        {AD_SECTIONS.map((sec) => {
+          const count =
+            sec.id === 'Moving Text'
+              ? promoList.filter(
+                  (p) =>
+                    p.placement &&
+                    (p.placement.toLowerCase().includes('moving') ||
+                      p.placement.toLowerCase().includes('ticker'))
+                ).length
+              : promoList.filter(
+                  (p) =>
+                    p.placement &&
+                    (p.placement.toLowerCase() === sec.id.toLowerCase() ||
+                     p.placement.toLowerCase().startsWith(sec.id.toLowerCase()))
+                ).length;
+          const isActive = activeTab === sec.id;
+
+          return (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() => setActiveTab(sec.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 18px',
+                borderRadius: 12,
+                border: isActive ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                background: isActive ? '#eff6ff' : '#ffffff',
+                color: isActive ? '#2563eb' : '#334155',
+                fontWeight: isActive ? 800 : 600,
+                fontSize: 13.5,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                boxShadow: isActive ? '0 4px 12px rgba(37, 99, 235, 0.15)' : 'none',
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{sec.icon}</span>
+              <span>{sec.label}</span>
+              <span
+                style={{
+                  background: isActive ? '#2563eb' : '#f1f5f9',
+                  color: isActive ? '#ffffff' : '#64748b',
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                  fontSize: 11,
+                  fontWeight: 800,
+                }}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ========================================================
+          2. SECTION BANNER INFO CARD (HEADLINE, DESCRIPTION, SPECS)
+          ======================================================== */}
       <div
         className="card"
         style={{
+          background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+          color: '#ffffff',
+          padding: '22px 26px',
+          borderRadius: 16,
           marginBottom: 24,
-          padding: '16px 20px',
+          boxShadow: '0 8px 24px rgba(37, 99, 235, 0.2)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 16,
+        }}
+      >
+        <div style={{ maxWidth: 720 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 20 }}>{currentSection.icon}</span>
+            <span
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                padding: '3px 10px',
+                borderRadius: 12,
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: 0.5,
+              }}
+            >
+              {currentSection.badge}
+            </span>
+          </div>
+          <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#ffffff' }}>
+            {currentSection.headline}
+          </h2>
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: '#dbeafe', lineHeight: 1.4 }}>
+            {currentSection.description}
+          </p>
+          <div
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: '#fef08a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>📐 {currentSection.recommendedRatio}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setAddError('');
+            setNewPromo({
+              ...initialFormState,
+              placement: activeTab || 'Home Top',
+              type: activeTab === 'Moving Text' ? 'Text Carousel' : 'Banner',
+            });
+            setShowAddModal(true);
+          }}
+          style={{
+            background: '#ffffff',
+            color: '#1d4ed8',
+            border: 'none',
+            padding: '12px 22px',
+            borderRadius: 12,
+            fontWeight: 800,
+            fontSize: 13.5,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <HiOutlinePlus size={18} /> Add {activeTab === 'Moving Text' ? 'Moving Text' : `Ad to ${currentSection.label}`}
+        </button>
+      </div>
+
+      {/* ========================================================
+          LIVE INTERACTIVE TICKER BAR PREVIEW (FOR MOVING TEXT TAB)
+          ======================================================== */}
+      {activeTab === 'Moving Text' && (
+        <div
+          style={{
+            marginBottom: 24,
+            borderRadius: 14,
+            background: 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)',
+            padding: '14px 20px',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            overflow: 'hidden',
+            boxShadow: '0 4px 16px rgba(15, 23, 42, 0.25)',
+            border: '1px solid rgba(59, 130, 246, 0.35)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#ef4444',
+              color: '#ffffff',
+              padding: '6px 14px',
+              borderRadius: 8,
+              fontSize: 11.5,
+              fontWeight: 800,
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+            }}
+          >
+            <span>⚡ LIVE TICKER PREVIEW</span>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <div
+              className="zeas-ticker-content"
+              style={{
+                display: 'inline-block',
+                fontSize: 13.5,
+                fontWeight: 600,
+                color: '#f8fafc',
+              }}
+            >
+              {displayedPromos.filter((p) => p.status === 'active').length > 0 ? (
+                <>
+                  {displayedPromos
+                    .filter((p) => p.status === 'active')
+                    .map((p, i) => (
+                      <span key={i}>
+                        {p.title} &nbsp;&bull;&nbsp;&nbsp;
+                      </span>
+                    ))}
+                  {displayedPromos
+                    .filter((p) => p.status === 'active')
+                    .map((p, i) => (
+                      <span key={`dup-${i}`}>
+                        {p.title} &nbsp;&bull;&nbsp;&nbsp;
+                      </span>
+                    ))}
+                </>
+              ) : (
+                <span style={{ color: '#94a3b8' }}>
+                  No active moving text announcements found. Click &quot;+ Add Moving Text&quot; to publish one.
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          3. SEARCH & CATEGORY FILTER
+          ======================================================== */}
+      <div
+        className="card"
+        style={{
+          marginBottom: 24,
+          padding: '14px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 14,
         }}
       >
         <div style={{ position: 'relative', minWidth: 260, flex: 1 }}>
@@ -583,7 +734,7 @@ export default function Promotions() {
               left: 14,
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#9CA3AF',
+              color: '#94a3b8',
               fontSize: 18,
             }}
           />
@@ -591,19 +742,19 @@ export default function Promotions() {
             type="text"
             className="form-input"
             style={{ paddingLeft: 42, margin: 0, width: '100%' }}
-            placeholder="Search promotion title, category, location..."
+            placeholder={`Search ${currentSection.label.toLowerCase()}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>Category:</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>Category:</span>
           <select
             className="form-select"
-            style={{ margin: 0, width: 'auto', minWidth: 160 }}
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            style={{ margin: 0, width: 'auto', minWidth: 170 }}
+            value={selectedCategoryFilter}
+            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
           >
             <option value="All">All Categories</option>
             {categoriesList.map((cat, idx) => (
@@ -611,21 +762,6 @@ export default function Promotions() {
                 {cat}
               </option>
             ))}
-          </select>
-
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', marginLeft: 4 }}>Type:</span>
-          <select
-            className="form-select"
-            style={{ margin: 0, width: 'auto', minWidth: 160 }}
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-          >
-            <option value="All">All Types</option>
-            <option value="Featured">Featured Ad</option>
-            <option value="Sponsored">Sponsored Listing</option>
-            <option value="Banner">Banner Carousel</option>
-            <option value="Text Carousel">Text Carousel</option>
-            <option value="Footer Ads">Footer Ads</option>
           </select>
         </div>
       </div>
@@ -647,457 +783,870 @@ export default function Promotions() {
           }}
         >
           <CircularSpinner size={16} color="#1D4ED8" />
-          <span>Loading live promotions from API...</span>
+          <span>Syncing advertisements with PostgreSQL database...</span>
         </div>
       )}
 
-      {/* Grid of Promotions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
-        {filteredPromos.map((promo, idx) => (
-          <motion.div
-            key={promo.id}
-            className="card"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.04 }}
-            style={{ overflow: 'hidden' }}
+      {/* ========================================================
+          4. GRID OF ADS (EDIT, DELETE, PREVIEW, LIVE TOGGLE)
+          ======================================================== */}
+      {displayedPromos.length === 0 && !loading ? (
+        <div
+          className="card"
+          style={{
+            textAlign: 'center',
+            padding: '50px 20px',
+            color: '#64748b',
+            borderRadius: 14,
+          }}
+        >
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📢</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
+            No advertisements found in {currentSection.label}
+          </h3>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+            Click the button below to add your first live advertisement banner or deal.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setAddError('');
+              setNewPromo({
+                ...initialFormState,
+                placement: activeTab || 'Home Top',
+                type: activeTab === 'Moving Text' ? 'Text Carousel' : 'Banner',
+              });
+              setShowAddModal(true);
+            }}
           >
-            {/* Media Header (Image or Video preview) */}
-            {renderCardMedia(promo)}
-            <div className="card-body">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <StatusBadge status={promo.status} />
+            <HiOutlinePlus /> + Add New Ad
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: 20,
+          }}
+        >
+          {displayedPromos.map((promo, idx) => (
+            <motion.div
+              key={promo.id || idx}
+              className="card"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.02 }}
+              style={{
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid #e2e8f0',
+                borderRadius: 14,
+                boxShadow: '0 4px 16px rgba(15, 23, 42, 0.05)',
+              }}
+            >
+              {/* Banner Image Preview */}
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  height: 160,
+                  backgroundColor: '#f1f5f9',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setPreviewPromo(promo)}
+              >
+                {promo.mediaType === 'video' || promo.videoUrl ? (
+                  <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#0f172a' }}>
+                    <video
+                      src={promo.videoUrl}
+                      poster={promo.imageUrl || ''}
+                      muted
+                      playsInline
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 8,
+                        right: 8,
+                        background: 'rgba(147, 51, 234, 0.85)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#ffffff',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      🎬 VIDEO AD
+                    </div>
+                  </div>
+                ) : promo.imageUrl ? (
+                  <img
+                    src={promo.imageUrl}
+                    alt={promo.title}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'center',
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.style.background =
+                        'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)';
+                    }}
+                  />
+                ) : promo.placement &&
+                  (promo.placement.toLowerCase().includes('moving') ||
+                    promo.placement.toLowerCase().includes('ticker')) ? (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 16,
+                      color: '#ffffff',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: 28, marginBottom: 4 }}>⚡</div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: '#38bdf8',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.6,
+                      }}
+                    >
+                      Moving Ticker Text
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: '#cbd5e1',
+                        marginTop: 4,
+                        maxWidth: '90%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {promo.title}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                    }}
+                  >
+                    No Media Uploaded
+                  </div>
+                )}
+
+                {/* Placement Tag Badge */}
                 <span
                   style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: '#6C63FF',
-                    background: '#F0EFFF',
-                    padding: '4px 10px',
-                    borderRadius: 20,
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(4px)',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    letterSpacing: 0.5,
                   }}
                 >
-                  {promo.type}
+                  {promo.placement}
+                </span>
+
+                {/* Status Badge */}
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    background: promo.status === 'active' ? '#16a34a' : '#64748b',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {promo.status}
                 </span>
               </div>
 
-              <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: '#1F2937' }}>
-                {promo.title}
-              </h3>
-              <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 14 }}>
-                {promo.placement}
-              </p>
+              {/* Card Body */}
+              <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <h4
+                    style={{
+                      margin: '0 0 6px',
+                      fontSize: 15,
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {promo.title}
+                  </h4>
+                </div>
 
-              <div style={{ fontSize: 12, color: '#4B5563', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <HiOutlineCalendar style={{ color: '#6C63FF' }} />
-                  <span>
-                    {promo.startDate} → {promo.endDate}
+                {promo.description && (
+                  <p
+                    style={{
+                      margin: '0 0 8px',
+                      fontSize: 12.5,
+                      color: '#64748b',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {promo.description}
+                  </p>
+                )}
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 6,
+                    margin: '6px 0 12px',
+                    fontSize: 11,
+                  }}
+                >
+                  <span
+                    style={{
+                      background: '#eff6ff',
+                      color: '#2563eb',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      fontWeight: 700,
+                    }}
+                  >
+                    🏷️ {promo.category || 'Retail'}
+                  </span>
+                  <span
+                    style={{
+                      background: '#f8fafc',
+                      color: '#64748b',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                    }}
+                  >
+                    📍 {promo.location || 'Kerala'}
                   </span>
                 </div>
-                {promo.location && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <HiOutlineLocationMarker style={{ color: '#EF4444' }} />
-                    <span>{promo.location}</span>
+
+                {promo.targetUrl && promo.targetUrl !== '#' && (
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: '#2563eb',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      marginBottom: 10,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <HiOutlineExternalLink size={14} />
+                    <a
+                      href={promo.targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#2563eb', textDecoration: 'none' }}
+                    >
+                      {promo.targetUrl}
+                    </a>
                   </div>
                 )}
-              </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 12,
-                  padding: '12px 0',
-                  borderTop: '1px solid #F3F4F6',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>Impressions</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: '#1F2937' }}>
-                    {(promo.impressions || 0).toLocaleString()}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>Clicks</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: '#6C63FF' }}>
-                    {(promo.clicks || 0).toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  paddingTop: 14,
-                  borderTop: '1px solid #F3F4F6',
-                }}
-              >
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ flex: 1 }}
-                  onClick={() => setSelectedPromo(promo)}
+                {/* Footer Actions (Edit, Delete, Active Toggle) */}
+                <div
+                  style={{
+                    marginTop: 'auto',
+                    paddingTop: 12,
+                    borderTop: '1px solid #f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                  }}
                 >
-                  <HiOutlineEye /> View
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  style={{ flex: 1 }}
-                  onClick={() => handleOpenEdit(promo)}
-                >
-                  <HiOutlinePencil /> Edit
-                </button>
-                <button
-                  className="btn btn-outline btn-sm btn-icon"
-                  style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
-                  onClick={() => handleDeletePromo(promo.id, promo.title)}
-                  title="Delete Promotion"
-                >
-                  <HiOutlineTrash />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Create Promotion Modal */}
-      <Modal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Create New Promotion"
-        size="lg"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setShowAddModal(false)} disabled={isSubmitting}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleCreatePromo}
-              disabled={isSubmitting}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-            >
-              {isSubmitting ? (
-                <>
-                  <CircularSpinner size={16} color="#FFFFFF" />
-                  <span>Saving Promotion...</span>
-                </>
-              ) : (
-                'Create Promotion'
-              )}
-            </button>
-          </>
-        }
-      >
-        {addError && (
-          <div
-            style={{
-              padding: '12px 16px',
-              background: '#FEF2F2',
-              border: '1px solid #FCA5A5',
-              borderRadius: 8,
-              color: '#991B1B',
-              marginBottom: 16,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            ⚠️ {addError}
-          </div>
-        )}
-
-        <div className="form-group">
-          <label className="form-label">Promotion Title *</label>
-          <input
-            className="form-input"
-            placeholder="e.g., Festival Offer - Up to 65% OFF"
-            value={newPromo.title}
-            onChange={(e) => setNewPromo({ ...newPromo, title: e.target.value })}
-            required
-          />
-        </div>
-
-        <div className="grid-2">
-          <div className="form-group">
-            <label className="form-label">Ad Category *</label>
-            <select
-              className="form-select"
-              value={newPromo.category}
-              onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
-            >
-              {categoriesList.map((c, i) => (
-                <option key={i} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Promotion Type</label>
-            <select
-              className="form-select"
-              value={newPromo.type}
-              onChange={(e) => setNewPromo({ ...newPromo, type: e.target.value })}
-            >
-              <option value="Featured">Featured Ad</option>
-              <option value="Sponsored">Sponsored Listing</option>
-              <option value="Banner">Banner Carousel</option>
-              <option value="Text Carousel">Text Carousel</option>
-              <option value="Footer Ads">Footer Ads</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Location Search (Google Maps Autocomplete) *</label>
-          <GoogleMapsLocationInput
-            value={newPromo.location}
-            onChange={(loc) => setNewPromo({ ...newPromo, location: loc })}
-            placeholder="Search Google Maps for target location (e.g. Payyanur, Kannur, Kochi)..."
-          />
-        </div>
-
-        <div className="grid-2">
-          <div className="form-group">
-            <label className="form-label">Start Date</label>
-            <input
-              type="date"
-              className="form-input"
-              value={newPromo.startDate}
-              onChange={(e) => setNewPromo({ ...newPromo, startDate: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">End Date</label>
-            <input
-              type="date"
-              className="form-input"
-              value={newPromo.endDate}
-              onChange={(e) => setNewPromo({ ...newPromo, endDate: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Media Attachment (Photo or Video) */}
-        <div className="form-group" style={{ marginTop: 16 }}>
-          <label className="form-label" style={{ fontWeight: 600 }}>Media Attachment (Photo or Video)</label>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-            <button
-              type="button"
-              className={`btn ${newPromo.mediaType === 'image' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
-              onClick={() => setNewPromo({ ...newPromo, mediaType: 'image' })}
-            >
-              <HiOutlinePhotograph style={{ fontSize: 18 }} />
-              <span>Photo / Image</span>
-            </button>
-            <button
-              type="button"
-              className={`btn ${newPromo.mediaType === 'video' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
-              onClick={() => setNewPromo({ ...newPromo, mediaType: 'video' })}
-            >
-              <HiOutlineVideoCamera style={{ fontSize: 18 }} />
-              <span>Video</span>
-            </button>
-          </div>
-
-          {newPromo.mediaType === 'image' ? (
-            <div>
-              {newPromo.bannerUrl ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #CBD5E1', background: '#0F172A', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <img
-                      src={newPromo.bannerUrl}
-                      alt="Promotion Banner"
-                      style={{ width: '100%', height: 200, objectFit: newPromo.bannerFit || 'cover' }}
-                    />
-                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => openImageEditor(newPromo.bannerUrl, 'create')}
-                        style={{ background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-                        title="Edit & Crop Image"
-                      >
-                        ✏️ Edit & Crop (Screen Fit)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewPromo({ ...newPromo, bannerUrl: '' })}
-                        style={{ background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-                        title="Remove Photo"
-                      >
-                        <HiOutlineX size={16} />
-                      </button>
-                    </div>
-                    <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: 6, fontSize: 11, color: '#38BDF8', fontWeight: 700 }}>
-                      ✓ Screen Size Fit (16:9 Aspect Ratio)
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Display Fit Style:</span>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => setNewPromo({ ...newPromo, bannerFit: 'cover' })}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#3B82F6' : '#CBD5E1', background: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#EFF6FF' : '#FFF', color: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
-                      >
-                        Cover (Full Screen Stretch)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewPromo({ ...newPromo, bannerFit: 'contain' })}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: newPromo.bannerFit === 'contain' ? '#3B82F6' : '#CBD5E1', background: newPromo.bannerFit === 'contain' ? '#EFF6FF' : '#FFF', color: newPromo.bannerFit === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
-                      >
-                        Contain (Original Ratio)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', newPromo, setNewPromo, () => {}, openImageEditor, 'create')} />
-                  </label>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              {newPromo.videoUrl ? (
-                <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#000', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <video src={newPromo.videoUrl} controls style={{ width: '100%', maxHeight: 220, objectFit: 'contain' }} />
                   <button
                     type="button"
-                    onClick={() => setNewPromo({ ...newPromo, videoUrl: '' })}
-                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10 }}
-                    title="Remove Video"
+                    onClick={() => handleToggleStatus(promo)}
+                    style={{
+                      background: promo.status === 'active' ? '#f0fdf4' : '#f8fafc',
+                      color: promo.status === 'active' ? '#16a34a' : '#64748b',
+                      border: `1px solid ${promo.status === 'active' ? '#bbf7d0' : '#e2e8f0'}`,
+                      borderRadius: 8,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
                   >
-                    <HiOutlineX size={16} />
+                    {promo.status === 'active' ? 'Active' : 'Inactive'}
                   </button>
+
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(promo)}
+                      className="btn btn-sm btn-outline"
+                      title="Edit Advertisement"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <HiOutlinePencil size={14} /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePromo(promo.id, promo.title)}
+                      className="btn btn-sm"
+                      title="Delete Advertisement"
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        background: '#fef2f2',
+                        color: '#ef4444',
+                        border: '1px solid #fecaca',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <HiOutlineTrash size={14} /> Delete
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <HiOutlineVideoCamera style={{ fontSize: 28, color: '#6C63FF' }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Video</span>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
-                    <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', newPromo, setNewPromo)} />
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            </motion.div>
+          ))}
         </div>
-      </Modal>
+      )}
 
-      {/* View Promotion Details Modal */}
-      <Modal
-        isOpen={!!selectedPromo}
-        onClose={() => setSelectedPromo(null)}
-        title="Promotion Details"
-        size="md"
-      >
-        {selectedPromo && (
-          <div>
-            {renderModalMedia(selectedPromo)}
+      {/* ========================================================
+          5. ADD NEW AD MODAL (WITH DO SPACES CDN UPLOAD)
+          ======================================================== */}
+      {showAddModal && (
+        <Modal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          title={
+            newPromo.placement === 'Moving Text'
+              ? '+ Add Moving Text Announcement'
+              : `+ Add Advertisement (${newPromo.placement})`
+          }
+          maxWidth="640px"
+        >
+          <form onSubmit={handleCreatePromo}>
+            {addError && (
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  color: '#DC2626',
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  marginBottom: 16,
+                }}
+              >
+                {addError}
+              </div>
+            )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <StatusBadge status={selectedPromo.status} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#6C63FF', background: '#F0EFFF', padding: '4px 12px', borderRadius: 20 }}>
-                {selectedPromo.type}
-              </span>
+            {/* Title */}
+            <div className="form-group">
+              <label className="form-label">
+                {newPromo.placement === 'Moving Text'
+                  ? 'Moving Announcement Text'
+                  : 'Advertisement Title'}{' '}
+                <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder={
+                  newPromo.placement === 'Moving Text'
+                    ? 'e.g. ⚡ Festive Season Offers — Check Out Exclusive Deals Near You'
+                    : 'e.g. Kerala Festive Electronics Mega Sale'
+                }
+                value={newPromo.title}
+                onChange={(e) => setNewPromo({ ...newPromo, title: e.target.value })}
+                required
+              />
             </div>
 
-            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: '#1F2937' }}>
-              {selectedPromo.title}
-            </h3>
+            {/* Description (Optional) */}
+            <div className="form-group">
+              <label className="form-label">
+                {newPromo.placement === 'Moving Text'
+                  ? 'Additional Details / Note (Optional)'
+                  : 'Description / Tagline (Optional)'}
+              </label>
+              <textarea
+                className="form-input"
+                rows={2}
+                placeholder={
+                  newPromo.placement === 'Moving Text'
+                    ? 'Optional details or note for this announcement'
+                    : 'Short description of the deal or promotion'
+                }
+                value={newPromo.description || ''}
+                onChange={(e) => setNewPromo({ ...newPromo, description: e.target.value })}
+              />
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, margin: '16px 0', background: '#F8FAFC', padding: 16, borderRadius: 12, border: '1px solid #E2E8F0' }}>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>Category</label>
-                <p style={{ fontWeight: 600, margin: 0 }}>{selectedPromo.category}</p>
+            {/* Placement & Category */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Ad Placement / Position</label>
+                <select
+                  className="form-select"
+                  value={newPromo.placement}
+                  onChange={(e) =>
+                    setNewPromo({
+                      ...newPromo,
+                      placement: e.target.value,
+                      type: e.target.value === 'Moving Text' ? 'Text Carousel' : 'Banner',
+                    })
+                  }
+                >
+                  <option value="Home Top">Home Top (Top Banner Slider)</option>
+                  <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
+                  <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
+                  <option value="Special Offer">Special Offer (Floating Widget)</option>
+                  <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
+                </select>
               </div>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>Placement</label>
-                <p style={{ fontWeight: 600, margin: 0 }}>{selectedPromo.placement}</p>
-              </div>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>Start Date</label>
-                <p style={{ margin: 0 }}>{selectedPromo.startDate}</p>
-              </div>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>End Date</label>
-                <p style={{ margin: 0 }}>{selectedPromo.endDate}</p>
-              </div>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>Total Impressions</label>
-                <p style={{ fontWeight: 700, margin: 0, color: '#1F2937' }}>{(selectedPromo.impressions || 0).toLocaleString()}</p>
-              </div>
-              <div>
-                <label className="form-label" style={{ color: '#6B7280' }}>Total Clicks</label>
-                <p style={{ fontWeight: 700, margin: 0, color: '#6C63FF' }}>{(selectedPromo.clicks || 0).toLocaleString()}</p>
+
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <select
+                  className="form-select"
+                  value={newPromo.category}
+                  onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
+                >
+                  {categoriesList.map((c, i) => (
+                    <option key={i} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
-        )}
-      </Modal>
 
-      {/* Edit Promotion Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Promotion"
-        size="lg"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setIsEditModalOpen(false)} disabled={isUpdating}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleEditSubmit}
-              disabled={isUpdating}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            {/* Media Format Selector or Moving Text Note */}
+            {newPromo.placement === 'Moving Text' ? (
+              <div
+                style={{
+                  padding: '14px 18px',
+                  background: '#eff6ff',
+                  border: '1.5px dashed #93c5fd',
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  fontSize: 13,
+                  color: '#1e40af',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 24 }}>⚡</span>
+                <div>
+                  <div style={{ fontWeight: 800 }}>Moving Announcement Ticker Mode</div>
+                  <div style={{ fontSize: 11.5, color: '#3b82f6', marginTop: 2 }}>
+                    This announcement scrolls continuously across the top ticker bar on the website. No image or video upload is required!
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
+                    Media Format
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setNewPromo({ ...newPromo, mediaType: 'image' })}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        border: newPromo.mediaType === 'image' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                        background: newPromo.mediaType === 'image' ? '#eff6ff' : '#ffffff',
+                        color: newPromo.mediaType === 'image' ? '#2563eb' : '#475569',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>🖼️</span> Static Image Banner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPromo({ ...newPromo, mediaType: 'video' })}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        border: newPromo.mediaType === 'video' ? '2px solid #9333ea' : '1px solid #cbd5e1',
+                        background: newPromo.mediaType === 'video' ? '#faf5ff' : '#ffffff',
+                        color: newPromo.mediaType === 'video' ? '#9333ea' : '#475569',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>🎬</span> Video Showcase Ad
+                    </button>
+                  </div>
+                </div>
+
+            {/* Media Upload & URL Box */}
+            <div
+              style={{
+                background: newPromo.mediaType === 'video' ? '#faf5ff' : '#f8fafc',
+                border: newPromo.mediaType === 'video' ? '1.5px dashed #c084fc' : '1.5px dashed #cbd5e1',
+                borderRadius: 12,
+                padding: '16px',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}
             >
-              {isUpdating ? (
-                <>
-                  <CircularSpinner size={16} color="#FFFFFF" />
-                  <span>Updating...</span>
-                </>
-              ) : (
-                'Update Promotion'
-              )}
-            </button>
-          </>
-        }
-      >
-        {editFormData && (
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+                {newPromo.mediaType === 'video' ? '🎬 Ad Video (MP4, WebM, MOV)' : '📸 Ad Banner Image (JPG, PNG, WebP)'}
+              </label>
+              <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>
+                {newPromo.mediaType === 'video'
+                  ? 'Upload commercial promotional video clip or paste direct CDN video link'
+                  : 'Upload high resolution panoramic banner (recommended 16:5 aspect ratio)'}
+              </p>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept={newPromo.mediaType === 'video' ? 'video/mp4,video/webm,video/quicktime,video/mkv' : 'image/*'}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleFileUpload(e.target.files[0], false);
+                  e.target.value = '';
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage
+                    ? 'Uploading to CDN...'
+                    : newPromo.mediaType === 'video'
+                    ? '📁 Upload Video File'
+                    : '📁 Upload Image File'}
+                </button>
+              </div>
+
+              {/* Direct URL input fallback */}
+              <div style={{ marginTop: 12, textAlign: 'left' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Or enter {newPromo.mediaType === 'video' ? 'Video' : 'Image'} URL:
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ marginTop: 4, fontSize: 12, padding: '6px 10px' }}
+                  placeholder={
+                    newPromo.mediaType === 'video'
+                      ? 'https://.../video.mp4'
+                      : 'https://.../banner.png'
+                  }
+                  value={newPromo.mediaType === 'video' ? newPromo.videoUrl : newPromo.imageUrl}
+                  onChange={(e) => {
+                    if (newPromo.mediaType === 'video') {
+                      setNewPromo({ ...newPromo, videoUrl: e.target.value });
+                    } else {
+                      setNewPromo({ ...newPromo, imageUrl: e.target.value });
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Live Preview */}
+              {newPromo.mediaType === 'video' && newPromo.videoUrl ? (
+                <div style={{ marginTop: 12 }}>
+                  <video
+                    src={newPromo.videoUrl}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    style={{
+                      maxHeight: 140,
+                      maxWidth: '100%',
+                      borderRadius: 8,
+                      border: '1px solid #c084fc',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#9333ea', fontWeight: 700, marginTop: 4 }}>
+                    ✓ Video Loaded & Ready
+                  </div>
+                </div>
+              ) : newPromo.imageUrl ? (
+                <div style={{ marginTop: 12 }}>
+                  <img
+                    src={newPromo.imageUrl}
+                    alt="Preview"
+                    style={{
+                      maxHeight: 120,
+                      maxWidth: '100%',
+                      borderRadius: 8,
+                      border: '1px solid #e2e8f0',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
+                    ✓ Image Loaded & Ready
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            </>
+            )}
+
+            {/* Target URL & Location */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Target URL / External Link</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="https://... or #"
+                  value={newPromo.targetUrl}
+                  onChange={(e) => setNewPromo({ ...newPromo, targetUrl: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Location</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Kerala / Kannur / Kochi"
+                  value={newPromo.location}
+                  onChange={(e) => setNewPromo({ ...newPromo, location: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Dates & Status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={newPromo.startDate}
+                  onChange={(e) => setNewPromo({ ...newPromo, startDate: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">End Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={newPromo.endDate}
+                  onChange={(e) => setNewPromo({ ...newPromo, endDate: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  className="form-select"
+                  value={newPromo.status}
+                  onChange={(e) => setNewPromo({ ...newPromo, status: e.target.value })}
+                >
+                  <option value="active">Active (Visible)</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowAddModal(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmitting || uploadingImage}>
+                {isSubmitting ? 'Saving to Database...' : 'Create & Publish Ad'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ========================================================
+          6. EDIT AD MODAL (WITH DO SPACES CDN UPLOAD)
+          ======================================================== */}
+      {isEditModalOpen && editFormData && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title={
+            editFormData.placement === 'Moving Text'
+              ? `Edit Moving Text Announcement (#${editFormData.id})`
+              : `Edit Advertisement (#${editFormData.id})`
+          }
+          maxWidth="640px"
+        >
           <form onSubmit={handleEditSubmit}>
             {editError && (
-              <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, color: '#991B1B', marginBottom: 16, fontSize: 13, fontWeight: 600 }}>
-                ⚠️ {editError}
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  color: '#DC2626',
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  marginBottom: 16,
+                }}
+              >
+                {editError}
               </div>
             )}
 
             <div className="form-group">
-              <label className="form-label">Promotion Title *</label>
+              <label className="form-label">
+                {editFormData.placement === 'Moving Text'
+                  ? 'Moving Announcement Text'
+                  : 'Advertisement Title'}{' '}
+                <span style={{ color: '#ef4444' }}>*</span>
+              </label>
               <input
+                type="text"
                 className="form-input"
+                placeholder={
+                  editFormData.placement === 'Moving Text'
+                    ? 'e.g. ⚡ Festive Season Offers — Check Out Exclusive Deals Near You'
+                    : 'Advertisement Title'
+                }
                 value={editFormData.title}
                 onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
                 required
               />
             </div>
 
-            <div className="grid-2">
+            {/* Description (Optional) */}
+            <div className="form-group">
+              <label className="form-label">
+                {editFormData.placement === 'Moving Text'
+                  ? 'Additional Details / Note (Optional)'
+                  : 'Description / Tagline (Optional)'}
+              </label>
+              <textarea
+                className="form-input"
+                rows={2}
+                placeholder={
+                  editFormData.placement === 'Moving Text'
+                    ? 'Optional details or note for this announcement'
+                    : 'Short description of the deal or promotion'
+                }
+                value={editFormData.description || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="form-group">
-                <label className="form-label">Ad Category *</label>
+                <label className="form-label">Ad Placement / Position</label>
+                <select
+                  className="form-select"
+                  value={editFormData.placement}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      placement: e.target.value,
+                      type: e.target.value === 'Moving Text' ? 'Text Carousel' : 'Banner',
+                    })
+                  }
+                >
+                  <option value="Home Top">Home Top (Top Banner Slider)</option>
+                  <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
+                  <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
+                  <option value="Special Offer">Special Offer (Floating Widget)</option>
+                  <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Category</label>
                 <select
                   className="form-select"
                   value={editFormData.category}
@@ -1110,338 +1659,300 @@ export default function Promotions() {
                   ))}
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Promotion Type</label>
-                <select
-                  className="form-select"
-                  value={editFormData.type}
-                  onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
-                >
-                  <option value="Featured">Featured Ad</option>
-                  <option value="Sponsored">Sponsored Listing</option>
-                  <option value="Banner">Banner Carousel</option>
-                  <option value="Text Carousel">Text Carousel</option>
-                  <option value="Footer Ads">Footer Ads</option>
-                </select>
-              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Location Search (Google Maps Autocomplete)</label>
-              <GoogleMapsLocationInput
-                value={editFormData.location || ''}
-                onChange={(loc) => setEditFormData({ ...editFormData, location: loc })}
-                placeholder="Target location..."
-              />
-            </div>
-
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Start Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={editFormData.startDate || editFormData.start_date || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value, start_date: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">End Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={editFormData.endDate || editFormData.end_date || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value, end_date: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Media Attachment (Photo or Video) */}
-            <div className="form-group" style={{ marginTop: 16 }}>
-              <label className="form-label" style={{ fontWeight: 600 }}>Media Attachment (Photo or Video)</label>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                <button
-                  type="button"
-                  className={`btn ${editFormData.mediaType === 'image' ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
-                  onClick={() => setEditFormData({ ...editFormData, mediaType: 'image' })}
-                >
-                  <HiOutlinePhotograph style={{ fontSize: 18 }} />
-                  <span>Photo / Image</span>
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${editFormData.mediaType === 'video' ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', fontSize: 13 }}
-                  onClick={() => setEditFormData({ ...editFormData, mediaType: 'video' })}
-                >
-                  <HiOutlineVideoCamera style={{ fontSize: 18 }} />
-                  <span>Video</span>
-                </button>
-              </div>
-
-              {editFormData.mediaType === 'image' ? (
-                <div>
-                  {editFormData.bannerUrl ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #CBD5E1', background: '#0F172A', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <img
-                          src={editFormData.bannerUrl}
-                          alt="Promotion Banner"
-                          style={{ width: '100%', height: 200, objectFit: editFormData.bannerFit || 'cover' }}
-                        />
-                        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 10 }}>
-                          <button
-                            type="button"
-                            onClick={() => openImageEditor(editFormData.bannerUrl, 'edit')}
-                            style={{ background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-                            title="Edit & Crop Image"
-                          >
-                            ✏️ Edit & Crop (Screen Fit)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditFormData({ ...editFormData, bannerUrl: '' })}
-                            style={{ background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
-                            title="Remove Photo"
-                          >
-                            <HiOutlineX size={16} />
-                          </button>
-                        </div>
-                        <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: 6, fontSize: 11, color: '#38BDF8', fontWeight: 700 }}>
-                          ✓ Screen Size Fit (16:9 Aspect Ratio)
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Display Fit Style:</span>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            type="button"
-                            onClick={() => setEditFormData({ ...editFormData, bannerFit: 'cover' })}
-                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#3B82F6' : '#CBD5E1', background: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#EFF6FF' : '#FFF', color: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
-                          >
-                            Cover (Full Screen Stretch)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditFormData({ ...editFormData, bannerFit: 'contain' })}
-                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: editFormData.bannerFit === 'contain' ? '#3B82F6' : '#CBD5E1', background: editFormData.bannerFit === 'contain' ? '#EFF6FF' : '#FFF', color: editFormData.bannerFit === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
-                          >
-                            Contain (Original Ratio)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
-                        <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', editFormData, setEditFormData, () => {}, openImageEditor, 'edit')} />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  {editFormData.videoUrl ? (
-                    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#000', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <video src={editFormData.videoUrl} controls style={{ width: '100%', maxHeight: 220, objectFit: 'contain' }} />
-                      <button
-                        type="button"
-                        onClick={() => setEditFormData({ ...editFormData, videoUrl: '' })}
-                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)', zIndex: 10 }}
-                        title="Remove Video"
-                      >
-                        <HiOutlineX size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ border: '2px dashed #CBD5E1', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: '#F8FAFC', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <HiOutlineVideoCamera style={{ fontSize: 28, color: '#6C63FF' }} />
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Video</span>
-                        <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
-                        <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', editFormData, setEditFormData)} />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      {/* Interactive Image Crop & Fit Modal */}
-      <Modal
-        isOpen={cropModalOpen}
-        onClose={() => setCropModalOpen(false)}
-        title="Crop & Fit Image for Screen Banner"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12, color: '#475569' }}>
-            ℹ️ Adjust zoom, rotation, aspect ratio, and positioning so the image fits full width on all screen sizes.
-          </div>
-
-          {/* Interactive Preview Viewport */}
-          <div style={{ position: 'relative', width: '100%', height: 240, background: '#0F172A', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #3B82F6' }}>
-            {cropImageSrc && (
-              <img
-                src={cropImageSrc}
-                alt="Cropper Preview"
+            {/* Media Format Selector or Moving Text Note */}
+            {editFormData.placement === 'Moving Text' ? (
+              <div
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  transform: `scale(${cropScale}) rotate(${cropRotation}deg)`,
-                  filter: `brightness(${cropBrightness}%) contrast(${cropContrast}%)`,
-                  transition: 'transform 0.2s ease, filter 0.2s ease',
-                  objectFit: cropFitMode,
-                  width: cropFitMode === 'cover' ? '100%' : 'auto',
-                  height: cropFitMode === 'cover' ? '100%' : 'auto',
+                  padding: '14px 18px',
+                  background: '#eff6ff',
+                  border: '1.5px dashed #93c5fd',
+                  borderRadius: 12,
+                  marginBottom: 16,
+                  fontSize: 13,
+                  color: '#1e40af',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 24 }}>⚡</span>
+                <div>
+                  <div style={{ fontWeight: 800 }}>Moving Announcement Ticker Mode</div>
+                  <div style={{ fontSize: 11.5, color: '#3b82f6', marginTop: 2 }}>
+                    This announcement scrolls continuously across the top ticker bar on the website. No image or video upload is required!
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
+                    Media Format
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, mediaType: 'image' })}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        border: editFormData.mediaType === 'image' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                        background: editFormData.mediaType === 'image' ? '#eff6ff' : '#ffffff',
+                        color: editFormData.mediaType === 'image' ? '#2563eb' : '#475569',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>🖼️</span> Static Image Banner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditFormData({ ...editFormData, mediaType: 'video' })}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        border: editFormData.mediaType === 'video' ? '2px solid #9333ea' : '1px solid #cbd5e1',
+                        background: editFormData.mediaType === 'video' ? '#faf5ff' : '#ffffff',
+                        color: editFormData.mediaType === 'video' ? '#9333ea' : '#475569',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>🎬</span> Video Showcase Ad
+                    </button>
+                  </div>
+                </div>
+
+            {/* Edit Image or Video Upload to CDN */}
+            <div
+              style={{
+                background: editFormData.mediaType === 'video' ? '#faf5ff' : '#f8fafc',
+                border: editFormData.mediaType === 'video' ? '1.5px dashed #c084fc' : '1.5px dashed #cbd5e1',
+                borderRadius: 12,
+                padding: '16px',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}
+            >
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
+                {editFormData.mediaType === 'video' ? '🎬 Update Banner Video (CDN)' : '📸 Update Banner Image (CDN)'}
+              </label>
+
+              <input
+                type="file"
+                ref={editFileInputRef}
+                style={{ display: 'none' }}
+                accept={editFormData.mediaType === 'video' ? 'video/mp4,video/webm,video/quicktime,video/mkv' : 'image/*'}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleFileUpload(e.target.files[0], true);
+                  e.target.value = '';
                 }}
               />
-            )}
-            <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.75)', color: '#38BDF8', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, backdropFilter: 'blur(4px)' }}>
-              Target Fit: {cropAspectRatio} Banner
-            </div>
-          </div>
 
-          {/* Aspect Ratio Presets */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', background: '#F1F5F9', padding: 10, borderRadius: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>Aspect Ratio:</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[
-                { label: '16:9 Screen Fit', value: '16:9' },
-                { label: '3:1 Header', value: '3:1' },
-                { label: '4:3 Card', value: '4:3' },
-                { label: '1:1 Square', value: '1:1' },
-              ].map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setCropAspectRatio(preset.value)}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 6,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    border: cropAspectRatio === preset.value ? '2px solid #3B82F6' : '1px solid #CBD5E1',
-                    background: cropAspectRatio === preset.value ? '#3B82F6' : '#FFF',
-                    color: cropAspectRatio === preset.value ? '#FFF' : '#475569',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Controls: Zoom & Fit Mode */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                <span>Zoom Scale</span>
-                <span>{cropScale.toFixed(1)}x</span>
-              </label>
-              <input
-                type="range"
-                min="1"
-                max="3.5"
-                step="0.1"
-                value={cropScale}
-                onChange={(e) => setCropScale(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: '#3B82F6' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Fit Mode
-              </label>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => setCropFitMode('cover')}
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: cropFitMode === 'cover' ? '2px solid #3B82F6' : '1px solid #CBD5E1', background: cropFitMode === 'cover' ? '#EFF6FF' : '#FFF', color: cropFitMode === 'cover' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                  className="btn btn-outline btn-sm"
+                  onClick={() => editFileInputRef.current?.click()}
+                  disabled={editUploadingImage}
                 >
-                  Cover (Screen Stretch)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCropFitMode('contain')}
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: cropFitMode === 'contain' ? '2px solid #3B82F6' : '1px solid #CBD5E1', background: cropFitMode === 'contain' ? '#EFF6FF' : '#FFF', color: cropFitMode === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
-                >
-                  Contain (Whole Image)
+                  {editUploadingImage
+                    ? 'Uploading to CDN...'
+                    : editFormData.mediaType === 'video'
+                    ? '📁 Choose New Video File'
+                    : '📁 Choose New Image File'}
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* Tone Adjustments: Brightness & Contrast */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: '#F8FAFC', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-            <div>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                <span>☀️ Brightness</span>
-                <span>{cropBrightness}%</span>
-              </label>
-              <input
-                type="range"
-                min="50"
-                max="150"
-                step="5"
-                value={cropBrightness}
-                onChange={(e) => setCropBrightness(parseInt(e.target.value, 10))}
-                style={{ width: '100%', accentColor: '#10B981' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                <span>🌓 Contrast</span>
-                <span>{cropContrast}%</span>
-              </label>
-              <input
-                type="range"
-                min="50"
-                max="150"
-                step="5"
-                value={cropContrast}
-                onChange={(e) => setCropContrast(parseInt(e.target.value, 10))}
-                style={{ width: '100%', accentColor: '#8B5CF6' }}
-              />
-            </div>
-          </div>
+              {/* Direct URL input fallback */}
+              <div style={{ marginTop: 12, textAlign: 'left' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                  Or update {editFormData.mediaType === 'video' ? 'Video' : 'Image'} URL:
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ marginTop: 4, fontSize: 12, padding: '6px 10px' }}
+                  placeholder={
+                    editFormData.mediaType === 'video'
+                      ? 'https://.../video.mp4'
+                      : 'https://.../banner.png'
+                  }
+                  value={editFormData.mediaType === 'video' ? (editFormData.videoUrl || '') : (editFormData.imageUrl || '')}
+                  onChange={(e) => {
+                    if (editFormData.mediaType === 'video') {
+                      setEditFormData({ ...editFormData, videoUrl: e.target.value });
+                    } else {
+                      setEditFormData({ ...editFormData, imageUrl: e.target.value });
+                    }
+                  }}
+                />
+              </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
-            <button
-              type="button"
-              onClick={() => setCropRotation((prev) => (prev + 90) % 360)}
-              style={{ padding: '8px 14px', background: '#E2E8F0', color: '#1E293B', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              🔄 Rotate 90° ({cropRotation}°)
-            </button>
+              {/* Live Preview */}
+              {editFormData.mediaType === 'video' && editFormData.videoUrl ? (
+                <div style={{ marginTop: 12 }}>
+                  <video
+                    src={editFormData.videoUrl}
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    style={{
+                      maxHeight: 140,
+                      maxWidth: '100%',
+                      borderRadius: 8,
+                      border: '1px solid #c084fc',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#9333ea', fontWeight: 700, marginTop: 4 }}>
+                    ✓ Video Active
+                  </div>
+                </div>
+              ) : editFormData.imageUrl ? (
+                <div style={{ marginTop: 12 }}>
+                  <img
+                    src={editFormData.imageUrl}
+                    alt="Current banner"
+                    style={{
+                      maxHeight: 120,
+                      maxWidth: '100%',
+                      borderRadius: 8,
+                      border: '1px solid #e2e8f0',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
+                    ✓ Image Active
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            </>
+            )}
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            {/* Target URL & Location */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Target URL</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editFormData.targetUrl}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetUrl: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Location</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editFormData.location}
+                  onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="form-group">
+              <label className="form-label">Status</label>
+              <select
+                className="form-select"
+                value={editFormData.status}
+                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+              >
+                <option value="active">Active (Visible)</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setCropModalOpen(false)}
+                onClick={() => setIsEditModalOpen(false)}
+                disabled={isUpdating}
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleApplyCroppedImage}
-                style={{ background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none', fontWeight: 700 }}
-              >
-                ✓ Apply & Save Fitted Image
+              <button type="submit" className="btn btn-primary" disabled={isUpdating || editUploadingImage}>
+                {isUpdating ? 'Saving to Database...' : 'Save Changes'}
               </button>
             </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ========================================================
+          7. PREVIEW MODAL
+          ======================================================== */}
+      {previewPromo && (
+        <Modal
+          isOpen={!!previewPromo}
+          onClose={() => setPreviewPromo(null)}
+          title={`Ad Preview: ${previewPromo.title}`}
+          maxWidth="700px"
+        >
+          <div>
+            {previewPromo.mediaType === 'video' || previewPromo.videoUrl ? (
+              <video
+                src={previewPromo.videoUrl}
+                poster={previewPromo.imageUrl || ''}
+                controls
+                autoPlay
+                loop
+                style={{ width: '100%', maxHeight: 350, objectFit: 'contain', borderRadius: 10, marginBottom: 16 }}
+              />
+            ) : previewPromo.imageUrl ? (
+              <img
+                src={previewPromo.imageUrl}
+                alt={previewPromo.title}
+                style={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 10, marginBottom: 16 }}
+              />
+            ) : null}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <span style={{ background: '#2563eb', color: '#fff', padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>
+                {previewPromo.placement}
+              </span>
+              <span style={{ background: '#eff6ff', color: '#2563eb', padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>
+                {previewPromo.category}
+              </span>
+              <span style={{ background: previewPromo.status === 'active' ? '#dcfce7' : '#f1f5f9', color: previewPromo.status === 'active' ? '#16a34a' : '#64748b', padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>
+                {previewPromo.status.toUpperCase()}
+              </span>
+            </div>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 16px' }}>
+              📍 Location: {previewPromo.location || 'Kerala'} | 📅 Valid: {previewPromo.startDate} to {previewPromo.endDate}
+            </p>
+            {previewPromo.targetUrl && (
+              <a
+                href={previewPromo.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <HiOutlineExternalLink size={16} /> Open Destination Link
+              </a>
+            )}
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </motion.div>
   );
 }
