@@ -44,15 +44,19 @@ export async function fetchPromotionsList(params = {}) {
 export async function createPromotion(promoData) {
   const payload = {
     title: promoData.title ? promoData.title.trim() : '',
-    category: promoData.category || 'Solar & Electricals',
+    category: promoData.category || 'Retail & Shopping',
     type: promoData.type || 'Featured',
     placement: promoData.placement || 'Home Top',
     location: promoData.location || '',
     start_date: promoData.startDate || promoData.start_date || new Date().toISOString().split('T')[0],
     end_date: promoData.endDate || promoData.end_date || '2026-12-31',
     status: (promoData.status || 'ACTIVE').toLowerCase(),
-    image_url: promoData.image_url || promoData.banner_url || promoData.bannerUrl || promoData.image || null,
+    image_url: promoData.image_url || promoData.imageUrl || promoData.banner_url || promoData.bannerUrl || promoData.image || null,
+    video_url: promoData.video_url || promoData.videoUrl || null,
+    media_type: promoData.media_type || (promoData.video_url || promoData.videoUrl ? 'video' : 'image'),
+    thumbnail_url: promoData.thumbnail_url || promoData.thumbnailUrl || null,
     target_url: promoData.target_url || promoData.targetUrl || '#',
+    description: promoData.description !== undefined ? promoData.description : null,
     merchant_id: promoData.merchantId || promoData.merchant_id || null,
   };
 
@@ -79,7 +83,22 @@ export async function createPromotion(promoData) {
     throw new Error(resData.message || resData.detail || 'Failed to create promotion');
   }
 
-  return resData.data || resData.promotion || resData;
+  const createdPromo = resData.data || resData.promotion || resData;
+
+  // Enforce separate clean placement in PostgreSQL (e.g. 'Home Top' instead of 'Home Top (Category)')
+  if (createdPromo && createdPromo.id && createdPromo.placement && createdPromo.placement !== payload.placement) {
+    try {
+      const cleaned = await updatePromotion(createdPromo.id, {
+        placement: payload.placement,
+        category: payload.category,
+      });
+      return cleaned;
+    } catch (_) {
+      // Return createdPromo if secondary update fails
+    }
+  }
+
+  return createdPromo;
 }
 
 /**
@@ -88,8 +107,18 @@ export async function createPromotion(promoData) {
 export async function updatePromotion(id, promoData) {
   const payload = {
     ...promoData,
-    image_url: promoData.image_url !== undefined ? promoData.image_url : (promoData.bannerUrl || promoData.banner_url || promoData.image || null),
+    image_url:
+      promoData.image_url !== undefined
+        ? promoData.image_url
+        : (promoData.imageUrl || promoData.bannerUrl || promoData.banner_url || promoData.image || null),
+    video_url: promoData.video_url !== undefined ? promoData.video_url : (promoData.videoUrl || null),
+    media_type:
+      promoData.media_type !== undefined
+        ? promoData.media_type
+        : (promoData.video_url || promoData.videoUrl ? 'video' : 'image'),
+    thumbnail_url: promoData.thumbnail_url !== undefined ? promoData.thumbnail_url : (promoData.thumbnailUrl || null),
     target_url: promoData.target_url !== undefined ? promoData.target_url : (promoData.targetUrl || '#'),
+    description: promoData.description !== undefined ? promoData.description : null,
   };
 
   let response = await apiFetch(`/api/v1/promotions/${id}`, {
@@ -119,7 +148,81 @@ export async function updatePromotion(id, promoData) {
 }
 
 /**
- * Delete promotion: DELETE /api/v1/promotions/{id}
+ * Upload banner image or video: POST /api/v1/merchants/upload-media (DigitalOcean Spaces CDN)
+ */
+export async function uploadPromotionMedia(file) {
+  if (!file) throw new Error('No file provided for upload');
+
+  const isVideo = file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(file.name);
+  const formData = new FormData();
+  if (isVideo) {
+    formData.append('videos', file);
+  } else {
+    formData.append('photos', file);
+  }
+  formData.append('files', file);
+
+  // 1. Primary: Upload directly to DigitalOcean Spaces CDN via merchants upload endpoint
+  let response = await apiFetch('/api/v1/merchants/upload-media', {
+    method: 'POST',
+    body: formData,
+  });
+
+  // 2. Fallbacks if needed
+  if (!response || !response.ok) {
+    const fallbackFormData = new FormData();
+    fallbackFormData.append('file', file);
+    response = await apiFetch('/api/v1/promotions/upload-media', {
+      method: 'POST',
+      body: fallbackFormData,
+    });
+  }
+  if (!response || !response.ok) {
+    const fallbackFormData = new FormData();
+    fallbackFormData.append('file', file);
+    response = await apiFetch('/api/v1/promotions/upload', {
+      method: 'POST',
+      body: fallbackFormData,
+    });
+  }
+
+  const resData = await response.json().catch(() => ({}));
+
+  if (!response || !response.ok || resData.success === false) {
+    throw new Error(resData.message || resData.detail || 'Failed to upload banner media to CDN');
+  }
+
+  const dataObj = resData.data || resData;
+  const photoUrl =
+    (Array.isArray(dataObj.photos) && dataObj.photos[0]) ||
+    (Array.isArray(dataObj.files) && dataObj.files[0]) ||
+    dataObj.media_url ||
+    dataObj.url ||
+    dataObj.image_url ||
+    '';
+  const videoUrl =
+    (Array.isArray(dataObj.videos) && dataObj.videos[0]) ||
+    dataObj.video_url ||
+    '';
+
+  const resolvedUrl = isVideo ? (videoUrl || photoUrl) : (photoUrl || videoUrl);
+
+  if (!resolvedUrl) {
+    throw new Error('Upload succeeded but server returned no media URL');
+  }
+
+  return {
+    url: resolvedUrl,
+    media_url: resolvedUrl,
+    image_url: isVideo ? '' : resolvedUrl,
+    video_url: isVideo ? resolvedUrl : '',
+    media_type: isVideo ? 'video' : 'image',
+    raw: resData,
+  };
+}
+
+/**
+ * Delete promotion: DELETE /api/v1/promotions/${id}
  */
 export async function deletePromotion(id) {
   let response = await apiFetch(`/api/v1/promotions/${id}`, { method: 'DELETE' });
