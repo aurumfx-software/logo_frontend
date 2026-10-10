@@ -50,7 +50,7 @@ const initialFormState = {
   mediaType: 'image', // 'image' | 'video'
 };
 
-const handleMediaFileUpload = async (e, type, formState, setFormState, setUploading = () => {}) => {
+const handleMediaFileUpload = async (e, type, formState, setFormState, setUploading = () => {}, openEditor = null, targetForm = 'create') => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
 
@@ -78,6 +78,9 @@ const handleMediaFileUpload = async (e, type, formState, setFormState, setUpload
         mediaType: 'image',
         media_type: 'image',
       });
+      if (openEditor) {
+        openEditor(mediaUrl, targetForm);
+      }
     }
   } catch (err) {
     console.warn('CDN upload failed, using local preview fallback:', err);
@@ -85,6 +88,9 @@ const handleMediaFileUpload = async (e, type, formState, setFormState, setUpload
     reader.onloadend = () => {
       if (type === 'image') {
         setFormState({ ...formState, bannerUrl: reader.result, image_url: reader.result, mediaType: 'image' });
+        if (openEditor) {
+          openEditor(reader.result, targetForm);
+        }
       } else {
         setFormState({ ...formState, videoUrl: reader.result, video_url: reader.result, mediaType: 'video' });
       }
@@ -118,6 +124,223 @@ export default function Promotions() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [editError, setEditError] = useState('');
 
+  // Image Crop & Fit Editor state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState('');
+  const [cropTargetForm, setCropTargetForm] = useState('create'); // 'create' | 'edit'
+  const [cropScale, setCropScale] = useState(1);
+  const [cropRotation, setCropRotation] = useState(0);
+  const [cropBrightness, setCropBrightness] = useState(100);
+  const [cropContrast, setCropContrast] = useState(100);
+  const [cropFitMode, setCropFitMode] = useState('cover'); // 'cover' | 'contain'
+  const [cropAspectRatio, setCropAspectRatio] = useState('16:9'); // '16:9' | '3:1' | '1:1' | '4:3'
+
+  const openImageEditor = (src, target = 'create') => {
+    setCropImageSrc(src);
+    setCropTargetForm(target);
+    setCropScale(1);
+    setCropRotation(0);
+    setCropBrightness(100);
+    setCropContrast(100);
+    setCropFitMode('cover');
+    setCropAspectRatio('16:9');
+    setCropModalOpen(true);
+  };
+
+  const handleApplyCroppedImage = () => {
+    if (!cropImageSrc) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = cropImageSrc;
+    img.onload = () => {
+      let targetWidth = 1200;
+      let targetHeight = 675; // 16:9
+      if (cropAspectRatio === '3:1') {
+        targetHeight = 400;
+      } else if (cropAspectRatio === '1:1') {
+        targetHeight = 1200;
+      } else if (cropAspectRatio === '4:3') {
+        targetHeight = 900;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+      ctx.save();
+      ctx.filter = `brightness(${cropBrightness}%) contrast(${cropContrast}%)`;
+      ctx.translate(targetWidth / 2, targetHeight / 2);
+      ctx.rotate((cropRotation * Math.PI) / 180);
+      ctx.scale(cropScale, cropScale);
+
+      let drawW = img.width;
+      let drawH = img.height;
+
+      if (cropFitMode === 'cover') {
+        const scaleW = targetWidth / img.width;
+        const scaleH = targetHeight / img.height;
+        const scale = Math.max(scaleW, scaleH);
+        drawW = img.width * scale;
+        drawH = img.height * scale;
+      } else {
+        const scaleW = targetWidth / img.width;
+        const scaleH = targetHeight / img.height;
+        const scale = Math.min(scaleW, scaleH);
+        drawW = img.width * scale;
+        drawH = img.height * scale;
+      }
+
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+
+      const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+      if (cropTargetForm === 'create') {
+        setNewPromo((prev) => ({
+          ...prev,
+          bannerUrl: croppedDataUrl,
+          image_url: croppedDataUrl,
+          mediaType: 'image',
+        }));
+      } else {
+        setEditFormData((prev) => ({
+          ...prev,
+          bannerUrl: croppedDataUrl,
+          image_url: croppedDataUrl,
+          mediaType: 'image',
+        }));
+      }
+      setCropModalOpen(false);
+    };
+  };
+
+  const renderCardMedia = (promo) => {
+    const cardMediaSrc =
+      promo.bannerUrl ||
+      promo.banner_url ||
+      promo.image_url ||
+      promo.image ||
+      promo.media_url ||
+      promo.mediaUrl ||
+      promo.banner_image ||
+      promo.url;
+    const cardVideoSrc = promo.videoUrl || promo.video_url || promo.video;
+    const isCardVideo =
+      promo.mediaType === 'video' ||
+      promo.media_type === 'video' ||
+      (cardVideoSrc && cardVideoSrc.length > 0);
+
+    if (isCardVideo && cardVideoSrc) {
+      return (
+        <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
+          <video
+            src={cardVideoSrc}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            muted
+            loop
+            onMouseOver={(e) => e.target.play().catch(() => {})}
+            onMouseOut={(e) => e.target.pause()}
+          />
+          <span
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              background: 'rgba(0,0,0,0.75)',
+              color: '#FFF',
+              fontSize: 10,
+              padding: '2px 8px',
+              borderRadius: 4,
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <HiOutlinePlay size={10} /> VIDEO
+          </span>
+        </div>
+      );
+    }
+
+    if (cardMediaSrc) {
+      return (
+        <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
+          <img
+            src={cardMediaSrc}
+            alt={promo.title}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          height: 4,
+          background:
+            promo.status === 'active' || promo.status === 'approved'
+              ? 'linear-gradient(90deg, #10B981, #059669)'
+              : promo.status === 'pending'
+              ? 'linear-gradient(90deg, #F59E0B, #D97706)'
+              : '#E5E7EB',
+        }}
+      />
+    );
+  };
+
+  const renderModalMedia = (promo) => {
+    if (!promo) return null;
+    const mediaSrc =
+      promo.bannerUrl ||
+      promo.banner_url ||
+      promo.image_url ||
+      promo.image ||
+      promo.media_url ||
+      promo.mediaUrl ||
+      promo.banner_image ||
+      promo.url;
+
+    const videoSrc =
+      promo.videoUrl ||
+      promo.video_url ||
+      promo.video;
+
+    const isVideo =
+      promo.mediaType === 'video' ||
+      promo.media_type === 'video' ||
+      (typeof videoSrc === 'string' && videoSrc.length > 0) ||
+      (typeof mediaSrc === 'string' && (mediaSrc.endsWith('.mp4') || mediaSrc.endsWith('.webm') || mediaSrc.endsWith('.mov')));
+
+    if (isVideo && videoSrc) {
+      return (
+        <div style={{ borderRadius: 12, overflow: 'hidden', background: '#000', marginBottom: 16, maxHeight: 280, display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <video src={videoSrc} controls autoPlay style={{ width: '100%', maxHeight: 280, objectFit: 'contain' }} />
+        </div>
+      );
+    }
+
+    if (mediaSrc) {
+      return (
+        <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 16, maxHeight: 280, background: '#0F172A', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+          <img src={mediaSrc} alt={promo.title || 'Promotion Media'} style={{ width: '100%', maxHeight: 280, objectFit: promo.bannerFit || 'cover', display: 'block' }} />
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ borderRadius: 12, background: 'linear-gradient(135deg, #1E293B, #0F172A)', padding: '24px 16px', color: '#FFF', textAlign: 'center', marginBottom: 16 }}>
+        <HiOutlinePhotograph style={{ fontSize: 36, color: '#94A3B8', marginBottom: 6 }} />
+        <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', fontWeight: 600 }}>No image or video attached to this promotion</p>
+      </div>
+    );
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -135,8 +358,8 @@ export default function Promotions() {
           status: (item.status || 'ACTIVE').toLowerCase(),
           impressions: item.impressions || item.views || 0,
           clicks: item.clicks || 0,
-          bannerUrl: item.banner_url || item.image || item.bannerUrl || '',
-          videoUrl: item.video_url || item.video || item.videoUrl || '',
+          bannerUrl: item.banner_url || item.image_url || item.image || item.bannerUrl || item.media_url || item.mediaUrl || item.banner_image || item.url || '',
+          videoUrl: item.video_url || item.videoUrl || item.video || (typeof item.media_url === 'string' && item.media_url.endsWith('.mp4') ? item.media_url : '') || '',
           mediaType: item.media_type || item.mediaType || (item.video_url || item.video ? 'video' : 'image'),
         }));
         setPromoList(formatted);
@@ -440,58 +663,7 @@ export default function Promotions() {
             style={{ overflow: 'hidden' }}
           >
             {/* Media Header (Image or Video preview) */}
-            {(promo.bannerUrl || promo.videoUrl) ? (
-              <div style={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', background: '#0F172A' }}>
-                {promo.mediaType === 'video' || promo.videoUrl ? (
-                  <video
-                    src={promo.videoUrl}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    muted
-                    loop
-                    onMouseOver={(e) => e.target.play().catch(() => {})}
-                    onMouseOut={(e) => e.target.pause()}
-                  />
-                ) : (
-                  <img
-                    src={promo.bannerUrl}
-                    alt={promo.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                )}
-                {(promo.mediaType === 'video' || promo.videoUrl) && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      bottom: 8,
-                      right: 8,
-                      background: 'rgba(0,0,0,0.75)',
-                      color: '#FFF',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 12,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <HiOutlinePlay size={12} /> VIDEO
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div
-                style={{
-                  height: 4,
-                  background:
-                    promo.status === 'active' || promo.status === 'approved'
-                      ? 'linear-gradient(90deg, #10B981, #059669)'
-                      : promo.status === 'pending'
-                      ? 'linear-gradient(90deg, #F59E0B, #D97706)'
-                      : '#E5E7EB',
-                }}
-              />
-            )}
+            {renderCardMedia(promo)}
             <div className="card-body">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                 <StatusBadge status={promo.status} />
@@ -735,16 +907,54 @@ export default function Promotions() {
           {newPromo.mediaType === 'image' ? (
             <div>
               {newPromo.bannerUrl ? (
-                <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#F9FAFB', maxHeight: 200, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <img src={newPromo.bannerUrl} alt="Promotion Banner" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
-                  <button
-                    type="button"
-                    onClick={() => setNewPromo({ ...newPromo, bannerUrl: '' })}
-                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                    title="Remove Photo"
-                  >
-                    <HiOutlineX size={16} />
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #CBD5E1', background: '#0F172A', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <img
+                      src={newPromo.bannerUrl}
+                      alt="Promotion Banner"
+                      style={{ width: '100%', height: 200, objectFit: newPromo.bannerFit || 'cover' }}
+                    />
+                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => openImageEditor(newPromo.bannerUrl, 'create')}
+                        style={{ background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
+                        title="Edit & Crop Image"
+                      >
+                        ✏️ Edit & Crop (Screen Fit)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewPromo({ ...newPromo, bannerUrl: '' })}
+                        style={{ background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
+                        title="Remove Photo"
+                      >
+                        <HiOutlineX size={16} />
+                      </button>
+                    </div>
+                    <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: 6, fontSize: 11, color: '#38BDF8', fontWeight: 700 }}>
+                      ✓ Screen Size Fit (16:9 Aspect Ratio)
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Display Fit Style:</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => setNewPromo({ ...newPromo, bannerFit: 'cover' })}
+                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#3B82F6' : '#CBD5E1', background: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#EFF6FF' : '#FFF', color: (!newPromo.bannerFit || newPromo.bannerFit === 'cover') ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                      >
+                        Cover (Full Screen Stretch)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewPromo({ ...newPromo, bannerFit: 'contain' })}
+                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: newPromo.bannerFit === 'contain' ? '#3B82F6' : '#CBD5E1', background: newPromo.bannerFit === 'contain' ? '#EFF6FF' : '#FFF', color: newPromo.bannerFit === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                      >
+                        Contain (Original Ratio)
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -752,12 +962,8 @@ export default function Promotions() {
                     <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
                     <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', newPromo, setNewPromo)} />
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', newPromo, setNewPromo, () => {}, openImageEditor, 'create')} />
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Image URL:</span>
-                    <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/banner-image.jpg" value={newPromo.bannerUrl || ''} onChange={(e) => setNewPromo({ ...newPromo, bannerUrl: e.target.value })} />
-                  </div>
                 </div>
               )}
             </div>
@@ -783,10 +989,6 @@ export default function Promotions() {
                     <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
                     <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', newPromo, setNewPromo)} />
                   </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Video URL:</span>
-                    <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/promo-video.mp4" value={newPromo.videoUrl || ''} onChange={(e) => setNewPromo({ ...newPromo, videoUrl: e.target.value })} />
-                  </div>
                 </div>
               )}
             </div>
@@ -803,15 +1005,7 @@ export default function Promotions() {
       >
         {selectedPromo && (
           <div>
-            {(selectedPromo.videoUrl || selectedPromo.mediaType === 'video') ? (
-              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#000', marginBottom: 16, maxHeight: 260, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <video src={selectedPromo.videoUrl} controls autoPlay style={{ width: '100%', maxHeight: 260, objectFit: 'contain' }} />
-              </div>
-            ) : selectedPromo.bannerUrl ? (
-              <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 16, maxHeight: 240 }}>
-                <img src={selectedPromo.bannerUrl} alt={selectedPromo.title} style={{ width: '100%', maxHeight: 240, objectFit: 'cover' }} />
-              </div>
-            ) : null}
+            {renderModalMedia(selectedPromo)}
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <StatusBadge status={selectedPromo.status} />
@@ -989,16 +1183,54 @@ export default function Promotions() {
               {editFormData.mediaType === 'image' ? (
                 <div>
                   {editFormData.bannerUrl ? (
-                    <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#F9FAFB', maxHeight: 200, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <img src={editFormData.bannerUrl} alt="Promotion Banner" style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }} />
-                      <button
-                        type="button"
-                        onClick={() => setEditFormData({ ...editFormData, bannerUrl: '' })}
-                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                        title="Remove Photo"
-                      >
-                        <HiOutlineX size={16} />
-                      </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #CBD5E1', background: '#0F172A', maxHeight: 220, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <img
+                          src={editFormData.bannerUrl}
+                          alt="Promotion Banner"
+                          style={{ width: '100%', height: 200, objectFit: editFormData.bannerFit || 'cover' }}
+                        />
+                        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => openImageEditor(editFormData.bannerUrl, 'edit')}
+                            style={{ background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
+                            title="Edit & Crop Image"
+                          >
+                            ✏️ Edit & Crop (Screen Fit)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, bannerUrl: '' })}
+                            style={{ background: 'rgba(239, 68, 68, 0.9)', color: '#FFF', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}
+                            title="Remove Photo"
+                          >
+                            <HiOutlineX size={16} />
+                          </button>
+                        </div>
+                        <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: 6, fontSize: 11, color: '#38BDF8', fontWeight: 700 }}>
+                          ✓ Screen Size Fit (16:9 Aspect Ratio)
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Display Fit Style:</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, bannerFit: 'cover' })}
+                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#3B82F6' : '#CBD5E1', background: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#EFF6FF' : '#FFF', color: (!editFormData.bannerFit || editFormData.bannerFit === 'cover') ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                          >
+                            Cover (Full Screen Stretch)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, bannerFit: 'contain' })}
+                            style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid', borderColor: editFormData.bannerFit === 'contain' ? '#3B82F6' : '#CBD5E1', background: editFormData.bannerFit === 'contain' ? '#EFF6FF' : '#FFF', color: editFormData.bannerFit === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                          >
+                            Contain (Original Ratio)
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1006,12 +1238,8 @@ export default function Promotions() {
                         <HiOutlineUpload style={{ fontSize: 28, color: '#6C63FF' }} />
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Click to Upload Photo</span>
                         <span style={{ fontSize: 11, color: '#9CA3AF' }}>PNG, JPG, WEBP, GIF up to 10MB</span>
-                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', editFormData, setEditFormData)} />
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'image', editFormData, setEditFormData, () => {}, openImageEditor, 'edit')} />
                       </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Image URL:</span>
-                        <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/banner-image.jpg" value={editFormData.bannerUrl || ''} onChange={(e) => setEditFormData({ ...editFormData, bannerUrl: e.target.value })} />
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1037,10 +1265,6 @@ export default function Promotions() {
                         <span style={{ fontSize: 11, color: '#9CA3AF' }}>MP4, WEBM, MOV up to 50MB</span>
                         <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaFileUpload(e, 'video', editFormData, setEditFormData)} />
                       </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>OR Video URL:</span>
-                        <input type="url" className="form-input" style={{ margin: 0, fontSize: 12 }} placeholder="https://example.com/promo-video.mp4" value={editFormData.videoUrl || ''} onChange={(e) => setEditFormData({ ...editFormData, videoUrl: e.target.value })} />
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1048,6 +1272,175 @@ export default function Promotions() {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Interactive Image Crop & Fit Modal */}
+      <Modal
+        isOpen={cropModalOpen}
+        onClose={() => setCropModalOpen(false)}
+        title="Crop & Fit Image for Screen Banner"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12, color: '#475569' }}>
+            ℹ️ Adjust zoom, rotation, aspect ratio, and positioning so the image fits full width on all screen sizes.
+          </div>
+
+          {/* Interactive Preview Viewport */}
+          <div style={{ position: 'relative', width: '100%', height: 240, background: '#0F172A', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #3B82F6' }}>
+            {cropImageSrc && (
+              <img
+                src={cropImageSrc}
+                alt="Cropper Preview"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  transform: `scale(${cropScale}) rotate(${cropRotation}deg)`,
+                  filter: `brightness(${cropBrightness}%) contrast(${cropContrast}%)`,
+                  transition: 'transform 0.2s ease, filter 0.2s ease',
+                  objectFit: cropFitMode,
+                  width: cropFitMode === 'cover' ? '100%' : 'auto',
+                  height: cropFitMode === 'cover' ? '100%' : 'auto',
+                }}
+              />
+            )}
+            <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.75)', color: '#38BDF8', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, backdropFilter: 'blur(4px)' }}>
+              Target Fit: {cropAspectRatio} Banner
+            </div>
+          </div>
+
+          {/* Aspect Ratio Presets */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', background: '#F1F5F9', padding: 10, borderRadius: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>Aspect Ratio:</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[
+                { label: '16:9 Screen Fit', value: '16:9' },
+                { label: '3:1 Header', value: '3:1' },
+                { label: '4:3 Card', value: '4:3' },
+                { label: '1:1 Square', value: '1:1' },
+              ].map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  onClick={() => setCropAspectRatio(preset.value)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    border: cropAspectRatio === preset.value ? '2px solid #3B82F6' : '1px solid #CBD5E1',
+                    background: cropAspectRatio === preset.value ? '#3B82F6' : '#FFF',
+                    color: cropAspectRatio === preset.value ? '#FFF' : '#475569',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Controls: Zoom & Fit Mode */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div>
+              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                <span>Zoom Scale</span>
+                <span>{cropScale.toFixed(1)}x</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="3.5"
+                step="0.1"
+                value={cropScale}
+                onChange={(e) => setCropScale(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: '#3B82F6' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                Fit Mode
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setCropFitMode('cover')}
+                  style={{ flex: 1, padding: '6px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: cropFitMode === 'cover' ? '2px solid #3B82F6' : '1px solid #CBD5E1', background: cropFitMode === 'cover' ? '#EFF6FF' : '#FFF', color: cropFitMode === 'cover' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                >
+                  Cover (Screen Stretch)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCropFitMode('contain')}
+                  style={{ flex: 1, padding: '6px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: cropFitMode === 'contain' ? '2px solid #3B82F6' : '1px solid #CBD5E1', background: cropFitMode === 'contain' ? '#EFF6FF' : '#FFF', color: cropFitMode === 'contain' ? '#1D4ED8' : '#64748B', cursor: 'pointer' }}
+                >
+                  Contain (Whole Image)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tone Adjustments: Brightness & Contrast */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: '#F8FAFC', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+            <div>
+              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <span>☀️ Brightness</span>
+                <span>{cropBrightness}%</span>
+              </label>
+              <input
+                type="range"
+                min="50"
+                max="150"
+                step="5"
+                value={cropBrightness}
+                onChange={(e) => setCropBrightness(parseInt(e.target.value, 10))}
+                style={{ width: '100%', accentColor: '#10B981' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <span>🌓 Contrast</span>
+                <span>{cropContrast}%</span>
+              </label>
+              <input
+                type="range"
+                min="50"
+                max="150"
+                step="5"
+                value={cropContrast}
+                onChange={(e) => setCropContrast(parseInt(e.target.value, 10))}
+                style={{ width: '100%', accentColor: '#8B5CF6' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setCropRotation((prev) => (prev + 90) % 360)}
+              style={{ padding: '8px 14px', background: '#E2E8F0', color: '#1E293B', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              🔄 Rotate 90° ({cropRotation}°)
+            </button>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setCropModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleApplyCroppedImage}
+                style={{ background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none', fontWeight: 700 }}
+              >
+                ✓ Apply & Save Fitted Image
+              </button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

@@ -1233,7 +1233,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : 'Limited Time Offer | Verified Merchant'),
               bannerUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
               category: item.category || 'General',
-              type: item.type || item.promotion_type || 'Featured',
+              type: item.type || item.promotion_type || item.promotionType || '',
               placement: item.placement || '',
               media_url: item.media_url || item.mediaUrl || item.image_url || item.banner_url || item.bannerUrl || item.image || '',
               media_type: item.media_type || item.mediaType || 'image',
@@ -1254,12 +1254,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [footerAdIndex, setFooterAdIndex] = useState(0);
 
   const footerAdsList = React.useMemo(() => {
-    const apiFooter = livePromotions.filter(
+    return livePromotions.filter(
       (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
     );
-    if (apiFooter.length > 0) return apiFooter;
-    const demoFooter = demoPromotions['Footer Ads'] || [];
-    return demoFooter.length > 0 ? demoFooter : promoBanners.slice(0, 3);
   }, [livePromotions]);
 
   useEffect(() => {
@@ -1623,7 +1620,25 @@ export default function LandingPage({ defaultTab = 'home' }) {
     }
   }, [location]);
 
-  const displayBanners = livePromotions.length > 0 ? livePromotions : promoBanners;
+  // Top Hero Carousel Banners: Filter API promotions STRICTLY for type "Banner" / "Banner Carousel"
+  const bannerPromotions = React.useMemo(() => {
+    if (!Array.isArray(livePromotions)) return [];
+    return livePromotions.filter((p) => {
+      if (!p) return false;
+      const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
+      const placementStr = (p.placement || '').toString().trim().toLowerCase();
+      return typeStr === 'banner' || typeStr.includes('banner') || placementStr.includes('banner');
+    });
+  }, [livePromotions]);
+
+  const displayBanners = bannerPromotions;
+
+  // Reset slide index if current index out of bounds
+  useEffect(() => {
+    if (currentSlide >= displayBanners.length && displayBanners.length > 0) {
+      setCurrentSlide(0);
+    }
+  }, [displayBanners.length, currentSlide]);
 
   // Auto slide carousel
   useEffect(() => {
@@ -1784,11 +1799,18 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [showGridAds, setShowGridAds] = useState(true);
   const [adFrequency, setAdFrequency] = useState(8); // Every 8 cards (exactly 2 full rows of 4 cards)
 
-  // Interleave Featured Advertisements using live API promotions strictly from backend
+  // Interleave Sponsored Advertisements strictly filtering type "Sponsored" promotions from backend API
   const interleavedEstablishments = React.useMemo(() => {
     const baseList = sortItems(filteredEstablishments);
-    // Use LIVE API PROMOTIONS strictly from backend
-    const adsPool = livePromotions;
+    // Filter LIVE API PROMOTIONS strictly for type "Sponsored"
+    const sponsoredPool = livePromotions.filter((p) => {
+      if (!p) return false;
+      const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
+      const badgeStr = (p.badge || '').toString().trim().toLowerCase();
+      return typeStr === 'sponsored' || typeStr.includes('sponsored') || badgeStr.includes('sponsored');
+    });
+
+    const adsPool = sponsoredPool;
 
     if (!showGridAds || adFrequency <= 0 || adsPool.length === 0) return baseList;
 
@@ -1841,14 +1863,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Featured Offers Carousel State (8 items per single view = 2 rows x 4 columns)
   const [offerSlideIndex, setOfferSlideIndex] = useState(0);
   const offersPerPage = 8;
+  // Featured Offers Grid: Filter livePromotions strictly for type "Featured" from API
   const allFeaturedOffers = React.useMemo(() => {
-    const merged = [...livePromotions];
-    conceptOffers.forEach((co) => {
-      if (!merged.some((m) => m.id === co.id || m.title === co.title)) {
-        merged.push(co);
-      }
+    return (livePromotions || []).filter((p) => {
+      if (!p) return false;
+      const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
+      const badgeStr = (p.badge || '').toString().trim().toLowerCase();
+      return typeStr === 'featured' || typeStr.includes('featured') || badgeStr.includes('featured');
     });
-    return merged;
   }, [livePromotions]);
   const totalOfferSlides = Math.ceil(allFeaturedOffers.length / offersPerPage) || 1;
   const currentSlideOffers = React.useMemo(() => {
