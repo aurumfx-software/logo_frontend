@@ -340,57 +340,7 @@ export const demoPromotions = {
   "Sponsored Listing": [],
   "Banner Carousel": [],
   "Text Carousel": [],
-  "Footer Ads": [
-    // Reusing existing Footer Ads from promotions
-    {
-      id: 'BNR-008',
-      title: 'PAYYANUR TAXI & TRAVELS',
-      subtitle: 'Footer Banner Ad - 24/7 Cab & Airport Transfer',
-      type: 'Footer Ads',
-      placement: 'Footer Sticky Bar',
-      category: 'Travels & Transport',
-      location: 'Payyanur Railway Station',
-      phone: '09447 987654',
-      startDate: '2026-09-01',
-      endDate: '2026-12-31',
-      status: 'active',
-      impressions: 63000,
-      clicks: 5200,
-      bannerUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'BNR-009',
-      title: 'KERALA AYURVEDA & SPA',
-      subtitle: 'Rejuvenate Your Mind & Body with Authentic Packages',
-      type: 'Footer Ads',
-      placement: 'Footer Banner',
-      category: 'Healthcare & Wellness',
-      location: 'Perumba, Payyanur',
-      phone: '09895 443322',
-      startDate: '2026-09-15',
-      endDate: '2026-12-31',
-      status: 'active',
-      impressions: 48900,
-      clicks: 3900,
-      bannerUrl: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'BNR-010',
-      title: 'ROYAL CATERING & EVENTS',
-      subtitle: 'Delicious Traditional Malabar Feast & Event Planning',
-      type: 'Footer Ads',
-      placement: 'Footer Banner',
-      category: 'Professional & Events',
-      location: 'Main Road, Payyanur',
-      phone: '09744 556677',
-      startDate: '2026-10-01',
-      endDate: '2026-12-31',
-      status: 'active',
-      impressions: 31200,
-      clicks: 2840,
-      bannerUrl: 'https://images.unsplash.com/photo-1555245413-7c8173228f4c?w=800&auto=format&fit=crop&q=80'
-    }
-  ]
+  "Footer Ads": []
 };
 
 

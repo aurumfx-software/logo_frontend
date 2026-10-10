@@ -20,7 +20,7 @@ import {
   FaInstagram,
   FaTwitter,
 } from 'react-icons/fa';
-import { promoBanners } from './LandingPage';
+import { fetchPromotionsList } from '../api/promotionApi';
 
 // Haversine distance calculator
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -59,33 +59,29 @@ export default function AdDetail({ isPublic = true }) {
       );
     }
 
-    // Fallback ad search if direct URL opened
-    if (!ad) {
-      const foundInBanners = promoBanners.find((b) => String(b.id) === String(id));
-      if (foundInBanners) {
-        setAd(foundInBanners);
-      } else {
-        // Fallback default ad
-        setAd({
-          id: id || 1,
-          title: 'Special Local Offer & Promotion',
-          subtitle: 'Featured Local Merchant',
-          category: 'Retail & Shopping',
-          badge: 'FEATURED PROMOTION',
-          tagline: 'Flat 20% Off on First Booking or Visit',
-          description:
-            'Enjoy premium services and exclusive discounts. Contact our team directly via phone or WhatsApp for instant consultations and special store deals.',
-          location: 'Payyanur, Kannur',
-          phone: '+91 98470 12345',
-          bannerUrl:
-            'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=1200&auto=format&fit=crop&q=80',
-          lat: 12.0988,
-          lng: 75.2045,
-          rating: 4.8,
-          reviews: 124,
-          highlights: ['Verified Business', 'Instant Booking', 'On-Site Parking', 'Best Price Guarantee'],
-        });
-      }
+    // Live API promo fetch if direct URL opened
+    if (!ad && id) {
+      fetchPromotionsList()
+        .then((promos) => {
+          if (Array.isArray(promos)) {
+            const found = promos.find((p) => String(p.id || p._id) === String(id));
+            if (found) {
+              setAd({
+                id: found.id || found._id,
+                title: found.title || found.name || '',
+                subtitle: found.placement || found.category || '',
+                description: found.description || found.details || '',
+                badge: (found.category || found.type || found.badge || '').toUpperCase(),
+                location: found.location || '',
+                phone: found.phone || found.contact_phone || '',
+                bannerUrl: found.image_url || found.banner_url || found.bannerUrl || found.image || '',
+                category: found.category || '',
+                type: found.type || found.promotion_type || '',
+              });
+            }
+          }
+        })
+        .catch((err) => console.warn('AdDetail fetch error:', err));
     }
   }, [id, ad]);
 

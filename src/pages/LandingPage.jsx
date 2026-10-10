@@ -8,23 +8,14 @@ import {
   HiChevronRight,
   HiArrowUp,
   HiMail,
-  HiCheckCircle,
   HiX,
   HiMenu,
   HiInformationCircle,
   HiStar,
   HiQrcode,
-  HiUser,
-  HiUserAdd,
-  HiLogout,
-  HiViewGrid,
-  HiShieldCheck,
-  HiLockClosed,
   HiPlus,
   HiPhotograph,
   HiVideoCamera,
-  HiClock,
-  HiBriefcase,
 } from 'react-icons/hi';
 import {
   FaFacebookF,
@@ -60,186 +51,6 @@ const conceptCategories = [
   { id: 10, title: 'Local Home Services', icon: '🔧', color: '#F1F5F9', iconColor: '#0F172A' },
   { id: 11, title: 'Education & Coaching', icon: '🎓', color: '#FFF7ED', iconColor: '#EA580C', active: true },
   { id: 12, title: 'Professional & Events', icon: '💼', color: '#F3E8FF', iconColor: '#7E22CE' },
-];
-
-// 🔥 Featured Offers (Matching Concept Screenshot 2)
-const conceptOffers = [
-  {
-    id: 1,
-    merchant: 'Elegant Fashions',
-    title: 'Season End Sale',
-    description: 'Up to 50% off on selected ethnic and western wear collections.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Fashion',
-    discount: 'Up to 50% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
-  },
-  {
-    id: 2,
-    merchant: 'TechZone Electronics',
-    title: 'Smart Gadget Deals',
-    description: 'Exclusive discounts on smartwatches, audio gear and accessories.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Electronics',
-    discount: 'Up to 40% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
-  },
-  {
-    id: 3,
-    merchant: 'PowerFit Gym',
-    title: 'First Month Free',
-    description: 'Get your first month free on any annual gym membership plan.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Health & Fitness',
-    discount: '1 Month FREE',
-    bannerUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #11998E 0%, #38EF7D 100%)',
-  },
-  {
-    id: 4,
-    merchant: 'Glow Beauty Salon',
-    title: 'Bridal Package Offer',
-    description: 'Complete bridal makeup & hair styling package at exclusive prices.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Beauty',
-    discount: 'Special Deal',
-    bannerUrl: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #FAD961 0%, #F76B1C 100%)',
-  },
-  {
-    id: 5,
-    merchant: 'TopForm Hotel & Restaurant',
-    title: 'Flat 30% Off Dining',
-    description: 'Enjoy delicious Malabar cuisines & buffet with 30% flat discount.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Dining',
-    discount: 'FLAT 30% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)',
-  },
-  {
-    id: 6,
-    merchant: 'Apex Auto Care & Spares',
-    title: 'Free Car Wash & Checkup',
-    description: 'Complimentary car wash and 25-point inspection on major service.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Automobile',
-    discount: 'FREE Checkup',
-    bannerUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%)',
-  },
-  {
-    id: 7,
-    merchant: 'Organic Fresh Mart',
-    title: 'Buy 1 Get 1 Free',
-    description: 'Buy 1 Get 1 free on selected fresh fruits & organic dairy products.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Grocery',
-    discount: 'BUY 1 GET 1',
-    bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #f857a6 0%, #ff5858 100%)',
-  },
-  {
-    id: 8,
-    merchant: 'Royal Dental Clinic',
-    title: '50% Off Teeth Whitening',
-    description: 'Get advanced laser teeth whitening consultation at half price.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Healthcare',
-    discount: '50% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  },
-  {
-    id: 9,
-    merchant: 'Malabar Jewellers',
-    title: 'Zero Making Charge',
-    description: 'Zero making charges on selected gold ornament purchases above 25g.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Jewellery',
-    discount: '0% Making Charge',
-    bannerUrl: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #F39C12 0%, #D35400 100%)',
-  },
-  {
-    id: 10,
-    merchant: 'City Supermarket',
-    title: 'Weekend Grocery Fest',
-    description: 'Save big on household staples, spices, and beverages every weekend.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Grocery',
-    discount: 'Save Up to 35%',
-    bannerUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #27AE60 0%, #2ECC71 100%)',
-  },
-  {
-    id: 11,
-    merchant: 'Grand Footwear',
-    title: 'Festive Footwear Sale',
-    description: 'Flat 25% discount on branded sports shoes and leather footwear.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Footwear',
-    discount: 'FLAT 25% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)',
-  },
-  {
-    id: 12,
-    merchant: 'Bright Home Furnishings',
-    title: 'Living Room Makeover',
-    description: 'Up to 45% off luxury sofa sets, curtains, and interior décor items.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Home Decor',
-    discount: 'Up to 45% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%)',
-  },
-  {
-    id: 13,
-    merchant: 'Pixel Digital Studio',
-    title: 'Wedding Package Promo',
-    description: 'Free drone video coverage on premium wedding photography packages.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Services',
-    discount: 'FREE Drone Video',
-    bannerUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #2980B9 0%, #3498DB 100%)',
-  },
-  {
-    id: 14,
-    merchant: 'Green Agro Fertilizers',
-    title: 'Agri Supply Discount',
-    description: 'Special seasonal price drop on organic fertilizers and plant seeds.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Agriculture',
-    discount: '20% OFF',
-    bannerUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #16A085 0%, #1ABC9C 100%)',
-  },
-  {
-    id: 15,
-    merchant: 'Apex Computer Academy',
-    title: 'Full Stack Course Deal',
-    description: 'Get 30% scholarship on IT certification and diploma courses.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Education',
-    discount: '30% Scholarship',
-    bannerUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #34495E 0%, #2C3E50 100%)',
-  },
-  {
-    id: 16,
-    merchant: 'Ocean breeze Resort',
-    title: 'Weekend Getaway Offer',
-    description: 'Book 2 nights stay and get complimentary breakfast + spa voucher.',
-    validity: 'Valid until 31 Dec 2026',
-    category: 'Travel & Stay',
-    discount: 'FREE Spa Voucher',
-    bannerUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80',
-    bgGradient: 'linear-gradient(135deg, #E67E22 0%, #F39C12 100%)',
-  },
 ];
 
 
@@ -554,87 +365,8 @@ const renderCategoryIcon = (key) => {
   }
 };
 
-// Banner promotional slides data (matching screenshots)
-export const promoBanners = [
-  {
-    id: 1,
-    title: 'BAG BAZAAR PAYYANUR',
-    subtitle: 'Top Brands & Huge Discounts',
-    description: 'School bags, luggage trolleys, handbags, and travel backpacks. Wholesale & Retail.',
-    bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=1200&auto=format&fit=crop&q=80',
-    badge: 'FEATURED STORE',
-    location: 'Payyanur',
-    phone: '09372 702692',
-    accentColor: '#38BDF8',
-    tagline: 'Up to 65% OFF | Best Luggage Store in Town',
-  },
-  {
-    id: 2,
-    title: 'ONLINE ART CLASSES',
-    subtitle: 'Explore Your Creativity in Just 1 Hour a Day!',
-    description: 'Open to all ages (Kids & Adults). Flexible schedules, small groups & solo classes.',
-    bgGradient: 'linear-gradient(135deg, #00b4d8 0%, #0077b6 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=1200&auto=format&fit=crop&q=80',
-    badge: 'EDUCATION',
-    location: 'Online / Payyanur',
-    phone: '07026 595769',
-    accentColor: '#90E0EF',
-    tagline: 'By Arthana | Flexible Schedules | Beginner Friendly',
-  },
-  {
-    id: 3,
-    title: 'VR HERO MOTORS',
-    subtitle: 'Hero Authorized Dealer - 3 Years Free Service',
-    description: 'Special offers on Hero scooters & bikes. 5 years warranty, easy financing available.',
-    bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0077b6 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&auto=format&fit=crop&q=80',
-    badge: 'AUTOMOBILE',
-    location: 'Peringome, Kannur',
-    phone: '04985 219191',
-    accentColor: '#38BDF8',
-    tagline: '0% Down Payment | 5 Years Warranty | Easy Finance',
-  },
-  {
-    id: 4,
-    title: 'LIFE MEDICALS & SURGICALS',
-    subtitle: 'We Care Your Life - All Medical Supplies',
-    description: 'Complete range of medicines, surgical instruments, wellness care, and diagnostic tools.',
-    bgGradient: 'linear-gradient(135deg, #0096c7 0%, #03045e 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=1200&auto=format&fit=crop&q=80',
-    badge: 'HEALTHCARE',
-    location: 'Manna, Taliparamba',
-    phone: '04672 206111',
-    accentColor: '#48CAE4',
-    tagline: 'Essential Medicines | Surgical Equipment | 24/7 Service',
-  },
-  {
-    id: 5,
-    title: 'GLOBAL SOLAR POWER SOLUTION',
-    subtitle: 'KSEB Approved Solar Panel Installations',
-    description: 'Reduce your electricity bills with clean solar power. On-grid and off-grid solutions.',
-    bgGradient: 'linear-gradient(135deg, #0077b6 0%, #023e8a 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&auto=format&fit=crop&q=80',
-    badge: 'SOLAR ENERGY',
-    location: 'Payyanur - Padanna',
-    phone: '08921 669652',
-    accentColor: '#CAF0F8',
-    tagline: 'Govt Subsidy Eligible | Free Site Inspection | Solar Subsidy',
-  },
-  {
-    id: 6,
-    title: 'CASTILLO INTERIORS',
-    subtitle: 'Modular Kitchen, Gypsum Ceiling, Furniture',
-    description: 'Turn your dream home into reality without breaking your budget. 2D & 3D designing.',
-    bgGradient: 'linear-gradient(135deg, #0369a1 0%, #0c4a6e 100%)',
-    bannerUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1200&auto=format&fit=crop&q=80',
-    badge: 'INTERIORS',
-    location: 'Payyanur',
-    phone: '09562 753693',
-    accentColor: '#38BDF8',
-    tagline: 'Modular Kitchen | Gypsum Ceiling | Wardrobe & TV Units',
-  },
-];
+// Banner promotional slides data (populated dynamically from API)
+export const promoBanners = [];
 
 // 14 Districts of Kerala Sub-Towns / Locations Mapping
 const districtTownsMap = {
@@ -1222,17 +954,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
             const theme = colorThemes[idx % colorThemes.length];
             return {
               id: item.id || item._id || item.promo_code || `api-promo-${idx}`,
-              title: item.title || item.name || 'Featured Promotion',
-              subtitle: item.placement || `${item.category || 'Featured'} Special Offer`,
-              description: item.description || item.details || `Exclusive offer for ${item.category || 'local services'} in ${item.location || 'Kerala'}.`,
+              title: item.title || item.name || '',
+              subtitle: item.subtitle || item.placement || '',
+              description: item.description || item.details || '',
               bgGradient: item.bg_gradient || theme.bg,
-              badge: (item.category || item.type || item.badge || 'FEATURED').toUpperCase(),
-              location: item.location || 'Payyanur, Kerala',
-              phone: item.phone || item.contact_phone || '07026 595769',
+              badge: (item.category || item.type || item.badge || '').toUpperCase(),
+              location: item.location || '',
+              phone: item.phone || item.contact_phone || '',
               accentColor: theme.accent,
-              tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : 'Limited Time Offer | Verified Merchant'),
+              tagline: item.tagline || (item.start_date && item.end_date ? `Valid: ${item.start_date} to ${item.end_date}` : ''),
               bannerUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
-              category: item.category || 'General',
+              category: item.category || '',
               type: item.type || item.promotion_type || item.promotionType || '',
               placement: item.placement || '',
               media_url: item.media_url || item.mediaUrl || item.image_url || item.banner_url || item.bannerUrl || item.image || '',
@@ -1254,9 +986,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [footerAdIndex, setFooterAdIndex] = useState(0);
 
   const footerAdsList = React.useMemo(() => {
-    return livePromotions.filter(
-      (p) => p.type === 'Footer Ads' || (p.placement && p.placement.toLowerCase().includes('footer'))
-    );
+    return livePromotions.filter((p) => {
+      const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
+      return typeStr === 'footer ads';
+    });
   }, [livePromotions]);
 
   useEffect(() => {
@@ -1626,8 +1359,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return livePromotions.filter((p) => {
       if (!p) return false;
       const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
-      const placementStr = (p.placement || '').toString().trim().toLowerCase();
-      return typeStr === 'banner' || typeStr.includes('banner') || placementStr.includes('banner');
+      return typeStr === 'banner';
     });
   }, [livePromotions]);
 
@@ -1806,8 +1538,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     const sponsoredPool = livePromotions.filter((p) => {
       if (!p) return false;
       const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
-      const badgeStr = (p.badge || '').toString().trim().toLowerCase();
-      return typeStr === 'sponsored' || typeStr.includes('sponsored') || badgeStr.includes('sponsored');
+      return typeStr === 'sponsored';
     });
 
     const adsPool = sponsoredPool;
@@ -1868,8 +1599,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return (livePromotions || []).filter((p) => {
       if (!p) return false;
       const typeStr = (p.type || p.promotion_type || '').toString().trim().toLowerCase();
-      const badgeStr = (p.badge || '').toString().trim().toLowerCase();
-      return typeStr === 'featured' || typeStr.includes('featured') || badgeStr.includes('featured');
+      return typeStr === 'featured';
     });
   }, [livePromotions]);
   const totalOfferSlides = Math.ceil(allFeaturedOffers.length / offersPerPage) || 1;
@@ -1978,8 +1708,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
       </div>
 
       {/* 2. Banner Carousel Hero Section */}
-      <section className="landing-hero-section">
-        <div className="landing-hero-backdrop"></div>
+      {displayBanners.length > 0 && (
+        <section className="landing-hero-section">
+          <div className="landing-hero-backdrop"></div>
 
         <div className="landing-carousel-wrapper">
           <div className="landing-carousel-container">
@@ -2078,6 +1809,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         </div>
       </section>
+      )}
+
 
       {/* 4. Filter & Search Section */}
       <section id="categories-section" className="landing-filter-section">
@@ -3629,314 +3362,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       )}
 
-      {/* 11. CREATE / ONBOARD MERCHANT MODAL ON LANDING PAGE */}
-      {onboardModalOpen && (
-        <div className="modal-backdrop" onClick={() => setOnboardModalOpen(false)}>
-          <div
-            className="modal-container merchant-detail-modal"
-            style={{ maxWidth: 720, maxHeight: '90vh', overflowY: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #1E293B, #0F172A)', color: '#FFF' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: '#10B981', padding: 8, borderRadius: 8, color: '#FFF', display: 'flex' }}>
-                  <HiPlus style={{ fontSize: 20 }} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, color: '#FFF', fontSize: 18 }}>Onboard New Merchant</h3>
-                  <p style={{ margin: 0, color: '#94A3B8', fontSize: 12 }}>Register & list a business directly to backend API</p>
-                </div>
-              </div>
-              <button
-                className="modal-close-btn"
-                style={{ color: '#94A3B8' }}
-                onClick={() => setOnboardModalOpen(false)}
-              >
-                <HiX />
-              </button>
-            </div>
-
-            <form onSubmit={handleOnboardSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {onboardError && (
-                  <div style={{ padding: '10px 14px', background: '#FEE2E2', borderLeft: '4px solid #EF4444', color: '#B91C1C', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-                    ⚠️ {onboardError}
-                  </div>
-                )}
-                {onboardSuccess && (
-                  <div style={{ padding: '10px 14px', background: '#D1FAE5', borderLeft: '4px solid #10B981', color: '#047857', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-                    ✅ {onboardSuccess}
-                  </div>
-                )}
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Business Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Store Name"
-                      value={onboardForm.business_name}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, business_name: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Owner Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Owner Name"
-                      value={onboardForm.owner_name}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, owner_name: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Category *
-                    </label>
-                    <select
-                      value={onboardForm.category}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, category: e.target.value, categories: [e.target.value], services: [e.target.value] })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14, background: '#FFF' }}
-                    >
-                      {categoryOptionsList.map((catName, idx) => (
-                        <option key={idx} value={catName}>{catName}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      User Code
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. FLS_1"
-                      value={onboardForm.user_code}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, user_code: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Phone Number *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="+91 98470 12345"
-                      value={onboardForm.phone_number}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, phone_number: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="store@gmail.com"
-                      value={onboardForm.email}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      District *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Kannur"
-                      value={onboardForm.district}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, district: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      City *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Payyanur"
-                      value={onboardForm.city}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, city: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Address *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Main Road"
-                      value={onboardForm.address}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, address: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Landmark
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Near Bus Stand"
-                      value={onboardForm.landmark}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, landmark: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Service Timing
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 09:00 AM - 09:00 PM"
-                      value={onboardForm.service_timing}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, service_timing: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: '#334155' }}>
-                      Status
-                    </label>
-                    <select
-                      value={onboardForm.status}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, status: e.target.value })}
-                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: 14, background: '#FFF' }}
-                    >
-                      <option value="APPROVED">APPROVED</option>
-                      <option value="PENDING">PENDING</option>
-                      <option value="ACTIVE">ACTIVE</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* MEDIA UPLOAD SECTION (POST /api/v1/merchants/upload-media) */}
-                <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 10, border: '1px dashed #CBD5E1' }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 6 }}>
-                    📸 Merchant Media Upload (Photos & Videos)
-                  </label>
-                  <p style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
-                    Upload photos/videos directly via <code>POST /api/v1/merchants/upload-media</code>
-                  </p>
-
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    <label
-                      style={{
-                        padding: '8px 14px',
-                        background: '#3B82F6',
-                        color: '#FFF',
-                        borderRadius: 6,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: uploadingMedia ? 'not-allowed' : 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <HiPhotograph /> {uploadingMedia ? 'Uploading...' : 'Upload Photos'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        disabled={uploadingMedia}
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleMediaUpload(e, 'photos')}
-                      />
-                    </label>
-
-                    <label
-                      style={{
-                        padding: '8px 14px',
-                        background: '#8B5CF6',
-                        color: '#FFF',
-                        borderRadius: 6,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: uploadingMedia ? 'not-allowed' : 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <HiVideoCamera /> {uploadingMedia ? 'Uploading...' : 'Upload Videos'}
-                      <input
-                        type="file"
-                        accept="video/*"
-                        multiple
-                        disabled={uploadingMedia}
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleMediaUpload(e, 'videos')}
-                      />
-                    </label>
-                  </div>
-
-                  {/* Uploaded Photos Preview */}
-                  {onboardForm.merchant_photos.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                      {onboardForm.merchant_photos.map((url, i) => (
-                        <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 6, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-                          <img src={url} alt={`Photo ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', padding: '12px 20px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setOnboardModalOpen(false)}
-                  disabled={onboardLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={onboardLoading || uploadingMedia}
-                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none', fontWeight: 700 }}
-                >
-                  {onboardLoading ? 'Onboarding Merchant...' : 'Onboard Merchant'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );
