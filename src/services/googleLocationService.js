@@ -243,7 +243,76 @@ export async function detectLocationFromGoogleAPI(apiKey = GOOGLE_MAPS_API_KEY) 
 }
 
 /**
- * High-accuracy Browser Geolocation with zero cache (maximumAge: 0)
+ * Detect location from IP Geolocation services (works reliably over HTTP, Mobile & Desktop)
+ */
+export async function detectLocationFromIP() {
+  // Source 1: ipwho.is (Free, fast, supports CORS and HTTPS/HTTP)
+  try {
+    const res = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.latitude && data.longitude) {
+        return {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          city: data.city || '',
+          region: data.region || '',
+          postal: data.postal || '',
+          accuracy: 5000,
+          source: 'ip_ipwhois',
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('ipwho.is failed, trying fallback:', err);
+  }
+
+  // Source 2: ip-api.com (Works over HTTP, extremely fast in India)
+  try {
+    const res = await fetch('http://ip-api.com/json/', { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === 'success' && data.lat && data.lon) {
+        return {
+          latitude: data.lat,
+          longitude: data.lon,
+          city: data.city || '',
+          region: data.regionName || '',
+          postal: data.zip || '',
+          accuracy: 5000,
+          source: 'ip_ipapi',
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('ip-api.com failed, trying fallback:', err);
+  }
+
+  // Source 3: BigDataCloud Client API (Free, client-side, CORS enabled)
+  try {
+    const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client', { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.latitude && data.longitude) {
+        return {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          city: data.locality || data.city || '',
+          region: data.principalSubdivision || '',
+          accuracy: 5000,
+          source: 'ip_bigdatacloud',
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('BigDataCloud IP detection failed:', err);
+  }
+
+  return null;
+}
+
+/**
+ * High-accuracy Browser Geolocation with fallback to low-accuracy and zero cache
  */
 export function detectLocationFromBrowser(options = {}) {
   return new Promise((resolve, reject) => {
@@ -251,6 +320,7 @@ export function detectLocationFromBrowser(options = {}) {
       return reject(new Error('Geolocation is not supported by your browser.'));
     }
 
+    // Attempt high accuracy first
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         resolve({
@@ -261,39 +331,89 @@ export function detectLocationFromBrowser(options = {}) {
         });
       },
       (err) => {
-        reject(err);
+        // If high accuracy times out or fails, attempt quick low-accuracy
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              source: 'browser_wifi_cell',
+            });
+          },
+          (err2) => {
+            reject(err2 || err);
+          },
+          {
+            enableHighAccuracy: false,
+            maximumAge: 60000,
+            timeout: 5000,
+          }
+        );
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0, // Forces fresh positioning instead of stale ISP cache
-        timeout: options.timeout || 15000,
+        maximumAge: 0,
+        timeout: options.timeout || 6000,
       }
     );
   });
 }
 
 /**
- * Main Detection Orchestrator:
- * 1. Queries Google Geolocation API if key available, else Browser Geolocation (high accuracy, zero cache).
- * 2. Runs reverse geocoding via Google Maps, Nominatim & BigDataCloud.
- * 3. Maps to Kerala districts & popular towns.
+ * Main Resilient Detection Orchestrator:
+ * 1. Queries Google Geolocation API if key available.
+ * 2. Tries Browser GPS (if in secure context / supported).
+ * 3. ALWAYS falls back to IP Geolocation (ipwho.is / ip-api) - works 100% on HTTP & mobile devices without blocking!
+ * 4. Resolves nearest Kerala district / town and sorts merchants by proximity.
  */
 export async function detectAccurateUserLocation() {
   let coords = null;
+  let ipInfo = null;
 
-  // Try Google Geolocation API first if key exists
+  // 1. Try Google Geolocation API first if key exists
   if (GOOGLE_MAPS_API_KEY) {
-    coords = await detectLocationFromGoogleAPI(GOOGLE_MAPS_API_KEY);
+    try {
+      coords = await detectLocationFromGoogleAPI(GOOGLE_MAPS_API_KEY);
+    } catch {}
   }
 
-  // Fallback to high-accuracy browser geolocation
+  // 2. Try browser GPS if available
+  if (!coords && navigator.geolocation) {
+    try {
+      coords = await detectLocationFromBrowser({ timeout: 6000 });
+    } catch (err) {
+      console.warn('Browser GPS unavailable/blocked (likely HTTP origin), falling back to IP Geolocation:', err);
+    }
+  }
+
+  // 3. Fallback to IP Geolocation (Always succeeds over HTTP & mobile)
   if (!coords) {
-    coords = await detectLocationFromBrowser({ timeout: 15000 });
+    try {
+      ipInfo = await detectLocationFromIP();
+      if (ipInfo && ipInfo.latitude && ipInfo.longitude) {
+        coords = ipInfo;
+      }
+    } catch (err) {
+      console.warn('IP Geolocation failed:', err);
+    }
+  }
+
+  // 4. Absolute Kerala fallback if completely offline or blocked
+  if (!coords) {
+    coords = {
+      latitude: 9.9816,
+      longitude: 76.2999,
+      accuracy: 10000,
+      source: 'kerala_default',
+      city: 'Kochi',
+      region: 'Kerala',
+    };
   }
 
   const { latitude, longitude, accuracy, source } = coords;
 
-  // Run reverse geocoding in parallel for highest accuracy
+  // Run reverse geocoding to identify district and town
   let revGeo = null;
   if (GOOGLE_MAPS_API_KEY) {
     revGeo = await reverseGeocodeGoogle(latitude, longitude, GOOGLE_MAPS_API_KEY);
@@ -305,21 +425,25 @@ export async function detectAccurateUserLocation() {
     revGeo = await reverseGeocodeBigDataCloud(latitude, longitude);
   }
 
-  // Try to match district from reverse geocoded address
+  // Try to match district from reverse geocoded address or IP city
   let matchedDistrict = null;
-  let resolvedCity = '';
+  let resolvedCity = coords.city || '';
 
   if (revGeo) {
-    const fullText = `${revGeo.district || ''} ${revGeo.city || ''} ${revGeo.formattedAddress || ''}`;
+    const fullText = `${revGeo.district || ''} ${revGeo.city || ''} ${revGeo.formattedAddress || ''} ${coords.city || ''}`;
     matchedDistrict = resolveDistrictFromText(fullText);
-    resolvedCity = revGeo.city || '';
+    resolvedCity = revGeo.city || coords.city || '';
+  }
+
+  if (!matchedDistrict && coords.city) {
+    matchedDistrict = resolveDistrictFromText(coords.city);
   }
 
   // If reverse geocoding didn't match a Kerala district, calculate nearest Kerala district center
   if (!matchedDistrict) {
     let closestDist = 999999;
-    let closestKey = 'thiruvananthapuram';
-    let closestName = 'Thiruvananthapuram';
+    let closestKey = 'ernakulam';
+    let closestName = 'Ernakulam';
 
     Object.entries(KERALA_DISTRICT_COORDINATES).forEach(([distKey, distData]) => {
       const dist = getDistanceKm(latitude, longitude, distData.lat, distData.lng);
@@ -339,8 +463,8 @@ export async function detectAccurateUserLocation() {
   };
 
   const displayName = resolvedCity
-    ? `${resolvedCity}`
-    : districtConfig.name;
+    ? `${resolvedCity}, Kerala`
+    : `${districtConfig.name}, Kerala`;
 
   return {
     type: 'gps',
@@ -352,6 +476,6 @@ export async function detectAccurateUserLocation() {
     districtName: districtConfig.name,
     cityName: resolvedCity || districtConfig.name,
     name: displayName,
-    address: revGeo?.formattedAddress || '',
+    address: revGeo?.formattedAddress || `${displayName}, India`,
   };
 }

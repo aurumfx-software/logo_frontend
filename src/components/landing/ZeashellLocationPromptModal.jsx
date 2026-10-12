@@ -7,8 +7,8 @@ import {
   KERALA_TOWN_COORDINATES,
 } from '../../services/googleLocationService';
 
-// Re-export coordinates for LandingPage and other consumers
-export { KERALA_DISTRICT_COORDINATES, KERALA_TOWN_COORDINATES };
+// Re-export coordinates and detector for LandingPage and other consumers
+export { detectAccurateUserLocation, KERALA_DISTRICT_COORDINATES, KERALA_TOWN_COORDINATES };
 
 const POPULAR_QUICK_DISTRICTS = [
   { key: 'thiruvananthapuram', label: 'Trivandrum (TVM)', lat: 8.5241, lng: 76.9366, name: 'Thiruvananthapuram' },

@@ -712,33 +712,51 @@
   }
 
   .zeas-blue-banner-slider-container {
-    margin: 0 0 20px 0;
+    margin: 0 0 16px 0 !important;
+  }
+
+  .zeas-blue-banner-slider-track {
+    height: 210px !important;
   }
 
   .zeas-blue-banner-slide {
-    min-height: 220px;
+    height: 210px !important;
+    min-height: 200px !important;
+    max-height: 220px !important;
   }
 
   .zeas-blue-banner-image {
-    max-height: 80vh;
+    max-height: 220px !important;
+    object-fit: cover !important;
+    object-position: center !important;
   }
 
   .zeas-blue-banner-arrow {
-    width: 34px;
-    height: 34px;
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
   }
 
   .zeas-blue-banner-arrow.prev {
-    left: 8px;
+    left: 8px !important;
   }
 
   .zeas-blue-banner-arrow.next {
-    right: 8px;
+    right: 8px !important;
   }
 
   .zeas-blue-banner-dots {
-    bottom: 8px;
-    padding: 4px 10px;
+    bottom: 8px !important;
+    padding: 3px 8px !important;
+  }
+
+  .zeas-blue-banner-dot {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  .zeas-blue-banner-dot.active {
+    width: 16px !important;
   }
 }
 
@@ -764,6 +782,20 @@
   .zeas-blue-btn-admin-portal {
     padding: 5px 8px;
     font-size: 11px;
+  }
+
+  .zeas-blue-banner-slider-track {
+    height: 195px !important;
+  }
+
+  .zeas-blue-banner-slide {
+    height: 195px !important;
+    min-height: 180px !important;
+    max-height: 210px !important;
+  }
+
+  .zeas-blue-banner-image {
+    max-height: 210px !important;
   }
 }
 
@@ -883,7 +915,7 @@
   justify-content: center;
   background: #0f172a;
   cursor: pointer;
-  height: clamp(320px, 38vw, 620px);
+  height: clamp(260px, 32vw, 480px);
 }
 
 /* Ambient Blurred Backdrop behind image for full widescreen presentation */
@@ -4187,5 +4219,129 @@
   background: #1d4ed8;
 }
 
+/* ==========================================================================
+   DEFINITIVE MOBILE RESPONSIVE LAYOUT (MATCHING FIRST IMAGE EXACTLY)
+   ========================================================================== */
 
+@media (max-width: 768px) {
+  /* Banner slider proportioned perfectly so categories are visible on first view */
+  .zeas-blue-banner-slider-container {
+    margin: 0 0 16px 0 !important;
+    border-radius: 0 !important;
+  }
 
+  .zeas-blue-banner-slider-track {
+    height: 210px !important;
+  }
+
+  .zeas-blue-banner-slide {
+    height: 210px !important;
+    min-height: 200px !important;
+    max-height: 220px !important;
+    border-radius: 0 !important;
+  }
+
+  .zeas-blue-banner-image {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 220px !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  .zeas-blue-banner-arrow {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .zeas-blue-banner-arrow.prev {
+    left: 8px !important;
+  }
+
+  .zeas-blue-banner-arrow.next {
+    right: 8px !important;
+  }
+
+  .zeas-blue-banner-dots {
+    bottom: 8px !important;
+    padding: 3px 8px !important;
+  }
+
+  .zeas-blue-banner-dot {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  .zeas-blue-banner-dot.active {
+    width: 16px !important;
+  }
+
+  /* Categories header and 3-column grid */
+  .zeas-blue-category-section {
+    padding: 0 12px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .zeas-blue-category-header {
+    margin-bottom: 12px !important;
+  }
+
+  .zeas-blue-section-title {
+    font-size: 17px !important;
+    font-weight: 700 !important;
+  }
+
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .zeas-blue-category-card {
+    padding: 12px 6px 10px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+  }
+
+  .zeas-blue-category-name {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    font-weight: 600 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .zeas-blue-banner-slider-track {
+    height: 195px !important;
+  }
+
+  .zeas-blue-banner-slide {
+    height: 195px !important;
+    min-height: 180px !important;
+    max-height: 210px !important;
+  }
+
+  .zeas-blue-banner-image {
+    max-height: 210px !important;
+  }
+
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .zeas-blue-category-card {
+    padding: 10px 4px 8px !important;
+  }
+
+  .zeas-blue-category-icon-box {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 18px !important;
+  }
+
+  .zeas-blue-category-name {
+    font-size: 10.5px !important;
+  }
+}

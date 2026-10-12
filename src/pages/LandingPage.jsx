@@ -61,6 +61,7 @@ import ZeashellSpecialOfferWidget from '../components/landing/ZeashellSpecialOff
 import ZeashellShopModal from '../components/landing/ZeashellShopModal';
 import ZeashellCallDialog from '../components/landing/ZeashellCallDialog';
 import ZeashellLocationPromptModal, {
+  detectAccurateUserLocation,
   KERALA_DISTRICT_COORDINATES,
   KERALA_TOWN_COORDINATES,
 } from '../components/landing/ZeashellLocationPromptModal';
@@ -1576,6 +1577,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   const [userCoordinates, setUserCoordinates] = useState(null);
   const [userLocationLabel, setUserLocationLabel] = useState('');
+  const [sortBy, setSortBy] = useState('nearest');
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isWishlistActive, setIsWishlistActive] = useState(false);
   const [isWishlistPageOpen, setIsWishlistPageOpen] = useState(false);
@@ -1705,12 +1707,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
           setSortBy('nearest');
         }
       } else {
-        // First visit -> Prompt user for location before browsing!
-        setIsLocationModalOpen(true);
+        // First visit -> Auto-detect location seamlessly using IP/GPS
+        detectAccurateUserLocation()
+          .then((loc) => {
+            if (loc && loc.lat && loc.lng) {
+              setUserCoordinates({ lat: loc.lat, lng: loc.lng });
+              if (loc.name) setUserLocationLabel(loc.name);
+              setSortBy('nearest');
+              try {
+                localStorage.setItem('zeashell_user_location', JSON.stringify(loc));
+              } catch {}
+            }
+          })
+          .catch(() => {});
       }
-    } catch {
-      setIsLocationModalOpen(true);
-    }
+    } catch {}
   }, []);
 
   const handleLocationChosen = (locData) => {
@@ -1733,8 +1744,12 @@ export default function LandingPage({ defaultTab = 'home' }) {
       setUserLocationLabel(locData.name);
     }
 
-    if (locData.district && locData.district !== 'all') {
+    // When GPS/current location is active, keep all merchants accessible so closest are ranked first
+    if (locData.type === 'district' && locData.district && locData.district !== 'all') {
       setSelectedDistrict(locData.district);
+      setSelectedLocation('all');
+    } else {
+      setSelectedDistrict('all');
       setSelectedLocation('all');
     }
 
@@ -1765,7 +1780,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
         return { lat: dist.lat, lng: dist.lng };
       }
     }
-    return { lat: 12.1030, lng: 75.2028 }; // Default Payyanur/Kannur hub
+    return { lat: 9.9816, lng: 76.2999 }; // Default central Kerala hub (Kochi)
   };
 
   const handleToggleFavorite = (merchantId) => {
@@ -2007,13 +2022,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
     setSearchQuery('');
   };
 
-  // Sorting Option State & Logic
-  const [sortBy, setSortBy] = useState('recommended');
-
   const sortItems = (items) => {
     const list = [...items];
-    if (sortBy === 'nearest') {
-      const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
+    if (sortBy === 'nearest' || ((!sortBy || sortBy === 'recommended') && userCoordinates)) {
+      const uCoords = userCoordinates || { lat: 9.9816, lng: 76.2999 };
       return list.sort((a, b) => {
         const coordsA = getMerchantCoords(a);
         const coordsB = getMerchantCoords(b);
