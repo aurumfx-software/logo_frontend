@@ -10,6 +10,7 @@ import RegistrationRequests from './pages/RegistrationRequests';
 import Categories from './pages/Categories';
 import Merchants from './pages/Merchants';
 import MerchantDetail from './pages/MerchantDetail';
+import AdDetail from './pages/AdDetail';
 import Users from './pages/Users';
 import Promotions from './pages/Promotions';
 import Complaints from './pages/Complaints';
@@ -58,6 +59,8 @@ function AppRoutes() {
       <Route path="/place/:id" element={<MerchantDetail isPublic={true} />} />
       <Route path="/merchant/:id" element={<MerchantDetail isPublic={true} />} />
       <Route path="/merchant-detail/:id" element={<MerchantDetail isPublic={true} />} />
+      <Route path="/ad/:id" element={<AdDetail isPublic={true} />} />
+      <Route path="/ad-detail/:id" element={<AdDetail isPublic={true} />} />
       <Route path="/contact" element={<LandingPage defaultTab="contact" />} />
 
       {/* Login — public only */}

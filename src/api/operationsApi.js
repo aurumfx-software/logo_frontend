@@ -7,6 +7,33 @@ const BASE_URL = API_BASE_URL.replace(/\/$/, '');
 // PROMOTIONS API
 // ========================
 export const promotionsApi = {
+  async uploadMedia(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('video', file);
+    formData.append('image', file);
+
+    const res = await apiFetch('/api/v1/promotions/upload-media', {
+      method: 'POST',
+      body: formData,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res || !res.ok || json.success === false) {
+      throw new Error(json.message || json.detail || 'Failed to upload media to CDN');
+    }
+    return json.data || json;
+  },
+
+  async fetchActiveHeroBanners(placement = 'Home Top') {
+    let res = await apiFetch(`/api/v1/promotions/active?placement=${encodeURIComponent(placement)}`);
+    if (!res || !res.ok) res = await apiFetch('/api/v1/promotions/hero-banners');
+    if (!res || !res.ok) res = await apiFetch('/api/v1/promotions');
+    if (!res || !res.ok) return [];
+    const json = await res.json().catch(() => ({}));
+    const items = json.data || json.promotions || json.items || (Array.isArray(json) ? json : []);
+    return Array.isArray(items) ? items : [];
+  },
+
   async list({ status = '', search = '' } = {}) {
     const params = new URLSearchParams();
     if (status && status !== 'all') params.append('status', status);
@@ -107,86 +134,8 @@ export const promotionsApi = {
 // ========================
 // COMPLAINTS API
 // ========================
-export const complaintsApi = {
-  async list({ status = '', search = '' } = {}) {
-    const params = new URLSearchParams();
-    if (status && status !== 'all') params.append('status', status);
-    if (search) params.append('search', search);
-
-    const query = params.toString() ? `?${params.toString()}` : '';
-    let res = await apiFetch(`/api/v1/complaints${query}`).catch(() => null);
-    if (!res || !res.ok) res = await apiFetch(`/complaints${query}`).catch(() => null);
-    if (!res || !res.ok) res = await apiFetch(`/admin/complaints${query}`).catch(() => null);
-    if (!res || !res.ok) return [];
-
-    const json = await res.json().catch(() => ({}));
-    const items = json.data || json.complaints || json.items || (Array.isArray(json) ? json : []);
-    return Array.isArray(items) ? items : [];
-  },
-
-  async getCounts() {
-    let res = await apiFetch('/api/v1/complaints/counts').catch(() => null);
-    if (!res || !res.ok) res = await apiFetch('/complaints/counts').catch(() => null);
-    if (!res || !res.ok) return { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
-
-    const json = await res.json().catch(() => ({}));
-    return json.data || json.counts || { all: 0, open: 0, 'in-progress': 0, resolved: 0 };
-  },
-
-  async update(id, data) {
-    let res = await apiFetch(`/api/v1/complaints/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      res = await apiFetch(`/complaints/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }).catch(() => null);
-    }
-    if (!res || !res.ok) {
-      const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to update complaint');
-    }
-    const json = await res.json().catch(() => ({}));
-    return json.data || json.complaint || json;
-  },
-
-  async resolve(id, admin_response = '') {
-    let res = await apiFetch(`/api/v1/complaints/${id}/resolve`, {
-      method: 'PATCH',
-      body: JSON.stringify({ admin_response, status: 'resolved' }),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      res = await apiFetch(`/complaints/${id}/resolve`, {
-        method: 'PATCH',
-        body: JSON.stringify({ admin_response, status: 'resolved' }),
-      }).catch(() => null);
-    }
-    if (!res || !res.ok) {
-      const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to resolve complaint');
-    }
-    const json = await res.json().catch(() => ({}));
-    return json.data || json.complaint || json;
-  },
-
-  async delete(id) {
-    let res = await apiFetch(`/api/v1/complaints/${id}`, {
-      method: 'DELETE',
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      res = await apiFetch(`/complaints/${id}`, {
-        method: 'DELETE',
-      }).catch(() => null);
-    }
-    if (!res || !res.ok) {
-      const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to delete complaint');
-    }
-    return true;
-  },
-};
+import { complaintsApi } from './complaintsApi';
+export { complaintsApi };
 
 // ========================
 // CONTENT API
