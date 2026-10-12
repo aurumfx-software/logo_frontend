@@ -8,6 +8,13 @@ export default defineConfig({
     host: true, // Listen on all network interfaces (0.0.0.0) for local network access
     port: 5173,
     allowedHosts: true,
+    proxy: {
+      '/proxy-media': {
+        target: 'https://aurumfx-images.sgp1.digitaloceanspaces.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy-media/, ''),
+      },
+    },
   },
   preview: {
     host: true,

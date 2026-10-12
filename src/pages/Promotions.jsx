@@ -19,6 +19,7 @@ import {
 import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
+import PromotionImageCropperModal, { PLACEMENT_SPECS } from '../components/UI/PromotionImageCropperModal';
 import {
   fetchPromotionsList,
   createPromotion,
@@ -51,17 +52,27 @@ const AD_SECTIONS = [
     headline: 'Top Landing Page Banner Slider',
     description:
       'Full-width auto-sliding commercial advertisement banners & video showcases displayed prominently at the very top of the landing page.',
-    recommendedRatio: 'Recommended Aspect Ratio: 16:5 (e.g. 1920×500px or 1600×450px) | MP4, WebM Videos supported',
+    recommendedRatio: 'Panoramic 16:5 (1920×600 px) or Square Poster 1:1 (1080×1080 px) | Video: 1920×1080 px (16:9)',
   },
   {
     id: 'Home Middle',
     label: 'Middle Ads',
     badge: 'Home Middle',
     icon: '📢',
-    headline: 'In-Between Sponsored Ad Slider (After 3 Rows)',
+    headline: 'In-Between Sponsored Showcase (After 3 Rows)',
     description:
-      'Auto-sliding sponsored advertisement banner placed directly after 3 rows of merchant cards (15 shops).',
-    recommendedRatio: 'Recommended Aspect Ratio: 16:5 Panoramic (e.g. 1600×400px)',
+      'Split-layout sponsored showcase banner (Left: full-view image/video with ambient shadow; Right: headlines, description, tags & CTA button) placed directly after 3 rows of merchant cards.',
+    recommendedRatio: 'Widescreen 16:9 (1280×720 px) or 4:3 / 1:1 | Full View (Zero Crop)',
+  },
+  {
+    id: 'Above Footer',
+    label: 'Above Footer',
+    badge: 'Above Footer',
+    icon: '🎬',
+    headline: 'Above Footer Showcase Banner & Video',
+    description:
+      'High-impact split-layout showcase banner placed directly above the footer. Supports background/inline video, tags, headlines, and call-to-actions with real-time live synchronization.',
+    recommendedRatio: 'Widescreen 16:9 (1920×1080 px Full HD) | Video: 1920×1080 px',
   },
   {
     id: 'Featured Offers',
@@ -71,7 +82,7 @@ const AD_SECTIONS = [
     headline: 'Featured Offers & Discounts Carousel',
     description:
       'Interactive auto-scrolling deals carousel with discount badges, merchant links, and validity dates.',
-    recommendedRatio: 'Recommended Aspect Ratio: Card format (e.g. 600×380px)',
+    recommendedRatio: 'Card format 3:2 (600×400 px) | Square 1:1 (500×500 px)',
   },
   {
     id: 'Special Offer',
@@ -81,7 +92,7 @@ const AD_SECTIONS = [
     headline: 'Floating Special Offer Widget',
     description:
       'High-conversion deals displayed inside the red floating flame button and popup card on the bottom-right.',
-    recommendedRatio: 'Recommended Aspect Ratio: Banner or Square (e.g. 500×350px)',
+    recommendedRatio: 'Compact Widget 4:3 (600×450 px) or Square 1:1 (500×500 px)',
   },
   {
     id: 'Moving Text',
@@ -90,8 +101,8 @@ const AD_SECTIONS = [
     icon: '📢',
     headline: 'Scrolling Announcement Ticker Bar',
     description:
-      'Continuous marquee moving announcements displayed below the top navbar on the Landing Page. Add, edit, or toggle active status with real-time PostgreSQL synchronization.',
-    recommendedRatio: 'Text Announcement (e.g. "⚡ Festive Season Offers — Up to 50% Off")',
+      'Continuous marquee moving announcements displayed below the top navbar on the Landing Page. Add, edit, or toggle active status with real-time live synchronization.',
+    recommendedRatio: 'Text Announcement Only (No image/video required)',
   },
 ];
 
@@ -135,6 +146,15 @@ export default function Promotions() {
 
   // View preview modal state
   const [previewPromo, setPreviewPromo] = useState(null);
+
+  // Image Cropper Modal State
+  const [cropperState, setCropperState] = useState({
+    isOpen: false,
+    imageSrc: '',
+    placement: 'Home Top',
+    isEdit: false,
+    originalFile: null,
+  });
 
   const fileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
@@ -235,6 +255,109 @@ export default function Promotions() {
       if (isEdit) setEditUploadingImage(false);
       else setUploadingImage(false);
     }
+  };
+
+  // Intercept file selection to open Interactive Image Cropper Modal for images
+  const handleFileInputChange = (file, isEdit = false) => {
+    if (!file) return;
+
+    const isVideo = file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(file.name);
+    if (isVideo) {
+      handleFileUpload(file, isEdit);
+    } else {
+      const objUrl = URL.createObjectURL(file);
+      const currentPlacement = isEdit ? editFormData?.placement : newPromo.placement;
+      setCropperState({
+        isOpen: true,
+        imageSrc: objUrl,
+        placement: currentPlacement || 'Home Top',
+        isEdit,
+        originalFile: file,
+      });
+    }
+  };
+
+  // Open cropper for an existing image URL
+  const handleOpenCropperForExisting = (imageUrl, isEdit = false) => {
+    if (!imageUrl) return;
+    const currentPlacement = isEdit ? editFormData?.placement : newPromo.placement;
+    setCropperState({
+      isOpen: true,
+      imageSrc: imageUrl,
+      placement: currentPlacement || 'Home Top',
+      isEdit,
+      originalFile: null,
+    });
+  };
+
+  // Placement Sizing Guide Card Component
+  const renderPlacementSizingGuide = (placement, mediaType = 'image') => {
+    const spec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS['Home Top'];
+    if (placement === 'Moving Text') return null;
+
+    return (
+      <div
+        style={{
+          background: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ fontSize: 24, flexShrink: 0, marginTop: 1 }}>📐</div>
+        <div style={{ flex: 1, fontSize: 12.5, color: '#1e3a8a', lineHeight: 1.5 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 6,
+              marginBottom: 4,
+            }}
+          >
+            <strong style={{ fontSize: 13, color: '#1e40af' }}>
+              {spec.label} — Optimal Fit Dimensions Guide
+            </strong>
+            <span
+              style={{
+                background: '#2563eb',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 6,
+              }}
+            >
+              {mediaType === 'video' ? '16:9 Full HD' : spec.ratioLabel}
+            </span>
+          </div>
+          <div style={{ color: '#0f172a', marginBottom: 2 }}>
+            <strong>Recommended Size:</strong>{' '}
+            <span style={{ color: '#2563eb', fontWeight: 800, fontSize: 13 }}>
+              {mediaType === 'video' ? '1920 × 1080 px (16:9 MP4/WebM)' : `${spec.idealWidth} × ${spec.idealHeight} px`}
+            </span>
+            {mediaType !== 'video' && placement === 'Home Top' && (
+              <span style={{ color: '#64748b', fontSize: 11.5, marginLeft: 6 }}>
+                (or 1080 × 1080 px for square poster)
+              </span>
+            )}
+          </div>
+          <div style={{ color: '#475569', fontSize: 12 }}>
+            💡 {spec.tips}
+          </div>
+          {mediaType === 'video' && (
+            <div style={{ color: '#7c3aed', fontSize: 11.5, marginTop: 3 }}>
+              🎬 <strong>Video Specification:</strong> {spec.videoSpecs}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // Create Promotion Handler
@@ -428,11 +551,18 @@ export default function Promotions() {
 
   const displayedPromos = promoList.filter((p) => {
     // Placement filter
+    const isAboveFooterTab = activeTab === 'Above Footer' || activeTab === 'Home Bottom';
     const matchesPlacement =
       activeTab === 'Moving Text'
         ? p.placement &&
           (p.placement.toLowerCase().includes('moving') ||
             p.placement.toLowerCase().includes('ticker'))
+        : isAboveFooterTab
+        ? p.placement &&
+          (p.placement.toLowerCase() === 'above footer' ||
+           p.placement.toLowerCase() === 'home bottom' ||
+           p.placement.toLowerCase().includes('bottom') ||
+           p.placement.toLowerCase().includes('footer'))
         : p.placement &&
           (p.placement.toLowerCase() === activeTab.toLowerCase() ||
            p.placement.toLowerCase().startsWith(activeTab.toLowerCase()));
@@ -459,10 +589,10 @@ export default function Promotions() {
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: 60 }}>
       <PageHeader
         title="Promotions & Banner Ads"
-        subtitle="Manage landing page top slider, middle in-between ads, moving ticker text & featured offers synced to PostgreSQL"
+        subtitle="Manage landing page top slider, middle in-between ads, above footer showcase, moving ticker text & featured offers synced live"
       >
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-outline" onClick={loadData} title="Refresh from PostgreSQL">
+          <button className="btn btn-outline" onClick={loadData} title="Refresh Live Data">
             <HiOutlineRefresh /> Refresh
           </button>
           <button
@@ -495,6 +625,7 @@ export default function Promotions() {
         }}
       >
         {AD_SECTIONS.map((sec) => {
+          const isAboveFooterSec = sec.id === 'Above Footer' || sec.id === 'Home Bottom';
           const count =
             sec.id === 'Moving Text'
               ? promoList.filter(
@@ -502,6 +633,15 @@ export default function Promotions() {
                     p.placement &&
                     (p.placement.toLowerCase().includes('moving') ||
                       p.placement.toLowerCase().includes('ticker'))
+                ).length
+              : isAboveFooterSec
+              ? promoList.filter(
+                  (p) =>
+                    p.placement &&
+                    (p.placement.toLowerCase() === 'above footer' ||
+                     p.placement.toLowerCase() === 'home bottom' ||
+                     p.placement.toLowerCase().includes('bottom') ||
+                     p.placement.toLowerCase().includes('footer'))
                 ).length
               : promoList.filter(
                   (p) =>
@@ -676,38 +816,36 @@ export default function Promotions() {
             <span>⚡ LIVE TICKER PREVIEW</span>
           </div>
           <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            <div
-              className="zeas-ticker-content"
-              style={{
-                display: 'inline-block',
-                fontSize: 13.5,
-                fontWeight: 600,
-                color: '#f8fafc',
-              }}
-            >
-              {displayedPromos.filter((p) => p.status === 'active').length > 0 ? (
-                <>
+            {displayedPromos.filter((p) => p.status === 'active').length > 0 ? (
+              <div className="zeas-ticker-track">
+                <div className="zeas-ticker-items" style={{ fontSize: 13.5, fontWeight: 600, color: '#f8fafc' }}>
                   {displayedPromos
                     .filter((p) => p.status === 'active')
+                    .concat(displayedPromos.filter((p) => p.status === 'active'))
                     .map((p, i) => (
-                      <span key={i}>
-                        {p.title} &nbsp;&bull;&nbsp;&nbsp;
+                      <span key={`p1-${p.id || i}-${i}`} className="zeas-ticker-item">
+                        <span>{p.title}</span>
+                        <span className="zeas-ticker-bullet">&bull;</span>
                       </span>
                     ))}
+                </div>
+                <div className="zeas-ticker-items" aria-hidden="true" style={{ fontSize: 13.5, fontWeight: 600, color: '#f8fafc' }}>
                   {displayedPromos
                     .filter((p) => p.status === 'active')
+                    .concat(displayedPromos.filter((p) => p.status === 'active'))
                     .map((p, i) => (
-                      <span key={`dup-${i}`}>
-                        {p.title} &nbsp;&bull;&nbsp;&nbsp;
+                      <span key={`p2-${p.id || i}-${i}`} className="zeas-ticker-item">
+                        <span>{p.title}</span>
+                        <span className="zeas-ticker-bullet">&bull;</span>
                       </span>
                     ))}
-                </>
-              ) : (
-                <span style={{ color: '#94a3b8' }}>
-                  No active moving text announcements found. Click &quot;+ Add Moving Text&quot; to publish one.
-                </span>
-              )}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <span style={{ color: '#94a3b8', fontSize: 13, padding: '0 12px' }}>
+                No active moving text announcements found. Click &quot;+ Add Moving Text&quot; to publish one.
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -783,7 +921,7 @@ export default function Promotions() {
           }}
         >
           <CircularSpinner size={16} color="#1D4ED8" />
-          <span>Syncing advertisements with PostgreSQL database...</span>
+          <span>Syncing advertisements live...</span>
         </div>
       )}
 
@@ -899,8 +1037,9 @@ export default function Promotions() {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
+                      objectFit: promo.placement === 'Home Middle' ? 'contain' : 'cover',
                       objectPosition: 'center',
+                      backgroundColor: promo.placement === 'Home Middle' ? '#0b1329' : 'transparent',
                     }}
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -1262,6 +1401,7 @@ export default function Promotions() {
                 >
                   <option value="Home Top">Home Top (Top Banner Slider)</option>
                   <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
+                  <option value="Above Footer">Above Footer (Showcase Banner & Video)</option>
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
@@ -1310,6 +1450,9 @@ export default function Promotions() {
               </div>
             ) : (
               <>
+                {/* Visual Sizing Guide for the selected placement */}
+                {renderPlacementSizingGuide(newPromo.placement, newPromo.mediaType)}
+
                 <div style={{ marginBottom: 16 }}>
                   <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
                     Media Format
@@ -1377,7 +1520,7 @@ export default function Promotions() {
               <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>
                 {newPromo.mediaType === 'video'
                   ? 'Upload commercial promotional video clip or paste direct CDN video link'
-                  : 'Upload high resolution panoramic banner (recommended 16:5 aspect ratio)'}
+                  : 'Upload banner image with interactive cropping tool to fit perfectly'}
               </p>
 
               <input
@@ -1386,7 +1529,7 @@ export default function Promotions() {
                 style={{ display: 'none' }}
                 accept={newPromo.mediaType === 'video' ? 'video/mp4,video/webm,video/quicktime,video/mkv' : 'image/*'}
                 onChange={(e) => {
-                  if (e.target.files?.[0]) handleFileUpload(e.target.files[0], false);
+                  if (e.target.files?.[0]) handleFileInputChange(e.target.files[0], false);
                   e.target.value = '';
                 }}
               />
@@ -1402,8 +1545,18 @@ export default function Promotions() {
                     ? 'Uploading to CDN...'
                     : newPromo.mediaType === 'video'
                     ? '📁 Upload Video File'
-                    : '📁 Upload Image File'}
+                    : '📁 Upload & Crop Image'}
                 </button>
+                {newPromo.mediaType !== 'video' && newPromo.imageUrl && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ borderColor: '#2563eb', color: '#2563eb', fontWeight: 700 }}
+                    onClick={() => handleOpenCropperForExisting(newPromo.imageUrl, false)}
+                  >
+                    ✂️ Open Cropper Tool
+                  </button>
+                )}
               </div>
 
               {/* Direct URL input fallback */}
@@ -1447,9 +1600,42 @@ export default function Promotions() {
                       border: '1px solid #c084fc',
                     }}
                   />
-                  <div style={{ fontSize: 11, color: '#9333ea', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Video Loaded & Ready
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#9333ea', fontWeight: 700 }}>
+                      ✓ Video Active ({newPromo.placement || 'Banner'} Fit View)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const posterInput = document.createElement('input');
+                        posterInput.type = 'file';
+                        posterInput.accept = 'image/*';
+                        posterInput.onchange = (e) => {
+                          if (e.target.files?.[0]) {
+                            handleFileInputChange(e.target.files[0], false);
+                          }
+                        };
+                        posterInput.click();
+                      }}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #9333ea',
+                        background: '#faf5ff',
+                        color: '#9333ea',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      📸 Set & Crop Video Cover Poster
+                    </button>
                   </div>
+                  {newPromo.imageUrl && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                      Cover Poster active: <span style={{ color: '#2563eb' }}>{newPromo.imageUrl.slice(0, 35)}...</span>
+                    </div>
+                  )}
                 </div>
               ) : newPromo.imageUrl ? (
                 <div style={{ marginTop: 12 }}>
@@ -1464,8 +1650,26 @@ export default function Promotions() {
                       objectFit: 'contain',
                     }}
                   />
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Image Loaded & Ready
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                      ✓ Image Ready
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCropperForExisting(newPromo.imageUrl, false)}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #2563eb',
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✂️ Recrop / Adjust View
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -1639,6 +1843,7 @@ export default function Promotions() {
                 >
                   <option value="Home Top">Home Top (Top Banner Slider)</option>
                   <option value="Home Middle">Home Middle (After 3 Rows of Shops)</option>
+                  <option value="Above Footer">Above Footer (Showcase Banner & Video)</option>
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
@@ -1687,6 +1892,9 @@ export default function Promotions() {
               </div>
             ) : (
               <>
+                {/* Visual Sizing Guide for the selected placement */}
+                {renderPlacementSizingGuide(editFormData.placement, editFormData.mediaType)}
+
                 <div style={{ marginBottom: 16 }}>
                   <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
                     Media Format
@@ -1751,6 +1959,11 @@ export default function Promotions() {
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>
                 {editFormData.mediaType === 'video' ? '🎬 Update Banner Video (CDN)' : '📸 Update Banner Image (CDN)'}
               </label>
+              <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px' }}>
+                {editFormData.mediaType === 'video'
+                  ? 'Upload new video clip or update direct CDN video link'
+                  : 'Upload new image or open the cropper tool to re-adjust framing'}
+              </p>
 
               <input
                 type="file"
@@ -1758,7 +1971,7 @@ export default function Promotions() {
                 style={{ display: 'none' }}
                 accept={editFormData.mediaType === 'video' ? 'video/mp4,video/webm,video/quicktime,video/mkv' : 'image/*'}
                 onChange={(e) => {
-                  if (e.target.files?.[0]) handleFileUpload(e.target.files[0], true);
+                  if (e.target.files?.[0]) handleFileInputChange(e.target.files[0], true);
                   e.target.value = '';
                 }}
               />
@@ -1774,8 +1987,18 @@ export default function Promotions() {
                     ? 'Uploading to CDN...'
                     : editFormData.mediaType === 'video'
                     ? '📁 Choose New Video File'
-                    : '📁 Choose New Image File'}
+                    : '📁 Choose & Crop Image'}
                 </button>
+                {editFormData.mediaType !== 'video' && editFormData.imageUrl && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ borderColor: '#2563eb', color: '#2563eb', fontWeight: 700 }}
+                    onClick={() => handleOpenCropperForExisting(editFormData.imageUrl, true)}
+                  >
+                    ✂️ Open Cropper Tool
+                  </button>
+                )}
               </div>
 
               {/* Direct URL input fallback */}
@@ -1819,9 +2042,42 @@ export default function Promotions() {
                       border: '1px solid #c084fc',
                     }}
                   />
-                  <div style={{ fontSize: 11, color: '#9333ea', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Video Active
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#9333ea', fontWeight: 700 }}>
+                      ✓ Video Active ({editFormData.placement || 'Banner'} Fit View)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const posterInput = document.createElement('input');
+                        posterInput.type = 'file';
+                        posterInput.accept = 'image/*';
+                        posterInput.onchange = (e) => {
+                          if (e.target.files?.[0]) {
+                            handleFileInputChange(e.target.files[0], true);
+                          }
+                        };
+                        posterInput.click();
+                      }}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #9333ea',
+                        background: '#faf5ff',
+                        color: '#9333ea',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      📸 Set & Crop Video Cover Poster
+                    </button>
                   </div>
+                  {editFormData.imageUrl && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                      Cover Poster active: <span style={{ color: '#2563eb' }}>{editFormData.imageUrl.slice(0, 35)}...</span>
+                    </div>
+                  )}
                 </div>
               ) : editFormData.imageUrl ? (
                 <div style={{ marginTop: 12 }}>
@@ -1836,8 +2092,26 @@ export default function Promotions() {
                       objectFit: 'contain',
                     }}
                   />
-                  <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>
-                    ✓ Image Active
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                      ✓ Image Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCropperForExisting(editFormData.imageUrl, true)}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #2563eb',
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✂️ Recrop / Adjust View
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -1909,7 +2183,138 @@ export default function Promotions() {
           maxWidth="700px"
         >
           <div>
-            {previewPromo.mediaType === 'video' || previewPromo.videoUrl ? (
+            {previewPromo.placement === 'Home Middle' ? (
+              <div
+                style={{
+                  display: 'flex',
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
+                  marginBottom: 16,
+                  background: '#ffffff',
+                  minHeight: 220,
+                }}
+              >
+                {/* Left Media: Full View with Ambient Blur & Drop Shadow */}
+                <div
+                  style={{
+                    flex: 1,
+                    position: 'relative',
+                    background: '#0b1329',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 12,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {previewPromo.imageUrl && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: -10,
+                        backgroundImage: `url(${previewPromo.imageUrl})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: 'blur(20px) brightness(0.35)',
+                        opacity: 0.7,
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  {previewPromo.mediaType === 'video' || previewPromo.videoUrl ? (
+                    <video
+                      src={previewPromo.videoUrl}
+                      poster={previewPromo.imageUrl || ''}
+                      controls
+                      autoPlay
+                      loop
+                      style={{
+                        position: 'relative',
+                        zIndex: 2,
+                        maxWidth: '100%',
+                        maxHeight: 200,
+                        objectFit: 'contain',
+                        borderRadius: 8,
+                        filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.5))',
+                      }}
+                    />
+                  ) : previewPromo.imageUrl ? (
+                    <img
+                      src={previewPromo.imageUrl}
+                      alt={previewPromo.title}
+                      style={{
+                        position: 'relative',
+                        zIndex: 2,
+                        maxWidth: '100%',
+                        maxHeight: 200,
+                        objectFit: 'contain',
+                        borderRadius: 8,
+                        filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.5))',
+                      }}
+                    />
+                  ) : null}
+                </div>
+                {/* Right Content */}
+                <div
+                  style={{
+                    flex: 1.1,
+                    padding: '20px 24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    background: '#ffffff',
+                  }}
+                >
+                  <span
+                    style={{
+                      alignSelf: 'flex-start',
+                      background: 'rgba(37, 99, 235, 0.08)',
+                      color: '#2563eb',
+                      border: '1px solid rgba(37, 99, 235, 0.2)',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: '3px 10px',
+                      borderRadius: 14,
+                      marginBottom: 8,
+                    }}
+                  >
+                    📢 {previewPromo.category ? previewPromo.category.toUpperCase() : 'SPONSORED SPOTLIGHT'}
+                  </span>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800, color: '#0f172a', lineHeight: 1.25 }}>
+                    {previewPromo.title}
+                  </h3>
+                  <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>
+                    {previewPromo.description || 'Exclusive discounts, verified quality, and exceptional deals available now.'}
+                  </p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                    <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
+                      ⭐ Top Rated
+                    </span>
+                    <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
+                      ⚡ Exclusive Deal
+                    </span>
+                    <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
+                      🛍️ Verified Merchant
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      alignSelf: 'flex-start',
+                      padding: '6px 16px',
+                      background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+                      color: '#fff',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Explore Deal & Visit →
+                  </span>
+                </div>
+              </div>
+            ) : previewPromo.mediaType === 'video' || previewPromo.videoUrl ? (
               <video
                 src={previewPromo.videoUrl}
                 poster={previewPromo.imageUrl || ''}
@@ -1953,6 +2358,17 @@ export default function Promotions() {
           </div>
         </Modal>
       )}
+
+      {/* 8. PROMOTION IMAGE CROPPER MODAL */}
+      <PromotionImageCropperModal
+        isOpen={cropperState.isOpen}
+        onClose={() => setCropperState((prev) => ({ ...prev, isOpen: false }))}
+        imageSrc={cropperState.imageSrc}
+        placement={cropperState.placement}
+        onCropSave={(croppedFile) => {
+          handleFileUpload(croppedFile, cropperState.isEdit);
+        }}
+      />
     </motion.div>
   );
 }

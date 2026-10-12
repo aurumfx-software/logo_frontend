@@ -32,6 +32,7 @@ import {
   deleteMerchant,
   approveMerchant,
   rejectMerchant,
+  EMPTY_MERCHANT_IMAGE,
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { useAuth } from '../context/AuthContext';
@@ -658,12 +659,12 @@ export default function Merchants() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
               <img
-                src={selectedMerchant.image || (selectedMerchant.photos && selectedMerchant.photos[0]) || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80'}
+                src={selectedMerchant.image || (selectedMerchant.photos && selectedMerchant.photos[0]) || EMPTY_MERCHANT_IMAGE}
                 alt={selectedMerchant.name}
                 style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', border: '2px solid #2563EB' }}
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+                  e.target.src = EMPTY_MERCHANT_IMAGE;
                 }}
               />
               <div>

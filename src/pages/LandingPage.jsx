@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HiLocationMarker,
@@ -43,13 +43,27 @@ import {
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
+import {
+  filterAndRankMerchants,
+  detectSearchIntent,
+  generateFuzzySuggestions,
+  matchTokenToLocation,
+} from '../utils/fuzzySearch';
 import ZeashellNavbar from '../components/landing/ZeashellNavbar';
+import ZeashellIntroSplash from '../components/landing/ZeashellIntroSplash';
 import ZeashellBannerSlider from '../components/landing/ZeashellBannerSlider';
 import ZeashellMiddleBannerSlider from '../components/landing/ZeashellMiddleBannerSlider';
+import ZeashellEnvatoShowcase from '../components/landing/ZeashellEnvatoShowcase';
 import ZeashellCategoryRow from '../components/landing/ZeashellCategoryRow';
 import ZeashellMerchantCard from '../components/landing/ZeashellMerchantCard';
 import ZeashellOffersCarousel from '../components/landing/ZeashellOffersCarousel';
 import ZeashellSpecialOfferWidget from '../components/landing/ZeashellSpecialOfferWidget';
+import ZeashellShopModal from '../components/landing/ZeashellShopModal';
+import ZeashellCallDialog from '../components/landing/ZeashellCallDialog';
+import ZeashellLocationPromptModal, {
+  KERALA_DISTRICT_COORDINATES,
+  KERALA_TOWN_COORDINATES,
+} from '../components/landing/ZeashellLocationPromptModal';
 import '../components/landing/zeashell-landing.css';
 
 // Popular Categories in Kerala (Matching Concept Screenshot 1 & 3)
@@ -428,15 +442,15 @@ const renderCategoryIcon = (key) => {
 const promoBanners = [
   {
     id: 1,
-    title: 'BAG BAZAAR PAYYANUR',
+    title: 'TRENDS LIFESTYLE & FASHION',
     subtitle: 'Top Brands & Huge Discounts',
-    description: 'School bags, luggage trolleys, handbags, and travel backpacks. Wholesale & Retail.',
+    description: 'Exclusive collections, trendy apparel, shoes, and luxury accessories. Wholesale & Retail.',
     bgGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
     badge: 'FEATURED STORE',
-    location: 'Payyanur',
+    location: 'Kerala',
     phone: '09372 702692',
     accentColor: '#38BDF8',
-    tagline: 'Up to 65% OFF | Best Luggage Store in Town',
+    tagline: 'Up to 65% OFF | Best Lifestyle Store in Kerala',
   },
   {
     id: 2,
@@ -832,7 +846,7 @@ const featuredAdsList = [
     location: 'Payyanur',
     phone: '+91 93727 02692',
     address: 'Near Old Bus Stand, Main Road, Payyanur, Kannur, Kerala',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80',
     rating: 4.9,
     reviews: 240,
     description: 'Top-rated store for school bags, executive luggage trolleys, handbags, and travel backpacks. Wholesale & Retail prices with up to 65% discount on top brands.',
@@ -977,13 +991,20 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
+  const [callDialogData, setCallDialogData] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
   // Backend API Merchant Integration State
   const [apiMerchants, setApiMerchants] = useState([]);
+  const [masterMerchants, setMasterMerchants] = useState([]);
   const [isLoadingMerchants, setIsLoadingMerchants] = useState(false);
+
+  // Search intent detection for typo corrections & location/category tags
+  const searchIntent = useMemo(() => {
+    return detectSearchIntent(searchQuery);
+  }, [searchQuery]);
 
   // Onboard Merchant Modal & Media Upload State
   const [onboardModalOpen, setOnboardModalOpen] = useState(false);
@@ -1015,6 +1036,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
           const formatted = apiPromos.map((item, idx) => {
             const theme = colorThemes[idx % colorThemes.length];
             const img = item.image_url || item.banner_url || item.bannerUrl || item.image || '';
+            const vid = item.video_url || item.videoUrl || '';
+            const mType = item.media_type || (vid ? 'video' : 'image');
             const tgt = item.target_url || item.targetUrl || '#';
             return {
               id: item.id || item._id || item.promo_code || `api-promo-${idx}`,
@@ -1032,6 +1055,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
               bannerUrl: img,
               imageUrl: img,
               image_url: img,
+              videoUrl: vid,
+              video_url: vid,
+              mediaType: mType,
+              media_type: mType,
               targetUrl: tgt,
               target_url: tgt,
               category: item.category || 'General',
@@ -1053,38 +1080,51 @@ export default function LandingPage({ defaultTab = 'home' }) {
     if (livePromotions.length > 0) {
       const top = livePromotions.filter(
         (p) =>
-          !p.placement ||
-          p.placement === 'Home Top' ||
-          p.placement.toLowerCase().includes('top')
+          (p.status === 'active' || !p.status) &&
+          (!p.placement || p.placement === 'Home Top' || p.placement.toLowerCase().includes('top')) &&
+          (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url) &&
+          !((p.title || '').toLowerCase().includes('bag bazaar')) &&
+          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('f183f22512ae4d35990bbef9cbb018fe')) &&
+          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('4adc352793f74a30873381a9aa97dddb')) &&
+          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('264078ee513f48cb9bfdbdcc0698d330')) &&
+          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('a700b5903440478bab885e729bf0e67a')) &&
+          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('e763c69e5ccb420eb42f7ef46db960de'))
       );
       if (top.length > 0) return top;
     }
     return [
       {
-        id: 'def-1',
-        title: 'BAG BAZAAR',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
+        id: 'def-wide-1',
+        title: 'Kerala Festive Mega Grand Shopping Festival — Up to 50% Off',
+        imageUrl: '/banners/top_grand_festival.png',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-2',
-        title: 'Fatima Jewellery',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/7c6b1ef681754e98a7bf2a3f6d50cafa.jpeg',
+        id: 'def-wide-2',
+        title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
+        imageUrl: '/banners/top_fashion_lifestyle.png',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-3',
-        title: 'VR HERO MOTORS',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
+        id: 'def-wide-3',
+        title: 'Kerala 5G Smart Tech & Mega Electronics Expo',
+        imageUrl: '/banners/kerala_electronics_fest.png',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-4',
-        title: 'Pavizham Associates',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
+        id: 'def-wide-4',
+        title: 'Kerala Bridal Gold & Diamond Jewellery Fest',
+        imageUrl: '/banners/kerala_gold_jewellery_fest.png',
+        targetUrl: '#',
+        placement: 'Home Top',
+      },
+      {
+        id: 'def-wide-5',
+        title: 'Malabar Traditional Food & Dining Festival',
+        imageUrl: '/banners/malabar_food_fest.png',
         targetUrl: '#',
         placement: 'Home Top',
       },
@@ -1092,46 +1132,33 @@ export default function LandingPage({ defaultTab = 'home' }) {
   }, [livePromotions]);
 
   const displayMiddleBanners = React.useMemo(() => {
-    if (livePromotions.length > 0) {
+    if (livePromotions && livePromotions.length > 0) {
       const mid = livePromotions.filter(
         (p) =>
+          (p.status === 'active' || !p.status) &&
           p.placement &&
-          (p.placement === 'Home Middle' || p.placement.toLowerCase().includes('middle'))
+          (p.placement === 'Home Middle' ||
+            p.placement.toLowerCase().includes('middle') ||
+            p.placement === 'Sponsored') &&
+          (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url)
       );
-      if (mid.length > 0) return mid;
+      // ONLY promotions added in Admin will appear here
+      if (mid.length > 0) {
+        return mid;
+      }
     }
-    return [
-      {
-        id: 'mid-1',
-        title: 'Grand Malabar Food Festival',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
-        targetUrl: '#',
-        placement: 'Home Middle',
-      },
-      {
-        id: 'mid-2',
-        title: 'VR HERO MOTORS — Onam Mega Exchange',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
-        targetUrl: '#',
-        placement: 'Home Middle',
-      },
-      {
-        id: 'mid-3',
-        title: 'Life Medicals — 20% Health Discount',
-        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/df515a74b6b746a8bb961f1b71097873.jpeg',
-        targetUrl: '#',
-        placement: 'Home Middle',
-      },
-    ];
+    return [];
   }, [livePromotions]);
 
   const displayFeaturedOffers = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const feat = livePromotions.filter(
         (p) =>
-          (p.placement && (p.placement === 'Featured Offers' || p.placement.toLowerCase().includes('offer'))) ||
-          p.type === 'Featured' ||
-          p.type === 'Promotion'
+          (p.status === 'active' || !p.status) &&
+          ((p.placement && (p.placement === 'Featured Offers' || p.placement.toLowerCase().includes('offer'))) ||
+            p.type === 'Featured' ||
+            p.type === 'Promotion') &&
+          (p.imageUrl || p.bannerUrl || p.image_url)
       );
       if (feat.length > 0) return feat;
     }
@@ -1173,8 +1200,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
     if (livePromotions.length > 0) {
       const spec = livePromotions.filter(
         (p) =>
-          (p.placement && (p.placement === 'Special Offer' || p.placement.toLowerCase().includes('special'))) ||
-          p.type === 'Special Offer'
+          (p.status === 'active' || !p.status) &&
+          ((p.placement && (p.placement === 'Special Offer' || p.placement.toLowerCase().includes('special'))) ||
+            p.type === 'Special Offer') &&
+          (p.imageUrl || p.bannerUrl || p.image_url)
       );
       if (spec.length > 0) return spec;
     }
@@ -1213,6 +1242,59 @@ export default function LandingPage({ defaultTab = 'home' }) {
         imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
       },
     ];
+  }, [livePromotions]);
+
+  // Derived Moving Ticker Announcements from PostgreSQL Live Promotions
+  const displayTickerTexts = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const tickers = livePromotions.filter(
+        (p) =>
+          p.placement &&
+          (p.placement.toLowerCase().includes('moving') ||
+            p.placement.toLowerCase().includes('ticker'))
+      );
+      if (tickers.length > 0) return tickers;
+    }
+    return [
+      { id: 't1', title: '⚡ Festive Season Offers — Check Out Exclusive Deals Near You' },
+      { id: 't2', title: '📍 Explore 1000+ Local Shops, Restaurants & Services in Kerala' },
+      { id: 't3', title: '💎 Gold & Jewellery Collections — Trending Now' },
+      { id: 't4', title: '🍕 Top Rated Restaurants & Cafes — Order or Visit Today' },
+      { id: 't5', title: '🔥 Mega Deals Festival — Up to 60% Off on Top Brands' },
+    ];
+  }, [livePromotions]);
+
+  // Derived Above Footer Showcase from PostgreSQL Live Promotions (Placement: 'Home Bottom')
+  const displayBottomShowcase = React.useMemo(() => {
+    if (livePromotions.length > 0) {
+      const bottom = livePromotions.filter(
+        (p) =>
+          (p.status === 'active' || !p.status) &&
+          p.placement &&
+          (p.placement === 'Above Footer' ||
+            p.placement === 'Home Bottom' ||
+            p.placement.toLowerCase().includes('bottom') ||
+            p.placement.toLowerCase().includes('footer')) &&
+          (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url)
+      );
+      if (bottom.length > 0) {
+        return bottom.map((p, idx) => ({
+          id: p.id || `btm-${idx}`,
+          badge: p.category ? `🌟 ${p.category.toUpperCase()}` : '🌟 FEATURED PARTNER',
+          title: p.title || 'Discover Kerala Excellence',
+          highlightText: p.title ? p.title.split(' ')[0] : 'Kerala',
+          subtitle: p.description || 'Explore verified local businesses, premium stock footage, and exclusive deals across Kerala.',
+          description: p.description || 'Explore verified local businesses, premium stock footage, and exclusive deals across Kerala.',
+          tags: ['🛍️ Verified Shops', '📱 Exclusive Deals', '⭐ Top Rated', '📍 Kerala'],
+          ctaText: 'Explore Kerala Shops',
+          targetUrl: p.target_url || '#establishments-section',
+          videoUrl: p.video_url || p.videoUrl || '',
+          imageUrl: p.image_url || p.imageUrl || p.banner_url || p.bannerUrl || '',
+          mediaType: p.media_type || (p.video_url || p.videoUrl ? 'video' : 'image'),
+        }));
+      }
+    }
+    return null;
   }, [livePromotions]);
 
   const [apiCategories, setApiCategories] = useState([]);
@@ -1289,6 +1371,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
       .then((data) => {
         if (active && Array.isArray(data)) {
           setApiMerchants(data);
+          if (data.length > 0) {
+            setMasterMerchants((prev) => (data.length >= prev.length ? data : prev));
+          }
         }
       })
       .catch((err) => {
@@ -1303,17 +1388,62 @@ export default function LandingPage({ defaultTab = 'home' }) {
     };
   }, [selectedCategory, selectedDistrict, selectedLocation]);
 
-  // 4. SEARCH MERCHANTS via Backend API (GET /api/v1/merchants/search?q=...&location=...)
+  // Initial one-time fetch of master directory to power fuzzy search
+  useEffect(() => {
+    let active = true;
+    fetchMerchantsList({})
+      .then((data) => {
+        if (active && Array.isArray(data) && data.length > 0) {
+          setMasterMerchants((prev) => (data.length >= prev.length ? data : prev));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // 4. SEARCH MERCHANTS via Backend API + Semantic Fuzzy Engine
   const handleBackendSearch = async (queryText) => {
-    const q = queryText !== undefined ? queryText : searchQuery;
-    if (!q.trim() && selectedDistrict === 'all' && selectedCategory === 'all') {
+    const q = (queryText !== undefined ? queryText : searchQuery).trim();
+    if (!q && selectedDistrict === 'all' && selectedCategory === 'all') {
       return;
     }
     setIsLoadingMerchants(true);
     try {
-      const loc = selectedDistrict !== 'all' ? selectedDistrict : selectedLocation !== 'all' ? selectedLocation : '';
-      const results = await searchMerchants(q.trim(), loc);
-      setApiMerchants(results || []);
+      const intent = detectSearchIntent(q);
+      const loc =
+        selectedDistrict !== 'all'
+          ? selectedDistrict
+          : selectedLocation !== 'all'
+          ? selectedLocation
+          : intent?.detectedLocation
+          ? intent.detectedLocation.toLowerCase()
+          : '';
+
+      let results = await searchMerchants(q, loc);
+
+      // If direct query returned 0 and an alias or typo was detected, query with corrected term
+      if ((!results || results.length === 0) && intent?.hasCorrection) {
+        const altTerm = intent.detectedCategory || (intent.typoCorrections[0] ? intent.typoCorrections[0].split('→')[1]?.trim() : '');
+        if (altTerm && altTerm !== q) {
+          const altResults = await searchMerchants(altTerm, loc);
+          if (altResults && altResults.length > 0) {
+            results = altResults;
+          }
+        }
+      }
+
+      if ((!results || results.length === 0) && loc && q) {
+        // Fallback: search across all of Kerala if location-specific query returned 0
+        const allKeralaResults = await searchMerchants(q, '');
+        if (allKeralaResults && allKeralaResults.length > 0) {
+          results = allKeralaResults;
+        }
+      }
+      if (Array.isArray(results) && results.length > 0) {
+        setApiMerchants(results);
+      }
     } catch (err) {
       console.warn('Search merchants error:', err.message);
     } finally {
@@ -1324,6 +1454,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // 3. GET MERCHANT BY ID (GET /api/v1/merchants/{id})
   const handleSelectMerchantCard = async (m) => {
     setSelectedMerchant(m);
+    if (m && m.id) {
+      try {
+        window.history.pushState({ merchantId: m.id }, '', `/merchant/${m.id}`);
+      } catch (e) {}
+    }
     if (m.id && !String(m.id).startsWith('est-') && !String(m.id).startsWith('ad-')) {
       try {
         const fullDetail = await getMerchantById(m.id);
@@ -1440,6 +1575,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
   };
 
   const [userCoordinates, setUserCoordinates] = useState(null);
+  const [userLocationLabel, setUserLocationLabel] = useState('');
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isWishlistActive, setIsWishlistActive] = useState(false);
+  const [isWishlistPageOpen, setIsWishlistPageOpen] = useState(false);
   const [userFavorites, setUserFavorites] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('logo_user_favs') || '[]');
@@ -1447,6 +1586,187 @@ export default function LandingPage({ defaultTab = 'home' }) {
       return [];
     }
   });
+
+  // Customer Authentication State (for customer sign in / sign out in navbar)
+  const [customerUser, setCustomerUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('logo_customer_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [customerLoginModalOpen, setCustomerLoginModalOpen] = useState(false);
+  const [customerAuthTab, setCustomerAuthTab] = useState('login'); // 'login' | 'register'
+  const [customerLoginForm, setCustomerLoginForm] = useState({ phone: '' });
+  const [customerRegisterForm, setCustomerRegisterForm] = useState({
+    name: '',
+    phone: '',
+    district: 'Ernakulam',
+    city: '',
+  });
+  const [customerAuthMsg, setCustomerAuthMsg] = useState({ type: '', text: '' });
+
+  const handleCustomerLoginSubmit = (e) => {
+    e.preventDefault();
+    const cleanPhone = customerLoginForm.phone.trim().replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setCustomerAuthMsg({ type: 'error', text: 'Please enter a valid 10-digit mobile number' });
+      return;
+    }
+    const userObj = {
+      name: `Customer (${cleanPhone.slice(-4)})`,
+      phone: cleanPhone,
+      isRegistered: false,
+      loggedInAt: new Date().toISOString(),
+    };
+    setCustomerUser(userObj);
+    try {
+      localStorage.setItem('logo_customer_user', JSON.stringify(userObj));
+    } catch {}
+    setCustomerLoginModalOpen(false);
+    setCustomerLoginForm({ phone: '' });
+    setCustomerAuthMsg({ type: '', text: '' });
+  };
+
+  const handleCustomerRegisterSubmit = (e) => {
+    e.preventDefault();
+    const cleanName = customerRegisterForm.name.trim();
+    const cleanPhone = customerRegisterForm.phone.trim().replace(/[^0-9]/g, '');
+    const district = customerRegisterForm.district || 'Ernakulam';
+    const city = customerRegisterForm.city.trim() || district;
+
+    if (!cleanName) {
+      setCustomerAuthMsg({ type: 'error', text: 'Please enter your Full Name' });
+      return;
+    }
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setCustomerAuthMsg({ type: 'error', text: 'Please enter a valid 10-digit mobile number' });
+      return;
+    }
+
+    const userObj = {
+      name: cleanName,
+      phone: cleanPhone,
+      district: district,
+      city: city,
+      isRegistered: true,
+      loggedInAt: new Date().toISOString(),
+    };
+    setCustomerUser(userObj);
+    try {
+      localStorage.setItem('logo_customer_user', JSON.stringify(userObj));
+    } catch {}
+    setCustomerLoginModalOpen(false);
+    setCustomerRegisterForm({ name: '', phone: '', district: 'Ernakulam', city: '' });
+    setCustomerAuthMsg({ type: '', text: '' });
+  };
+
+  const handleCustomerQuickLogin = () => {
+    const demoUser = {
+      name: 'Saranya Sudheer',
+      phone: '9847123456',
+      district: 'Kannur',
+      city: 'Payyanur',
+      isRegistered: true,
+      loggedInAt: new Date().toISOString(),
+    };
+    setCustomerUser(demoUser);
+    try {
+      localStorage.setItem('logo_customer_user', JSON.stringify(demoUser));
+    } catch {}
+    setCustomerLoginModalOpen(false);
+    setCustomerAuthMsg({ type: '', text: '' });
+  };
+
+  const handleCustomerLogout = () => {
+    setCustomerUser(null);
+    try {
+      localStorage.removeItem('logo_customer_user');
+    } catch {}
+  };
+
+  // Auto-check location on first visit before browsing
+  useEffect(() => {
+    try {
+      const savedLoc = localStorage.getItem('zeashell_user_location');
+      if (savedLoc) {
+        const parsed = JSON.parse(savedLoc);
+        if (parsed.lat && parsed.lng) {
+          setUserCoordinates({ lat: parsed.lat, lng: parsed.lng });
+          if (parsed.name) {
+            setUserLocationLabel(parsed.name);
+          }
+          if (parsed.district && parsed.district !== 'all') {
+            setSelectedDistrict(parsed.district);
+          }
+          if (parsed.name && parsed.type === 'town') {
+            setSelectedLocation(parsed.name.toLowerCase());
+          }
+          setSortBy('nearest');
+        }
+      } else {
+        // First visit -> Prompt user for location before browsing!
+        setIsLocationModalOpen(true);
+      }
+    } catch {
+      setIsLocationModalOpen(true);
+    }
+  }, []);
+
+  const handleLocationChosen = (locData) => {
+    setIsLocationModalOpen(false);
+    if (!locData || locData.type === 'all' || locData.type === 'deny') {
+      setSelectedDistrict('all');
+      setSelectedLocation('all');
+      setUserCoordinates(null);
+      setUserLocationLabel('');
+      try {
+        localStorage.setItem('zeashell_user_location', JSON.stringify({ type: 'deny', district: 'all' }));
+      } catch {}
+      return;
+    }
+
+    setUserCoordinates({ lat: locData.lat, lng: locData.lng });
+    setSortBy('nearest');
+
+    if (locData.name) {
+      setUserLocationLabel(locData.name);
+    }
+
+    if (locData.district && locData.district !== 'all') {
+      setSelectedDistrict(locData.district);
+      setSelectedLocation('all');
+    }
+
+    try {
+      localStorage.setItem('zeashell_user_location', JSON.stringify(locData));
+    } catch {}
+
+    // Scroll smoothly to shops section showing customer's local merchants first
+    setTimeout(() => {
+      const el = document.getElementById('establishments-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 250);
+  };
+
+  // Resolve merchant coordinates accurately across all Kerala towns & districts
+  const getMerchantCoords = (m) => {
+    if (m.latitude && m.longitude && Number(m.latitude) !== 0 && Number(m.longitude) !== 0) {
+      return { lat: Number(m.latitude), lng: Number(m.longitude) };
+    }
+    const locText = `${m.city || ''} ${m.location || ''} ${m.district || ''} ${m.address || ''}`.toLowerCase();
+    for (const [key, town] of Object.entries(KERALA_TOWN_COORDINATES)) {
+      if (locText.includes(key)) {
+        return { lat: town.lat, lng: town.lng };
+      }
+    }
+    for (const [distKey, dist] of Object.entries(KERALA_DISTRICT_COORDINATES)) {
+      if (locText.includes(distKey) || locText.includes(dist.name.toLowerCase())) {
+        return { lat: dist.lat, lng: dist.lng };
+      }
+    }
+    return { lat: 12.1030, lng: 75.2028 }; // Default Payyanur/Kannur hub
+  };
 
   const handleToggleFavorite = (merchantId) => {
     setUserFavorites((prev) => {
@@ -1481,78 +1801,31 @@ export default function LandingPage({ defaultTab = 'home' }) {
   };
 
   const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsLocating(false);
-        setUserCoordinates({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setSelectedDistrict('kannur');
-        setSelectedLocation('payyanur');
-        setSortBy('nearest');
-        scrollToSection('establishments-section');
-      },
-      (error) => {
-        setIsLocating(false);
-        setUserCoordinates({ lat: 12.0988, lng: 75.2045 });
-        setSelectedDistrict('kannur');
-        setSelectedLocation('all');
-        scrollToSection('establishments-section');
-      },
-      { timeout: 7000 }
-    );
+    setIsLocationModalOpen(true);
   };
 
   const getSearchSuggestions = () => {
     if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    const suggestions = [];
-
-    initialEstablishments.forEach((item) => {
-      if (item.name.toLowerCase().includes(q)) {
-        suggestions.push({ type: 'establishment', text: item.name, category: item.category, location: item.location });
-      }
-    });
-
-    featuredAdsList.forEach((item) => {
-      if (item.name.toLowerCase().includes(q) && !suggestions.some((s) => s.text === item.name)) {
-        suggestions.push({ type: 'ad', text: item.name, category: item.category, location: item.location });
-      }
-    });
-
-    featuredCategoriesList.forEach((cat) => {
-      if (cat.title.toLowerCase().includes(q) && !suggestions.some((s) => s.text === cat.title)) {
-        suggestions.push({ type: 'category', text: cat.title, category: 'Category', location: 'Kerala' });
-      }
-    });
-
-    placesList.forEach((place) => {
-      if (place.name.toLowerCase().includes(q) && !suggestions.some((s) => s.text === place.name)) {
-        suggestions.push({ type: 'location', text: place.name, category: 'District Location', location: place.name });
-      }
-    });
-
-    return suggestions.slice(0, 6);
+    const pool = masterMerchants.length > 0 ? masterMerchants : (apiMerchants.length > 0 ? apiMerchants : initialEstablishments);
+    return generateFuzzySuggestions(pool, searchQuery, 6);
   };
 
   const handleSelectSuggestion = (sug) => {
     if (sug.type === 'location') {
-      const foundDistrict = placesList.find((p) => p.name.toLowerCase() === sug.text.toLowerCase());
-      if (foundDistrict) {
-        setSelectedDistrict(foundDistrict.id);
+      const locMatch = matchTokenToLocation(sug.text);
+      if (locMatch) {
+        setSelectedDistrict(locMatch.district);
         setSelectedLocation('all');
       } else {
         setSelectedLocation(sug.text.toLowerCase());
       }
       setSearchQuery('');
-    } else {
+    } else if (sug.type === 'category') {
+      setSelectedCategory(sug.text);
+      setSearchQuery('');
+    } else if (sug.type === 'establishment') {
       setSearchQuery(sug.text);
+      handleBackendSearch(sug.text);
     }
     setShowSuggestions(false);
     scrollToSection('establishments-section');
@@ -1671,25 +1944,38 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
-  // Use backend API merchants exclusively when loaded from server
+  // Combined master pool for full search discovery
+  const allCandidatePool = useMemo(() => {
+    if (masterMerchants.length > 0) return masterMerchants;
+    if (apiMerchants.length > 0) return apiMerchants;
+    return initialEstablishments;
+  }, [masterMerchants, apiMerchants]);
+
+  // Use backend API merchants when loaded
   const sourceEstablishments = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
 
-  // Filter Establishments list
-  const filteredEstablishments = sourceEstablishments.filter((item) => {
-    const matchesCategory =
-      selectedCategory === 'all' ||
-      item.categoryKey === selectedCategory ||
-      (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
-      (selectedCategory && selectedCategory.toLowerCase().includes(item.category ? item.category.toLowerCase() : ''));
-    const matchesLocation = matchesLocationFilter(item.location || item.city || item.district || '', item.address || '');
-    const matchesSearch =
-      !searchQuery.trim() ||
-      (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.business_name && item.business_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.address && item.address.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesLocation && matchesSearch;
-  });
+  // Filter Establishments list with Fuzzy Relevance Ranking
+  const filteredEstablishments = useMemo(() => {
+    const q = searchQuery.trim();
+    if (q) {
+      // Run intelligent fuzzy search and semantic relevance matching
+      return filterAndRankMerchants(allCandidatePool, q, {
+        selectedDistrict,
+        selectedCategory,
+      });
+    }
+
+    // Default category and location filtering
+    return sourceEstablishments.filter((item) => {
+      const matchesCategory =
+        selectedCategory === 'all' ||
+        item.categoryKey === selectedCategory ||
+        (item.category && item.category.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+        (selectedCategory && selectedCategory.toLowerCase().includes(item.category ? item.category.toLowerCase() : ''));
+      const matchesLocation = matchesLocationFilter(item.location || item.city || item.district || '', item.address || '');
+      return matchesCategory && matchesLocation;
+    });
+  }, [allCandidatePool, sourceEstablishments, searchQuery, selectedCategory, selectedDistrict, selectedLocation]);
 
   // Helper to count items per category key under active location
   const getCategoryCount = (catKey) => {
@@ -1729,8 +2015,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
     if (sortBy === 'nearest') {
       const uCoords = userCoordinates || { lat: 12.0988, lng: 75.2045 };
       return list.sort((a, b) => {
-        const distA = calculateDistance(uCoords.lat, uCoords.lng, Number(a.latitude), Number(a.longitude));
-        const distB = calculateDistance(uCoords.lat, uCoords.lng, Number(b.latitude), Number(b.longitude));
+        const coordsA = getMerchantCoords(a);
+        const coordsB = getMerchantCoords(b);
+        const distA = calculateDistance(uCoords.lat, uCoords.lng, coordsA.lat, coordsA.lng);
+        const distB = calculateDistance(uCoords.lat, uCoords.lng, coordsB.lat, coordsB.lng);
         return distA - distB;
       });
     }
@@ -1747,8 +2035,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
   };
 
   // Populate exclusively from Backend API merchants when available
-  const combinedEstablishmentsList = apiMerchants.length > 0 ? filteredEstablishments : [...filteredFeaturedAds, ...filteredEstablishments];
+  const baseList = apiMerchants.length > 0 ? filteredEstablishments : [...filteredFeaturedAds, ...filteredEstablishments];
+  const combinedEstablishmentsList = isWishlistActive
+    ? baseList.filter((m) => userFavorites.includes(m.id))
+    : baseList;
   const sortedEstablishments = sortItems(combinedEstablishmentsList);
+
+  // Dedicated list for the standalone Wishlist page
+  const favoriteMerchantsList = React.useMemo(() => {
+    const all = apiMerchants.length > 0 ? apiMerchants : [...initialEstablishments, ...featuredAdsList];
+    return all.filter((m) => userFavorites.includes(m.id));
+  }, [apiMerchants, userFavorites]);
 
   const [establishmentPage, setEstablishmentPage] = useState(1);
   const itemsPerPage = 20;
@@ -1774,22 +2071,37 @@ export default function LandingPage({ defaultTab = 'home' }) {
     } else {
       setSelectedLocation(nameStr.toLowerCase());
     }
-    scrollToSection('establishments-section');
   };
 
   const handleCardDirections = (m) => {
-    const lat = m.latitude;
-    const lng = m.longitude;
-    if (lat && lng) {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    if (!m) return;
+    const lat = m.latitude || m.lat;
+    const lng = m.longitude || m.lng || m.lon;
+    const name = m.business_name || m.name || 'Merchant';
+    const address = m.address || m.location || m.city || 'Kerala';
+
+    let url = '';
+    if (lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     } else {
-      openGoogleMaps(m.business_name || m.name, m.address || m.location);
+      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name}, ${address}, Kerala`)}`;
     }
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCardCall = (phone) => {
-    if (phone) {
-      window.open(`tel:${phone}`, '_self');
+  const handleCardCall = (phone, merchantObj) => {
+    const rawNum = phone || merchantObj?.phone || merchantObj?.phone_number || merchantObj?.contact_number || '';
+    const cleanNum = String(rawNum).replace(/[^0-9+]/g, '');
+
+    // Open Zeashell call/whatsapp dialog so user has complete visual choices on Desktop & Mobile
+    setCallDialogData({
+      merchant: merchantObj || { name: 'Verified Merchant', phone: cleanNum },
+      phoneNumber: cleanNum,
+    });
+
+    // On mobile devices, also trigger native phone dialer directly
+    if (cleanNum && /Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+      window.open(`tel:${cleanNum}`, '_self');
     }
   };
 
@@ -1797,38 +2109,95 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   return (
     <div className="landing-container">
+      {/* Intro Loading Animation with Center LOGO, Kerala Pin & Blue/White Aura */}
+      <ZeashellIntroSplash minDuration={1800} />
+
       {/* 1. Exact Zeashell Navbar (Royal Blue Theme) */}
       <ZeashellNavbar
         currentLocationName={
-          selectedDistrict !== 'all'
+          userLocationLabel
+            ? userLocationLabel
+            : selectedDistrict !== 'all'
             ? `${getDistrictName(selectedDistrict)}, Kerala`
             : selectedLocation !== 'all'
             ? `${selectedLocation.toUpperCase()}, Kerala`
+            : userCoordinates
+            ? 'Nearby You (GPS)'
             : 'Kerala'
         }
-        onDetectGPS={handleDetectLocation}
+        onOpenLocationModal={() => setIsLocationModalOpen(true)}
+        onDetectGPS={() => setIsLocationModalOpen(true)}
         isDetectingGPS={isLocating}
         onSelectTownOrDistrict={(type, val) => {
-          if (type === 'district') {
-            setSelectedDistrict(val.toLowerCase());
+          setUserLocationLabel('');
+          if (type === 'all' || val === 'Kerala' || val === 'all') {
+            setSelectedDistrict('all');
             setSelectedLocation('all');
+            setUserCoordinates(null);
+            setSortBy('recommended');
+            try {
+              localStorage.removeItem('zeashell_user_location');
+            } catch {}
           } else {
-            setSelectedLocation(val.toLowerCase());
+            const cleanVal = String(val || '').toLowerCase();
+            const distData = KERALA_DISTRICT_COORDINATES[cleanVal];
+            const townData = KERALA_TOWN_COORDINATES[cleanVal];
+
+            if (distData) {
+              setSelectedDistrict(cleanVal);
+              setSelectedLocation('all');
+              setUserCoordinates({ lat: distData.lat, lng: distData.lng });
+              setSortBy('nearest');
+              try {
+                localStorage.setItem('zeashell_user_location', JSON.stringify({
+                  type: 'district',
+                  district: cleanVal,
+                  name: distData.name,
+                  lat: distData.lat,
+                  lng: distData.lng,
+                }));
+              } catch {}
+            } else if (townData) {
+              setSelectedDistrict(townData.district.toLowerCase());
+              setSelectedLocation(cleanVal);
+              setUserCoordinates({ lat: townData.lat, lng: townData.lng });
+              setSortBy('nearest');
+              try {
+                localStorage.setItem('zeashell_user_location', JSON.stringify({
+                  type: 'town',
+                  district: townData.district.toLowerCase(),
+                  name: townData.name,
+                  lat: townData.lat,
+                  lng: townData.lng,
+                }));
+              } catch {}
+            } else {
+              setSelectedLocation(cleanVal);
+            }
           }
-          scrollToSection('establishments-section');
+          setIsWishlistPageOpen(false);
         }}
         searchQuery={searchQuery}
         onSearchChange={(q) => {
           setSearchQuery(q);
           setShowSuggestions(true);
+          setIsWishlistPageOpen(false);
         }}
-        onSearchSubmit={() => {
-          handleBackendSearch(searchQuery);
+        onSearchSubmit={(customQuery) => {
+          const q = typeof customQuery === 'string' ? customQuery : searchQuery;
+          if (typeof customQuery === 'string') {
+            setSearchQuery(customQuery);
+          }
+          setSelectedCategory('all');
+          setShowSuggestions(false);
+          handleBackendSearch(q);
+          setIsWishlistPageOpen(false);
           scrollToSection('establishments-section');
         }}
         searchSuggestions={getSearchSuggestions()}
         onSelectSuggestion={(sug) => {
           handleSelectSuggestion(sug);
+          setIsWishlistPageOpen(false);
           scrollToSection('establishments-section');
         }}
         favoritesCount={userFavorites.length}
@@ -1837,23 +2206,117 @@ export default function LandingPage({ defaultTab = 'home' }) {
         activeCategory={selectedCategory}
         onSelectCategory={(catName) => {
           setSelectedCategory(catName);
+          setIsWishlistActive(false);
+          setIsWishlistPageOpen(false);
           scrollToSection('establishments-section');
         }}
-        onOpenAllCategories={() => {
-          const catModalBtn = document.querySelector('.zeas-blue-see-all-link');
-          if (catModalBtn) catModalBtn.click();
-          else scrollToSection('categories-section');
+        onToggleWishlist={() => {
+          setIsWishlistPageOpen((prev) => !prev);
         }}
+        onOpenWishlistPage={(open) => {
+          setIsWishlistPageOpen(open !== undefined ? open : true);
+        }}
+        isWishlistActive={isWishlistPageOpen}
+        customerUser={customerUser}
+        onOpenCustomerLogin={() => setCustomerLoginModalOpen(true)}
+        onCustomerLogout={handleCustomerLogout}
       />
 
-      {/* 2. Scrolling Ticker Announcement Bar */}
-      <div className="zeas-ticker-bar">
-        <div className="zeas-ticker-content">
-          ⚡ Festive Season Offers — Check Out Exclusive Deals Near You &nbsp;&bull;&nbsp;
-          📍 Explore 1000+ Local Shops, Restaurants &amp; Services in Kerala &nbsp;&bull;&nbsp;
-          💎 Gold &amp; Jewellery Collections — Trending Now &nbsp;&bull;&nbsp;
-          🍕 Top Rated Restaurants &amp; Cafes — Order or Visit Today &nbsp;&bull;&nbsp;
-          🔥 Mega Deals Festival — Up to 60% Off on Top Brands
+      {/* DEDICATED WISHLIST VIEW / PAGE (WHEN WISHLIST IS CLICKED) */}
+      {isWishlistPageOpen ? (
+        <div className="dedicated-wishlist-page">
+          <div className="dedicated-wishlist-header">
+            <div className="dedicated-wishlist-header-left">
+              <button
+                type="button"
+                className="dedicated-wishlist-back-btn"
+                onClick={() => setIsWishlistPageOpen(false)}
+              >
+                &larr; Back to All Kerala Shops
+              </button>
+              <h1 className="dedicated-wishlist-title">
+                ❤️ My Saved Wishlist ({favoriteMerchantsList.length})
+              </h1>
+              <p className="dedicated-wishlist-subtitle">
+                Your bookmarked verified shops, hotels, and retail services across Kerala
+              </p>
+            </div>
+
+            {favoriteMerchantsList.length > 0 && (
+              <button
+                type="button"
+                className="dedicated-wishlist-clear-btn"
+                onClick={() => {
+                  if (window.confirm('Clear all saved shops from your wishlist?')) {
+                    setUserFavorites([]);
+                    try {
+                      localStorage.setItem('logo_user_favs', JSON.stringify([]));
+                    } catch {}
+                  }
+                }}
+              >
+                Clear Wishlist
+              </button>
+            )}
+          </div>
+
+          {favoriteMerchantsList.length === 0 ? (
+            <div className="dedicated-wishlist-empty">
+              <div className="dedicated-wishlist-empty-icon">❤️</div>
+              <h2>Your Wishlist is Empty</h2>
+              <p>
+                You haven't bookmarked any shops yet. Browse verified merchants and tap the heart icon on any card to save it here for fast access!
+              </p>
+              <button
+                type="button"
+                className="dedicated-wishlist-explore-btn"
+                onClick={() => {
+                  setIsWishlistPageOpen(false);
+                  scrollToSection('establishments-section');
+                }}
+              >
+                Explore Kerala Shops
+              </button>
+            </div>
+          ) : (
+            <div className="zeas-blue-merchant-grid" style={{ marginTop: 24 }}>
+              {favoriteMerchantsList.map((merchant) => (
+                <ZeashellMerchantCard
+                  key={merchant.id}
+                  merchant={merchant}
+                  userCoordinates={userCoordinates}
+                  merchantCoords={getMerchantCoords(merchant)}
+                  isFavorite={true}
+                  onToggleFavorite={handleToggleFavorite}
+                  onViewShop={handleSelectMerchantCard}
+                  onDirections={handleCardDirections}
+                  onCall={handleCardCall}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+      {/* 2. Scrolling Ticker Announcement Bar (Seamless Infinite Loop) */}
+      <div className="zeas-ticker-bar" aria-label="Live Announcements">
+        <div className="zeas-ticker-track">
+          <div className="zeas-ticker-items">
+            {displayTickerTexts.concat(displayTickerTexts).map((ticker, idx) => (
+              <span key={`t1-${ticker.id || idx}-${idx}`} className="zeas-ticker-item">
+                <span>{ticker.title || ticker.description}</span>
+                <span className="zeas-ticker-bullet">&bull;</span>
+              </span>
+            ))}
+          </div>
+          <div className="zeas-ticker-items" aria-hidden="true">
+            {displayTickerTexts.concat(displayTickerTexts).map((ticker, idx) => (
+              <span key={`t2-${ticker.id || idx}-${idx}`} className="zeas-ticker-item">
+                <span>{ticker.title || ticker.description}</span>
+                <span className="zeas-ticker-bullet">&bull;</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1938,7 +2401,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
               onChange={(e) => {
                 setSelectedDistrict(e.target.value);
                 setSelectedLocation('all');
-                scrollToSection('establishments-section');
               }}
               className="zeas-blue-filter-select"
             >
@@ -1956,7 +2418,6 @@ export default function LandingPage({ defaultTab = 'home' }) {
               value={selectedLocation}
               onChange={(e) => {
                 setSelectedLocation(e.target.value);
-                scrollToSection('establishments-section');
               }}
               className="zeas-blue-filter-select"
             >
@@ -2030,7 +2491,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
         <div className="zeas-blue-merchants-header">
           <div>
             <h2 className="zeas-blue-merchants-title">
-              {selectedDistrict !== 'all'
+              {searchQuery.trim()
+                ? `Results for "${searchQuery}"`
+                : isWishlistActive
+                ? `❤️ Saved Wishlist (${sortedEstablishments.length})`
+                : selectedDistrict !== 'all'
                 ? `Shops in ${getDistrictName(selectedDistrict)}`
                 : selectedLocation !== 'all'
                 ? `Shops in ${selectedLocation.toUpperCase()}`
@@ -2039,9 +2504,44 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 : 'Fresh Recommendations'}
             </h2>
             <p className="zeas-blue-merchants-subtitle">
-              {sortedEstablishments.length} verified shops found
-              {userCoordinates ? ' • Nearest to you first' : ' in Kerala'}
+              {searchQuery.trim() ? (
+                <span>
+                  {searchIntent?.hasCorrection && (
+                    <span style={{ color: '#2563eb', fontWeight: 600, display: 'inline-block', marginRight: 6 }}>
+                      🎯 {searchIntent.typoCorrections.length > 0 ? `Matched ${searchIntent.typoCorrections.join(', ')}` : ''}
+                      {searchIntent.detectedCategory ? ` • ${searchIntent.detectedCategory}` : ''}
+                      {searchIntent.detectedLocation ? ` • ${searchIntent.detectedLocation}` : ''}
+                      {' • '}
+                    </span>
+                  )}
+                  {sortedEstablishments.length} verified shops found in Kerala
+                </span>
+              ) : isWishlistActive ? (
+                `${sortedEstablishments.length} saved shops bookmarked by you`
+              ) : (
+                `${sortedEstablishments.length} verified shops found${userCoordinates ? ' • Nearest to you first' : ' in Kerala'}`
+              )}
             </p>
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="btn btn-sm btn-outline"
+                style={{ marginTop: 8, fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer' }}
+              >
+                ✕ Clear Search
+              </button>
+            )}
+            {isWishlistActive && (
+              <button
+                type="button"
+                onClick={() => setIsWishlistActive(false)}
+                className="btn btn-sm btn-outline"
+                style={{ marginTop: 8, fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer' }}
+              >
+                &larr; View All Verified Shops
+              </button>
+            )}
           </div>
 
           <div className="zeas-blue-sort-wrap">
@@ -2066,26 +2566,145 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <div style={{ fontSize: 13, color: '#64748b' }}>Accessing 1,034 verified merchants in Kerala</div>
           </div>
         ) : sortedEstablishments.length === 0 ? (
-          <div className="landing-empty-state">
-            <HiInformationCircle className="empty-icon" />
-            <h3>No establishments found</h3>
-            <p>Try searching for a different term or select "All Locations".</p>
-            <button
-              onClick={resetAllFilters}
-              className="btn btn-primary"
-              style={{ marginTop: 12 }}
-            >
-              Reset Filters
-            </button>
+          <div>
+            {selectedDistrict !== 'all' || selectedLocation !== 'all' ? (
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    border: '1.5px solid #bfdbfe',
+                    borderRadius: 16,
+                    padding: '20px 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 16,
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: '#2563eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        fontSize: 22,
+                        flexShrink: 0,
+                      }}
+                    >
+                      🏛️
+                    </div>
+                    <div>
+                      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#1e40af' }}>
+                        Showing Verified Kerala Merchants for{' '}
+                        {selectedDistrict !== 'all'
+                          ? `${getDistrictName(selectedDistrict)} District`
+                          : selectedLocation.toUpperCase()}
+                      </h3>
+                      <p style={{ margin: 0, fontSize: 13, color: '#2563eb', fontWeight: 500 }}>
+                        Local merchants are currently being onboarded in this area. Explore genuine verified shops in Kerala below!
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDistrict('all');
+                        setSelectedLocation('all');
+                      }}
+                      className="btn"
+                      style={{
+                        background: '#ffffff',
+                        color: '#1e40af',
+                        border: '1.5px solid #bfdbfe',
+                        padding: '9px 16px',
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      View All Kerala
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerAuthTab('register');
+                        if (selectedDistrict !== 'all') {
+                          setCustomerRegisterForm((prev) => ({
+                            ...prev,
+                            district: getDistrictName(selectedDistrict),
+                          }));
+                        }
+                        setCustomerLoginModalOpen(true);
+                      }}
+                      className="btn"
+                      style={{
+                        background: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '9px 16px',
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                      }}
+                    >
+                      Register as Customer / Merchant
+                    </button>
+                  </div>
+                </div>
+
+                <div className="zeas-blue-merchant-grid" style={{ marginTop: 24 }}>
+                  {(sourceEstablishments.length > 0 ? sourceEstablishments : initialEstablishments)
+                    .slice(0, 10)
+                    .map((merchant) => (
+                      <ZeashellMerchantCard
+                        key={merchant.id}
+                        merchant={merchant}
+                        userCoordinates={userCoordinates}
+                        merchantCoords={getMerchantCoords(merchant)}
+                        isFavorite={userFavorites.includes(merchant.id)}
+                        onToggleFavorite={handleToggleFavorite}
+                        onViewShop={handleSelectMerchantCard}
+                        onDirections={handleCardDirections}
+                        onCall={handleCardCall}
+                      />
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <div className="landing-empty-state">
+                <HiInformationCircle className="empty-icon" />
+                <h3>No establishments found</h3>
+                <p>Try searching for a different term or select "All Locations".</p>
+                <button
+                  onClick={resetAllFilters}
+                  className="btn btn-primary"
+                  style={{ marginTop: 12 }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <>
             <div className="zeas-blue-merchant-grid">
-              {paginatedEstablishments.slice(0, 5).map((merchant) => (
+              {paginatedEstablishments.slice(0, 15).map((merchant) => (
                 <ZeashellMerchantCard
                   key={merchant.id}
                   merchant={merchant}
                   userCoordinates={userCoordinates}
+                  merchantCoords={getMerchantCoords(merchant)}
                   isFavorite={userFavorites.includes(merchant.id)}
                   onToggleFavorite={handleToggleFavorite}
                   onViewShop={handleSelectMerchantCard}
@@ -2094,19 +2713,20 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 />
               ))}
 
-              {/* Middle In-Between Auto-Sliding Advertisement Banner */}
-              {displayMiddleBanners.length > 0 && (
+              {/* Middle In-Between Auto-Sliding Advertisement Banner (Placed after 3 rows = 15 cards) */}
+              {displayMiddleBanners.length > 0 && paginatedEstablishments.length > 5 && (
                 <ZeashellMiddleBannerSlider
                   banners={displayMiddleBanners}
                   onBannerClick={(b) => setSelectedPromoModal(b)}
                 />
               )}
 
-              {paginatedEstablishments.slice(5).map((merchant) => (
+              {paginatedEstablishments.slice(15).map((merchant) => (
                 <ZeashellMerchantCard
                   key={merchant.id}
                   merchant={merchant}
                   userCoordinates={userCoordinates}
+                  merchantCoords={getMerchantCoords(merchant)}
                   isFavorite={userFavorites.includes(merchant.id)}
                   onToggleFavorite={handleToggleFavorite}
                   onViewShop={handleSelectMerchantCard}
@@ -2216,17 +2836,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
         onSelectOffer={(offer) => setSelectedPromoModal(offer)}
       />
 
-      {/* 6. News & Updates Section (Matching screenshot 3) */}
+      {/* 6. News & Updates Section (Ultra-Sharp High-Clarity UI) */}
       <section className="landing-news-section">
         <div className="landing-news-header">
+          <div className="news-badge-pill">📢 LOGO BUSINESS NETWORK</div>
           <h2 className="news-title">News & Updates</h2>
-          <p className="news-subtitle">Logo Info Find your solutions quickly</p>
+          <p className="news-subtitle">Grow Your Business With Kerala's Fastest Growing Local Directory</p>
         </div>
 
         <div className="news-grid">
           {/* Card 1 */}
-          <div className="news-card card-red">
-            <div className="news-card-badge">JOIN US</div>
+          <div className="news-card card-royal">
+            <div className="news-card-top-row">
+              <span className="news-card-badge">JOIN US</span>
+              <span className="news-card-badge-sub">STANDARD LISTING</span>
+            </div>
             <div className="news-card-content">
               <h3>My Locality Info</h3>
               <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
@@ -2234,29 +2858,37 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <h2 className="news-highlight">BUSINESS & OFFERS</h2>
 
               <ul className="news-features">
-                <li>Multi Photos & Details</li>
-                <li>Address & Contact Details</li>
-                <li>Direct Calling & WhatsApp</li>
-                <li>Page Sharing & Distance</li>
+                <li><HiCheckCircle className="feat-check" /> Multi Photos & Store Details</li>
+                <li><HiCheckCircle className="feat-check" /> Address & Exact GPS Location</li>
+                <li><HiCheckCircle className="feat-check" /> Direct Calling & One-Tap WhatsApp</li>
+                <li><HiCheckCircle className="feat-check" /> Social Page Sharing & Distance</li>
               </ul>
             </div>
 
             <div className="news-card-footer">
               <div className="discount-tag">
-                <span>Join Now Get</span>
+                <span>Special Launch Offer</span>
                 <strong>50% OFF</strong>
               </div>
-              <div className="qr-block">
-                <HiQrcode className="qr-icon" />
-                <span>Applink</span>
-              </div>
+              <button
+                type="button"
+                className="news-join-btn"
+                onClick={() => setOnboardModalOpen(true)}
+              >
+                List Business
+              </button>
             </div>
-            <div className="news-contact">Mob: +91 860 60 800 74</div>
+            <div className="news-contact">
+              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
+            </div>
           </div>
 
           {/* Card 2 */}
           <div className="news-card card-black">
-            <div className="news-card-badge dark">PREMIUM SUBSCRIPTION</div>
+            <div className="news-card-top-row">
+              <span className="news-card-badge dark">⭐ PREMIUM SUBSCRIPTION</span>
+              <span className="news-card-badge-sub emerald">TOP RANKING</span>
+            </div>
             <div className="news-card-content">
               <h3>My Locality Info</h3>
               <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
@@ -2264,29 +2896,37 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <h2 className="news-highlight yellow">BUSINESS & OFFERS</h2>
 
               <ul className="news-features">
-                <li>E-Commerce Portal Access</li>
-                <li>Videos & Image Gallery</li>
-                <li>Offers & Distance Filter</li>
-                <li>User Login & Analytics</li>
+                <li><HiCheckCircle className="feat-check gold" /> E-Commerce Portal Access</li>
+                <li><HiCheckCircle className="feat-check gold" /> Video Reels & HD Image Gallery</li>
+                <li><HiCheckCircle className="feat-check gold" /> Flash Offers & Distance Filter</li>
+                <li><HiCheckCircle className="feat-check gold" /> Customer Analytics & Direct Leads</li>
               </ul>
             </div>
 
             <div className="news-card-footer">
               <div className="discount-tag tag-green">
-                <span>Join Now Get</span>
+                <span>Annual Plan Savings</span>
                 <strong>50% OFF</strong>
               </div>
-              <div className="qr-block">
-                <HiQrcode className="qr-icon" />
-                <span>Applink</span>
-              </div>
+              <button
+                type="button"
+                className="news-join-btn gold"
+                onClick={() => setOnboardModalOpen(true)}
+              >
+                Get Premium
+              </button>
             </div>
-            <div className="news-contact">Mob: +91 860 60 800 74</div>
+            <div className="news-contact">
+              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
+            </div>
           </div>
 
           {/* Card 3 */}
-          <div className="news-card card-gradient">
-            <div className="news-card-badge">SPECIAL OFFER</div>
+          <div className="news-card card-crimson">
+            <div className="news-card-top-row">
+              <span className="news-card-badge">🔥 SPECIAL OFFER</span>
+              <span className="news-card-badge-sub rose">FESTIVAL PROMO</span>
+            </div>
             <div className="news-card-content">
               <h3>My Locality Info</h3>
               <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
@@ -2294,29 +2934,63 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <h2 className="news-highlight pink">BUSINESS & OFFERS</h2>
 
               <ul className="news-features">
-                <li>Verified Merchant Badge</li>
-                <li>Boosted Search Ranking</li>
-                <li>WhatsApp Integration</li>
-                <li>24/7 Premium Support</li>
+                <li><HiCheckCircle className="feat-check pink" /> Verified Blue Tick Merchant Badge</li>
+                <li><HiCheckCircle className="feat-check pink" /> Boosted Top 3 Search Ranking</li>
+                <li><HiCheckCircle className="feat-check pink" /> WhatsApp Catalog & Direct Orders</li>
+                <li><HiCheckCircle className="feat-check pink" /> Dedicated Account Manager & Support</li>
               </ul>
             </div>
 
             <div className="news-card-footer">
               <div className="discount-tag tag-purple">
-                <span>Join Now Get</span>
+                <span>Festival Promotion</span>
                 <strong>50% OFF</strong>
               </div>
-              <div className="qr-block">
-                <HiQrcode className="qr-icon" />
-                <span>Applink</span>
-              </div>
+              <button
+                type="button"
+                className="news-join-btn rose"
+                onClick={() => setOnboardModalOpen(true)}
+              >
+                Claim Offer
+              </button>
             </div>
-            <div className="news-contact">Mob: +91 860 60 800 74</div>
+            <div className="news-contact">
+              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 8. Full Width Blue Footer (Matching reference screenshot 1 & 4) */}
+      {/* 7. Kerala Discovery & Video Showcase (Envato Elements style split layout with seamless video shade) */}
+      <ZeashellEnvatoShowcase
+        slides={displayBottomShowcase}
+        onCtaClick={() => {
+          scrollToSection('establishments-section');
+        }}
+        onTagClick={(tag) => {
+          const clean = tag.replace(/^[^\w\s]+/, '').trim();
+          setSearchQuery(clean);
+          scrollToSection('establishments-section');
+        }}
+      />
+
+      {/* 7.5. Inspiring Kerala Community Quote Section (White Background with Serif Editorial Font) */}
+      <section className="landing-prefooter-quote-section" aria-label="Kerala Community Quote">
+        <div className="prefooter-quote-container">
+          <div className="prefooter-quote-mark" aria-hidden="true">“</div>
+          <blockquote className="prefooter-quote-text">
+            “Connecting neighborhoods, empowering local merchants, and celebrating the authentic spirit of Kerala.”
+          </blockquote>
+          <div className="prefooter-quote-divider" />
+          <div className="prefooter-quote-author-wrap">
+            <span className="prefooter-quote-author">LOGO KERALA</span>
+            <span className="prefooter-quote-tagline">Hyperlocal Discovery & Verified Merchant Network Across 14 Districts</span>
+          </div>
+        </div>
+      </section>
+
+
+      {/* 8. Modern Full Width Blue/Navy Footer */}
       <footer id="contact-section" className="landing-full-footer">
         <div className="full-footer-inner">
           {/* Col 1: Logo & App summary */}
@@ -2325,52 +2999,144 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <div className="full-brand-icon">
                 <HiLocationMarker />
               </div>
-              <span className="full-brand-name">Logo</span>
+              <span className="full-brand-name">Logo Kerala</span>
             </div>
             <p className="full-brand-desc">
-              Get your work done quickly and easily. Logo is a digital service provider that
-              helps you in finding solutions to a variety of needs in your local area. Also,
-              register your business with us and let people discover you.
+              Kerala's premier hyperlocal directory. Discover verified neighborhood shops, restaurants, boutiques,
+              healthcare, and artisan services across all 14 districts with instant WhatsApp & GPS directions.
             </p>
-          </div>
-
-          {/* Col 2: Company Address & Contact Details */}
-          <div className="full-footer-address">
-            <h4>
-              <HiLocationMarker style={{ color: '#fff' }} /> AURUMFX PVT LTD
-            </h4>
-            <p>V/664, First Floor,</p>
-            <p>Thekkekkara Antony Master Square,</p>
-            <p>Kunnathangadi,</p>
-            <p>Thrissur, Kerala - 680 012</p>
-            <div className="full-contact-row">
-              <HiMail /> <span>info@aurumfx.net</span>
-            </div>
-            <div className="full-contact-row">
-              <HiPhone /> <span>+91 75102 14060 / 75102 14080</span>
+            <div className="footer-verified-badge">
+              <HiShieldCheck size={18} color="#22c55e" />
+              <span>100% Verified Kerala Merchants</span>
             </div>
           </div>
 
-          {/* Col 3: Social Links & App Download Badges */}
-          <div className="full-footer-social">
-            <div className="social-icons-row">
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="social-icon">
+          {/* Col 2: Quick Links */}
+          <div className="full-footer-col">
+            <h4 className="footer-col-title">Quick Explore</h4>
+            <ul className="footer-links-list">
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => {
+                    setSelectedDistrict('all');
+                    setSelectedLocation('all');
+                    scrollToSection('establishments-section');
+                  }}
+                >
+                  📍 All 14 Kerala Districts
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => scrollToSection('categories-section')}
+                >
+                  🏷️ Popular Categories
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => scrollToSection('featured-section')}
+                >
+                  🔥 Trending Offers & Deals
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => setIsWishlistPageOpen(true)}
+                >
+                  ❤️ My Saved Wishlist ({userFavorites.length})
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => setCustomerLoginModalOpen(true)}
+                >
+                  👤 User Account / Sign In
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3: For Businesses */}
+          <div className="full-footer-col">
+            <h4 className="footer-col-title">For Businesses</h4>
+            <ul className="footer-links-list">
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn highlight-gold"
+                  onClick={() => setOnboardModalOpen(true)}
+                >
+                  ✨ Register Shop (50% OFF)
+                </button>
+              </li>
+              <li>
+                <Link to="/admin" className="footer-link-btn">
+                  🔐 Admin & Merchant Portal
+                </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="footer-link-btn"
+                  onClick={() => setOnboardModalOpen(true)}
+                >
+                  📢 Advertise Your Brand
+                </button>
+              </li>
+              <li>
+                <a href="tel:+918606080074" className="footer-link-btn">
+                  📞 Merchant Helpline: 860 60 800 74
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 4: Corporate Office & Contact */}
+          <div className="full-footer-col">
+            <h4 className="footer-col-title">Corporate Office</h4>
+            <div className="footer-address-block">
+              <p className="footer-company-name">AURUMFX PVT LTD</p>
+              <p>V/664, 1st Floor, Antony Master Square,</p>
+              <p>Kunnathangadi, Thrissur, Kerala - 680 012</p>
+              <div className="full-contact-row">
+                <HiMail /> <a href="mailto:info@aurumfx.net">info@aurumfx.net</a>
+              </div>
+              <div className="full-contact-row">
+                <HiPhone /> <a href="tel:+917510214060">+91 75102 14060 / 14080</a>
+              </div>
+            </div>
+
+            {/* Social Icons */}
+            <div className="social-icons-row" style={{ marginTop: 14 }}>
+              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="social-icon" aria-label="Facebook">
                 <FaFacebookF />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-icon">
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-icon" aria-label="Instagram">
                 <FaInstagram />
               </a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-icon">
+              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-icon" aria-label="YouTube">
                 <FaYoutube />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="social-icon">
+              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="social-icon" aria-label="Twitter">
                 <FaTwitter />
               </a>
             </div>
 
-            <div className="footer-store-badges">
+            {/* Store Badges */}
+            <div className="footer-store-badges" style={{ marginTop: 14 }}>
               <a href="https://play.google.com/store" target="_blank" rel="noreferrer" className="full-store-badge">
-                <svg viewBox="0 0 512 512" width="18" height="18" fill="currentColor">
+                <svg viewBox="0 0 512 512" width="16" height="16" fill="currentColor">
                   <path d="M325.8 256L80.4 10.6c-4.8 4.7-7.8 11.2-7.8 18.5v453.8c0 7.3 3 13.8 7.8 18.5L325.8 256zM365.2 295.4l55.1-31.8c12.2-7.1 12.2-25.7 0-32.8l-55.1-31.8-49.3 49.3 49.3 49.3zM99.6 498.4l238.4-238.4-49.3-49.3L80.4 419.1c4.5 4.5 11 7.3 19.2 7.3zM99.6 13.6c-8.2 0-14.7 2.8-19.2 7.3l208.3 208.3 49.3-49.3L99.6 13.6z" />
                 </svg>
                 <div className="badge-txt">
@@ -2380,11 +3146,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
               </a>
 
               <a href="https://apple.com/app-store" target="_blank" rel="noreferrer" className="full-store-badge">
-                <svg viewBox="0 0 384 512" width="16" height="16" fill="currentColor">
+                <svg viewBox="0 0 384 512" width="14" height="14" fill="currentColor">
                   <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 66.7 31.9 114.7c15.4 22.8 34.6 48.2 59 47.4 23.4-.9 32.5-15 60.7-15 28.1 0 36.3 15 60.7 14.1 25-.9 41.6-22.8 56.9-45.6 17.8-25.9 25.1-51.1 25.5-52.4-1.2-.4-49-18.8-50-68zM242 108.9c16.2-19.7 27.2-47.1 24.2-74.5-23.4 1-51.8 15.6-68.4 35.1-14.8 17.3-27.8 45.1-24.3 71.8 26.1 2 52.3-12.8 68.5-32.4z" />
                 </svg>
                 <div className="badge-txt">
-                  <span className="sm">Download on the</span>
+                  <span className="sm">Download on</span>
                   <span className="lg">App Store</span>
                 </div>
               </a>
@@ -2393,9 +3159,41 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
 
         <div className="full-footer-bottom">
-          © COPYRIGHT {new Date().getFullYear()} | AURUMFX PVT LTD | ALL RIGHTS RESERVED
+          <div className="footer-bottom-inner">
+            <span>© COPYRIGHT {new Date().getFullYear()} | AURUMFX PVT LTD | ALL RIGHTS RESERVED</span>
+            <div className="footer-bottom-legal">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { policy: 'privacy' } }))}
+                style={{ background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                title="View Privacy Policy"
+              >
+                Privacy Policy
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { policy: 'terms' } }))}
+                style={{ background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                title="View Terms & Conditions"
+              >
+                Terms of Service
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { policy: 'terms' } }))}
+                style={{ background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                title="View Merchant Guidelines"
+              >
+                Merchant Guidelines
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
+      </>
+      )}
 
       {/* 9. Scroll To Top Button */}
       {showScrollTop && (
@@ -2408,104 +3206,99 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </button>
       )}
 
-      {/* 10. Merchant Details Modal */}
+      {/* 10. Zeashell Shop Details Fullscreen Modal */}
       {selectedMerchant && (
-        <div className="modal-backdrop" onClick={() => setSelectedMerchant(null)}>
-          <div
-            className="modal-container merchant-detail-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div className="merchant-modal-title">
-                <h3>{selectedMerchant.name}</h3>
-                <span className="badge badge-purple">{selectedMerchant.category}</span>
-              </div>
-              <button
-                className="modal-close-btn"
-                onClick={() => setSelectedMerchant(null)}
-              >
-                <HiX />
-              </button>
-            </div>
+        <ZeashellShopModal
+          merchant={selectedMerchant}
+          onClose={() => {
+            setSelectedMerchant(null);
+            if (window.location.pathname.startsWith('/merchant/')) {
+              try {
+                window.history.pushState(null, '', '/');
+              } catch (e) {}
+            }
+          }}
+          userCoordinates={userCoordinates}
+          currentLocationName={
+            userLocationLabel
+              ? userLocationLabel
+              : selectedDistrict !== 'all'
+              ? `${getDistrictName(selectedDistrict)}, Kerala`
+              : selectedLocation !== 'all'
+              ? `${selectedLocation.toUpperCase()}, Kerala`
+              : userCoordinates
+              ? 'Nearby You (GPS)'
+              : 'Kerala'
+          }
+          onOpenLocationModal={() => {
+            setSelectedMerchant(null);
+            setIsLocationModalOpen(true);
+          }}
+          onDetectGPS={() => {
+            setSelectedMerchant(null);
+            setIsLocationModalOpen(true);
+          }}
+          onSelectTownOrDistrict={(type, val) => {
+            setSelectedMerchant(null);
+            handleSelectPlace(val);
+          }}
+          searchQuery={searchQuery}
+          onSearchChange={(e) => setSearchQuery(e.target.value)}
+          onSearchSubmit={(q) => {
+            setSelectedMerchant(null);
+            const val = q || searchQuery;
+            setSearchQuery(val);
+            handleBackendSearch(val);
+            scrollToSection('establishments-section');
+          }}
+          categories={displayCategories}
+          activeCategory={selectedCategory}
+          onSelectCategory={(cat) => {
+            setSelectedMerchant(null);
+            setSelectedCategory(cat);
+            scrollToSection('establishments-section');
+          }}
+          customerUser={customerUser}
+          onOpenCustomerLogin={() => setCustomerLoginModalOpen(true)}
+          onCustomerLogout={handleCustomerLogout}
+          onOpenOnboardModal={() => setOnboardModalOpen(true)}
+          favoritesCount={userFavorites.length}
+          onOpenWishlistPage={() => {
+            setSelectedMerchant(null);
+            setIsWishlistPageOpen(true);
+          }}
+        />
+      )}
 
-            <div className="modal-body">
-              <img
-                src={selectedMerchant.image}
-                alt={selectedMerchant.name}
-                className="merchant-modal-img"
-              />
-
-              <div className="merchant-modal-grid">
-                <div className="info-block">
-                  <HiLocationMarker className="info-icon" />
-                  <div>
-                    <strong>Location / Address</strong>
-                    <p>{selectedMerchant.address}</p>
-                    <button
-                      className="btn-modal-map"
-                      onClick={(e) => openGoogleMaps(selectedMerchant.name, selectedMerchant.address, e)}
-                    >
-                      📍 View Location on Google Maps
-                    </button>
-                  </div>
-                </div>
-
-                <div className="info-block">
-                  <HiPhone className="info-icon" />
-                  <div>
-                    <strong>Phone Contact</strong>
-                    <p>{selectedMerchant.phone}</p>
-                  </div>
-                </div>
-
-                <div className="info-block">
-                  <HiStar className="info-icon star-icon" />
-                  <div>
-                    <strong>Rating & Reviews</strong>
-                    <p>
-                      {selectedMerchant.rating} Stars ({selectedMerchant.reviews} user reviews)
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 16 }}>
-                <h4>About</h4>
-                <p style={{ color: '#4B5563', lineHeight: 1.6, marginTop: 6 }}>
-                  {selectedMerchant.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <a
-                href={`tel:${selectedMerchant.phone}`}
-                className="btn btn-primary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-              >
-                <HiPhone /> Call Merchant
-              </a>
-              <button
-                className="btn btn-map-action"
-                onClick={(e) => openGoogleMaps(selectedMerchant.name, selectedMerchant.address, e)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-              >
-                <HiLocationMarker /> Google Maps
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setSelectedMerchant(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* 11. Zeashell Quick Call / WhatsApp Dialog */}
+      {callDialogData && (
+        <ZeashellCallDialog
+          isOpen={!!callDialogData}
+          onClose={() => setCallDialogData(null)}
+          merchant={callDialogData.merchant}
+          phoneNumber={callDialogData.phoneNumber}
+        />
       )}
 
       {/* 11. CREATE / ONBOARD MERCHANT MODAL ON LANDING PAGE */}
       {onboardModalOpen && (
-        <div className="modal-backdrop" onClick={() => setOnboardModalOpen(false)}>
+        <div
+          className="modal-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            overflowY: 'auto',
+          }}
+          onClick={() => setOnboardModalOpen(false)}
+        >
           <div
             className="modal-container merchant-detail-modal"
             style={{ maxWidth: 720, maxHeight: '90vh', overflowY: 'auto' }}
@@ -2812,129 +3605,126 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       )}
 
-      {/* 12. Promotion Modal Overlay (Light Blue Theme) */}
+      {/* 12. Promotion Modal Overlay (Clean White Theme with Black Text) */}
       {selectedPromoModal && (
         <div
           className="modal-backdrop"
           style={{
-            background: 'rgba(11, 23, 42, 0.75)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            padding: '16px',
+            overflowY: 'auto',
           }}
           onClick={() => setSelectedPromoModal(null)}
         >
           <div
             className="modal-container promo-detail-modal"
             style={{
-              background: selectedPromoModal.bgGradient || 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              color: '#FFFFFF',
+              background: '#FFFFFF',
+              color: '#0F172A',
               borderRadius: '24px',
-              maxWidth: '620px',
-              width: '90%',
-              padding: '36px 40px',
+              maxWidth: '580px',
+              width: '92%',
+              padding: '32px 36px',
               position: 'relative',
-              boxShadow: '0 30px 60px -12px rgba(2, 132, 199, 0.5), 0 0 35px rgba(56, 189, 248, 0.35)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08)',
+              border: '1px solid #E2E8F0',
               overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Top Glow Accent */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '5px',
-                background: selectedPromoModal.accentColor || '#38BDF8',
-              }}
-            ></div>
-
             <button
               className="modal-close-btn"
               onClick={() => setSelectedPromoModal(null)}
               style={{
                 position: 'absolute',
-                top: '22px',
-                right: '22px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255, 255, 255, 0.35)',
+                top: '20px',
+                right: '20px',
+                background: '#F1F5F9',
+                border: '1px solid #E2E8F0',
                 borderRadius: '50%',
-                width: '38px',
-                height: '38px',
+                width: '36px',
+                height: '36px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#FFFFFF',
+                color: '#475569',
                 cursor: 'pointer',
                 fontSize: '18px',
+                transition: 'all 0.2s ease',
               }}
+              aria-label="Close Modal"
             >
               <HiX />
             </button>
 
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                background: 'rgba(255, 255, 255, 0.22)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.4)',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '800',
-                letterSpacing: '1px',
-                marginBottom: '18px',
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
-              }}
-            >
-              <HiStar style={{ color: '#FCD34D' }} /> {selectedPromoModal.badge}
-            </div>
+            {selectedPromoModal.badge && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 12px',
+                  background: '#EFF6FF',
+                  border: '1px solid #DBEAFE',
+                  borderRadius: '16px',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  letterSpacing: '0.8px',
+                  marginBottom: '16px',
+                  color: '#1D4ED8',
+                  textTransform: 'uppercase',
+                }}
+              >
+                <HiStar style={{ color: '#EAB308' }} /> {selectedPromoModal.badge}
+              </div>
+            )}
 
             <h2
               style={{
-                fontSize: '30px',
+                fontSize: '28px',
                 fontWeight: '800',
-                margin: '0 0 8px 0',
-                color: '#FFFFFF',
-                textTransform: 'uppercase',
+                margin: '0 0 6px 0',
+                color: '#0F172A',
                 letterSpacing: '-0.5px',
-                lineHeight: '1.2',
+                lineHeight: '1.25',
               }}
             >
               {selectedPromoModal.title}
             </h2>
 
-            <h4
-              style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: 'rgba(255, 255, 255, 0.95)',
-                marginBottom: '14px',
-              }}
-            >
-              {selectedPromoModal.subtitle}
-            </h4>
+            {selectedPromoModal.subtitle && (
+              <h4
+                style={{
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  color: '#2563EB',
+                  marginBottom: '12px',
+                }}
+              >
+                {selectedPromoModal.subtitle}
+              </h4>
+            )}
 
-            <p
-              style={{
-                fontSize: '15px',
-                color: 'rgba(255, 255, 255, 0.88)',
-                lineHeight: '1.65',
-                marginBottom: '24px',
-              }}
-            >
-              {selectedPromoModal.description}
-            </p>
+            {selectedPromoModal.description && (
+              <p
+                style={{
+                  fontSize: '14.5px',
+                  color: '#334155',
+                  lineHeight: '1.65',
+                  marginBottom: '20px',
+                }}
+              >
+                {selectedPromoModal.description}
+              </p>
+            )}
 
             {selectedPromoModal.bannerUrl && (
               <div
@@ -2943,9 +3733,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
                   maxHeight: '220px',
                   overflow: 'hidden',
                   borderRadius: '16px',
-                  marginBottom: '24px',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  marginBottom: '20px',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
+                  border: '1px solid #E2E8F0',
                 }}
               >
                 <img
@@ -2959,68 +3749,76 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
             <div
               style={{
-                borderTop: '1px solid rgba(255, 255, 255, 0.25)',
-                paddingTop: '20px',
-                marginTop: '16px',
+                borderTop: '1px solid #E2E8F0',
+                paddingTop: '18px',
+                marginTop: '12px',
               }}
             >
-              <div
-                style={{
-                  color: '#FDE047',
-                  fontWeight: '700',
-                  fontSize: '13px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(253, 224, 71, 0.15)',
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  border: '1px solid rgba(253, 224, 71, 0.35)',
-                  marginBottom: '16px',
-                }}
-              >
-                ⭐ {selectedPromoModal.tagline}
-              </div>
+              {selectedPromoModal.tagline && (
+                <div
+                  style={{
+                    color: '#0369A1',
+                    fontWeight: '700',
+                    fontSize: '12.5px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#F0F9FF',
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    border: '1px solid #BAE6FD',
+                    marginBottom: '14px',
+                  }}
+                >
+                  ⭐ {selectedPromoModal.tagline}
+                </div>
+              )}
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    padding: '8px 14px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                  }}
-                >
-                  <HiLocationMarker />
-                  {selectedPromoModal.location}
-                </span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    padding: '8px 14px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                  }}
-                >
-                  <HiPhone />
-                  {selectedPromoModal.phone}
-                </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {selectedPromoModal.location && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#F8FAFC',
+                      padding: '7px 14px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#1E293B',
+                      border: '1px solid #E2E8F0',
+                    }}
+                  >
+                    <HiLocationMarker style={{ color: '#2563EB' }} />
+                    {selectedPromoModal.location}
+                  </span>
+                )}
+                {selectedPromoModal.phone && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#F8FAFC',
+                      padding: '7px 14px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#1E293B',
+                      border: '1px solid #E2E8F0',
+                    }}
+                  >
+                    <HiPhone style={{ color: '#16A34A' }} />
+                    {selectedPromoModal.phone}
+                  </span>
+                )}
               </div>
             </div>
 
             <div
               style={{
-                marginTop: '28px',
+                marginTop: '24px',
                 display: 'flex',
                 gap: '12px',
                 justifyContent: 'flex-end',
@@ -3030,38 +3828,41 @@ export default function LandingPage({ defaultTab = 'home' }) {
               <button
                 className="btn"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  color: '#FFFFFF',
-                  border: '1px solid rgba(255, 255, 255, 0.35)',
-                  padding: '10px 22px',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  padding: '9px 20px',
                   borderRadius: '12px',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '600',
+                  transition: 'background 0.2s ease',
                 }}
                 onClick={() => setSelectedPromoModal(null)}
               >
                 Close
               </button>
-              <a
-                href={`tel:${selectedPromoModal.phone}`}
-                className="btn"
-                style={{
-                  background: '#FFFFFF',
-                  color: '#0284c7',
-                  fontWeight: '800',
-                  padding: '10px 26px',
-                  borderRadius: '12px',
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.2)',
-                }}
-              >
-                <HiPhone /> Call Merchant
-              </a>
+              {selectedPromoModal.phone ? (
+                <a
+                  href={`tel:${selectedPromoModal.phone}`}
+                  className="btn"
+                  style={{
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    fontWeight: '700',
+                    padding: '9px 22px',
+                    borderRadius: '12px',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
+                  }}
+                >
+                  <HiPhone /> Call Merchant
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
@@ -3072,6 +3873,341 @@ export default function LandingPage({ defaultTab = 'home' }) {
         onViewOffer={(offer) => setSelectedPromoModal(offer)}
         onCallMerchant={handleCardCall}
         onExploreAll={() => scrollToSection('featured-offers-section')}
+      />
+
+      {/* 13. Customer Sign In & Registration Modal (Centered Popup with Login & Register Tabs) */}
+      {customerLoginModalOpen && (
+        <div
+          className="modal-backdrop customer-auth-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 999999,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            overflowY: 'auto',
+          }}
+          onClick={() => setCustomerLoginModalOpen(false)}
+        >
+          <div
+            className="customer-auth-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Modal Header */}
+            <div className="customer-auth-header">
+              <div className="customer-auth-header-top">
+                <div className="customer-auth-brand">
+                  <span className="customer-auth-brand-logo" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    LOGO <HiLocationMarker size={16} color="#93c5fd" />
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: 'rgba(255, 255, 255, 0.25)',
+                      padding: '2px 8px',
+                      borderRadius: 20,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    CUSTOMER PORTAL
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="customer-auth-close-btn"
+                  onClick={() => setCustomerLoginModalOpen(false)}
+                  aria-label="Close"
+                >
+                  <HiX size={18} />
+                </button>
+              </div>
+
+              <h3 className="customer-auth-header-title">
+                {customerAuthTab === 'login' ? 'Welcome Back!' : 'Create Customer Account'}
+              </h3>
+              <p className="customer-auth-header-desc">
+                {customerAuthTab === 'login'
+                  ? 'Sign in to access your saved wishlist & call verified merchants'
+                  : 'Register to discover 1,000+ genuine shops across all 14 Kerala districts'}
+              </p>
+            </div>
+
+            {/* Mode Switcher Tabs: [Login] vs [Register] */}
+            <div className="customer-auth-tabs">
+              <button
+                type="button"
+                className={`customer-auth-tab-btn ${customerAuthTab === 'login' ? 'active' : ''}`}
+                onClick={() => {
+                  setCustomerAuthTab('login');
+                  setCustomerAuthMsg({ type: '', text: '' });
+                }}
+              >
+                <HiUser size={16} />
+                <span>Sign In / Login</span>
+              </button>
+              <button
+                type="button"
+                className={`customer-auth-tab-btn ${customerAuthTab === 'register' ? 'active' : ''}`}
+                onClick={() => {
+                  setCustomerAuthTab('register');
+                  setCustomerAuthMsg({ type: '', text: '' });
+                }}
+              >
+                <HiPlus size={16} />
+                <span>Register / Sign Up</span>
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <div className="customer-auth-body">
+              {customerAuthMsg.text && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: customerAuthMsg.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                    color: customerAuthMsg.type === 'error' ? '#b91c1c' : '#15803d',
+                    borderLeft: `4px solid ${customerAuthMsg.type === 'error' ? '#ef4444' : '#22c55e'}`,
+                  }}
+                >
+                  <span>{customerAuthMsg.type === 'error' ? '⚠️' : '✅'}</span>
+                  <span>{customerAuthMsg.text}</span>
+                </div>
+              )}
+
+              {customerAuthTab === 'login' ? (
+                /* LOGIN FORM */
+                <form
+                  onSubmit={handleCustomerLoginSubmit}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+                >
+                  <div className="customer-auth-field">
+                    <label className="customer-auth-label">
+                      <span>Mobile / WhatsApp Number *</span>
+                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                        OTP-free 10-digit login
+                      </span>
+                    </label>
+                    <div className="customer-auth-phone-row">
+                      <div className="customer-auth-country-code">🇮🇳 +91</div>
+                      <input
+                        type="tel"
+                        required
+                        maxLength={10}
+                        placeholder="e.g. 9847123456"
+                        value={customerLoginForm.phone}
+                        onChange={(e) =>
+                          setCustomerLoginForm({ phone: e.target.value.replace(/[^0-9]/g, '') })
+                        }
+                        className="customer-auth-input"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="customer-auth-btn-primary">
+                    Sign In to Logo Kerala
+                  </button>
+
+                  <div style={{ textAlign: 'center', margin: '4px 0', color: '#94a3b8', fontSize: 12 }}>
+                    ── or quick 1-click login ──
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCustomerQuickLogin}
+                    style={{
+                      width: '100%',
+                      padding: '11px',
+                      background: '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: 12,
+                      color: '#1e293b',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                    }}
+                  >
+                    <span>👤 Quick Login as Saranya Sudheer (Kannur)</span>
+                  </button>
+
+                  <div className="customer-auth-switch-prompt">
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      className="customer-auth-switch-link"
+                      onClick={() => {
+                        setCustomerAuthTab('register');
+                        setCustomerAuthMsg({ type: '', text: '' });
+                      }}
+                    >
+                      Register here
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                /* REGISTER FORM */
+                <form
+                  onSubmit={handleCustomerRegisterSubmit}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+                >
+                  <div className="customer-auth-field">
+                    <label className="customer-auth-label">
+                      <span>Full Name *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Saranya Sudheer"
+                      value={customerRegisterForm.name}
+                      onChange={(e) =>
+                        setCustomerRegisterForm({ ...customerRegisterForm, name: e.target.value })
+                      }
+                      className="customer-auth-input"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="customer-auth-field">
+                    <label className="customer-auth-label">
+                      <span>Mobile / WhatsApp Number *</span>
+                    </label>
+                    <div className="customer-auth-phone-row">
+                      <div className="customer-auth-country-code">🇮🇳 +91</div>
+                      <input
+                        type="tel"
+                        required
+                        maxLength={10}
+                        placeholder="e.g. 9847123456"
+                        value={customerRegisterForm.phone}
+                        onChange={(e) =>
+                          setCustomerRegisterForm({
+                            ...customerRegisterForm,
+                            phone: e.target.value.replace(/[^0-9]/g, ''),
+                          })
+                        }
+                        className="customer-auth-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="customer-auth-field">
+                    <label className="customer-auth-label">
+                      <span>Kerala District *</span>
+                      <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
+                        All 14 Districts
+                      </span>
+                    </label>
+                    <select
+                      value={customerRegisterForm.district}
+                      onChange={(e) =>
+                        setCustomerRegisterForm({
+                          ...customerRegisterForm,
+                          district: e.target.value,
+                        })
+                      }
+                      className="customer-auth-select"
+                    >
+                      {placesList.map((p) => (
+                        <option key={p.id} value={p.name}>
+                          {p.name} District
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="customer-auth-field">
+                    <label className="customer-auth-label">
+                      <span>City / Town (Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Kochi, Payyanur, Alappuzha, etc."
+                      value={customerRegisterForm.city}
+                      onChange={(e) =>
+                        setCustomerRegisterForm({ ...customerRegisterForm, city: e.target.value })
+                      }
+                      className="customer-auth-input"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="customer-auth-btn-primary"
+                    style={{ marginTop: 4 }}
+                  >
+                    Create Customer Account & Sign In
+                  </button>
+
+                  <div className="customer-auth-switch-prompt">
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      className="customer-auth-switch-link"
+                      onClick={() => {
+                        setCustomerAuthTab('login');
+                        setCustomerAuthMsg({ type: '', text: '' });
+                      }}
+                    >
+                      Sign in here
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 14. Location Discovery Modal (Prompt on arrival or location click) */}
+      <ZeashellLocationPromptModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onLocationSelected={handleLocationChosen}
+        currentLocationName={
+          userLocationLabel
+            ? userLocationLabel
+            : selectedDistrict !== 'all'
+            ? `${getDistrictName(selectedDistrict)}, Kerala`
+            : selectedLocation !== 'all'
+            ? `${selectedLocation.toUpperCase()}, Kerala`
+            : userCoordinates
+            ? 'Nearby You (GPS)'
+            : 'Kerala'
+        }
       />
     </div>
   );

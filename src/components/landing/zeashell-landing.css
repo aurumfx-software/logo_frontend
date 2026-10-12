@@ -147,7 +147,9 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: 330px;
+  width: min(320px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
   max-height: 480px;
   background: #ffffff;
   border-radius: var(--logo-radius-md);
@@ -159,6 +161,7 @@
   flex-direction: column;
   gap: 10px;
   animation: popoverFadeIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow-x: hidden;
 }
 
 @keyframes popoverFadeIn {
@@ -568,6 +571,284 @@
   border: 1px solid var(--logo-border);
 }
 
+/* MOBILE NAVBAR RESPONSIVENESS (PERFECT WRAPPING ON PHONES & TABLETS) */
+@media (max-width: 860px) {
+  .zeas-blue-navbar-main {
+    padding: 8px 12px;
+    overflow: visible;
+  }
+
+  .zeas-blue-navbar-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    overflow: visible;
+  }
+
+  /* Row 1 Left: Brand Logo */
+  .zeas-blue-navbar-logo {
+    order: 1;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .zeas-blue-logo-text {
+    font-size: 22px;
+  }
+
+  /* Row 1 Right: Actions (Wishlist, Sign In, Admin Portal) */
+  .zeas-blue-navbar-actions {
+    order: 2;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .zeas-blue-action-link {
+    padding: 4px 6px;
+  }
+
+  .zeas-blue-btn-signin {
+    padding: 6px 10px;
+    font-size: 12px;
+    height: 34px;
+  }
+
+  .zeas-blue-btn-admin-portal {
+    padding: 6px 10px;
+    font-size: 11.5px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Row 2 Left: Kerala Location Selector Pill */
+  .zeas-blue-loc-wrapper {
+    order: 3;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .zeas-blue-loc-pill {
+    padding: 6px 10px;
+    font-size: 12px;
+    height: 38px;
+    max-width: 125px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .zeas-blue-loc-pill-text {
+    max-width: 72px;
+  }
+
+  /* Prevent UI layout shift when Kerala dropdown is opened! */
+  .zeas-blue-loc-popover {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    left: 0 !important;
+    right: auto !important;
+    width: min(320px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    box-sizing: border-box !important;
+    z-index: 99999 !important;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22) !important;
+    border-radius: 12px !important;
+  }
+
+  /* Row 2 Right: Compact Search Bar */
+  .zeas-blue-search-wrapper {
+    order: 4;
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .zeas-blue-search-form {
+    height: 38px;
+    border-radius: 8px;
+  }
+
+  .zeas-blue-search-input {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .zeas-blue-search-mic-btn {
+    padding: 4px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .zeas-blue-search-submit-btn {
+    padding: 6px 12px;
+    height: 100%;
+  }
+
+  .zeas-legal-dropdown-wrap {
+    display: none;
+  }
+
+  .zeas-blue-cat-strip {
+    padding: 6px 12px;
+  }
+
+  .zeas-blue-quick-cats {
+    display: none !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .zeas-blue-date-badge {
+    display: none !important;
+  }
+
+  .zeas-blue-banner-slider-container {
+    margin: 0 0 20px 0;
+  }
+
+  .zeas-blue-banner-slide {
+    min-height: 220px;
+  }
+
+  .zeas-blue-banner-image {
+    max-height: 80vh;
+  }
+
+  .zeas-blue-banner-arrow {
+    width: 34px;
+    height: 34px;
+  }
+
+  .zeas-blue-banner-arrow.prev {
+    left: 8px;
+  }
+
+  .zeas-blue-banner-arrow.next {
+    right: 8px;
+  }
+
+  .zeas-blue-banner-dots {
+    bottom: 8px;
+    padding: 4px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .zeas-blue-loc-pill {
+    max-width: 110px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .zeas-blue-loc-pill-text {
+    max-width: 58px;
+  }
+
+  .zeas-blue-search-wrapper {
+    min-width: 140px;
+  }
+
+  .zeas-blue-search-input::placeholder {
+    font-size: 11.5px;
+  }
+
+  .zeas-blue-btn-admin-portal {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+/* ==========================================================================
+   MINIMAL 2-COLOR BLUE & WHITE INTRO SPLASH
+   ========================================================================== */
+.zeas-intro-splash-minimal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: all;
+  animation: minimalBgInvert 1.8s infinite ease-in-out;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.5s ease;
+}
+
+.zeas-intro-splash-minimal.fade-out {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.zeas-intro-minimal-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  user-select: none;
+  animation: minimalTextInvert 1.8s infinite ease-in-out,
+             minimalLogoPulse 1.8s infinite ease-in-out;
+}
+
+.zeas-intro-minimal-logo {
+  font-size: clamp(56px, 14vw, 100px);
+  font-weight: 950;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.zeas-intro-minimal-pin {
+  font-size: clamp(48px, 12vw, 84px);
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: -4px;
+}
+
+@keyframes minimalBgInvert {
+  0%, 25% {
+    background-color: #2563eb;
+  }
+  48%, 75% {
+    background-color: #ffffff;
+  }
+  95%, 100% {
+    background-color: #2563eb;
+  }
+}
+
+@keyframes minimalTextInvert {
+  0%, 25% {
+    color: #ffffff;
+  }
+  48%, 75% {
+    color: #2563eb;
+  }
+  95%, 100% {
+    color: #ffffff;
+  }
+}
+
+@keyframes minimalLogoPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
 /* ==========================================================================
    2. FULL-VIEW BANNER SLIDER (ZERO CROPPING AT TOP OR BOTTOM)
    ========================================================================== */
@@ -576,10 +857,11 @@
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: #090e1a;
+  background: #0f172a;
   user-select: none;
-  margin: 0;
+  margin: 0 0 28px 0; /* Flush with scrolling ticker bar - zero white gap */
   padding: 0;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
 }
 
 .zeas-blue-banner-slider-track {
@@ -587,6 +869,7 @@
   width: 100%;
   transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
+  align-items: center;
 }
 
 .zeas-blue-banner-slide {
@@ -598,23 +881,39 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #090e1a;
+  background: #0f172a;
   cursor: pointer;
+  height: clamp(320px, 38vw, 620px);
 }
 
-/* FULL VIEW: height auto, max-height 520px, object-fit contain so ads are NEVER cut off */
+/* Ambient Blurred Backdrop behind image for full widescreen presentation */
+.zeas-blue-banner-blur-backdrop {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.4);
+  transform: scale(1.15);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* FULL VIEW: Edge-to-edge cover with ZERO side or bottom gaps */
 .zeas-blue-banner-image {
+  position: relative;
+  z-index: 2;
   width: 100%;
-  height: auto;
-  max-height: 520px;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   object-position: center;
   display: block;
   margin: 0 auto;
-  transition: opacity 0.25s ease;
+  transition: transform 0.35s ease, opacity 0.25s ease;
 }
 
 .zeas-blue-banner-slide:hover .zeas-blue-banner-image {
+  transform: scale(1.01);
   opacity: 0.98;
 }
 
@@ -685,15 +984,19 @@
 }
 
 /* ==========================================================================
-   3. CATEGORIES ROW & MODAL
+   3. CATEGORIES ROW & MODAL (ZEASHELL / OLX 6-COLUMN GRID)
    ========================================================================== */
 
+.zeas-blue-category-section,
 .zeas-blue-categories-section {
   max-width: 1440px;
-  margin: 28px auto;
+  margin: 32px auto 24px;
   padding: 0 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
+.zeas-blue-category-header,
 .zeas-blue-section-header {
   display: flex;
   align-items: center;
@@ -709,6 +1012,7 @@
   margin: 0;
 }
 
+.zeas-blue-view-all-btn,
 .zeas-blue-see-all-link {
   font-size: 13px;
   font-weight: 700;
@@ -716,15 +1020,49 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  transition: color 0.15s ease;
+  transition: all 0.2s ease;
+  padding: 6px 12px;
+  border-radius: var(--logo-radius-sm);
+  text-decoration: none;
 }
 
+.zeas-blue-view-all-btn:hover,
 .zeas-blue-see-all-link:hover {
+  background: #eff6ff;
   color: var(--logo-primary-dark);
-  text-decoration: underline;
+}
+
+/* OLX / ZEASHELL EXACT 6-COLUMN GRID IN ROYAL BLUE */
+.zeas-blue-category-grid-olx {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .zeas-blue-category-grid-olx {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
 }
 
 .zeas-blue-category-row-scroll {
@@ -740,20 +1078,23 @@
 }
 
 .zeas-blue-category-card {
-  min-width: 130px;
   background: #ffffff;
-  border: 1px solid var(--logo-border);
+  border: 1.5px solid var(--logo-border);
   border-radius: var(--logo-radius-md);
-  padding: 16px 12px;
+  padding: 18px 12px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
   gap: 10px;
   cursor: pointer;
   transition: var(--logo-transition);
   box-shadow: var(--logo-shadow-sm);
-  flex-shrink: 0;
+  outline: none;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .zeas-blue-category-card:hover {
@@ -769,29 +1110,37 @@
 }
 
 .zeas-blue-category-icon-box {
-  width: 50px;
-  height: 50px;
-  border-radius: var(--logo-radius-md);
-  background: #f0f7ff;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--logo-radius-full);
+  background: #eff6ff;
   color: var(--logo-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  transition: background 0.2s ease, transform 0.2s ease;
+  font-size: 24px;
+  transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .zeas-blue-category-card:hover .zeas-blue-category-icon-box {
-  background: var(--logo-primary);
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
   color: #ffffff;
   transform: scale(1.08);
 }
 
+.zeas-blue-category-name,
 .zeas-blue-category-title {
   font-size: 13px;
   font-weight: 700;
   color: var(--logo-text-dark);
-  line-height: 1.25;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 /* ==========================================================================
@@ -983,6 +1332,82 @@
   transform: scale(1.06);
 }
 
+/* Empty Image Theme for Merchants without Photos (Replaces Bag Photo) */
+.zeas-merchant-empty-theme {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  user-select: none;
+  overflow: hidden;
+}
+
+.zeas-merchant-empty-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(100, 116, 139, 0.22) 1.2px, transparent 1.2px);
+  background-size: 14px 14px;
+  pointer-events: none;
+}
+
+.zeas-merchant-empty-icon-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+  z-index: 1;
+}
+
+.zeas-blue-merchant-card:hover .zeas-merchant-empty-icon-wrap {
+  transform: scale(1.1) rotate(2deg);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+}
+
+.zeas-merchant-empty-info {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.zeas-merchant-empty-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.zeas-merchant-empty-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .zeas-blue-merchant-fav-btn {
   position: absolute;
   top: 8px;
@@ -1140,119 +1565,357 @@
    6. IN-BETWEEN MIDDLE AD SLIDER (Placed between merchant rows)
    ========================================================================== */
 
+/* ==========================================================================
+   6. IN-BETWEEN MIDDLE HERO SHOWCASE (Left Image with Gradient Shade / Right Content)
+   ========================================================================== */
+
+.zeas-middle-hero-container,
 .zeas-middle-ad-wrapper {
   grid-column: 1 / -1;
   width: 100%;
+  max-width: 1440px;
+  margin: 28px auto;
+  padding: 0;
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.zeas-middle-hero-inner {
+  display: flex;
+  align-items: stretch;
+  min-height: 380px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 12px 36px -8px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.zeas-middle-hero-inner:hover {
+  box-shadow: 0 16px 42px -6px rgba(15, 23, 42, 0.12);
+}
+
+/* LEFT SIDE: Media Visual in Full View with Depth Shadow (No White Shade, Zero Cropping) */
+.zeas-middle-hero-left {
+  flex: 1.1;
   position: relative;
   overflow: hidden;
-  border-radius: var(--logo-radius-md);
-  margin: 18px 0;
-  background: #090e1a;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  user-select: none;
-}
-
-.zeas-middle-ad-badge {
-  position: absolute;
-  top: 10px;
-  left: 12px;
-  background: rgba(37, 99, 235, 0.9);
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 6px;
-  z-index: 10;
-  letter-spacing: 0.5px;
-}
-
-.zeas-middle-ad-track {
-  display: flex;
-  width: 100%;
-  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: transform;
-}
-
-.zeas-middle-ad-slide {
-  min-width: 100%;
-  width: 100%;
-  flex-shrink: 0;
+  background: #0b1329;
+  min-height: 380px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #090e1a;
-  cursor: pointer;
+  padding: 16px;
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.12);
+  z-index: 2;
 }
 
-.zeas-middle-ad-image {
+/* Ambient Blurred Backdrop behind uncropped image */
+.zeas-middle-hero-blur-bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.35);
+  transform: scale(1.15);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Frame shadow giving deep cinematic shade to the container */
+.zeas-middle-hero-frame-shade {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.zeas-middle-hero-media-wrap {
   width: 100%;
-  height: auto;
-  max-height: 280px;
-  object-fit: contain;
+  height: 100%;
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* FULL VIEW: ZERO CROPPING (object-fit: contain) + RICH DROP SHADOW */
+.zeas-middle-hero-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Full view! Not cropped at all! */
+  object-position: center;
   display: block;
-  margin: 0 auto;
+  border-radius: 12px;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.5)); /* Deep shaded shadow */
+  transition: transform 0.4s ease, filter 0.4s ease;
 }
 
-.zeas-middle-ad-arrow {
+.zeas-middle-hero-inner:hover .zeas-middle-hero-img {
+  transform: scale(1.02);
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.6));
+}
+
+.zeas-middle-hero-video-player {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Full view! Zero cropping! */
+  object-position: center;
+  display: block;
+  border-radius: 12px;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.5));
+}
+
+.zeas-middle-hero-media-indicator {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.88);
-  color: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  bottom: 14px;
+  left: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 4;
+}
+
+/* RIGHT SIDE: Text & Content Area */
+.zeas-middle-hero-right {
+  flex: 1.15;
+  padding: 44px 48px 40px;
+  display: flex;
+  flex-direction: column;
   justify-content: center;
+  z-index: 5;
+  background: #ffffff;
+}
+
+.zeas-middle-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.zeas-middle-hero-title {
+  font-size: clamp(22px, 2.6vw, 34px);
+  font-weight: 850;
+  line-height: 1.2;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
+}
+
+.zeas-middle-gradient-text {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline;
+}
+
+.zeas-middle-hero-desc {
+  font-size: clamp(13px, 1.1vw, 15px);
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 20px;
+  max-width: 580px;
+}
+
+.zeas-middle-tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.zeas-middle-pill-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
   cursor: pointer;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.zeas-middle-pill-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.zeas-middle-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.zeas-middle-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
   transition: all 0.2s ease;
 }
 
-.zeas-middle-ad-arrow:hover {
-  background: var(--logo-primary);
-  color: #ffffff;
+.zeas-middle-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
 }
 
-.zeas-middle-ad-arrow.prev {
-  left: 14px;
+.zeas-middle-badge-verified {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.zeas-middle-ad-arrow.next {
-  right: 14px;
-}
-
-.zeas-middle-ad-dots {
+/* Subtle Navigation Arrows */
+.zeas-middle-nav-arrow {
   position: absolute;
-  bottom: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.zeas-middle-nav-arrow:hover {
+  background: #ffffff;
+  color: #2563eb;
+  transform: translateY(-50%) scale(1.08);
+}
+
+.zeas-middle-nav-arrow.prev {
+  left: 20px;
+}
+
+.zeas-middle-nav-arrow.next {
+  right: 20px;
+}
+
+/* Slide Indicators */
+.zeas-middle-indicators {
+  position: absolute;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 4px 10px;
-  border-radius: var(--logo-radius-full);
 }
 
-.zeas-middle-ad-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
+.zeas-middle-dot {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.4);
   border: none;
   cursor: pointer;
   padding: 0;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
-.zeas-middle-ad-dot.active {
-  width: 18px;
-  border-radius: 4px;
-  background: #ffffff;
+.zeas-middle-dot.active {
+  width: 38px;
+  background: #2563eb;
+}
+
+/* RESPONSIVE MOBILE VIEW FOR MIDDLE HERO */
+@media (max-width: 900px) {
+  .zeas-middle-hero-inner {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .zeas-middle-hero-left {
+    min-height: 240px;
+    height: 260px;
+    order: -1;
+    padding: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .zeas-middle-hero-img,
+  .zeas-middle-hero-video-player {
+    border-radius: 10px;
+  }
+
+  .zeas-middle-hero-right {
+    padding: 24px 22px 28px;
+  }
+
+  .zeas-middle-hero-title {
+    font-size: 21px;
+  }
+
+  .zeas-middle-hero-desc {
+    font-size: 13.5px;
+  }
+
+  .zeas-middle-nav-arrow {
+    width: 32px;
+    height: 32px;
+  }
+
+  .zeas-middle-nav-arrow.prev {
+    left: 10px;
+  }
+
+  .zeas-middle-nav-arrow.next {
+    right: 10px;
+  }
 }
 
 /* ==========================================================================
@@ -1753,24 +2416,1776 @@
 .zeas-ticker-bar {
   background: #0f172a;
   color: #f8fafc;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 8px 0;
+  padding: 9px 0;
+  margin: 0;
   overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  width: 100%;
+  display: flex;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+}
+
+.zeas-ticker-bar::before,
+.zeas-ticker-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.zeas-ticker-bar::before {
+  left: 0;
+  background: linear-gradient(90deg, #0f172a 0%, transparent 100%);
+}
+
+.zeas-ticker-bar::after {
+  right: 0;
+  background: linear-gradient(270deg, #0f172a 0%, transparent 100%);
+}
+
+.zeas-ticker-track {
+  display: flex;
+  width: max-content;
+  flex-shrink: 0;
+  animation: zeasSeamlessLoop 35s linear infinite;
+  will-change: transform;
+}
+
+.zeas-ticker-bar:hover .zeas-ticker-track {
+  animation-play-state: paused;
+}
+
+.zeas-ticker-items {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
-.zeas-ticker-content {
-  display: inline-block;
-  padding-left: 100%;
-  animation: zeasTickerScroll 35s linear infinite;
+.zeas-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  letter-spacing: 0.2px;
 }
 
-@keyframes zeasTickerScroll {
+.zeas-ticker-bullet {
+  margin-left: 32px;
+  color: #38bdf8;
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+@keyframes zeasSeamlessLoop {
   0% {
     transform: translate3d(0, 0, 0);
   }
   100% {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 }
+
+/* Backward compatibility for any inline zeas-ticker-content */
+.zeas-ticker-content {
+  display: inline-block;
+  white-space: nowrap;
+  animation: zeasSeamlessLoop 35s linear infinite;
+}
+
+/* ==========================================================================
+   10. VOICE SEARCH MIC BUTTON
+   ========================================================================== */
+.zeas-blue-search-mic-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  color: #2563eb;
+}
+
+.zeas-blue-search-mic-btn:hover {
+  background: #eff6ff;
+}
+
+.zeas-blue-search-mic-btn.listening {
+  background: #fee2e2;
+  color: #ef4444;
+  animation: micPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes micPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Real-Time Live Speech Feedback Floating Pill & Soundwave */
+.zeas-voice-active-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zeas-voice-ping-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.4);
+  animation: voicePing 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes voicePing {
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.zeas-voice-feedback-pill {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 2px solid #2563eb;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px -5px rgba(37, 99, 235, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.08);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 120;
+  animation: voiceSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+}
+
+.zeas-voice-feedback-pill.is-done {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+@keyframes voiceSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zeas-voice-soundwave {
+  display: flex;
+  align-items: center;
+  gap: 3.5px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.zeas-voice-soundwave .wave-bar {
+  width: 3.5px;
+  background: #ef4444;
+  border-radius: 3px;
+  animation: waveBounce 0.8s ease-in-out infinite alternate;
+}
+
+.zeas-voice-soundwave .bar-1 { height: 10px; animation-delay: 0.1s; }
+.zeas-voice-soundwave .bar-2 { height: 20px; animation-delay: 0.3s; }
+.zeas-voice-soundwave .bar-3 { height: 15px; animation-delay: 0.2s; }
+.zeas-voice-soundwave .bar-4 { height: 9px;  animation-delay: 0.4s; }
+
+.zeas-voice-feedback-pill.is-done .zeas-voice-soundwave .wave-bar {
+  background: #10b981;
+  animation: none;
+  height: 12px;
+}
+
+@keyframes waveBounce {
+  0% { transform: scaleY(0.35); }
+  100% { transform: scaleY(1.3); }
+}
+
+.zeas-voice-feedback-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.zeas-voice-feedback-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ef4444;
+  line-height: 1.2;
+}
+
+.zeas-voice-feedback-pill.is-done .zeas-voice-feedback-label {
+  color: #059669;
+}
+
+.zeas-voice-feedback-query {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.zeas-voice-stop-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.zeas-voice-stop-btn:hover {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+/* Fuzzy Search & Typo Detection Badge */
+.zeas-fuzzy-detected-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   11. CUSTOMER AUTHENTICATION NAVBAR ACTIONS
+   ========================================================================== */
+.zeas-blue-btn-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.zeas-blue-btn-signin:hover {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.zeas-blue-user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zeas-blue-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  padding: 4px 10px 4px 6px;
+}
+
+.zeas-blue-user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zeas-blue-user-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zeas-blue-btn-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  border-radius: 9999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zeas-blue-btn-signout:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+/* ==========================================================================
+   12. DEDICATED WISHLIST VIEW / PAGE
+   ========================================================================== */
+.dedicated-wishlist-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  animation: fadeIn 0.25s ease;
+}
+
+.dedicated-wishlist-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.dedicated-wishlist-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: all 0.15s ease;
+}
+
+.dedicated-wishlist-back-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.dedicated-wishlist-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.dedicated-wishlist-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 6px 0 0;
+}
+
+.dedicated-wishlist-clear-btn {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dedicated-wishlist-clear-btn:hover {
+  background: #fee2e2;
+}
+
+.dedicated-wishlist-empty {
+  text-align: center;
+  padding: 80px 20px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px dashed #cbd5e1;
+  margin-top: 32px;
+}
+
+.dedicated-wishlist-empty-icon {
+  font-size: 54px;
+  margin-bottom: 12px;
+}
+
+.dedicated-wishlist-empty h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.dedicated-wishlist-empty p {
+  font-size: 14px;
+  color: #64748b;
+  max-width: 480px;
+  margin: 0 auto 20px;
+  line-height: 1.5;
+}
+
+.dedicated-wishlist-explore-btn {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  transition: all 0.2s ease;
+}
+
+.dedicated-wishlist-explore-btn:hover {
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   13. LOGO ROYAL BLUE THEME IN SHOP DETAILS MODAL & HIGH CLARITY HERO
+   ========================================================================== */
+.zeas-shop-modal-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.zeas-shop-modal-nav-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.zeas-shop-modal-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.zeas-shop-loc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.zeas-shop-modal-search {
+  flex: 1;
+  max-width: 540px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zeas-shop-modal-search:hover {
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.zeas-shop-modal-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.zeas-shop-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.zeas-shop-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-shop-action-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.zeas-shop-action-btn.saved {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+}
+
+.zeas-shop-btn-close-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-shop-btn-close-header:hover {
+  background: #1e293b;
+}
+
+/* Sleek Breadcrumb Sub-nav Strip under ZeashellNavbar */
+.zeas-shop-nav-strip {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.zeas-shop-nav-strip-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.zeas-shop-strip-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-shop-strip-back-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.zeas-shop-strip-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.zeas-shop-strip-breadcrumbs span {
+  font-weight: 500;
+}
+
+.zeas-shop-strip-breadcrumbs .crumb-active {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.zeas-shop-strip-breadcrumbs .crumb-shop {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.zeas-shop-strip-close-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-shop-strip-close-btn:hover {
+  background: #1e293b;
+}
+
+.zeas-shop-cat-strip {
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  padding: 6px 24px;
+}
+
+.zeas-shop-cat-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.zeas-shop-cat-crumb {
+  font-weight: 600;
+  color: #475569;
+}
+
+.zeas-shop-cat-crumb.active {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.zeas-shop-cat-arrow {
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.zeas-shop-cat-title-crumb {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* High-Clarity Photo Hero Container (Ultra-sharp, crystal clear, unblurred) */
+.zeas-fs-hero-wrapper {
+  position: relative;
+  width: 100%;
+  background: #0b1120;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.zeas-fs-hero-backdrop {
+  display: none !important;
+}
+
+.zeas-fs-hero-stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1220px;
+  height: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0f1d;
+}
+
+.zeas-fs-hero-stage .zeas-fs-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  filter: contrast(1.02) saturate(1.03);
+  display: block;
+}
+
+.zeas-fs-thumb-strip {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 1220px;
+  padding: 10px 20px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.zeas-fs-thumb-item {
+  width: 72px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: all 0.2s ease;
+}
+
+.zeas-fs-thumb-item:hover,
+.zeas-fs-thumb-item.active {
+  opacity: 1;
+  border-color: #2563eb;
+  transform: scale(1.04);
+}
+
+.zeas-fs-thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ==========================================================================
+   14. ABOUT & SOCIAL MEDIA SIDE-BY-SIDE GRID (ELIMINATES UNWANTED WHITE SPACE)
+   ========================================================================== */
+.zeas-fs-about-social-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.zeas-fs-about-card,
+.zeas-fs-social-card {
+  margin-top: 0 !important;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 860px) {
+  .zeas-fs-about-social-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   15. BULLETPROOF VIEWPORT-FIXED MODAL SYSTEM & CUSTOMER AUTH (LOGIN & REGISTER)
+   Guarantees ALL modals pop up centered in viewport & NEVER after footer
+   ========================================================================== */
+.modal-backdrop,
+.customer-auth-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+.customer-auth-modal-card {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.4), 0 0 1px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1000000;
+  max-height: 92vh;
+  margin: auto;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  animation: customerModalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes customerModalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.customer-auth-header {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  padding: 22px 24px 18px;
+  color: #ffffff;
+  position: relative;
+}
+
+.customer-auth-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.customer-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-auth-brand-logo {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+
+.customer-auth-brand-logo span {
+  color: #93c5fd;
+}
+
+.customer-auth-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.customer-auth-close-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: rotate(90deg);
+}
+
+.customer-auth-header-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.customer-auth-header-desc {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #dbeafe;
+}
+
+/* Tabs: Login vs Register */
+.customer-auth-tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  margin: 18px 24px 0;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.customer-auth-tab-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.customer-auth-tab-btn.active {
+  background: #ffffff;
+  color: #1e40af;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.customer-auth-body {
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.customer-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.customer-auth-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.customer-auth-input,
+.customer-auth-select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.customer-auth-input:focus,
+.customer-auth-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.customer-auth-phone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-auth-country-code {
+  padding: 11px 12px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.customer-auth-btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.customer-auth-btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
+}
+
+.customer-auth-switch-prompt {
+  text-align: center;
+  font-size: 12.5px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.customer-auth-switch-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   14. ENVATO ELEMENTS STYLE HERO SPLIT BANNER (Left Text / Right Seamless Video)
+   ========================================================================== */
+
+.zeas-envato-hero-container {
+  width: 100%;
+  max-width: 1440px;
+  margin: 16px auto 24px;
+  padding: 0 16px;
+  position: relative;
+  user-select: none;
+}
+
+.zeas-envato-hero-inner {
+  display: flex;
+  align-items: stretch;
+  min-height: 380px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 12px 36px -8px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.zeas-envato-hero-left {
+  flex: 1.15;
+  padding: 44px 44px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 5;
+  background: #ffffff;
+}
+
+.zeas-envato-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.badge-sparkle {
+  color: #f59e0b;
+}
+
+.zeas-envato-hero-title {
+  font-size: clamp(24px, 3.2vw, 38px);
+  font-weight: 850;
+  line-height: 1.18;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
+}
+
+.zeas-envato-gradient-text {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline;
+}
+
+.zeas-envato-hero-desc {
+  font-size: clamp(13.5px, 1.2vw, 15.5px);
+  color: #475569;
+  line-height: 1.55;
+  margin: 0 0 20px;
+  max-width: 580px;
+}
+
+.zeas-envato-tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.zeas-envato-pill-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.zeas-envato-pill-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.zeas-envato-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.zeas-envato-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+}
+
+.zeas-envato-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+}
+
+.zeas-envato-hero-right {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+  min-height: 380px;
+}
+
+/* THE SEAMLESS SHADE OVERLAY (Right video smoothly shades into left white container) */
+.zeas-envato-shade-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 160px;
+  background: linear-gradient(to right, #ffffff 0%, rgba(255, 255, 255, 0.95) 20%, rgba(255, 255, 255, 0.5) 60%, transparent 100%);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.zeas-envato-media-wrap {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.zeas-envato-video-player {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.zeas-envato-media-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.zeas-envato-media-indicator {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 4;
+}
+
+.zeas-envato-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.zeas-envato-nav-arrow:hover {
+  background: #ffffff;
+  color: #2563eb;
+  transform: translateY(-50%) scale(1.08);
+}
+
+.zeas-envato-nav-arrow.prev {
+  left: 26px;
+}
+
+.zeas-envato-nav-arrow.next {
+  right: 26px;
+}
+
+.zeas-envato-indicators {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.zeas-envato-dot {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.4);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s ease;
+}
+
+.zeas-envato-dot.active {
+  width: 38px;
+  background: #2563eb;
+}
+
+/* RESPONSIVE MOBILE VIEW FOR ENVATO SPLIT HERO */
+@media (max-width: 900px) {
+  .zeas-envato-hero-inner {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .zeas-envato-hero-right {
+    min-height: 220px;
+    height: 220px;
+    order: -1;
+  }
+
+  .zeas-envato-shade-overlay {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 70px;
+    background: linear-gradient(to bottom, transparent 0%, #ffffff 100%);
+  }
+
+  .zeas-envato-hero-left {
+    padding: 24px 20px 28px;
+  }
+
+  .zeas-envato-nav-arrow {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   15. BOTTOM AUTO-SLIDING AD BANNER (Placed right above footer)
+   ========================================================================== */
+
+.zeas-bottom-ad-wrapper {
+  width: calc(100% - 32px);
+  max-width: 1400px;
+  margin: 40px auto 20px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #0f172a;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  user-select: none;
+}
+
+.zeas-bottom-ad-badge {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  background: rgba(37, 99, 235, 0.95);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  z-index: 10;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+
+.zeas-bottom-ad-track {
+  display: flex;
+  width: 100%;
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.zeas-bottom-ad-slide {
+  min-width: 100%;
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  cursor: pointer;
+  height: clamp(140px, 20vw, 280px);
+  overflow: hidden;
+  position: relative;
+}
+
+.zeas-bottom-ad-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
+  margin: 0;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0);
+  transition: transform 0.35s ease;
+}
+
+.zeas-bottom-ad-slide:hover .zeas-bottom-ad-image {
+  transform: scale(1.015);
+}
+
+.zeas-bottom-ad-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.zeas-bottom-ad-arrow:hover {
+  background: #ffffff;
+  color: #2563eb;
+  transform: translateY(-50%) scale(1.08);
+}
+
+.zeas-bottom-ad-arrow.prev {
+  left: 14px;
+}
+
+.zeas-bottom-ad-arrow.next {
+  right: 14px;
+}
+
+.zeas-bottom-ad-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.zeas-bottom-ad-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.zeas-bottom-ad-dot.active {
+  width: 22px;
+  border-radius: 4px;
+  background: #2563eb;
+}
+
+/* ==========================================================================
+   LEGAL / POLICIES DROPDOWN NEXT TO NAVBAR SEARCH BAR
+   ========================================================================== */
+.zeas-legal-dropdown-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  z-index: 100;
+}
+
+.zeas-legal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.zeas-legal-btn:hover,
+.zeas-legal-btn.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.zeas-legal-badge-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+.zeas-legal-menu-card {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  z-index: 1000;
+  animation: zeasLegalDropIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zeasLegalDropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.zeas-legal-card-header {
+  padding: 6px 12px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.zeas-legal-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.zeas-legal-menu-item:hover {
+  background: #f8fafc;
+}
+
+.zeas-legal-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.zeas-legal-item-icon.blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.zeas-legal-item-icon.green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.zeas-legal-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zeas-legal-item-content strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.zeas-legal-item-content span {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.zeas-legal-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 6px;
+}
+
+/* ==========================================================================
+   POLICY MODAL OVERLAY & DIALOG (Modern Reader Experience)
+   ========================================================================== */
+.zeas-policy-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: zeasModalFadeIn 0.2s ease;
+}
+
+@keyframes zeasModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.zeas-policy-modal-dialog {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 740px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  animation: zeasModalScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zeasModalScaleUp {
+  from { transform: scale(0.96) translateY(10px); }
+  to { transform: scale(1) translateY(0); }
+}
+
+.zeas-policy-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.zeas-policy-modal-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zeas-policy-modal-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  width: fit-content;
+}
+
+.zeas-policy-modal-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 4px 0 2px;
+}
+
+.zeas-policy-modal-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.zeas-policy-modal-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: none;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-policy-modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.zeas-policy-modal-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.zeas-policy-modal-content {
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: #334155;
+  white-space: pre-line;
+  font-family: inherit;
+}
+
+.zeas-policy-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.zeas-policy-updated-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.zeas-policy-confirm-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zeas-policy-confirm-btn:hover {
+  background: #1d4ed8;
+}
+
+
+

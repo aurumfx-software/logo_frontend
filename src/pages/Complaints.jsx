@@ -189,7 +189,7 @@ export default function Complaints() {
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
       <PageHeader
         title="Complaints"
-        subtitle="Manage complaints & disputes between users and merchants in PostgreSQL"
+        subtitle="Manage complaints & disputes between users and merchants"
       >
         <button className="btn btn-outline" onClick={loadComplaints}>
           <HiOutlineRefresh /> Refresh

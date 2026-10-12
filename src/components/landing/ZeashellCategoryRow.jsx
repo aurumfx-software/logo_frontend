@@ -36,7 +36,7 @@ export default function ZeashellCategoryRow({
           </h2>
           <button
             type="button"
-            className="zeas-blue-view-all-btn"
+            className="zeas-blue-view-all-btn zeas-blue-see-all-link"
             onClick={() => setShowAllModal(true)}
           >
             All Categories <HiChevronRight size={18} />
@@ -202,10 +202,17 @@ export default function ZeashellCategoryRow({
               }}
             >
               {modalFilteredCategories.map((cat, idx) => {
-                const catName = cat.name || cat.title || cat.category_name;
+                const rawName = cat.name || cat.title || cat.category_name || '';
+                // Ensure name is not a URL
+                const catName = rawName.startsWith('http') ? 'Category' : rawName;
+                if (!catName || catName === 'Category') return null;
+
                 const isSelected =
                   activeCategory !== 'all' &&
-                  activeCategory.toLowerCase() === (catName || '').toLowerCase();
+                  activeCategory.toLowerCase() === catName.toLowerCase();
+
+                const iconUrl = cat.icon_url || (typeof cat.icon === 'string' && cat.icon.startsWith('http') ? cat.icon : '');
+                const emojiIcon = !iconUrl && typeof cat.icon === 'string' && cat.icon.length <= 4 ? cat.icon : '🏷️';
 
                 return (
                   <button
@@ -228,7 +235,18 @@ export default function ZeashellCategoryRow({
                       transition: 'all 0.2s ease',
                     }}
                   >
-                    <span style={{ fontSize: 18 }}>{cat.icon || '🏷️'}</span>
+                    {iconUrl ? (
+                      <img
+                        src={iconUrl}
+                        alt=""
+                        style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0 }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{emojiIcon}</span>
+                    )}
                     <span
                       style={{
                         fontSize: 13,

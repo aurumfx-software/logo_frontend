@@ -64,23 +64,16 @@ export async function createPromotion(promoData) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  if (!response || !response.ok) {
-    response = await apiFetch('/promotions', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  }
-  if (!response || !response.ok) {
-    response = await apiFetch('/admin/promotions', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  }
 
   const resData = await response.json().catch(() => ({}));
 
   if (!response || !response.ok || resData.success === false) {
-    throw new Error(resData.message || resData.detail || 'Failed to create promotion');
+    const errorMsg =
+      resData.detail ||
+      resData.message ||
+      (typeof resData === 'string' ? resData : null) ||
+      `Server error: HTTP ${response?.status || '500'}`;
+    throw new Error(errorMsg);
   }
 
   const createdPromo = resData.data || resData.promotion || resData;
@@ -125,23 +118,16 @@ export async function updatePromotion(id, promoData) {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
-  if (!response || !response.ok) {
-    response = await apiFetch(`/promotions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-  }
-  if (!response || !response.ok) {
-    response = await apiFetch(`/admin/promotions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-  }
 
   const resData = await response.json().catch(() => ({}));
 
   if (!response || !response.ok || resData.success === false) {
-    throw new Error(resData.message || resData.detail || 'Failed to update promotion');
+    const errorMsg =
+      resData.detail ||
+      resData.message ||
+      (typeof resData === 'string' ? resData : null) ||
+      `Server error: HTTP ${response?.status || '500'}`;
+    throw new Error(errorMsg);
   }
 
   return resData.data || resData.promotion || resData;
@@ -226,17 +212,16 @@ export async function uploadPromotionMedia(file) {
  */
 export async function deletePromotion(id) {
   let response = await apiFetch(`/api/v1/promotions/${id}`, { method: 'DELETE' });
-  if (!response || !response.ok) {
-    response = await apiFetch(`/promotions/${id}`, { method: 'DELETE' });
-  }
-  if (!response || !response.ok) {
-    response = await apiFetch(`/admin/promotions/${id}`, { method: 'DELETE' });
-  }
 
   const resData = await response.json().catch(() => ({}));
 
   if (!response || !response.ok || resData.success === false) {
-    throw new Error(resData.message || resData.detail || 'Failed to delete promotion');
+    const errorMsg =
+      resData.detail ||
+      resData.message ||
+      (typeof resData === 'string' ? resData : null) ||
+      `Server error: HTTP ${response?.status || '500'}`;
+    throw new Error(errorMsg);
   }
 
   return true;

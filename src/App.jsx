@@ -56,6 +56,7 @@ function AppRoutes() {
       <Route path="/category.php" element={<LandingPage defaultTab="categories" />} />
       <Route path="/places" element={<LandingPage defaultTab="places" />} />
       <Route path="/place/:id" element={<MerchantDetail isPublic={true} />} />
+      <Route path="/merchant/:id" element={<MerchantDetail isPublic={true} />} />
       <Route path="/merchant-detail/:id" element={<MerchantDetail isPublic={true} />} />
       <Route path="/contact" element={<LandingPage defaultTab="contact" />} />
 

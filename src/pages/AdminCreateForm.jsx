@@ -200,7 +200,7 @@ export default function AdminCreateForm() {
             <div>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Record Created Successfully!</h3>
               <p style={{ margin: 0, fontSize: 13, color: '#166534' }}>
-                New row inserted into PostgreSQL / Database table (ID: <strong>{successRecord.id}</strong>)
+                New row inserted into Database table (ID: <strong>{successRecord.id}</strong>)
               </p>
             </div>
           </div>

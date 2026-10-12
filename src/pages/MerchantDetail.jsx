@@ -28,6 +28,7 @@ import {
 } from 'react-icons/fa';
 import { fetchMerchantsList, getMerchantById } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
+import ZeashellShopModal from '../components/landing/ZeashellShopModal';
 
 function formatSocialUrl(url) {
   if (!url) return '';
@@ -41,6 +42,29 @@ function formatSocialUrl(url) {
 
 // Standard fallback establishments matching landing page & screenshot
 const FALLBACK_MERCHANTS = [
+  {
+    id: 'mock-001',
+    name: 'Kerala Spice Garden Restaurant',
+    business_name: 'Kerala Spice Garden Restaurant',
+    category: 'Restaurants',
+    address: 'MG Road, Ernakulam, Kochi, Kerala 682011',
+    city: 'Ernakulam',
+    district: 'Ernakulam',
+    phone: '+91 484 236 7890',
+    whatsapp: '914842367890',
+    rating: 5.0,
+    reviews: 342,
+    service_timing: '11:00 AM - 10:30 PM',
+    about:
+      'Authentic Kerala cuisine with traditional recipes passed down through generations. Famous for our fish curry and appam.',
+    description:
+      'Authentic Kerala cuisine with traditional recipes passed down through generations. Famous for our fish curry and appam.',
+    image:
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&auto=format&fit=crop&q=80',
+    latitude: 9.9716,
+    longitude: 76.2846,
+    status: 'active',
+  },
   {
     id: 'm1',
     name: 'HOTEL TOPFORM',
@@ -226,12 +250,22 @@ export default function MerchantDetail({ isPublic = false }) {
     'https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&auto=format&fit=crop&q=80',
   ];
 
-  const photos =
+  const upgradeDetailPhoto = (url) => {
+    if (!url || typeof url !== 'string') return '';
+    let res = url.trim();
+    if (res.includes('images.unsplash.com')) {
+      res = res.replace(/w=\d+/, 'w=1600').replace(/q=\d+/, 'q=90');
+    }
+    return res;
+  };
+
+  const photos = (
     rawPhotos.length > 1
       ? rawPhotos
       : rawPhotos.length === 1
       ? [rawPhotos[0], ...defaultFallbackPhotos.slice(1)]
-      : defaultFallbackPhotos;
+      : defaultFallbackPhotos
+  ).map(upgradeDetailPhoto);
 
   // Key highlights
   const highlights =
@@ -263,6 +297,15 @@ export default function MerchantDetail({ isPublic = false }) {
           <p style={{ color: '#64748B', fontWeight: 600, fontSize: 15 }}>Loading merchant details...</p>
         </div>
       </div>
+    );
+  }
+
+  if (isPublic && merchant) {
+    return (
+      <ZeashellShopModal
+        merchant={merchant}
+        onClose={handleBack}
+      />
     );
   }
 
@@ -429,11 +472,13 @@ export default function MerchantDetail({ isPublic = false }) {
                 height: 'clamp(220px, 42vw, 380px)',
                 objectFit: 'cover',
                 display: 'block',
+                imageRendering: '-webkit-optimize-contrast',
+                filter: 'contrast(1.02) saturate(1.02)',
               }}
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src =
-                  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000&auto=format&fit=crop&q=80';
+                  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&auto=format&fit=crop&q=90';
               }}
             />
 

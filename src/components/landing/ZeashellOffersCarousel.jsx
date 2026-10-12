@@ -25,12 +25,12 @@ export default function ZeashellOffersCarousel({ offers = [], onSelectOffer }) {
     }
   }, []);
 
-  // Auto-scroll every 3.5 seconds
+  // Auto-scroll every 3 seconds
   useEffect(() => {
     if (isPaused || offers.length === 0) return;
     const timer = setInterval(() => {
       scroll('next');
-    }, 3500);
+    }, 3000);
     return () => clearInterval(timer);
   }, [isPaused, offers.length, scroll]);
 

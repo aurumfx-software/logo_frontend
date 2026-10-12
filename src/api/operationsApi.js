@@ -199,6 +199,16 @@ export const contentApi = {
     return json.data || [];
   },
 
+  async getPolicy(key) {
+    let res = await apiFetch(`/api/v1/content/policies/${key}`);
+    if (!res || !res.ok) {
+      res = await apiFetch(`/api/v1/content/public/policies/${key}`);
+    }
+    if (!res.ok) throw new Error('Failed to fetch policy');
+    const json = await res.json();
+    return json.data;
+  },
+
   async updatePolicy(key, content, label = null) {
     const res = await apiFetch(`/api/v1/content/policies/${key}`, {
       method: 'PUT',
@@ -326,8 +336,11 @@ export const geographyApi = {
 // REPORTS API
 // ========================
 export const reportsApi = {
-  async getOverview({ fromDate = '', toDate = '' } = {}) {
+  async getOverview({ fromDate = '', toDate = '', year = null } = {}) {
     const params = new URLSearchParams();
+    if (year !== null && year !== undefined && year !== '') {
+      params.append('year', year === 'all' ? 0 : year);
+    }
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
 
@@ -338,7 +351,11 @@ export const reportsApi = {
     return json.data;
   },
 
-  getExportCsvUrl(type = 'merchants') {
-    return `${BASE_URL}/api/v1/reports/export/csv?type=${type}`;
+  getExportCsvUrl(type = 'merchants', year = null) {
+    let url = `${BASE_URL}/api/v1/reports/export/csv?type=${type}`;
+    if (year !== null && year !== undefined && year !== '') {
+      url += `&year=${year === 'all' ? 0 : year}`;
+    }
+    return url;
   },
 };

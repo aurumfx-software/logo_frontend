@@ -11,6 +11,7 @@ import { FaHeart, FaRegHeart } from 'react-icons/fa';
 export default function ZeashellMerchantCard({
   merchant,
   userCoordinates,
+  merchantCoords,
   isFavorite = false,
   onToggleFavorite,
   onViewShop,
@@ -20,23 +21,41 @@ export default function ZeashellMerchantCard({
   const shopName = merchant.business_name || merchant.name || 'Local Business';
   const categoryName = merchant.category || (merchant.categories && merchant.categories[0]) || 'General';
   const locationText = merchant.city || merchant.location || merchant.district || 'Kerala';
-  const phoneText = merchant.phone || merchant.contact_number || merchant.phone_number;
+  const phoneText =
+    merchant.phone ||
+    merchant.phone_number ||
+    merchant.contact_number ||
+    merchant.whatsapp ||
+    merchant.mobile ||
+    '';
   const ratingValue = merchant.rating ? Number(merchant.rating).toFixed(1) : '4.8';
   const reviewCount = merchant.reviews_count || merchant.reviews || 42;
 
-  // Cover image: photo_1 or first merchant_photo or image
-  const coverImage =
+  const [hasImgError, setHasImgError] = React.useState(false);
+
+  // Check if image is a placeholder bag image or invalid
+  const isBagOrInvalidPhoto = (url) => {
+    if (!url || typeof url !== 'string') return true;
+    return url.includes('1553062407-98eeb64c6a62') || url.includes('f183f22512ae4d35990bbef9cbb018fe');
+  };
+
+  // Cover image: photo_1 or first merchant_photo or image (never fallback to bag image)
+  const rawCandidate =
     merchant.photo_1 ||
     (merchant.merchant_photos && merchant.merchant_photos[0]) ||
+    (merchant.photos && merchant.photos[0]) ||
     merchant.image ||
     merchant.profile_picture ||
-    'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
+    '';
+
+  const coverImage = isBagOrInvalidPhoto(rawCandidate) ? '' : rawCandidate;
+  const hasValidImage = Boolean(coverImage && !hasImgError);
 
   // Distance calculation via Haversine formula
   const distanceText = React.useMemo(() => {
     if (!userCoordinates || !userCoordinates.lat || !userCoordinates.lng) return null;
-    const mLat = merchant.latitude ? Number(merchant.latitude) : null;
-    const mLng = merchant.longitude ? Number(merchant.longitude) : null;
+    const mLat = merchantCoords?.lat || (merchant.latitude ? Number(merchant.latitude) : null);
+    const mLng = merchantCoords?.lng || (merchant.longitude ? Number(merchant.longitude) : null);
     if (!mLat || !mLng) return null;
 
     const R = 6371; // km
@@ -65,17 +84,42 @@ export default function ZeashellMerchantCard({
       tabIndex={0}
       aria-label={`View ${shopName}`}
     >
-      {/* 16:10 Aspect Ratio Image */}
+      {/* 16:10 Aspect Ratio Image Container */}
       <div className="zeas-blue-merchant-card-image">
-        <img
-          src={coverImage}
-          alt={shopName}
-          loading="lazy"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80';
-          }}
-        />
+        {hasValidImage ? (
+          <img
+            src={coverImage}
+            alt={shopName}
+            loading="lazy"
+            onError={() => setHasImgError(true)}
+          />
+        ) : (
+          <div className="zeas-merchant-empty-theme">
+            <div className="zeas-merchant-empty-pattern" />
+            <div className="zeas-merchant-empty-icon-wrap">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="zeas-empty-store-icon"
+              >
+                <path d="M3 9l2-5h14l2 5" />
+                <path d="M21 9v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9" />
+                <path d="M3 9h18" />
+                <path d="M9 22V12h6v10" />
+              </svg>
+            </div>
+            <div className="zeas-merchant-empty-info">
+              <span className="zeas-merchant-empty-title">STOREFRONT</span>
+              <span className="zeas-merchant-empty-sub">{categoryName}</span>
+            </div>
+          </div>
+        )}
 
         {/* Favorite Heart Button */}
         <button
@@ -137,28 +181,39 @@ export default function ZeashellMerchantCard({
         <button
           type="button"
           className="zeas-blue-btn-action-primary"
-          onClick={() => onViewShop && onViewShop(merchant)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewShop && onViewShop(merchant);
+          }}
         >
           🏪 View Shop
         </button>
         <button
           type="button"
           className="zeas-blue-btn-action-secondary"
-          onClick={() => onDirections && onDirections(merchant)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDirections && onDirections(merchant);
+          }}
           title="Get Directions on Google Maps"
         >
           🧭 Directions
         </button>
-        {phoneText && (
-          <button
-            type="button"
-            className="zeas-blue-btn-action-secondary"
-            onClick={() => onCall && onCall(phoneText)}
-            title={`Call ${phoneText}`}
-          >
-            <HiPhone size={13} /> Call
-          </button>
-        )}
+        <button
+          type="button"
+          className="zeas-blue-btn-action-secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (phoneText) {
+              onCall && onCall(phoneText, merchant);
+            } else {
+              onViewShop && onViewShop(merchant);
+            }
+          }}
+          title={phoneText ? `Call ${phoneText}` : 'Contact Info'}
+        >
+          <HiPhone size={13} /> {phoneText ? 'Call' : 'Contact'}
+        </button>
       </div>
     </article>
   );

@@ -4,7 +4,6 @@ import {
   HiOutlineDocumentText,
   HiOutlineShieldCheck,
   HiOutlineBell,
-  HiOutlineSpeakerphone,
   HiOutlinePencil,
   HiOutlinePlus,
   HiOutlineTrash,
@@ -18,7 +17,6 @@ export default function Content() {
   const [activeTab, setActiveTab] = useState('terms');
   const [policies, setPolicies] = useState({});
   const [notifications, setNotifications] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -26,26 +24,24 @@ export default function Content() {
   const [policyContentEdit, setPolicyContentEdit] = useState('');
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [newNotif, setNewNotif] = useState({ title: '', message: '', status: 'active' });
-  const [showAnnModal, setShowAnnModal] = useState(false);
-  const [newAnn, setNewAnn] = useState({ title: '', message: '', pinned: false });
   const [submitting, setSubmitting] = useState(false);
 
   const loadAllContent = async () => {
     setLoading(true);
     try {
-      const [policiesData, notifsData, annsData] = await Promise.all([
+      const [policiesData, notifsData] = await Promise.all([
         contentApi.getPolicies().catch(() => []),
         contentApi.getNotifications().catch(() => []),
-        contentApi.getAnnouncements().catch(() => []),
       ]);
 
       const policyMap = {};
-      policiesData.forEach((p) => {
-        policyMap[p.key] = p;
-      });
+      if (Array.isArray(policiesData)) {
+        policiesData.forEach((p) => {
+          policyMap[p.key] = p;
+        });
+      }
       setPolicies(policyMap);
-      setNotifications(notifsData);
-      setAnnouncements(annsData);
+      setNotifications(Array.isArray(notifsData) ? notifsData : []);
     } catch (err) {
       console.error('Error loading content:', err);
     } finally {
@@ -63,6 +59,7 @@ export default function Content() {
       const updated = await contentApi.updatePolicy(activeTab, policyContentEdit);
       setPolicies((prev) => ({ ...prev, [activeTab]: updated }));
       setShowEditPolicyModal(false);
+      alert(`${activeTab === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'} successfully saved to database!`);
     } catch (err) {
       alert(`Failed to save policy: ${err.message}`);
     } finally {
@@ -100,45 +97,20 @@ export default function Content() {
     }
   };
 
-  const handleCreateAnnouncement = async () => {
-    if (!newAnn.title.trim() || !newAnn.message.trim()) return;
-    setSubmitting(true);
-    try {
-      const created = await contentApi.createAnnouncement(newAnn);
-      setAnnouncements([created, ...announcements]);
-      setShowAnnModal(false);
-      setNewAnn({ title: '', message: '', pinned: false });
-    } catch (err) {
-      alert(`Failed to create announcement: ${err.message}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteAnnouncement = async (id) => {
-    if (!window.confirm('Delete this announcement?')) return;
-    try {
-      await contentApi.deleteAnnouncement(id);
-      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
-    } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
-    }
-  };
-
   const currentPolicy = policies[activeTab] || {
-    label: activeTab === 'terms' ? 'Terms of Service' : 'Privacy Policy',
-    last_updated: '2024-08-15',
+    label: activeTab === 'terms' ? 'Terms and Conditions' : 'Privacy Policy',
+    last_updated: '2026-10-11',
     content:
       activeTab === 'terms'
-        ? 'These Terms of Service govern your use of the Logo App platform...'
-        : 'Your privacy is important to us. This Privacy Policy explains how we collect and protect data...',
+        ? 'Welcome to Logo Kerala. These Terms and Conditions govern your access to and use of our directory platform...'
+        : 'At Logo Kerala, we respect your privacy. This policy outlines how information is collected and protected...',
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
       <PageHeader
         title="Content Management"
-        subtitle="Manage app content, policies, notifications & announcements in PostgreSQL"
+        subtitle="Manage app legal policies (Terms & Conditions, Privacy Policy) & notifications"
       >
         <button className="btn btn-outline" onClick={loadAllContent}>
           <HiOutlineRefresh /> Refresh
@@ -147,10 +119,9 @@ export default function Content() {
 
       <div className="tabs">
         {[
-          { key: 'terms', label: 'Terms of Service', icon: <HiOutlineDocumentText /> },
+          { key: 'terms', label: 'Terms & Conditions', icon: <HiOutlineDocumentText /> },
           { key: 'privacy', label: 'Privacy Policy', icon: <HiOutlineShieldCheck /> },
           { key: 'notifications', label: 'Push Notifications', icon: <HiOutlineBell /> },
-          { key: 'announcements', label: 'Announcements', icon: <HiOutlineSpeakerphone /> },
         ].map((s) => (
           <button
             key={s.key}
@@ -167,14 +138,13 @@ export default function Content() {
         <div className="card-header">
           <div>
             <h3 className="card-header-title">
-              {activeTab === 'terms' && 'Terms of Service'}
+              {activeTab === 'terms' && 'Terms and Conditions'}
               {activeTab === 'privacy' && 'Privacy Policy'}
               {activeTab === 'notifications' && `Push Notifications (${notifications.length})`}
-              {activeTab === 'announcements' && `Announcements (${announcements.length})`}
             </h3>
             {(activeTab === 'terms' || activeTab === 'privacy') && (
               <p style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 2 }}>
-                Last updated: {currentPolicy.last_updated}
+                Last updated in database: {currentPolicy.last_updated || '2026-10-11'}
               </p>
             )}
           </div>
@@ -196,18 +166,12 @@ export default function Content() {
               <HiOutlinePlus /> Create Notification
             </button>
           )}
-
-          {activeTab === 'announcements' && (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowAnnModal(true)}>
-              <HiOutlinePlus /> Create Announcement
-            </button>
-          )}
         </div>
 
         <div className="card-body">
           {loading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Loading content...
+              Loading legal policies...
             </div>
           ) : (
             <>
@@ -218,10 +182,14 @@ export default function Content() {
                     background: 'var(--bg)',
                     borderRadius: 'var(--radius-md)',
                     padding: 24,
+                    whiteSpace: 'pre-line',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.7,
+                    color: 'var(--text)',
                     fontSize: 14,
-                    lineHeight: 1.8,
-                    color: 'var(--text-secondary)',
-                    whiteSpace: 'pre-wrap',
+                    border: '1px solid var(--border-color)',
+                    maxHeight: '600px',
+                    overflowY: 'auto',
                   }}
                 >
                   {currentPolicy.content}
@@ -231,136 +199,72 @@ export default function Content() {
               {/* Push Notifications */}
               {activeTab === 'notifications' && (
                 <div style={{ display: 'grid', gap: 12 }}>
-                  {notifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 16,
-                        padding: 16,
-                        background: 'var(--bg)',
-                        borderRadius: 'var(--radius-md)',
-                      }}
-                    >
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-light)' }}>
+                      No push notifications yet. Click "Create Notification" above to send one.
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
                       <div
+                        key={notif.id}
                         style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--primary-ultra-light)',
-                          color: 'var(--primary)',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 18,
-                          flexShrink: 0,
+                          gap: 16,
+                          padding: 16,
+                          background: 'var(--bg)',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
                         }}
                       >
-                        <HiOutlineBell />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{notif.title}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          {notif.message}
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--primary-ultra-light)',
+                            color: 'var(--primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 18,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <HiOutlineBell />
                         </div>
-                      </div>
-                      <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{notif.title}</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            {notif.message}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <span
-                            className={`badge ${
-                              notif.status === 'active'
-                                ? 'badge-active'
-                                : notif.status === 'scheduled'
-                                ? 'badge-pending'
-                                : 'badge-info'
-                            }`}
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              color: notif.status === 'active' ? 'var(--success)' : 'var(--text-light)',
+                              background: notif.status === 'active' ? 'var(--success-light)' : 'rgba(0,0,0,0.05)',
+                              padding: '3px 8px',
+                              borderRadius: 4,
+                            }}
                           >
                             {notif.status}
                           </span>
-                          <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 4 }}>
-                            Sent: {notif.sent}
-                          </div>
-                        </div>
-                        <button
-                          className="btn btn-outline btn-sm btn-icon"
-                          style={{ color: 'var(--danger)' }}
-                          onClick={() => handleDeleteNotification(notif.id)}
-                        >
-                          <HiOutlineTrash />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Announcements */}
-              {activeTab === 'announcements' && (
-                <div style={{ display: 'grid', gap: 12 }}>
-                  {announcements.map((ann) => (
-                    <div
-                      key={ann.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 16,
-                        padding: 16,
-                        background: 'var(--bg)',
-                        borderRadius: 'var(--radius-md)',
-                        border: ann.pinned ? '1px solid var(--primary)' : '1px solid transparent',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 'var(--radius-sm)',
-                          background: ann.pinned ? 'var(--primary-ultra-light)' : '#FEF3C7',
-                          color: ann.pinned ? 'var(--primary)' : '#F59E0B',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 18,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <HiOutlineSpeakerphone />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontWeight: 600, fontSize: 14 }}>{ann.title}</span>
-                          {ann.pinned && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: 'var(--primary)',
-                                background: 'var(--primary-ultra-light)',
-                                padding: '2px 8px',
-                                borderRadius: 'var(--radius-full)',
-                              }}
-                            >
-                              PINNED
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-                          {ann.message}
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 6 }}>
-                          {ann.date}
+                          <button
+                            className="btn btn-outline btn-sm btn-icon"
+                            style={{ color: 'var(--danger)' }}
+                            onClick={() => handleDeleteNotification(notif.id)}
+                            title="Delete Notification"
+                          >
+                            <HiOutlineTrash />
+                          </button>
                         </div>
                       </div>
-                      <button
-                        className="btn btn-outline btn-sm btn-icon"
-                        style={{ color: 'var(--danger)' }}
-                        onClick={() => handleDeleteAnnouncement(ann.id)}
-                      >
-                        <HiOutlineTrash />
-                      </button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
             </>
@@ -372,24 +276,27 @@ export default function Content() {
       <Modal
         isOpen={showEditPolicyModal}
         onClose={() => setShowEditPolicyModal(false)}
-        title={`Edit ${activeTab === 'terms' ? 'Terms of Service' : 'Privacy Policy'}`}
+        title={`Edit ${activeTab === 'terms' ? 'Terms and Conditions' : 'Privacy Policy'}`}
         size="lg"
         footer={
           <>
             <button className="btn btn-outline" onClick={() => setShowEditPolicyModal(false)}>Cancel</button>
             <button className="btn btn-primary" disabled={submitting} onClick={handleSavePolicy}>
-              {submitting ? 'Saving...' : 'Save Policy'}
+              {submitting ? 'Saving to Database...' : 'Save Policy'}
             </button>
           </>
         }
       >
         <div className="form-group">
-          <label className="form-label">Policy Content (Markdown / Plain Text)</label>
+          <label className="form-label">
+            Policy Content (Will be displayed to consumers on the website and mobile app)
+          </label>
           <textarea
             className="form-input"
-            rows={10}
+            rows={14}
             value={policyContentEdit}
             onChange={(e) => setPolicyContentEdit(e.target.value)}
+            style={{ fontSize: 13.5, lineHeight: 1.6 }}
           />
         </div>
       </Modal>
@@ -439,53 +346,6 @@ export default function Content() {
             <option value="scheduled">Scheduled</option>
             <option value="sent">Sent</option>
           </select>
-        </div>
-      </Modal>
-
-      {/* Create Announcement Modal */}
-      <Modal
-        isOpen={showAnnModal}
-        onClose={() => setShowAnnModal(false)}
-        title="Create Announcement"
-        size="md"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setShowAnnModal(false)}>Cancel</button>
-            <button className="btn btn-primary" disabled={submitting} onClick={handleCreateAnnouncement}>
-              {submitting ? 'Publishing...' : 'Publish Announcement'}
-            </button>
-          </>
-        }
-      >
-        <div className="form-group">
-          <label className="form-label">Title *</label>
-          <input
-            className="form-input"
-            placeholder="e.g., Service Launch in Kannur"
-            value={newAnn.title}
-            onChange={(e) => setNewAnn({ ...newAnn, title: e.target.value })}
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Message *</label>
-          <textarea
-            className="form-input"
-            rows={3}
-            placeholder="Announcement message content..."
-            value={newAnn.message}
-            onChange={(e) => setNewAnn({ ...newAnn, message: e.target.value })}
-          />
-        </div>
-        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            id="pinned_ann"
-            checked={newAnn.pinned}
-            onChange={(e) => setNewAnn({ ...newAnn, pinned: e.target.checked })}
-          />
-          <label htmlFor="pinned_ann" style={{ fontSize: 13, cursor: 'pointer', margin: 0 }}>
-            Pin this announcement to the top
-          </label>
         </div>
       </Modal>
     </motion.div>

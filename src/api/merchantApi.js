@@ -2,6 +2,23 @@ import { apiFetch } from './apiClient';
 import { STATIC_BASE_URL } from '../config/apiConfig';
 
 /**
+ * SVG Theme for merchants with no photo uploaded
+ */
+export const EMPTY_MERCHANT_IMAGE =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='100%' height='100%'><defs><linearGradient id='bgGrad' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='%23F8FAFC'/><stop offset='50%' stop-color='%23F1F5F9'/><stop offset='100%' stop-color='%23E2E8F0'/></linearGradient><pattern id='dotGrid' x='0' y='0' width='14' height='14' patternUnits='userSpaceOnUse'><circle cx='2' cy='2' r='1.2' fill='%2364748B' opacity='0.22'/></pattern></defs><rect width='100%' height='100%' fill='url(%23bgGrad)'/><rect width='100%' height='100%' fill='url(%23dotGrid)'/><g transform='translate(200, 100)'><circle r='30' fill='%23FFFFFF' filter='drop-shadow(0 4px 10px rgba(0,0,0,0.06))'/><path d='M-14 -7 L-10 -15 L10 -15 L14 -7 Z' fill='none' stroke='%232563EB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><path d='M-14 -7 L14 -7 L14 13 C14 14.5 12.5 15.5 11 15.5 L-11 15.5 C-12.5 15.5 -14 14.5 -14 13 Z' fill='none' stroke='%232563EB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><path d='M-5 15.5 L-5 4 L5 4 L5 15.5' fill='none' stroke='%232563EB' stroke-width='2' stroke-linecap='round'/></g><text x='200' y='160' font-family='system-ui, -apple-system, sans-serif' font-size='11' font-weight='700' fill='%23475569' text-anchor='middle' letter-spacing='0.6'>STOREFRONT</text><text x='200' y='178' font-family='system-ui, -apple-system, sans-serif' font-size='10' font-weight='500' fill='%2364748B' text-anchor='middle'>No Photo Uploaded</text></svg>";
+
+/**
+ * Filter out bag stock image if previously assigned as placeholder
+ */
+export function sanitizeMerchantPhoto(url) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.includes('1553062407-98eeb64c6a62') || url.includes('f183f22512ae4d35990bbef9cbb018fe')) {
+    return '';
+  }
+  return url;
+}
+
+/**
  * Format relative photo URLs into absolute static URLs
  */
 export function formatMediaUrl(url) {
@@ -215,11 +232,11 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
         ? (m.created_at || m.createdAt || m.joined).toString().split('T')[0]
         : '2026-09-25',
       created_at: m.created_at || m.createdAt || null,
-      photos: formattedPhotos,
-      merchant_photos: formattedPhotos,
+      photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
+      merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
       merchant_videos: rawVideos,
       videoUrl: (rawVideos && rawVideos[0]) || '',
-      image: formattedPhotos[0] || m.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+      image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
       location: m.city || m.location || m.district || 'Payyanur',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || '',
@@ -370,10 +387,10 @@ export async function createMerchant(merchantData) {
     user_code: created.user_code || payload.user_code,
     status: created.status ? created.status.toLowerCase() : 'pending',
     joined: new Date().toISOString().split('T')[0],
-    photos: validPhotos,
-    merchant_photos: validPhotos,
+    photos: validPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
+    merchant_photos: validPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
     merchant_videos: rawVideos,
-    image: validPhotos[0] || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+    image: sanitizeMerchantPhoto(validPhotos[0]) || EMPTY_MERCHANT_IMAGE,
   };
 }
 
@@ -409,7 +426,7 @@ export async function fetchRegistrationRequests(filters = {}) {
           state: m.state || 'Kerala',
           status: (m.status || 'pending').toLowerCase(),
           joined: m.submitted_at || m.created_at || m.joined || new Date().toISOString().split('T')[0],
-          photos: m.photos || [m.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80'],
+          photos: (Array.isArray(m.photos) ? m.photos : [m.image]).map(sanitizeMerchantPhoto).filter(Boolean),
           raw: m,
         }));
       }
@@ -606,11 +623,11 @@ export async function searchMerchants(query, location) {
       joined: (m.created_at || m.createdAt || m.joined)
         ? (m.created_at || m.createdAt || m.joined).toString().split('T')[0]
         : new Date().toISOString().split('T')[0],
-      photos: formattedPhotos,
-      merchant_photos: formattedPhotos,
+      photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
+      merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
       merchant_videos: rawVideos,
       videoUrl: (rawVideos && rawVideos[0]) || '',
-      image: formattedPhotos[0] || m.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+      image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
       location: m.city || m.location || m.district || 'N/A',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || m.business_name || '',
@@ -674,11 +691,11 @@ export async function getMerchantById(merchantId) {
     key_highlights: Array.isArray(m.key_highlights) ? m.key_highlights : [],
     highlights: Array.isArray(m.key_highlights) ? m.key_highlights : Array.isArray(m.highlights) ? m.highlights : [],
     website: m.website || '',
-    photos: formattedPhotos,
-    merchant_photos: formattedPhotos,
+    photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
+    merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
     merchant_videos: rawVideos,
     videoUrl: (rawVideos && rawVideos[0]) || '',
-    image: formattedPhotos[0] || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+    image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
     location: m.city || m.location || m.district || 'N/A',
     categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
     description: m.about || m.description || '',
