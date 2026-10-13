@@ -148,15 +148,7 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
 
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
-  let response;
-  try {
-    response = await apiFetch(`/api/v1/merchants${queryString}`, { method: 'GET' });
-    if (!response.ok && response.status === 404) {
-      response = await apiFetch(`/api/v1/merchants/list${queryString}`, { method: 'GET' });
-    }
-  } catch {
-    response = await apiFetch(`/api/v1/merchants/list${queryString}`, { method: 'GET' });
-  }
+  const response = await apiFetch(`/api/v1/merchants${queryString}`, { method: 'GET' });
 
   const resData = await response.json();
 
@@ -543,23 +535,7 @@ export async function searchMerchants(query, location) {
 
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
-  let response;
-  try {
-    response = await apiFetch(`/api/v1/merchants/search${queryString}`, { method: 'GET' });
-    if (!response.ok && response.status === 404) {
-      const fallbackParams = new URLSearchParams();
-      if (query) fallbackParams.set('category', query);
-      if (location && location !== 'all') fallbackParams.set('location', location);
-      const fallbackQs = fallbackParams.toString() ? `?${fallbackParams.toString()}` : '';
-      response = await apiFetch(`/api/v1/merchants${fallbackQs}`, { method: 'GET' });
-    }
-  } catch {
-    const fallbackParams = new URLSearchParams();
-    if (query) fallbackParams.set('category', query);
-    if (location && location !== 'all') fallbackParams.set('location', location);
-    const fallbackQs = fallbackParams.toString() ? `?${fallbackParams.toString()}` : '';
-    response = await apiFetch(`/api/v1/merchants${fallbackQs}`, { method: 'GET' });
-  }
+  const response = await apiFetch(`/api/v1/merchants/search${queryString}`, { method: 'GET' });
 
   const resData = await response.json();
 
