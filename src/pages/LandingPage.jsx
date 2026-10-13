@@ -1693,7 +1693,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
       const savedLoc = localStorage.getItem('zeashell_user_location');
       if (savedLoc) {
         const parsed = JSON.parse(savedLoc);
-        if (parsed.lat && parsed.lng) {
+        // Ensure coordinates are legitimately inside Kerala bounds (lat 8.0 - 13.0, lng 74.5 - 77.8)
+        const isKeralaCoord =
+          parsed.lat &&
+          parsed.lng &&
+          parsed.lat >= 8.0 &&
+          parsed.lat <= 13.0 &&
+          parsed.lng >= 74.5 &&
+          parsed.lng <= 77.8;
+
+        if (isKeralaCoord) {
           setUserCoordinates({ lat: parsed.lat, lng: parsed.lng });
           if (parsed.name) {
             setUserLocationLabel(parsed.name);
@@ -1705,12 +1714,21 @@ export default function LandingPage({ defaultTab = 'home' }) {
             setSelectedLocation(parsed.name.toLowerCase());
           }
           setSortBy('nearest');
+        } else if (parsed.type === 'deny') {
+          // User chose "All Kerala" previously
+          setSelectedDistrict('all');
+        } else {
+          // Clear stale out-of-state cellular carrier coordinates
+          localStorage.removeItem('zeashell_user_location');
+          setIsLocationModalOpen(true);
         }
       } else {
-        // First visit -> Auto-detect location seamlessly using IP/GPS
+        // First visit -> Prompt location modal for clear Kerala district / GPS selection
+        setIsLocationModalOpen(true);
+        // Also seamlessly attempt GPS in background
         detectAccurateUserLocation()
           .then((loc) => {
-            if (loc && loc.lat && loc.lng) {
+            if (loc && loc.lat && loc.lng && loc.lat >= 8.0 && loc.lat <= 13.0) {
               setUserCoordinates({ lat: loc.lat, lng: loc.lng });
               if (loc.name) setUserLocationLabel(loc.name);
               setSortBy('nearest');

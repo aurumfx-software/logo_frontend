@@ -312,7 +312,8 @@ export async function detectLocationFromIP() {
 }
 
 /**
- * High-accuracy Browser Geolocation with fallback to low-accuracy and zero cache
+/**
+ * High-accuracy Browser Geolocation with realistic mobile timeouts and recent cache reuse
  */
 export function detectLocationFromBrowser(options = {}) {
   return new Promise((resolve, reject) => {
@@ -320,7 +321,7 @@ export function detectLocationFromBrowser(options = {}) {
       return reject(new Error('Geolocation is not supported by your browser.'));
     }
 
-    // Attempt high accuracy first
+    // Attempt high accuracy with cached position support (12s timeout gives user time to tap Allow)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         resolve({
@@ -331,7 +332,7 @@ export function detectLocationFromBrowser(options = {}) {
         });
       },
       (err) => {
-        // If high accuracy times out or fails, attempt quick low-accuracy
+        // If high accuracy times out or fails, attempt low accuracy with 5 min cache
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             resolve({
@@ -346,15 +347,15 @@ export function detectLocationFromBrowser(options = {}) {
           },
           {
             enableHighAccuracy: false,
-            maximumAge: 60000,
-            timeout: 5000,
+            maximumAge: 300000,
+            timeout: 10000,
           }
         );
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: options.timeout || 6000,
+        maximumAge: 120000, // 2 minutes cached position avoids cold GPS satellite delay
+        timeout: options.timeout || 12000,
       }
     );
   });
@@ -363,9 +364,10 @@ export function detectLocationFromBrowser(options = {}) {
 /**
  * Main Resilient Detection Orchestrator:
  * 1. Queries Google Geolocation API if key available.
- * 2. Tries Browser GPS (if in secure context / supported).
- * 3. ALWAYS falls back to IP Geolocation (ipwho.is / ip-api) - works 100% on HTTP & mobile devices without blocking!
- * 4. Resolves nearest Kerala district / town and sorts merchants by proximity.
+ * 2. Tries Browser GPS (High accuracy with mobile fallback).
+ * 3. Falls back to IP Geolocation.
+ * 4. Ensures coordinates stay within Kerala; guards against out-of-state cellular ISP gateways (e.g. Chennai/Bangalore).
+ * 5. Resolves nearest Kerala district / town and sorts merchants by proximity.
  */
 export async function detectAccurateUserLocation() {
   let coords = null;
@@ -379,11 +381,11 @@ export async function detectAccurateUserLocation() {
   }
 
   // 2. Try browser GPS if available
-  if (!coords && navigator.geolocation) {
+  if (!coords && typeof navigator !== 'undefined' && navigator.geolocation) {
     try {
-      coords = await detectLocationFromBrowser({ timeout: 6000 });
+      coords = await detectLocationFromBrowser({ timeout: 12000 });
     } catch (err) {
-      console.warn('Browser GPS unavailable/blocked (likely HTTP origin), falling back to IP Geolocation:', err);
+      console.warn('Browser GPS unavailable/blocked, falling back to IP Geolocation:', err?.message || err);
     }
   }
 
@@ -396,6 +398,43 @@ export async function detectAccurateUserLocation() {
       }
     } catch (err) {
       console.warn('IP Geolocation failed:', err);
+    }
+  }
+
+  // Guard against out-of-state cellular carrier IPs (Jio/Airtel IPs routed via Chennai/Bangalore/Mumbai)
+  let isOutOfStateIP = false;
+  if (coords && coords.source && coords.source.startsWith('ip_')) {
+    const lat = coords.latitude;
+    const lng = coords.longitude;
+    // Kerala bounding box is approx lat 8.1 - 12.9, lng 74.8 - 77.6
+    if (lat < 8.0 || lat > 13.0 || lng < 74.5 || lng > 77.8) {
+      isOutOfStateIP = true;
+    }
+  }
+
+  // If IP is outside Kerala, check if town/city was mentioned, otherwise throw or default to central Kerala
+  if (isOutOfStateIP) {
+    const districtFromCity = resolveDistrictFromText(coords.city || coords.region || '');
+    if (districtFromCity && KERALA_DISTRICT_COORDINATES[districtFromCity]) {
+      const d = KERALA_DISTRICT_COORDINATES[districtFromCity];
+      coords = {
+        latitude: d.lat,
+        longitude: d.lng,
+        accuracy: 10000,
+        source: 'ip_matched_kerala_city',
+        city: d.name,
+        region: 'Kerala',
+      };
+    } else {
+      // Default central Kerala hub (Kochi) with notification
+      coords = {
+        latitude: 9.9816,
+        longitude: 76.2999,
+        accuracy: 10000,
+        source: 'kerala_default',
+        city: 'Kochi',
+        region: 'Kerala',
+      };
     }
   }
 
@@ -413,16 +452,16 @@ export async function detectAccurateUserLocation() {
 
   const { latitude, longitude, accuracy, source } = coords;
 
-  // Run reverse geocoding to identify district and town
+  // Run reverse geocoding to identify district and town (BigDataCloud first as Nominatim blocks browser CORS)
   let revGeo = null;
   if (GOOGLE_MAPS_API_KEY) {
     revGeo = await reverseGeocodeGoogle(latitude, longitude, GOOGLE_MAPS_API_KEY);
   }
   if (!revGeo) {
-    revGeo = await reverseGeocodeNominatim(latitude, longitude);
+    revGeo = await reverseGeocodeBigDataCloud(latitude, longitude);
   }
   if (!revGeo) {
-    revGeo = await reverseGeocodeBigDataCloud(latitude, longitude);
+    revGeo = await reverseGeocodeNominatim(latitude, longitude);
   }
 
   // Try to match district from reverse geocoded address or IP city

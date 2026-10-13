@@ -238,7 +238,12 @@ export default function ZeashellNavbar({
   };
 
   // Web Speech API for interactive Voice Search with Real-Time Typing
-  const handleVoiceSearch = () => {
+  const handleVoiceSearch = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     // If microphone is already active, clicking toggles it off
     if (isListening) {
       if (recognitionRef.current) {
@@ -253,7 +258,7 @@ export default function ZeashellNavbar({
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Voice search is supported in Google Chrome, Microsoft Edge, and modern browsers.');
+      alert('Voice search is supported in Google Chrome, Microsoft Edge, and modern mobile browsers.');
       return;
     }
 
@@ -311,9 +316,13 @@ export default function ZeashellNavbar({
       recognition.onerror = (e) => {
         console.warn('Speech recognition warning/status:', e.error);
         if (e.error === 'no-speech') {
-          setListeningStatusText('No speech detected. Tap mic to retry.');
+          setListeningStatusText('No speech heard. Tap mic to retry.');
         } else if (e.error === 'not-allowed') {
-          setListeningStatusText('Microphone access blocked in browser.');
+          setListeningStatusText('Microphone permission blocked. Please enable mic access.');
+        } else if (e.error === 'network') {
+          setListeningStatusText('Network audio error. You can also tap the keyboard mic 🎙️');
+        } else {
+          setListeningStatusText(`Voice unavailable (${e.error || 'error'}). Use keyboard.`);
         }
         setIsListening(false);
       };
@@ -329,14 +338,15 @@ export default function ZeashellNavbar({
         }
         setTimeout(() => {
           setListeningStatusText('');
-        }, 3000);
+        }, 3500);
       };
 
       recognition.start();
     } catch (err) {
       console.error('Speech recognition failed to start:', err);
       setIsListening(false);
-      setListeningStatusText('');
+      setListeningStatusText('Could not access microphone.');
+      setTimeout(() => setListeningStatusText(''), 3500);
     }
   };
 
@@ -539,6 +549,7 @@ export default function ZeashellNavbar({
                 type="button"
                 className={`zeas-blue-search-mic-btn ${isListening ? 'listening' : ''}`}
                 onClick={handleVoiceSearch}
+                onTouchEnd={(e) => e.stopPropagation()}
                 title={isListening ? 'Listening... Speak now (Click to stop)' : 'Voice Search (Click & Speak)'}
                 aria-label="Voice Search"
               >

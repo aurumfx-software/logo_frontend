@@ -73,6 +73,7 @@ export default function ZeashellMerchantCard({
     if (dist < 1) {
       return `${Math.round(dist * 1000)} m away`;
     }
+    return `${dist.toFixed(1)} km away`;
   }, [userCoordinates, merchantCoords, merchant.latitude, merchant.longitude]);
 
   return (

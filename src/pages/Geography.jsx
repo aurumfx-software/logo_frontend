@@ -58,6 +58,10 @@ export default function Geography() {
   const [hubSearchTerm, setHubSearchTerm] = useState('');
   const [selectedZoneFilter, setSelectedZoneFilter] = useState('All');
 
+  // Zones Explorer Modal State (New: View Zones button → modal with search)
+  const [selectedHubForZones, setSelectedHubForZones] = useState(null);
+  const [zonesSearchTerm, setZonesSearchTerm] = useState('');
+
   const [newCity, setNewCity] = useState({
     city: '',
     district: 'Kannur',
@@ -252,77 +256,44 @@ export default function Geography() {
       key: 'zones',
       label: 'Commercial Zones & Locations',
       render: (val, row) => {
-        // Retrieve the EXACT zones matching row.zones (e.g. 8 for Payyanur, 5 for Taliparamba, 6 for Kannur)
+        // Retrieve the EXACT zones matching row.zones count
         const hub = getExactZonesForTown(row.city, row.state, row.zones);
         const zones = hub.zones;
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, maxWidth: 460 }}>
-            {/* Header: Exact count matching the list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Zone count badge */}
             <div style={{ fontWeight: 800, color: '#1e3a8a', fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>📍 {zones.length} Commercial Zones (All {zones.length} Listed)</span>
+              <span>📍 {zones.length} Commercial Zones</span>
             </div>
 
-            {/* Complete list of all N locations with index badges */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              {zones.map((z, idx) => {
-                const zoneTitle = z.name.replace(/^Zone \d+:\s*/, '');
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenMerchantsModal(row, zoneTitle);
-                    }}
-                    title={`${z.name} - ${z.desc} (Click to view merchants)`}
-                    style={{
-                      fontSize: 11,
-                      background: '#f8fafc',
-                      color: '#0f172a',
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      border: '1px solid #cbd5e1',
-                      fontWeight: 600,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 5,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#2563eb';
-                      e.currentTarget.style.background = '#eff6ff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#cbd5e1';
-                      e.currentTarget.style.background = '#f8fafc';
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: '#2563eb',
-                        color: '#ffffff',
-                        borderRadius: '50%',
-                        width: 16,
-                        height: 16,
-                        fontSize: 9.5,
-                        fontWeight: 800,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {idx + 1}
-                    </span>
-                    <span>{zoneTitle}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* View Zones Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZonesSearchTerm('');
+                setSelectedHubForZones({ ...hub, city: row.city, district: row.state, rowData: row });
+              }}
+              style={{
+                background: '#f0fdf4',
+                color: '#15803d',
+                border: '1px solid #bbf7d0',
+                borderRadius: 6,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'all 0.15s ease',
+                width: 'fit-content',
+              }}
+              title={`View all ${zones.length} commercial zones in ${row.city}`}
+            >
+              🗺️ View Zones
+            </button>
           </div>
         );
       },
@@ -989,6 +960,162 @@ export default function Geography() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ============================================================
+          Zones Explorer Modal — "View Zones" button opens this
+          Shows all N commercial zones with search, click to see merchants
+         ============================================================ */}
+      <Modal
+        isOpen={Boolean(selectedHubForZones)}
+        onClose={() => setSelectedHubForZones(null)}
+        title={
+          selectedHubForZones ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🗺️</span>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>
+                  {selectedHubForZones.city} — Commercial Zones
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>
+                  {selectedHubForZones.zones?.length || 0} Zones Listed • Click any zone to explore merchants
+                </div>
+              </div>
+            </div>
+          ) : 'Commercial Zones'
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div style={{ fontSize: 12, color: '#64748b' }}>
+              Total <strong>{selectedHubForZones?.zones?.length || 0}</strong> commercial zones in this hub
+            </div>
+            <button className="btn btn-primary" onClick={() => setSelectedHubForZones(null)}>
+              Close
+            </button>
+          </div>
+        }
+      >
+        {selectedHubForZones && (() => {
+          const zones = selectedHubForZones.zones || [];
+          const q = zonesSearchTerm.toLowerCase();
+          const filteredZones = q
+            ? zones.filter((z) =>
+                z.name.toLowerCase().includes(q) ||
+                (z.desc || '').toLowerCase().includes(q)
+              )
+            : zones;
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Search Bar */}
+              <div style={{ position: 'relative' }}>
+                <HiOutlineSearch style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder={`Search zones in ${selectedHubForZones.city}...`}
+                  value={zonesSearchTerm}
+                  onChange={(e) => setZonesSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px 8px 34px',
+                    fontSize: 12.5,
+                    borderRadius: 8,
+                    border: '1px solid #cbd5e1',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Zone Cards Grid */}
+              <div style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+                {filteredZones.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '28px 10px', color: '#64748b', background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#334155' }}>No zones match your search</div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>Try a different keyword.</div>
+                  </div>
+                ) : (
+                  filteredZones.map((z, idx) => {
+                    const zoneTitle = z.name.replace(/^Zone \d+:\s*/, '');
+                    const zoneNum = idx + 1;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 10,
+                          padding: '10px 14px',
+                          gap: 12,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        }}
+                      >
+                        {/* Zone Info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            background: 'linear-gradient(135deg, #1e40af, #2563eb)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 13,
+                            fontWeight: 900,
+                            flexShrink: 0,
+                          }}>
+                            {zoneNum}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>
+                              {zoneTitle}
+                            </div>
+                            {z.desc && (
+                              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                                📍 {z.desc}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action: View Merchants in This Zone */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedHubForZones(null);
+                            handleOpenMerchantsModal(selectedHubForZones.rowData, zoneTitle);
+                          }}
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: 6,
+                            padding: '5px 10px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                          title={`View merchants in ${zoneTitle}`}
+                        >
+                          👥 Merchants
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* Add City Modal */}
