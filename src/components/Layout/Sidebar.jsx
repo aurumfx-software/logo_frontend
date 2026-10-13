@@ -36,7 +36,7 @@ const ALL_NAV_ITEMS = [
     title: 'Operations & Insights',
     items: [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
-      { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints', badge: 5 },
+      { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
       { key: 'geography', path: '/geography', icon: HiOutlineGlobe, label: 'Geography' },
       { key: 'reports', path: '/reports', icon: HiOutlineChartBar, label: 'Reports' },

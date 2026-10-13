@@ -7,7 +7,7 @@ import { apiFetch } from './apiClient';
  */
 
 /**
- * Fetch all promotions: GET /promotions or GET /admin/promotions
+ * Fetch all promotions: GET /api/v1/promotions
  */
 export async function fetchPromotionsList(params = {}) {
   try {
@@ -19,13 +19,7 @@ export async function fetchPromotionsList(params = {}) {
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
-    let response = await apiFetch(`/api/v1/promotions${queryString}`, { method: 'GET' });
-    if (!response || !response.ok) {
-      response = await apiFetch(`/promotions${queryString}`, { method: 'GET' });
-    }
-    if (!response || !response.ok) {
-      response = await apiFetch(`/admin/promotions${queryString}`, { method: 'GET' });
-    }
+    const response = await apiFetch(`/api/v1/promotions${queryString}`, { method: 'GET' });
 
     if (response && response.ok) {
       const resData = await response.json();
