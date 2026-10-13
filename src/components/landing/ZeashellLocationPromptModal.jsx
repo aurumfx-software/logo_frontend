@@ -43,7 +43,17 @@ export default function ZeashellLocationPromptModal({
     } catch (err) {
       setIsDetectingGPS(false);
       console.warn('Geolocation detection error:', err?.message || err);
-      setGpsError('GPS was unavailable or blocked. Please select your district below.');
+      let errorMsg = 'Could not access location.';
+      if (err.code === 1) {
+        errorMsg = 'Location permission was denied. Please allow location access in your browser settings or choose a location below.';
+      } else if (err.code === 2) {
+        errorMsg = 'Location is currently unavailable from your device. Please choose a location below.';
+      } else if (err.code === 3) {
+        errorMsg = 'Location request timed out. Please tap to try again or choose a location below.';
+      } else if (err?.message) {
+        errorMsg = err.message;
+      }
+      setGpsError(errorMsg);
     }
   };
 

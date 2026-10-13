@@ -1085,16 +1085,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
       const savedLoc = localStorage.getItem('zeashell_user_location');
       if (savedLoc) {
         const parsed = JSON.parse(savedLoc);
-        // Ensure coordinates are legitimately inside Kerala bounds (lat 8.0 - 13.0, lng 74.5 - 77.8)
-        const isKeralaCoord =
-          parsed.lat &&
-          parsed.lng &&
-          parsed.lat >= 8.0 &&
-          parsed.lat <= 13.0 &&
-          parsed.lng >= 74.5 &&
-          parsed.lng <= 77.8;
+        // Valid coordinates worldwide: -90 <= lat <= 90 and -180 <= lng <= 180
+        const isValidCoord =
+          typeof parsed.lat === 'number' &&
+          typeof parsed.lng === 'number' &&
+          parsed.lat >= -90 &&
+          parsed.lat <= 90 &&
+          parsed.lng >= -180 &&
+          parsed.lng <= 180;
 
-        if (isKeralaCoord) {
+        if (isValidCoord) {
           setUserCoordinates({ lat: parsed.lat, lng: parsed.lng });
           if (parsed.name) {
             setUserLocationLabel(parsed.name);
@@ -1109,27 +1109,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
         } else if (parsed.type === 'deny') {
           // User chose "All Kerala" previously
           setSelectedDistrict('all');
-        } else {
-          // Clear stale out-of-state cellular carrier coordinates
-          localStorage.removeItem('zeashell_user_location');
-          setIsLocationModalOpen(true);
         }
       } else {
-        // First visit -> Prompt location modal for clear Kerala district / GPS selection
+        // First visit -> Open location prompt modal so the user can choose or allow location
         setIsLocationModalOpen(true);
-        // Also seamlessly attempt GPS in background
-        detectAccurateUserLocation()
-          .then((loc) => {
-            if (loc && loc.lat && loc.lng && loc.lat >= 8.0 && loc.lat <= 13.0) {
-              setUserCoordinates({ lat: loc.lat, lng: loc.lng });
-              if (loc.name) setUserLocationLabel(loc.name);
-              setSortBy('nearest');
-              try {
-                localStorage.setItem('zeashell_user_location', JSON.stringify(loc));
-              } catch {}
-            }
-          })
-          .catch(() => {});
       }
     } catch {}
   }, []);
@@ -1147,6 +1130,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
       return;
     }
 
+    // Set ACTUAL user coordinates directly from device/browser
     setUserCoordinates({ lat: locData.lat, lng: locData.lng });
     setSortBy('nearest');
 
@@ -1154,11 +1138,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
       setUserLocationLabel(locData.name);
     }
 
-    // When GPS/current location is active, keep all merchants accessible so closest are ranked first
     if (locData.type === 'district' && locData.district && locData.district !== 'all') {
       setSelectedDistrict(locData.district);
       setSelectedLocation('all');
     } else {
+      // When GPS is active, show all merchants with closest to user's current location ranked first
       setSelectedDistrict('all');
       setSelectedLocation('all');
     }
@@ -1172,6 +1156,20 @@ export default function LandingPage({ defaultTab = 'home' }) {
       const el = document.getElementById('establishments-section');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     }, 250);
+  };
+
+  // Direct GPS detection handler when user clicks "Use current location" on the navbar
+  const handleDetectGPSDirect = async () => {
+    setIsLocating(true);
+    try {
+      const loc = await detectAccurateUserLocation();
+      handleLocationChosen(loc);
+    } catch (err) {
+      console.warn('Direct GPS detection error:', err);
+      setIsLocationModalOpen(true);
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   // Resolve merchant coordinates accurately across all Kerala towns & districts
@@ -1190,7 +1188,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
         return { lat: dist.lat, lng: dist.lng };
       }
     }
-    return { lat: 9.9816, lng: 76.2999 }; // Default central Kerala hub (Kochi)
+    return null; // Return null when coordinates are unknown so distance is not fabricated
   };
 
   const handleToggleFavorite = (merchantId) => {
@@ -1435,14 +1433,17 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const sortItems = (items) => {
     const list = [...items];
     if (sortBy === 'nearest' || ((!sortBy || sortBy === 'recommended') && userCoordinates)) {
-      const uCoords = userCoordinates || { lat: 9.9816, lng: 76.2999 };
-      return list.sort((a, b) => {
-        const coordsA = getMerchantCoords(a);
-        const coordsB = getMerchantCoords(b);
-        const distA = calculateDistance(uCoords.lat, uCoords.lng, coordsA.lat, coordsA.lng);
-        const distB = calculateDistance(uCoords.lat, uCoords.lng, coordsB.lat, coordsB.lng);
-        return distA - distB;
-      });
+      if (userCoordinates && typeof userCoordinates.lat === 'number' && typeof userCoordinates.lng === 'number') {
+        const uLat = userCoordinates.lat;
+        const uLng = userCoordinates.lng;
+        return list.sort((a, b) => {
+          const coordsA = getMerchantCoords(a);
+          const coordsB = getMerchantCoords(b);
+          const distA = coordsA ? calculateDistance(uLat, uLng, coordsA.lat, coordsA.lng) : 999999;
+          const distB = coordsB ? calculateDistance(uLat, uLng, coordsB.lat, coordsB.lng) : 999999;
+          return distA - distB;
+        });
+      }
     }
     if (sortBy === 'rating' || sortBy === 'rating_desc') {
       return list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
@@ -1548,7 +1549,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
             : 'Kerala'
         }
         onOpenLocationModal={() => setIsLocationModalOpen(true)}
-        onDetectGPS={() => setIsLocationModalOpen(true)}
+        onDetectGPS={handleDetectGPSDirect}
         isDetectingGPS={isLocating}
         onSelectTownOrDistrict={(type, val) => {
           setUserLocationLabel('');
@@ -2658,7 +2659,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           }}
           onDetectGPS={() => {
             setSelectedMerchant(null);
-            setIsLocationModalOpen(true);
+            handleDetectGPSDirect();
           }}
           onSelectTownOrDistrict={(type, val) => {
             setSelectedMerchant(null);

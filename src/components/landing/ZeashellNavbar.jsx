@@ -256,10 +256,27 @@ export default function ZeashellNavbar({
       return;
     }
 
+    // 1. Check browser Web Speech API support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Voice search is supported in Google Chrome, Microsoft Edge, and modern mobile browsers.');
+      setListeningStatusText('Voice search is not supported in this browser. Please type your search.');
+      setTimeout(() => setListeningStatusText(''), 4000);
       return;
+    }
+
+    // 2. Production HTTPS security check (Web Speech API requires secure context on remote hosts)
+    if (typeof window !== 'undefined' && window.isSecureContext === false && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setListeningStatusText('Voice search requires a secure HTTPS connection. Please access via HTTPS.');
+      setTimeout(() => setListeningStatusText(''), 4500);
+      return;
+    }
+
+    // 3. Clear any existing instance to prevent duplicate recognition sessions
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
     }
 
     try {
@@ -274,6 +291,15 @@ export default function ZeashellNavbar({
       hasSubmittedVoiceRef.current = false;
       setIsListening(true);
       setListeningStatusText('Listening... Speak now');
+
+      // Safety watchdog: prevent stuck listening state (auto-stop after 12s if user stays silent)
+      const watchdogTimer = setTimeout(() => {
+        if (recognitionRef.current === recognition) {
+          try {
+            recognition.stop();
+          } catch {}
+        }
+      }, 12000);
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -306,6 +332,7 @@ export default function ZeashellNavbar({
         // When Speech API finalizes the sentence:
         if (finalTranscript.trim() && !hasSubmittedVoiceRef.current) {
           hasSubmittedVoiceRef.current = true;
+          clearTimeout(watchdogTimer);
           const cleaned = finalTranscript.trim();
           setListeningStatusText(`Searching for "${cleaned}"...`);
           if (onSearchChange) onSearchChange(cleaned);
@@ -314,21 +341,29 @@ export default function ZeashellNavbar({
       };
 
       recognition.onerror = (e) => {
-        console.warn('Speech recognition warning/status:', e.error);
+        clearTimeout(watchdogTimer);
+        console.warn('Speech recognition status:', e.error);
         if (e.error === 'no-speech') {
           setListeningStatusText('No speech heard. Tap mic to retry.');
         } else if (e.error === 'not-allowed') {
-          setListeningStatusText('Microphone permission blocked. Please enable mic access.');
+          setListeningStatusText('Microphone permission blocked. Please allow mic access in your browser.');
         } else if (e.error === 'network') {
           setListeningStatusText('Network audio error. You can also tap the keyboard mic 🎙️');
+        } else if (e.error === 'audio-capture') {
+          setListeningStatusText('No microphone detected on your device.');
+        } else if (e.error === 'aborted') {
+          setListeningStatusText('');
         } else {
           setListeningStatusText(`Voice unavailable (${e.error || 'error'}). Use keyboard.`);
         }
         setIsListening(false);
+        recognitionRef.current = null;
       };
 
       recognition.onend = () => {
+        clearTimeout(watchdogTimer);
         setIsListening(false);
+        recognitionRef.current = null;
         const spoken = liveTranscriptRef.current.trim();
         if (spoken && !hasSubmittedVoiceRef.current) {
           hasSubmittedVoiceRef.current = true;
@@ -345,6 +380,7 @@ export default function ZeashellNavbar({
     } catch (err) {
       console.error('Speech recognition failed to start:', err);
       setIsListening(false);
+      recognitionRef.current = null;
       setListeningStatusText('Could not access microphone.');
       setTimeout(() => setListeningStatusText(''), 3500);
     }
