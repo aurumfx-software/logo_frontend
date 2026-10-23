@@ -12,6 +12,8 @@ import {
   HiOutlineGlobe,
   HiOutlineChartBar,
   HiOutlineLogout,
+  HiOutlineShoppingBag,
+  HiOutlineCreditCard,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -28,6 +30,7 @@ const ALL_NAV_ITEMS = [
     items: [
       { key: 'registrations', path: '/registration-requests', icon: HiOutlineClipboardCheck, label: 'Registrations', badge: 12 },
       { key: 'merchants', path: '/merchants', icon: HiOutlineOfficeBuilding, label: 'Merchants' },
+      { key: 'products', path: '/products', icon: HiOutlineShoppingBag, label: 'Products & Orders' },
       { key: 'categories', path: '/categories', icon: HiOutlineCollection, label: 'Categories' },
       { key: 'users', path: '/users', icon: HiOutlineUsers, label: 'Staff & User Accounts' },
     ],
@@ -36,6 +39,7 @@ const ALL_NAV_ITEMS = [
     title: 'Operations & Insights',
     items: [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
+      { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
       { key: 'geography', path: '/geography', icon: HiOutlineGlobe, label: 'Geography' },
@@ -62,6 +66,8 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
 
   const userRole = normalizeRole(user);
   const isAdminUser = userRole === ROLES.ADMIN;
+  const isMerchantUser = !isAdminUser && (userRole === ROLES.MERCHANT || (user?.email || '').toLowerCase() === 'merchent@gmail.com');
+  const isSellerUser = !isAdminUser && (userRole === ROLES.SELLER || (user?.email || '').toLowerCase() === 'user01@gmail.com');
 
   useEffect(() => {
     const handlePermChange = () => {
@@ -91,36 +97,61 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     navigate('/login', { replace: true });
   };
 
-  // Filter navigation items dynamically based on role and permissions set by Admin
-  const navSections = ALL_NAV_ITEMS.map((section) => {
-    const allowedItems = section.items
-      .filter((item) => {
-        if (isAdminUser) return true;
-        // For Staff users, check if Admin has granted permission for this module
-        return !!staffPerms[item.key];
-      })
-      .map((item) => {
-        if (item.key === 'registrations') {
-          return { ...item, badge: regBadgeCount };
-        }
-        return item;
-      });
+  // If Merchant user: ONLY Logo Merchant section is shown.
+  // If Admin / Staff: Full admin modules, WITHOUT Logo Merchant.
+  const navSections = isSellerUser
+    ? [
+        {
+          title: 'Products & Orders Platform',
+          items: [
+            { key: 'products', path: '/products', icon: HiOutlineShoppingBag, label: 'Products & Orders' },
+          ],
+        },
+      ]
+    : isMerchantUser
+    ? [
+        {
+          title: 'Merchant & Seller Portal',
+          items: [
+            { key: 'merchant_portal', path: '/merchant', icon: HiOutlineOfficeBuilding, label: 'Logo Merchant' },
+            { key: 'products', path: '/products', icon: HiOutlineShoppingBag, label: 'Products & Orders' },
+          ],
+        },
+      ]
+    : ALL_NAV_ITEMS.map((section) => {
+        const allowedItems = section.items
+          .filter((item) => {
+            if (isAdminUser) return true;
+            return !!staffPerms[item.key];
+          })
+          .map((item) => {
+            if (item.key === 'registrations') {
+              return { ...item, badge: regBadgeCount };
+            }
+            return item;
+          });
 
-    return {
-      title: section.title,
-      items: allowedItems,
-    };
-  }).filter((section) => section.items.length > 0);
+        return {
+          title: section.title,
+          items: allowedItems,
+        };
+      }).filter((section) => section.items.length > 0);
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       {/* Brand */}
       <div className="sidebar-brand">
-        <div className="sidebar-brand-icon">L</div>
+        <div className="sidebar-brand-icon">
+          {isSellerUser ? 'S' : isMerchantUser ? 'M' : 'L'}
+        </div>
         {(!collapsed || mobileOpen) && (
           <div className="sidebar-brand-text">
-            <span className="sidebar-brand-name">Logo Admin</span>
-            <span className="sidebar-brand-sub">AurumFX Pvt Ltd</span>
+            <span className="sidebar-brand-name">
+              {isSellerUser ? 'Seller Platform' : isMerchantUser ? 'Logo Merchant' : 'Logo Admin'}
+            </span>
+            <span className="sidebar-brand-sub">
+              {isSellerUser ? 'Products & Orders' : isMerchantUser ? 'Merchant Workspace' : 'AurumFX Pvt Ltd'}
+            </span>
           </div>
         )}
       </div>
@@ -167,10 +198,10 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
         {!collapsed && (
           <div className="sidebar-footer-user" style={{ marginBottom: 8 }}>
             <div className="sidebar-footer-avatar">
-              {user?.initials || (isAdminUser ? 'A' : 'S')}
+              {user?.initials || (isMerchantUser ? 'M' : isAdminUser ? 'A' : 'S')}
             </div>
             <div className="sidebar-footer-info">
-              <div className="sidebar-footer-name">{user?.name || (isAdminUser ? 'Admin User' : 'Staff User')}</div>
+              <div className="sidebar-footer-name">{user?.name || (isMerchantUser ? 'Logo Merchant' : isAdminUser ? 'Admin User' : 'Staff User')}</div>
               <div className="sidebar-footer-role">{getRoleDisplayTitle(user)}</div>
             </div>
           </div>
