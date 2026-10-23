@@ -232,6 +232,11 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       location: m.city || m.location || m.district || 'Payyanur',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || '',
+      can_create_promotions: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
+      promotion_access: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
+      cashback_percent: m.cashback_percent !== undefined && m.cashback_percent !== null ? Number(m.cashback_percent) : 3.0,
+      company_fee_percent: m.company_fee_percent !== undefined && m.company_fee_percent !== null ? Number(m.company_fee_percent) : 2.0,
+      total_deduction_percent: m.total_deduction_percent !== undefined && m.total_deduction_percent !== null ? Number(m.total_deduction_percent) : 5.0,
     };
   });
 
@@ -322,6 +327,9 @@ export async function createMerchant(merchantData) {
     instagram: merchantData.instagram || '',
     twitter: merchantData.twitter || '',
     youtube: merchantData.youtube || '',
+    cashback_percent: merchantData.cashback_percent !== undefined ? Number(merchantData.cashback_percent) : 3.0,
+    company_fee_percent: merchantData.company_fee_percent !== undefined ? Number(merchantData.company_fee_percent) : 2.0,
+    total_deduction_percent: merchantData.total_deduction_percent !== undefined ? Number(merchantData.total_deduction_percent) : 5.0,
   };
 
   let response;
@@ -383,6 +391,8 @@ export async function createMerchant(merchantData) {
     merchant_photos: validPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
     merchant_videos: rawVideos,
     image: sanitizeMerchantPhoto(validPhotos[0]) || EMPTY_MERCHANT_IMAGE,
+    can_create_promotions: Boolean(created.can_create_promotions ?? created.promotion_access ?? false),
+    promotion_access: Boolean(created.can_create_promotions ?? created.promotion_access ?? false),
   };
 }
 
@@ -396,29 +406,37 @@ export async function fetchRegistrationRequests(filters = {}) {
   if (filters.state) params.set('state', filters.state);
   if (filters.district) params.set('district', filters.district);
   if (filters.city) params.set('city', filters.city);
+  if (filters.limit) params.set('limit', filters.limit);
 
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
   try {
-    const response = await apiFetch(`/api/v1/admin/merchants/registration-requests${queryString}`, { method: 'GET' });
-    if (response.ok) {
+    let response = await apiFetch(`/api/v1/admin/merchants/registration-requests${queryString}`, { method: 'GET' });
+    if (!response || !response.ok) {
+      response = await apiFetch(`/api/v1/merchants/registration-requests${queryString}`, { method: 'GET' });
+    }
+    if (response && response.ok) {
       const resData = await response.json();
-      let items = resData.data || resData.items || resData.merchants || resData;
+      let items = resData.data || resData.items || resData.requests || resData.merchants || resData;
       if (Array.isArray(items)) {
         return items.map((m, idx) => ({
           id: m.id || m._id || m.merchant_id || `MCH-${idx + 100}`,
           name: m.business_name || m.name || 'Unnamed Store',
           business_name: m.business_name || m.name || 'Unnamed Store',
           owner_name: m.owner_name || m.owner || 'N/A',
-          phone_number: m.phone_number || m.phone || '',
+          phone_number: m.phone_number || m.phone || m.contact_number || '',
           email: m.email || '',
-          category: m.category || 'Retail',
+          category: m.category || (m.categories && m.categories[0]) || 'Retail',
           city: m.city || 'Payyanur',
           district: m.district || 'Kannur',
           state: m.state || 'Kerala',
-          status: (m.status || 'pending').toLowerCase(),
+          address: m.address || m.location || '',
+          status: (m.status || m.approval_status || 'pending').toLowerCase(),
+          approval_status: m.approval_status || m.status || 'PENDING',
           joined: m.submitted_at || m.created_at || m.joined || new Date().toISOString().split('T')[0],
-          photos: (Array.isArray(m.photos) ? m.photos : [m.image]).map(sanitizeMerchantPhoto).filter(Boolean),
+          created_at: m.created_at,
+          updated_at: m.updated_at,
+          photos: (Array.isArray(m.photos) ? m.photos : Array.isArray(m.merchant_photos) ? m.merchant_photos : [m.photo_1, m.image]).map(sanitizeMerchantPhoto).filter(Boolean),
           raw: m,
         }));
       }
@@ -465,26 +483,72 @@ export async function rejectMerchant(merchantId, rejectionReason = '') {
  * Update merchant profile details via backend API (/api/v1/merchants/:id)
  */
 export async function updateMerchant(merchantId, updatedData) {
-  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const cleanId = String(merchantId).trim().replace(/^MCH-/, '');
+  const storeName = updatedData.business_name || updatedData.name;
+  const ownerName = updatedData.owner_name || updatedData.owner || updatedData.contact_person;
+  const phoneVal = updatedData.phone_number || updatedData.phone || updatedData.contact_number;
+
   const payload = {
-    business_name: updatedData.business_name || updatedData.name || undefined,
+    business_name: storeName || undefined,
+    name: storeName || undefined,
     category: updatedData.category || undefined,
     categories: updatedData.categories || (updatedData.category ? [updatedData.category] : undefined),
-    owner_name: updatedData.owner_name || updatedData.owner || undefined,
-    phone_number: updatedData.phone_number || updatedData.phone || undefined,
+    owner_name: ownerName || undefined,
+    owner: ownerName || undefined,
+    contact_person: ownerName || undefined,
+    phone_number: phoneVal || undefined,
+    phone: phoneVal || undefined,
+    contact_number: phoneVal || undefined,
+    whatsapp: updatedData.whatsapp || undefined,
     email: updatedData.email || undefined,
     district: updatedData.district || undefined,
     city: updatedData.city || undefined,
+    state: updatedData.state || undefined,
+    location: updatedData.location || undefined,
     address: updatedData.address || undefined,
     landmark: updatedData.landmark || undefined,
     service_timing: updatedData.service_timing || undefined,
     status: updatedData.status ? updatedData.status.toUpperCase() : undefined,
+    approval_status: updatedData.approval_status ? updatedData.approval_status.toUpperCase() : undefined,
+    about: updatedData.about || updatedData.description || undefined,
+    description: updatedData.description || updatedData.about || undefined,
+    website: updatedData.website || undefined,
+    facebook: updatedData.facebook || undefined,
+    instagram: updatedData.instagram || undefined,
+    twitter: updatedData.twitter || undefined,
+    youtube: updatedData.youtube || undefined,
+    photo_1: updatedData.photo_1 || (Array.isArray(updatedData.photos) ? updatedData.photos[0] : undefined),
+    photo_2: updatedData.photo_2 || (Array.isArray(updatedData.photos) ? updatedData.photos[1] : undefined),
+    photo_3: updatedData.photo_3 || (Array.isArray(updatedData.photos) ? updatedData.photos[2] : undefined),
+    photo_4: updatedData.photo_4 || (Array.isArray(updatedData.photos) ? updatedData.photos[3] : undefined),
+    photos: updatedData.photos || updatedData.merchant_photos || undefined,
+    merchant_photos: updatedData.merchant_photos || updatedData.photos || undefined,
+    video_url: updatedData.video_url || updatedData.videoUrl || undefined,
+    can_create_promotions: updatedData.can_create_promotions !== undefined ? updatedData.can_create_promotions : updatedData.promotion_access,
+    cashback_percent: updatedData.cashback_percent !== undefined ? Number(updatedData.cashback_percent) : undefined,
+    company_fee_percent: updatedData.company_fee_percent !== undefined ? Number(updatedData.company_fee_percent) : undefined,
+    total_deduction_percent: updatedData.total_deduction_percent !== undefined ? Number(updatedData.total_deduction_percent) : undefined,
   };
 
-  const response = await apiFetch(`/api/v1/merchants/${cleanId}`, {
+  let response = await apiFetch(`/api/v1/merchants/${cleanId}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+
+  if (!response || !response.ok) {
+    // Attempt fallback to admin route if public/merchant route had issue
+    try {
+      const adminResp = await apiFetch(`/api/v1/admin/merchants/${cleanId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (adminResp && adminResp.ok) {
+        response = adminResp;
+      }
+    } catch {
+      // ignore and use initial response
+    }
+  }
 
   const resData = await response.json().catch(() => ({}));
 
@@ -504,6 +568,98 @@ export async function updateMerchant(merchantId, updatedData) {
 
   return resData.data || resData.merchant || resData;
 }
+
+/**
+ * Toggle Admin Promotion Access for a Merchant: PATCH /api/v1/admin/merchants/${id}/promotion-access
+ */
+export async function togglePromotionAccess(merchantId, enabled) {
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  let response = await apiFetch(`/api/v1/admin/merchants/${cleanId}/promotion-access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ can_create_promotions: enabled, promotion_access: enabled }),
+  });
+
+  if (!response || !response.ok) {
+    response = await apiFetch(`/api/v1/merchants/${cleanId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ can_create_promotions: enabled, promotion_access: enabled }),
+    });
+  }
+
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok || resData.success === false) {
+    throw new Error(resData.message || resData.detail || 'Failed to toggle promotion access');
+  }
+
+  return resData.data || resData.merchant || resData;
+}
+
+/**
+ * Submit a request for promotion creation access (from Merchant Portal)
+ */
+export async function requestPromotionAccess(merchantId, reason = '') {
+  const cleanId = String(merchantId).replace(/^MCH-/, '');
+  const response = await apiFetch(`/api/v1/merchants/${cleanId}/request-promo-access`, {
+    method: 'POST',
+    body: JSON.stringify({ merchant_id: Number(cleanId), reason: reason || 'Merchant requested promotion access via portal' }),
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok || resData.success === false) {
+    throw new Error(resData.message || resData.detail || 'Failed to submit promotion access request');
+  }
+  return resData.data || resData;
+}
+
+/**
+ * Fetch list of promo access requests (for Admin Registration Requests page)
+ */
+export async function fetchPromoAccessRequests(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+  if (filters.limit) params.set('limit', filters.limit);
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  try {
+    const response = await apiFetch(`/api/v1/admin/merchants/promo-access-requests${queryString}`, { method: 'GET' });
+    if (response && response.ok) {
+      const resData = await response.json();
+      return resData.data || resData.items || resData.requests || [];
+    }
+  } catch (err) {
+    console.warn('Failed to fetch promo access requests:', err);
+  }
+  return [];
+}
+
+/**
+ * Approve a promo access request (Admin)
+ */
+export async function approvePromoAccessRequest(requestId) {
+  const response = await apiFetch(`/api/v1/admin/merchants/promo-access-requests/${requestId}/approve`, {
+    method: 'POST',
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok || resData.success === false) {
+    throw new Error(resData.message || resData.detail || 'Failed to approve promotion access request');
+  }
+  return resData.data || resData;
+}
+
+/**
+ * Reject a promo access request (Admin)
+ */
+export async function rejectPromoAccessRequest(requestId, reason = '') {
+  const response = await apiFetch(`/api/v1/admin/merchants/promo-access-requests/${requestId}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok || resData.success === false) {
+    throw new Error(resData.message || resData.detail || 'Failed to reject promotion access request');
+  }
+  return resData.data || resData;
+}
+
 
 /**
  * Delete a merchant record via backend API (/api/v1/merchants/:id)
@@ -607,6 +763,8 @@ export async function searchMerchants(query, location) {
       location: m.city || m.location || m.district || 'N/A',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || m.business_name || '',
+      can_create_promotions: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
+      promotion_access: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
     };
   });
 }
@@ -675,6 +833,8 @@ export async function getMerchantById(merchantId) {
     location: m.city || m.location || m.district || 'N/A',
     categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
     description: m.about || m.description || '',
+    can_create_promotions: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
+    promotion_access: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
   };
 }
 

@@ -32,6 +32,7 @@ import {
   deleteMerchant,
   approveMerchant,
   rejectMerchant,
+  togglePromotionAccess,
   EMPTY_MERCHANT_IMAGE,
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
@@ -79,6 +80,9 @@ const initialMerchantState = {
   status: 'PENDING',
   photos: ['', '', '', ''],
   videoUrl: '',
+  cashback_percent: 3.0,
+  company_fee_percent: 2.0,
+  total_deduction_percent: 5.0,
 };
 
 export default function Merchants() {
@@ -334,6 +338,9 @@ export default function Merchants() {
       status: merchantRow.status ? merchantRow.status.toUpperCase() : 'APPROVED',
       photos: photosArr,
       videoUrl: merchantRow.videoUrl || '',
+      cashback_percent: merchantRow.cashback_percent !== undefined && merchantRow.cashback_percent !== null ? Number(merchantRow.cashback_percent) : 3.0,
+      company_fee_percent: merchantRow.company_fee_percent !== undefined && merchantRow.company_fee_percent !== null ? Number(merchantRow.company_fee_percent) : 2.0,
+      total_deduction_percent: merchantRow.total_deduction_percent !== undefined && merchantRow.total_deduction_percent !== null ? Number(merchantRow.total_deduction_percent) : 5.0,
     });
     setEditModalError('');
     setIsEditModalOpen(true);
@@ -367,6 +374,9 @@ export default function Merchants() {
         landmark: editFormData.landmark,
         service_timing: editFormData.service_timing,
         status: editFormData.status,
+        cashback_percent: parseFloat(editFormData.cashback_percent) || 3.0,
+        company_fee_percent: parseFloat(editFormData.company_fee_percent) || 2.0,
+        total_deduction_percent: parseFloat(editFormData.total_deduction_percent) || 5.0,
       });
 
       // Update local table data
@@ -395,6 +405,9 @@ export default function Merchants() {
               latitude: editFormData.latitude !== undefined ? editFormData.latitude : m.latitude,
               longitude: editFormData.longitude !== undefined ? editFormData.longitude : m.longitude,
               status: statusValue,
+              cashback_percent: parseFloat(editFormData.cashback_percent) || 3.0,
+              company_fee_percent: parseFloat(editFormData.company_fee_percent) || 2.0,
+              total_deduction_percent: parseFloat(editFormData.total_deduction_percent) || 5.0,
               photos: validPhotos.length > 0 ? validPhotos : m.photos,
               videoUrl: editFormData.videoUrl || m.videoUrl,
             }
@@ -405,6 +418,7 @@ export default function Merchants() {
       // On SUCCESS: Close popup modal!
       setIsEditModalOpen(false);
       setEditingMerchant(null);
+      window.dispatchEvent(new Event('merchants-updated'));
     } catch (err) {
       console.error('Update merchant submit error:', err);
       // On FAILURE: Keep popup open and show error inside modal!
@@ -455,13 +469,44 @@ export default function Merchants() {
     }
   };
 
+  // --- Promotion Access Toggle Handler ---
+  const handleTogglePromoAccess = async (row) => {
+    const currentVal = !!(row.can_create_promotions || row.promotion_access);
+    const newVal = !currentVal;
+    try {
+      setData((prev) =>
+        prev.map((m) =>
+          m.id === row.id ? { ...m, can_create_promotions: newVal, promotion_access: newVal } : m
+        )
+      );
+      if (selectedMerchant && selectedMerchant.id === row.id) {
+        setSelectedMerchant((prev) => (prev ? { ...prev, can_create_promotions: newVal, promotion_access: newVal } : null));
+      }
+      await togglePromotionAccess(row.id, newVal);
+      window.dispatchEvent(new Event('merchant-promo-access-updated'));
+      window.dispatchEvent(new Event('registration-count-updated'));
+    } catch (err) {
+      console.error('Failed to toggle promotion access:', err);
+      setData((prev) =>
+        prev.map((m) =>
+          m.id === row.id ? { ...m, can_create_promotions: currentVal, promotion_access: currentVal } : m
+        )
+      );
+      if (selectedMerchant && selectedMerchant.id === row.id) {
+        setSelectedMerchant((prev) => (prev ? { ...prev, can_create_promotions: currentVal, promotion_access: currentVal } : null));
+      }
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
         setLoadingMerchants(true);
-        const currentUserId = user?.id || user?.user_id;
+        const role = (user?.role || '').toUpperCase();
+        const isStaff = role === 'FIELD_STAFF' || role === 'STAFF';
         const currentUserCode = user?.user_code || user?.userCode;
-        const apiMerchants = await fetchMerchantsList(currentUserId, currentUserCode);
+        // For Admins, fetch ALL approved merchants without user_code scoping
+        const apiMerchants = await fetchMerchantsList(isStaff ? { user_code: currentUserCode } : {});
         if (Array.isArray(apiMerchants)) {
           // Only show approved / active merchants in the Merchants directory (pending registrations stay in Registrations section)
           const approvedMerchants = apiMerchants.filter((m) => (m.status || '').toLowerCase() !== 'pending');
@@ -496,6 +541,15 @@ export default function Merchants() {
       }
     }
     loadData();
+
+    // Auto-reload when a merchant is approved or updated anywhere in the system
+    const handleUpdate = () => loadData();
+    window.addEventListener('merchants-updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    return () => {
+      window.removeEventListener('merchants-updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
   }, [user]);
 
   const filteredData =
@@ -532,6 +586,26 @@ export default function Merchants() {
       ),
     },
     { key: 'category', label: 'Category' },
+    {
+      key: 'cashback_rates',
+      label: 'Cashback Split',
+      render: (_, row) => {
+        const cb = row.cashback_percent !== undefined && row.cashback_percent !== null ? row.cashback_percent : 3;
+        const cf = row.company_fee_percent !== undefined && row.company_fee_percent !== null ? row.company_fee_percent : 2;
+        const tot = row.total_deduction_percent !== undefined && row.total_deduction_percent !== null ? row.total_deduction_percent : (Number(cb) + Number(cf));
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+            <span style={{ padding: '2px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', fontWeight: 700 }}>
+              {cb}% User
+            </span>
+            <span style={{ color: '#94A3B8', fontWeight: 600 }}>+</span>
+            <span style={{ padding: '2px 6px', borderRadius: 4, background: '#F1F5F9', color: '#475569', fontWeight: 700 }}>
+              {cf}% Co ({tot}%)
+            </span>
+          </div>
+        );
+      },
+    },
     { key: 'city', label: 'City' },
     {
       key: 'rating',
@@ -542,6 +616,58 @@ export default function Merchants() {
           <span style={{ fontWeight: 600 }}>{val}</span>
         </div>
       ),
+    },
+    {
+      key: 'promotion_access',
+      label: 'Promo Access',
+      render: (val, row) => {
+        const isEnabled = !!(row.can_create_promotions || row.promotion_access);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => handleTogglePromoAccess(row)}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                width: 42,
+                height: 22,
+                borderRadius: 12,
+                background: isEnabled ? '#10B981' : '#D1D5DB',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                padding: 2,
+              }}
+              title={isEnabled ? 'Promotion access is ON. Click to turn OFF' : 'Promotion access is OFF. Click to turn ON'}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  background: 'white',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  transform: isEnabled ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'transform 0.2s',
+                }}
+              />
+            </button>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: isEnabled ? '#059669' : '#6B7280',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {isEnabled ? 'ON' : 'OFF'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'status',
@@ -1398,8 +1524,8 @@ export default function Merchants() {
                 type="text"
                 className="form-input"
                 placeholder="e.g. Royal Solar Solutions"
-                value={editFormData.name || editFormData.business_name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value, business_name: e.target.value })}
+                value={editFormData.business_name ?? editFormData.name ?? ''}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, business_name: e.target.value, name: e.target.value }))}
                 required
               />
             </div>
@@ -1409,8 +1535,8 @@ export default function Merchants() {
                 type="text"
                 className="form-input"
                 placeholder="Owner / Contact Person"
-                value={editFormData.owner_name || editFormData.owner}
-                onChange={(e) => setEditFormData({ ...editFormData, owner_name: e.target.value, owner: e.target.value })}
+                value={editFormData.owner_name ?? editFormData.owner ?? ''}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, owner_name: e.target.value, owner: e.target.value }))}
               />
             </div>
           </div>
@@ -1420,8 +1546,8 @@ export default function Merchants() {
               <label className="form-label">Category *</label>
               <select
                 className="form-select"
-                value={editFormData.category}
-                onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                value={editFormData.category || 'Retail'}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, category: e.target.value }))}
               >
                 {categoriesList.map((cat, idx) => (
                   <option key={idx} value={cat}>{cat}</option>
@@ -1433,8 +1559,8 @@ export default function Merchants() {
               <label className="form-label">Status</label>
               <select
                 className="form-select"
-                value={editFormData.status}
-                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                value={editFormData.status || 'APPROVED'}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, status: e.target.value }))}
               >
                 <option value="APPROVED">APPROVED (Active)</option>
                 <option value="SUSPENDED">SUSPENDED</option>
@@ -1449,9 +1575,88 @@ export default function Merchants() {
               type="tel"
               className="form-input"
               placeholder="+91 98470 12345"
-              value={editFormData.phone || editFormData.phone_number}
-              onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value, phone_number: e.target.value })}
+              value={editFormData.phone_number ?? editFormData.phone ?? ''}
+              onChange={(e) => setEditFormData((prev) => ({ ...prev, phone_number: e.target.value, phone: e.target.value }))}
             />
+          </div>
+
+          {/* Cashback & Platform Commission Split */}
+          <div style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #F5F3FF 100%)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #BFDBFE' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E3A8A', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              💰 Cashback & Platform Fee Rates
+            </div>
+            <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
+              Configure custom percentages for this shop (e.g. Jewellery: 0.3% Customer / 0.2% Company; Retail: 3% Customer / 2% Company).
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 12, color: '#1E40AF', marginBottom: 4 }}>
+                  Customer Cashback %
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="form-input"
+                  style={{ background: '#FFFFFF', fontWeight: 600 }}
+                  value={editFormData.cashback_percent ?? 3.0}
+                  onChange={(e) => {
+                    const cb = parseFloat(e.target.value) || 0;
+                    const cf = parseFloat(editFormData.company_fee_percent) || 0;
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      cashback_percent: e.target.value,
+                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                    }));
+                  }}
+                  placeholder="3.0"
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 12, color: '#1E40AF', marginBottom: 4 }}>
+                  Company Fee %
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="form-input"
+                  style={{ background: '#FFFFFF', fontWeight: 600 }}
+                  value={editFormData.company_fee_percent ?? 2.0}
+                  onChange={(e) => {
+                    const cf = parseFloat(e.target.value) || 0;
+                    const cb = parseFloat(editFormData.cashback_percent) || 0;
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      company_fee_percent: e.target.value,
+                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                    }));
+                  }}
+                  placeholder="2.0"
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 12, color: '#1E40AF', marginBottom: 4 }}>
+                  Total Deduction %
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="form-input"
+                  style={{ background: '#DBEAFE', color: '#1D4ED8', fontWeight: 700 }}
+                  value={editFormData.total_deduction_percent ?? 5.0}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, total_deduction_percent: e.target.value }))}
+                  placeholder="5.0"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Contact Details Section */}
@@ -1469,8 +1674,8 @@ export default function Merchants() {
                   type="tel"
                   className="form-input"
                   placeholder="+91 98470 12345"
-                  value={editFormData.whatsapp}
-                  onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
+                  value={editFormData.whatsapp ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, whatsapp: e.target.value }))}
                 />
               </div>
 
@@ -1482,8 +1687,8 @@ export default function Merchants() {
                   type="tel"
                   className="form-input"
                   placeholder="0497-2765432"
-                  value={editFormData.landline}
-                  onChange={(e) => setEditFormData({ ...editFormData, landline: e.target.value })}
+                  value={editFormData.landline ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, landline: e.target.value }))}
                 />
               </div>
 
@@ -1495,8 +1700,8 @@ export default function Merchants() {
                   type="email"
                   className="form-input"
                   placeholder="contact@yourbusiness.com"
-                  value={editFormData.email}
-                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  value={editFormData.email ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, email: e.target.value }))}
                 />
               </div>
 
@@ -1508,8 +1713,8 @@ export default function Merchants() {
                   type="url"
                   className="form-input"
                   placeholder="https://www.yourbusiness.com"
-                  value={editFormData.website}
-                  onChange={(e) => setEditFormData({ ...editFormData, website: e.target.value })}
+                  value={editFormData.website ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, website: e.target.value }))}
                 />
               </div>
             </div>
@@ -1530,8 +1735,8 @@ export default function Merchants() {
                   type="url"
                   className="form-input"
                   placeholder="https://facebook.com/yourbusiness"
-                  value={editFormData.facebook}
-                  onChange={(e) => setEditFormData({ ...editFormData, facebook: e.target.value })}
+                  value={editFormData.facebook ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, facebook: e.target.value }))}
                 />
               </div>
 
@@ -1543,8 +1748,8 @@ export default function Merchants() {
                   type="url"
                   className="form-input"
                   placeholder="https://instagram.com/yourbusiness"
-                  value={editFormData.instagram}
-                  onChange={(e) => setEditFormData({ ...editFormData, instagram: e.target.value })}
+                  value={editFormData.instagram ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, instagram: e.target.value }))}
                 />
               </div>
 
@@ -1556,8 +1761,8 @@ export default function Merchants() {
                   type="url"
                   className="form-input"
                   placeholder="https://twitter.com/yourbusiness"
-                  value={editFormData.twitter}
-                  onChange={(e) => setEditFormData({ ...editFormData, twitter: e.target.value })}
+                  value={editFormData.twitter ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, twitter: e.target.value }))}
                 />
               </div>
 
@@ -1569,8 +1774,8 @@ export default function Merchants() {
                   type="url"
                   className="form-input"
                   placeholder="https://youtube.com/@yourchannel"
-                  value={editFormData.youtube}
-                  onChange={(e) => setEditFormData({ ...editFormData, youtube: e.target.value })}
+                  value={editFormData.youtube ?? ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, youtube: e.target.value }))}
                 />
               </div>
             </div>
