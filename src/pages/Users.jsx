@@ -24,6 +24,7 @@ import MultiSelectLocationPicker from '../components/UI/MultiSelectLocationPicke
 import CircularSpinner from '../components/UI/CircularSpinner';
 import { useAuth } from '../context/AuthContext';
 import { createAdminOrStaffAccount, fetchUsersList, toggleUserStatus, deleteAdminOrStaffAccount, updateAdminOrStaffAccount } from '../api/userApi';
+import { toggleUserSellerPermission } from '../api/productApi';
 import { getStaffPermissions, saveStaffPermissions, MODULE_NAMES, isAdmin } from '../utils/rbac';
 import {
   STATE_DISTRICT_REGIONS,
@@ -243,6 +244,27 @@ export default function Users() {
       console.error('Delete account error:', err);
       setData((prev) => prev.filter((u) => u.id !== row.id));
       showToast(`🗑️ Staff account "${row.name}" removed.`);
+    }
+  };
+
+  const handleToggleSeller = async (row) => {
+    const rawId = row.rawId || row.id;
+    const current = Boolean(row.can_sell_products || row.is_subscriber);
+    try {
+      await toggleUserSellerPermission(rawId, {
+        can_sell_products: !current,
+        is_subscriber: !current,
+      });
+      setData((prev) =>
+        prev.map((u) =>
+          (u.id === row.id || u.rawId === rawId)
+            ? { ...u, can_sell_products: !current, is_subscriber: !current }
+            : u
+        )
+      );
+      showToast(!current ? `⭐ ₹500 Seller Access ALLOWED for ${row.name}` : `Seller Access DENIED for ${row.name}`);
+    } catch (err) {
+      showToast(err.message || 'Could not update seller permission');
     }
   };
 
@@ -497,6 +519,33 @@ export default function Users() {
           );
         }
         return <span style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{val}</span>;
+      },
+    },
+    {
+      key: 'can_sell_products',
+      label: '₹500 Seller',
+      render: (_, row) => {
+        const canSell = Boolean(row.can_sell_products || row.is_subscriber);
+        return (
+          <button
+            type="button"
+            onClick={() => handleToggleSeller(row)}
+            style={{
+              padding: '3px 8px',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: canSell ? '1.5px solid #16a34a' : '1.5px solid #cbd5e1',
+              background: canSell ? '#f0fdf4' : '#f8fafc',
+              color: canSell ? '#15803d' : '#94a3b8',
+              whiteSpace: 'nowrap',
+            }}
+            title={canSell ? 'Seller Access Allowed (Click to Deny)' : 'Seller Access Denied (Click to Allow)'}
+          >
+            {canSell ? '⭐ Allowed' : '❌ Denied'}
+          </button>
+        );
       },
     },
     {

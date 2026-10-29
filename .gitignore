@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary files
+check_promos.py
+id49.jpeg
+scratch/

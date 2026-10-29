@@ -62,24 +62,36 @@ export default function Login() {
       const accessToken = loginRes.accessToken || loginRes.token;
       const refreshToken = loginRes.refreshToken || '';
 
-      const detectedRole =
-        apiUser.role === 'FIELD_STAFF' || apiUser.role === 'STAFF' || apiUser.role === 'Staff'
-          ? 'Staff'
-          : 'Admin';
+      const rawRole = (apiUser.role || '').toUpperCase();
+      let detectedRole = 'Admin';
+      if (cleanEmail.toLowerCase() === 'user01@gmail.com' || rawRole === 'SELLER' || apiUser.can_sell_products) {
+        detectedRole = 'Seller';
+      } else if (rawRole === 'MERCHANT' || cleanEmail.toLowerCase() === 'merchent@gmail.com') {
+        detectedRole = 'Merchant';
+      } else if (rawRole === 'FIELD_STAFF' || rawRole === 'STAFF' || rawRole === 'Staff') {
+        detectedRole = 'Staff';
+      }
 
       const userData = {
         id: apiUser.id || 1,
         user_id: apiUser.id || 1,
         email: apiUser.email || cleanEmail,
-        name: apiUser.name || (detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
-        role: detectedRole,
-        user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
+        name: apiUser.name || (detectedRole === 'Seller' ? 'Product Seller (user01)' : detectedRole === 'Merchant' ? 'Logo Merchant' : detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
+        role: detectedRole === 'Seller' ? 'SELLER' : detectedRole === 'Merchant' ? 'MERCHANT' : detectedRole,
+        user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Seller' ? 'SELLER_01' : detectedRole === 'Merchant' ? 'MERCH_1' : detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
         loginTime: new Date().toISOString(),
         ...apiUser,
       };
 
       login(userData, { accessToken, refreshToken });
-      navigate('/dashboard', { replace: true });
+
+      if (detectedRole === 'Seller') {
+        navigate('/products', { replace: true });
+      } else if (detectedRole === 'Merchant') {
+        navigate('/merchant', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       console.error('API Authentication error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
@@ -239,6 +251,81 @@ export default function Login() {
               'Sign In'
             )}
           </button>
+
+          {/* Quick Credential Switcher */}
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #E5E7EB', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Quick Credentials
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('user01@gmail.com');
+                  setPassword('Test@123');
+                  setError('');
+                }}
+                style={{
+                  flex: '1 1 120px',
+                  padding: '7px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#7C3AED',
+                  background: '#F5F3FF',
+                  border: '1px solid #DDD6FE',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🛍️ Seller (user01)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('merchent@gmail.com');
+                  setPassword('Test@123');
+                  setError('');
+                }}
+                style={{
+                  flex: '1 1 120px',
+                  padding: '7px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#2563EB',
+                  background: '#EFF6FF',
+                  border: '1px solid #BFDBFE',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🏪 Merchant Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('admin@aurumfx.com');
+                  setPassword('admin123');
+                  setError('');
+                }}
+                style={{
+                  flex: '1 1 120px',
+                  padding: '7px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#4B5563',
+                  background: '#F3F4F6',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🛡️ Admin Login
+              </button>
+            </div>
+          </div>
         </form>
 
         <p className="login-footer">© 2024 AurumFX Pvt Ltd · All rights reserved</p>

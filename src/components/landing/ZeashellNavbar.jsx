@@ -14,6 +14,7 @@ import {
   HiLogout,
   HiOutlineDocumentText,
   HiOutlineShieldCheck,
+  HiOutlineShoppingBag,
 } from 'react-icons/hi';
 import { FaCrosshairs } from 'react-icons/fa';
 import { contentApi } from '../../api/operationsApi';
@@ -769,6 +770,31 @@ export default function ZeashellNavbar({
               </span>
             </button>
 
+            {/* Direct Link to Subscriber Products Marketplace */}
+            <button
+              type="button"
+              className="zeas-blue-action-link"
+              title="Subscriber Products Marketplace (₹500 Seller)"
+              onClick={() => {
+                const el = document.getElementById('products-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              <div className="zeas-blue-badge-wrap">
+                <HiOutlineShoppingBag
+                  size={21}
+                  className="zeas-blue-action-icon"
+                  style={{ color: '#0284c7' }}
+                />
+              </div>
+              <span
+                className="zeas-blue-action-label desktop-only"
+                style={{ color: '#0284c7', fontWeight: 600 }}
+              >
+                Products
+              </span>
+            </button>
+
             {/* Customer Sign In / Sign Out */}
             {customerUser ? (
               <div className="zeas-blue-user-menu">
@@ -802,8 +828,54 @@ export default function ZeashellNavbar({
               </button>
             )}
 
+            {/* Logo Merchant Portal Button */}
+            <Link
+              to="/merchant"
+              className="zeas-blue-btn-merchant-portal"
+              title="Logo Merchant Portal"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 14px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#1d4ed8',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <HiOutlineShoppingBag size={15} />
+              <span>Merchant</span>
+            </Link>
+
+            {/* ₹500 Subscriber Seller Hub Button */}
+            <Link
+              to="/seller"
+              title="₹500 Subscriber Seller Hub (Post Products & View Orders)"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '7px 13px',
+                fontSize: '13px',
+                fontWeight: 700,
+                color: '#b45309',
+                backgroundColor: '#fef3c7',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>🛍️ Seller Hub</span>
+            </Link>
+
             {/* Admin Portal Button */}
-            <Link to="/login" className="zeas-blue-btn-admin-portal" title="Admin & Merchant Portal">
+            <Link to="/login" className="zeas-blue-btn-admin-portal" title="Admin & Staff Portal">
               Admin Portal
             </Link>
           </div>
@@ -1005,6 +1077,22 @@ export default function ZeashellNavbar({
               }}
             >
               All
+            </button>
+            <button
+              type="button"
+              className="zeas-blue-quick-cat-item"
+              style={{
+                background: '#eff6ff',
+                color: '#1d4ed8',
+                fontWeight: 700,
+                border: '1px solid #bfdbfe',
+              }}
+              onClick={() => {
+                const el = document.getElementById('products-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              🛍️ Products
             </button>
             {cleanCategoriesList.slice(0, 10).map((cat) => {
               const catTitle = cat.name || cat.title || cat.category_name;

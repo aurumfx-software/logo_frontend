@@ -8,12 +8,17 @@ const pageTitles = {
   '/registration-requests': 'Registration Requests',
   '/categories': 'Categories',
   '/merchants': 'Merchants',
+  '/merchant': 'Logo Merchant Portal',
+  '/merchant-portal': 'Logo Merchant Portal',
   '/users': 'Users',
   '/promotions': 'Promotions',
   '/complaints': 'Complaints',
   '/content': 'Content Management',
   '/geography': 'Geography',
   '/reports': 'Reports',
+  '/products': 'Products & Marketplace',
+  '/seller': 'Products & Orders (Seller Hub)',
+  '/seller-hub': 'Products & Orders (Seller Hub)',
 };
 
 export default function AdminLayout() {

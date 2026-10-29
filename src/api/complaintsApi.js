@@ -4,6 +4,17 @@ import { apiFetch } from './apiClient';
  * Complaints API Module
  * Direct Backend Endpoints: http://168.144.18.149:8000/api/v1/complaints
  */
+function extractErrorMessage(errJson, fallback = 'Operation failed') {
+  if (!errJson) return fallback;
+  if (typeof errJson === 'string') return errJson;
+  if (Array.isArray(errJson.detail)) {
+    return errJson.detail.map((e) => e.msg || e.message || JSON.stringify(e)).join(', ');
+  }
+  if (typeof errJson.detail === 'string') return errJson.detail;
+  if (errJson.message) return errJson.message;
+  return fallback;
+}
+
 export const complaintsApi = {
   /**
    * 1. GET /api/v1/complaints
@@ -14,6 +25,7 @@ export const complaintsApi = {
     if (params.status && params.status !== 'all') query.append('status', params.status);
     if (params.category && params.category !== 'all') query.append('category', params.category);
     if (params.priority && params.priority !== 'all') query.append('priority', params.priority);
+    if (params.merchant && params.merchant !== 'all') query.append('merchant', params.merchant);
     if (params.search) query.append('search', params.search);
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
@@ -63,7 +75,7 @@ export const complaintsApi = {
 
     if (!res || !res.ok) {
       const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to create complaint');
+      throw new Error(extractErrorMessage(errJson, 'Failed to create complaint'));
     }
 
     const json = await res.json().catch(() => ({}));
@@ -107,7 +119,7 @@ export const complaintsApi = {
 
     if (!res || !res.ok) {
       const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to update complaint');
+      throw new Error(extractErrorMessage(errJson, 'Failed to update complaint'));
     }
 
     const json = await res.json().catch(() => ({}));
@@ -139,7 +151,7 @@ export const complaintsApi = {
 
     if (!res || !res.ok) {
       const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to resolve complaint');
+      throw new Error(extractErrorMessage(errJson, 'Failed to resolve complaint'));
     }
 
     const json = await res.json().catch(() => ({}));
@@ -171,7 +183,7 @@ export const complaintsApi = {
 
     if (!res || !res.ok) {
       const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to update complaint status');
+      throw new Error(extractErrorMessage(errJson, 'Failed to update complaint status'));
     }
 
     const json = await res.json().catch(() => ({}));
@@ -179,7 +191,39 @@ export const complaintsApi = {
   },
 
   /**
-   * 8. DELETE /api/v1/complaints/{id}
+   * 8. POST /api/v1/complaints/{id}/reply
+   * Send official Admin reply to merchant/user
+   */
+  async reply(id, admin_response, status = 'in-progress') {
+    let res = await apiFetch(`/api/v1/complaints/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({
+        status,
+        admin_response,
+      }),
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await apiFetch(`/api/v1/complaints/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status,
+          admin_response,
+        }),
+      }).catch(() => null);
+    }
+
+    if (!res || !res.ok) {
+      const errJson = await res?.json().catch(() => ({}));
+      throw new Error(extractErrorMessage(errJson, 'Failed to send reply to complaint'));
+    }
+
+    const json = await res.json().catch(() => ({}));
+    return json.data || json.complaint || json;
+  },
+
+  /**
+   * 9. DELETE /api/v1/complaints/{id}
    * Delete complaint permanently
    */
   async delete(id) {
@@ -195,7 +239,7 @@ export const complaintsApi = {
 
     if (!res || !res.ok) {
       const errJson = await res?.json().catch(() => ({}));
-      throw new Error((errJson && (errJson.message || errJson.detail)) || 'Failed to delete complaint');
+      throw new Error(extractErrorMessage(errJson, 'Failed to delete complaint'));
     }
 
     const json = await res.json().catch(() => ({}));

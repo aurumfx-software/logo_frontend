@@ -220,3 +220,65 @@ export async function deletePromotion(id) {
 
   return true;
 }
+
+/**
+ * Approve promotion: POST /api/v1/promotions/${id}/approve
+ */
+export async function approvePromotion(id) {
+  let response = await apiFetch(`/api/v1/promotions/${id}/approve`, { method: 'POST' });
+  if (!response || !response.ok) {
+    response = await apiFetch(`/api/v1/promotions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'active', approval_status: 'approved' }),
+    });
+  }
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok) {
+    throw new Error(resData.detail || resData.message || 'Failed to approve promotion');
+  }
+  return resData.data || resData;
+}
+
+/**
+ * Reject promotion: POST /api/v1/promotions/${id}/reject
+ */
+export async function rejectPromotion(id, reason = '') {
+  let response = await apiFetch(`/api/v1/promotions/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  if (!response || !response.ok) {
+    response = await apiFetch(`/api/v1/promotions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected', approval_status: 'rejected', rejection_reason: reason }),
+    });
+  }
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok) {
+    throw new Error(resData.detail || resData.message || 'Failed to reject promotion');
+  }
+  return resData.data || resData;
+}
+
+/**
+ * Fetch promotions submitted by a specific merchant: GET /api/v1/promotions/merchant/${merchantId}
+ */
+export async function fetchMerchantPromotions(merchantId) {
+  try {
+    const response = await apiFetch(`/api/v1/promotions/merchant/${merchantId}`, { method: 'GET' });
+    if (response && response.ok) {
+      const resData = await response.json().catch(() => ({}));
+      return resData.data || resData.promotions || [];
+    }
+  } catch (err) {
+    console.warn('Backend fetchMerchantPromotions notice:', err);
+  }
+  // Fallback: fetch all and filter client-side
+  try {
+    const all = await fetchPromotionsList({ status: 'all' });
+    if (Array.isArray(all)) {
+      return all.filter((p) => String(p.merchant_id) === String(merchantId) || String(p.merchantId) === String(merchantId));
+    }
+  } catch (_) {}
+  return [];
+}

@@ -15,6 +15,7 @@ import {
   HiXCircle,
   HiTag,
   HiEye,
+  HiOutlineX,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
@@ -26,6 +27,8 @@ import {
   updatePromotion,
   deletePromotion,
   uploadPromotionMedia,
+  approvePromotion,
+  rejectPromotion,
 } from '../api/promotionApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { uploadMerchantMedia } from '../api/merchantApi';
@@ -44,6 +47,16 @@ const fallbackCategories = [
 ];
 
 const AD_SECTIONS = [
+  {
+    id: 'Pending Requests',
+    label: 'Pending Requests',
+    badge: 'Pending Approval',
+    icon: '⏳',
+    headline: 'Merchant Submitted Promotion Requests',
+    description:
+      'Review, edit, approve, or reject promotions submitted by merchants. Approved promotions become eligible for public landing page display.',
+    recommendedRatio: 'Admin Moderation Queue',
+  },
   {
     id: 'Home Top',
     label: 'Top Banners',
@@ -182,6 +195,9 @@ export default function Promotions() {
           mediaType: item.media_type || (item.video_url || item.videoUrl ? 'video' : 'image'),
           targetUrl: item.target_url || item.targetUrl || '#',
           phone: item.phone || '',
+          merchant_id: item.merchant_id || item.merchantId || null,
+          merchant_name: item.merchant_name || item.merchantName || '',
+          rejection_reason: item.rejection_reason || item.rejectionReason || '',
         }));
         setPromoList(formatted);
       } else {
@@ -546,10 +562,59 @@ export default function Promotions() {
     }
   };
 
+  // Approve submitted promotion
+  const handleApprovePromotion = async (id) => {
+    try {
+      await approvePromotion(id);
+      setPromoList((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'active' } : p))
+      );
+    } catch (err) {
+      console.error('Failed to approve promotion:', err);
+      alert(err.message || 'Failed to approve promotion');
+    }
+  };
+
+  // Reject submitted promotion with optional reason
+  const handleRejectPromotion = async (id) => {
+    const reason = window.prompt(
+      'Please enter the reason for rejection (optional):',
+      'Does not meet advertising guidelines'
+    );
+    if (reason === null) return;
+    try {
+      await rejectPromotion(id, reason);
+      setPromoList((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, status: 'rejected', rejection_reason: reason } : p
+        )
+      );
+    } catch (err) {
+      console.error('Failed to reject promotion:', err);
+      alert(err.message || 'Failed to reject promotion');
+    }
+  };
+
   // Filter ads by Active Placement Tab + Search Query + Category
   const currentSection = AD_SECTIONS.find((s) => s.id === activeTab) || AD_SECTIONS[0];
 
   const displayedPromos = promoList.filter((p) => {
+    // Pending Requests tab filter
+    if (activeTab === 'Pending Requests') {
+      const isPending = (p.status || '').toLowerCase() === 'pending';
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q) ||
+        (p.merchant_name || '').toLowerCase().includes(q);
+      const matchesCategory =
+        selectedCategoryFilter === 'All' ||
+        (p.category && p.category.toLowerCase() === selectedCategoryFilter.toLowerCase());
+      return isPending && matchesCategory && matchesSearch;
+    }
+
     // Placement filter
     const isAboveFooterTab = activeTab === 'Above Footer' || activeTab === 'Home Bottom';
     const matchesPlacement =
@@ -580,7 +645,8 @@ export default function Promotions() {
       (p.description || '').toLowerCase().includes(q) ||
       (p.category || '').toLowerCase().includes(q) ||
       (p.placement || '').toLowerCase().includes(q) ||
-      (p.location || '').toLowerCase().includes(q);
+      (p.location || '').toLowerCase().includes(q) ||
+      (p.merchant_name || '').toLowerCase().includes(q);
 
     return matchesPlacement && matchesCategory && matchesSearch;
   });
@@ -627,7 +693,9 @@ export default function Promotions() {
         {AD_SECTIONS.map((sec) => {
           const isAboveFooterSec = sec.id === 'Above Footer' || sec.id === 'Home Bottom';
           const count =
-            sec.id === 'Moving Text'
+            sec.id === 'Pending Requests'
+              ? promoList.filter((p) => (p.status || '').toLowerCase() === 'pending').length
+              : sec.id === 'Moving Text'
               ? promoList.filter(
                   (p) =>
                     p.placement &&
@@ -1147,6 +1215,26 @@ export default function Promotions() {
 
               {/* Card Body */}
               <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {(promo.merchant_name || promo.merchant_id) && (
+                  <div
+                    style={{
+                      background: '#F5F3FF',
+                      color: '#6D28D9',
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      marginBottom: 6,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    <span>🏬 Merchant: {promo.merchant_name || 'Cartech'}</span>
+                    {promo.merchant_id && <span>(#{promo.merchant_id})</span>}
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <h4
                     style={{
@@ -1233,7 +1321,7 @@ export default function Promotions() {
                   </div>
                 )}
 
-                {/* Footer Actions (Edit, Delete, Active Toggle) */}
+                {/* Footer Actions (Approve/Reject for Pending, or Active Toggle, Edit, Delete) */}
                 <div
                   style={{
                     marginTop: 'auto',
@@ -1245,25 +1333,72 @@ export default function Promotions() {
                     gap: 8,
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleToggleStatus(promo)}
-                    style={{
-                      background: promo.status === 'active' ? '#f0fdf4' : '#f8fafc',
-                      color: promo.status === 'active' ? '#16a34a' : '#64748b',
-                      border: `1px solid ${promo.status === 'active' ? '#bbf7d0' : '#e2e8f0'}`,
-                      borderRadius: 8,
-                      padding: '6px 12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    {promo.status === 'active' ? 'Active' : 'Inactive'}
-                  </button>
+                  {promo.status === 'pending' ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleApprovePromotion(promo.id)}
+                        className="btn btn-sm"
+                        title="Approve Promotion & Make Eligible for Landing Page"
+                        style={{
+                          background: '#10B981',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <HiOutlineCheck size={14} /> Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectPromotion(promo.id)}
+                        className="btn btn-sm"
+                        title="Reject Promotion"
+                        style={{
+                          background: '#EF4444',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 8,
+                          padding: '6px 10px',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <HiOutlineX size={14} /> Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(promo)}
+                      style={{
+                        background: promo.status === 'active' ? '#f0fdf4' : promo.status === 'rejected' ? '#fef2f2' : '#f8fafc',
+                        color: promo.status === 'active' ? '#16a34a' : promo.status === 'rejected' ? '#ef4444' : '#64748b',
+                        border: `1px solid ${promo.status === 'active' ? '#bbf7d0' : promo.status === 'rejected' ? '#fecaca' : '#e2e8f0'}`,
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      {promo.status === 'active' ? 'Active' : promo.status === 'rejected' ? 'Rejected' : 'Inactive'}
+                    </button>
+                  )}
 
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button

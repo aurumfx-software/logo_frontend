@@ -65,7 +65,20 @@ import ZeashellLocationPromptModal, {
   KERALA_DISTRICT_COORDINATES,
   KERALA_TOWN_COORDINATES,
 } from '../components/landing/ZeashellLocationPromptModal';
+import {
+  customerPhoneLogin,
+  customerRegister,
+  getCustomerFavorites,
+  toggleCustomerFavorite,
+  syncCustomerFavorites,
+  clearCustomerFavoritesApi,
+  clearCustomerSession,
+  getCustomerToken,
+} from '../api/customerApi';
 import '../components/landing/zeashell-landing.css';
+import LandingProductsSection from '../components/landing/LandingProductsSection';
+import ProductOrderModal from '../components/products/ProductOrderModal';
+import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
 import {
   conceptCategories,
   promoBanners,
@@ -450,6 +463,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
               target_url: tgt,
               category: item.category || 'General',
               type: item.type || 'Featured',
+              status: (item.status || 'active').toLowerCase(),
+              merchant_id: item.merchant_id || item.merchantId || null,
+              merchant_name: item.merchant_name || item.merchantName || '',
+              startDate: item.start_date || item.startDate || null,
+              endDate: item.end_date || item.endDate || null,
             };
           });
           setLivePromotions(formatted);
@@ -463,11 +481,45 @@ export default function LandingPage({ defaultTab = 'home' }) {
     };
   }, []);
 
+  // Strict promotion eligibility validation based on publication rules
+  const isEligiblePromotion = React.useCallback(
+    (p) => {
+      // 1. Promotion itself must be approved / active
+      const promoStatus = (p.status || '').toLowerCase();
+      if (promoStatus && promoStatus !== 'active' && promoStatus !== 'approved') {
+        return false;
+      }
+
+      // 2. If associated with a merchant, merchant must be approved AND have promotion access enabled
+      if (p.merchant_id || p.merchantId) {
+        const mId = Number(p.merchant_id || p.merchantId);
+        const m = apiMerchants.find((item) => Number(item.id) === mId);
+        if (m) {
+          const mStatus = (m.status || m.approval_status || '').toLowerCase();
+          if (mStatus !== 'approved' && mStatus !== 'active') {
+            return false;
+          }
+          if (!m.can_create_promotions && !m.promotion_access) {
+            return false;
+          }
+        }
+      }
+
+      // 3. Satisfies active dates
+      const now = new Date();
+      if (p.startDate && new Date(p.startDate) > now) return false;
+      if (p.endDate && new Date(p.endDate) < now) return false;
+
+      return true;
+    },
+    [apiMerchants]
+  );
+
   const displayTopBanners = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const top = livePromotions.filter(
         (p) =>
-          (p.status === 'active' || !p.status) &&
+          isEligiblePromotion(p) &&
           (!p.placement || p.placement === 'Home Top' || p.placement.toLowerCase().includes('top')) &&
           (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url) &&
           !((p.title || '').toLowerCase().includes('bag bazaar')) &&
@@ -516,13 +568,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
         placement: 'Home Top',
       },
     ];
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   const displayMiddleBanners = React.useMemo(() => {
     if (livePromotions && livePromotions.length > 0) {
       const mid = livePromotions.filter(
         (p) =>
-          (p.status === 'active' || !p.status) &&
+          isEligiblePromotion(p) &&
           p.placement &&
           (p.placement === 'Home Middle' ||
             p.placement.toLowerCase().includes('middle') ||
@@ -535,13 +587,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
       }
     }
     return [];
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   const displayFeaturedOffers = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const feat = livePromotions.filter(
         (p) =>
-          (p.status === 'active' || !p.status) &&
+          isEligiblePromotion(p) &&
           ((p.placement && (p.placement === 'Featured Offers' || p.placement.toLowerCase().includes('offer'))) ||
             p.type === 'Featured' ||
             p.type === 'Promotion') &&
@@ -581,13 +633,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
         imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/ef965d5520a7472dbf44707f49736de9.jpg',
       },
     ];
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   const displaySpecialOffers = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const spec = livePromotions.filter(
         (p) =>
-          (p.status === 'active' || !p.status) &&
+          isEligiblePromotion(p) &&
           ((p.placement && (p.placement === 'Special Offer' || p.placement.toLowerCase().includes('special'))) ||
             p.type === 'Special Offer') &&
           (p.imageUrl || p.bannerUrl || p.image_url)
@@ -629,13 +681,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
         imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
       },
     ];
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   // Derived Moving Ticker Announcements from PostgreSQL Live Promotions
   const displayTickerTexts = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const tickers = livePromotions.filter(
         (p) =>
+          isEligiblePromotion(p) &&
           p.placement &&
           (p.placement.toLowerCase().includes('moving') ||
             p.placement.toLowerCase().includes('ticker'))
@@ -649,14 +702,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
       { id: 't4', title: '🍕 Top Rated Restaurants & Cafes — Order or Visit Today' },
       { id: 't5', title: '🔥 Mega Deals Festival — Up to 60% Off on Top Brands' },
     ];
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   // Derived Above Footer Showcase from PostgreSQL Live Promotions (Placement: 'Home Bottom')
   const displayBottomShowcase = React.useMemo(() => {
     if (livePromotions.length > 0) {
       const bottom = livePromotions.filter(
         (p) =>
-          (p.status === 'active' || !p.status) &&
+          isEligiblePromotion(p) &&
           p.placement &&
           (p.placement === 'Above Footer' ||
             p.placement === 'Home Bottom' ||
@@ -682,7 +735,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
       }
     }
     return null;
-  }, [livePromotions]);
+  }, [livePromotions, isEligiblePromotion]);
 
   const [apiCategories, setApiCategories] = useState([]);
 
@@ -1000,29 +1053,49 @@ export default function LandingPage({ defaultTab = 'home' }) {
   });
   const [customerAuthMsg, setCustomerAuthMsg] = useState({ type: '', text: '' });
 
-  const handleCustomerLoginSubmit = (e) => {
+  // Subscriber Products & Direct WhatsApp Orders State
+  const [selectedOrderProduct, setSelectedOrderProduct] = useState(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+
+  const handleOpenOrderModal = (product) => {
+    setSelectedOrderProduct(product);
+    setIsOrderModalOpen(true);
+  };
+
+  const handleOpenAddProductModal = () => {
+    setIsAddProductModalOpen(true);
+  };
+
+  const handleCustomerLoginSubmit = async (e) => {
     e.preventDefault();
     const cleanPhone = customerLoginForm.phone.trim().replace(/[^0-9]/g, '');
     if (!cleanPhone || cleanPhone.length < 10) {
       setCustomerAuthMsg({ type: 'error', text: 'Please enter a valid 10-digit mobile number' });
       return;
     }
-    const userObj = {
-      name: `Customer (${cleanPhone.slice(-4)})`,
-      phone: cleanPhone,
-      isRegistered: false,
-      loggedInAt: new Date().toISOString(),
-    };
-    setCustomerUser(userObj);
     try {
-      localStorage.setItem('logo_customer_user', JSON.stringify(userObj));
-    } catch {}
-    setCustomerLoginModalOpen(false);
-    setCustomerLoginForm({ phone: '' });
-    setCustomerAuthMsg({ type: '', text: '' });
+      setCustomerAuthMsg({ type: 'info', text: 'Signing in...' });
+      const res = await customerPhoneLogin({ phone: cleanPhone });
+      setCustomerUser(res.customer);
+      setCustomerLoginModalOpen(false);
+      setCustomerLoginForm({ phone: '' });
+      setCustomerAuthMsg({ type: '', text: '' });
+
+      // Automatically sync local wishlist to customer's account
+      const syncRes = await syncCustomerFavorites(userFavorites);
+      if (syncRes?.favorite_merchant_ids) {
+        setUserFavorites(syncRes.favorite_merchant_ids);
+        try {
+          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
+        } catch {}
+      }
+    } catch (err) {
+      setCustomerAuthMsg({ type: 'error', text: err.message || 'Login failed. Please try again.' });
+    }
   };
 
-  const handleCustomerRegisterSubmit = (e) => {
+  const handleCustomerRegisterSubmit = async (e) => {
     e.preventDefault();
     const cleanName = customerRegisterForm.name.trim();
     const cleanPhone = customerRegisterForm.phone.trim().replace(/[^0-9]/g, '');
@@ -1038,46 +1111,78 @@ export default function LandingPage({ defaultTab = 'home' }) {
       return;
     }
 
-    const userObj = {
-      name: cleanName,
-      phone: cleanPhone,
-      district: district,
-      city: city,
-      isRegistered: true,
-      loggedInAt: new Date().toISOString(),
-    };
-    setCustomerUser(userObj);
     try {
-      localStorage.setItem('logo_customer_user', JSON.stringify(userObj));
-    } catch {}
-    setCustomerLoginModalOpen(false);
-    setCustomerRegisterForm({ name: '', phone: '', district: 'Ernakulam', city: '' });
-    setCustomerAuthMsg({ type: '', text: '' });
+      setCustomerAuthMsg({ type: 'info', text: 'Creating your account...' });
+      const res = await customerPhoneLogin({
+        phone: cleanPhone,
+        name: cleanName,
+        district: district,
+        city: city,
+      });
+      setCustomerUser(res.customer);
+      setCustomerLoginModalOpen(false);
+      setCustomerRegisterForm({ name: '', phone: '', district: 'Ernakulam', city: '' });
+      setCustomerAuthMsg({ type: '', text: '' });
+
+      // Sync local wishlist
+      const syncRes = await syncCustomerFavorites(userFavorites);
+      if (syncRes?.favorite_merchant_ids) {
+        setUserFavorites(syncRes.favorite_merchant_ids);
+        try {
+          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
+        } catch {}
+      }
+    } catch (err) {
+      setCustomerAuthMsg({ type: 'error', text: err.message || 'Registration failed. Please try again.' });
+    }
   };
 
-  const handleCustomerQuickLogin = () => {
-    const demoUser = {
-      name: 'Saranya Sudheer',
-      phone: '9847123456',
-      district: 'Kannur',
-      city: 'Payyanur',
-      isRegistered: true,
-      loggedInAt: new Date().toISOString(),
-    };
-    setCustomerUser(demoUser);
+  const handleCustomerQuickLogin = async () => {
     try {
-      localStorage.setItem('logo_customer_user', JSON.stringify(demoUser));
-    } catch {}
-    setCustomerLoginModalOpen(false);
-    setCustomerAuthMsg({ type: '', text: '' });
+      setCustomerAuthMsg({ type: 'info', text: 'Signing in as Saranya Sudheer...' });
+      const res = await customerPhoneLogin({
+        phone: '9847123456',
+        name: 'Saranya Sudheer',
+        district: 'Kannur',
+        city: 'Payyanur',
+      });
+      setCustomerUser(res.customer);
+      setCustomerLoginModalOpen(false);
+      setCustomerAuthMsg({ type: '', text: '' });
+
+      const syncRes = await syncCustomerFavorites(userFavorites);
+      if (syncRes?.favorite_merchant_ids) {
+        setUserFavorites(syncRes.favorite_merchant_ids);
+        try {
+          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
+        } catch {}
+      }
+    } catch (err) {
+      setCustomerAuthMsg({ type: 'error', text: err.message || 'Quick login failed. Please try again.' });
+    }
   };
 
   const handleCustomerLogout = () => {
     setCustomerUser(null);
-    try {
-      localStorage.removeItem('logo_customer_user');
-    } catch {}
+    clearCustomerSession();
   };
+
+  // Sync customer's cloud wishlist on initial mount if authenticated
+  useEffect(() => {
+    if (getCustomerToken()) {
+      getCustomerFavorites()
+        .then((data) => {
+          if (data?.favorite_merchant_ids && Array.isArray(data.favorite_merchant_ids)) {
+            setUserFavorites(data.favorite_merchant_ids);
+            try {
+              localStorage.setItem('logo_user_favs', JSON.stringify(data.favorite_merchant_ids));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
 
   // Auto-check location on first visit before browsing
   useEffect(() => {
@@ -1191,7 +1296,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return null; // Return null when coordinates are unknown so distance is not fabricated
   };
 
-  const handleToggleFavorite = (merchantId) => {
+  const handleToggleFavorite = async (merchantId) => {
+    // 1. Optimistic UI update
     setUserFavorites((prev) => {
       const next = prev.includes(merchantId)
         ? prev.filter((id) => id !== merchantId)
@@ -1201,7 +1307,23 @@ export default function LandingPage({ defaultTab = 'home' }) {
       } catch {}
       return next;
     });
+
+    // 2. Cloud Wishlist Sync if customer is authenticated
+    if (getCustomerToken()) {
+      try {
+        const res = await toggleCustomerFavorite(merchantId);
+        if (res?.favorite_merchant_ids && Array.isArray(res.favorite_merchant_ids)) {
+          setUserFavorites(res.favorite_merchant_ids);
+          try {
+            localStorage.setItem('logo_user_favs', JSON.stringify(res.favorite_merchant_ids));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Could not sync favorite to customer account:', err);
+      }
+    }
   };
+
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
@@ -1229,8 +1351,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
   const getSearchSuggestions = () => {
     if (!searchQuery.trim()) return [];
-    const pool = masterMerchants.length > 0 ? masterMerchants : (apiMerchants.length > 0 ? apiMerchants : initialEstablishments);
-    return generateFuzzySuggestions(pool, searchQuery, 6);
+    return generateFuzzySuggestions(allCandidatePool, searchQuery, 6);
   };
 
   const handleSelectSuggestion = (sug) => {
@@ -1367,15 +1488,25 @@ export default function LandingPage({ defaultTab = 'home' }) {
     return matchesCategory && matchesLocation && matchesSearch;
   });
 
-  // Combined master pool for full search discovery
+  // Combined master pool for full search discovery (strictly approved merchants only)
   const allCandidatePool = useMemo(() => {
-    if (masterMerchants.length > 0) return masterMerchants;
-    if (apiMerchants.length > 0) return apiMerchants;
-    return initialEstablishments;
+    const raw = masterMerchants.length > 0 ? masterMerchants : (apiMerchants.length > 0 ? apiMerchants : initialEstablishments);
+    return raw.filter((item) => {
+      const st = (item.status || '').toLowerCase();
+      const appSt = (item.approval_status || '').toLowerCase();
+      return st !== 'pending' && st !== 'rejected' && appSt !== 'pending' && appSt !== 'rejected';
+    });
   }, [masterMerchants, apiMerchants]);
 
-  // Use backend API merchants when loaded
-  const sourceEstablishments = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
+  // Use backend API merchants when loaded (strictly approved merchants only)
+  const sourceEstablishments = useMemo(() => {
+    const raw = apiMerchants.length > 0 ? apiMerchants : initialEstablishments;
+    return raw.filter((item) => {
+      const st = (item.status || '').toLowerCase();
+      const appSt = (item.approval_status || '').toLowerCase();
+      return st !== 'pending' && st !== 'rejected' && appSt !== 'pending' && appSt !== 'rejected';
+    });
+  }, [apiMerchants]);
 
   // Filter Establishments list with Fuzzy Relevance Ranking
   const filteredEstablishments = useMemo(() => {
@@ -1675,6 +1806,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
                     try {
                       localStorage.setItem('logo_user_favs', JSON.stringify([]));
                     } catch {}
+                    if (getCustomerToken()) {
+                      clearCustomerFavoritesApi().catch(() => {});
+                    }
                   }
                 }}
               >
@@ -2383,6 +2517,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
           </div>
         </div>
       </section>
+
+      {/* 6.5. Subscriber Products Marketplace (₹500 Plan Sell & Direct WhatsApp Order) */}
+      <LandingProductsSection
+        customerUser={customerUser}
+        onOpenOrderModal={handleOpenOrderModal}
+        onOpenAddProductModal={handleOpenAddProductModal}
+      />
 
       {/* 7. Kerala Discovery & Video Showcase (Envato Elements style split layout with seamless video shade) */}
       <ZeashellEnvatoShowcase
@@ -3631,6 +3772,26 @@ export default function LandingPage({ defaultTab = 'home' }) {
             ? 'Nearby You (GPS)'
             : 'Kerala'
         }
+      />
+
+      {/* 15. Subscriber Product Modals */}
+      <ProductOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => {
+          setIsOrderModalOpen(false);
+          setSelectedOrderProduct(null);
+        }}
+        product={selectedOrderProduct}
+        customerUser={customerUser}
+      />
+
+      <CustomerAddProductModal
+        isOpen={isAddProductModalOpen}
+        onClose={() => setIsAddProductModalOpen(false)}
+        customerUser={customerUser}
+        onProductCreated={() => {
+          window.dispatchEvent(new CustomEvent('logo:refresh_products'));
+        }}
       />
     </div>
   );

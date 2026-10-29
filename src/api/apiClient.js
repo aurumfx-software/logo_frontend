@@ -14,6 +14,7 @@ export function getAccessToken() {
   return (
     localStorage.getItem(AUTH_TOKEN_KEY) ||
     localStorage.getItem(ACCESS_TOKEN_KEY) ||
+    localStorage.getItem('logo_customer_token') ||
     localStorage.getItem(LEGACY_TOKEN_KEY) ||
     localStorage.getItem('token') ||
     localStorage.getItem('access_token') ||

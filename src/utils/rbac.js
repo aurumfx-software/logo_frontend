@@ -7,12 +7,15 @@
 export const ROLES = {
   ADMIN: 'ADMIN',
   STAFF: 'STAFF',
+  MERCHANT: 'MERCHANT',
+  SELLER: 'SELLER',
 };
 
 // Default modules access configuration for Staff role
 export const DEFAULT_STAFF_PERMISSIONS = {
   dashboard: true,
   merchants: true,
+  merchant_portal: true,
   categories: true,
   geography: true,
   reports: true,
@@ -26,6 +29,7 @@ export const DEFAULT_STAFF_PERMISSIONS = {
 export const MODULE_NAMES = [
   { key: 'dashboard', label: 'Dashboard Overview', path: '/dashboard', description: 'View dashboard analytics & summary cards' },
   { key: 'merchants', label: 'Merchants List & Management', path: '/merchants', description: 'View & manage registered merchants' },
+  { key: 'merchant_portal', label: 'Logo Merchant Portal', path: '/merchant', description: 'Manage merchant profile and promotions' },
   { key: 'categories', label: 'Category Directory', path: '/categories', description: 'Browse and manage business categories' },
   { key: 'geography', label: 'Geography & Zones', path: '/geography', description: 'View assigned regions and locations' },
   { key: 'reports', label: 'Analytics & Reports', path: '/reports', description: 'Access operational reports and stats' },
@@ -64,11 +68,20 @@ export function saveStaffPermissions(newPermissions) {
 }
 
 /**
- * Normalizes user role string from backend or session to standard ROLES enum (ADMIN or STAFF)
+ * Normalizes user role string from backend or session to standard ROLES enum (ADMIN, MERCHANT, or STAFF)
  */
 export function normalizeRole(user) {
   if (!user) return ROLES.STAFF;
   const raw = (user.role || user.user_role || user.type || '').toString().toUpperCase().trim();
+  const email = (user.email || '').toString().toLowerCase().trim();
+
+  if (email === 'user01@gmail.com' || raw === 'SELLER' || user.can_sell_products) {
+    return ROLES.SELLER;
+  }
+
+  if (raw === 'MERCHANT' || email === 'merchent@gmail.com') {
+    return ROLES.MERCHANT;
+  }
 
   if (raw.includes('ADMIN') || raw === 'SUPER_ADMIN' || raw === 'SUPER ADMIN') {
     return ROLES.ADMIN;
@@ -84,6 +97,10 @@ export function getRoleDisplayTitle(user) {
   switch (normalized) {
     case ROLES.ADMIN:
       return 'Admin';
+    case ROLES.MERCHANT:
+      return 'Merchant';
+    case ROLES.SELLER:
+      return 'Subscriber Seller';
     case ROLES.STAFF:
     default:
       return 'Staff';
@@ -95,7 +112,14 @@ export function getRoleDisplayTitle(user) {
  */
 export function canAccessModule(user, moduleKey) {
   if (!user) return false;
-  if (normalizeRole(user) === ROLES.ADMIN) return true;
+  const role = normalizeRole(user);
+  if (role === ROLES.ADMIN) return true;
+  if (role === ROLES.SELLER) {
+    return moduleKey === 'products';
+  }
+  if (role === ROLES.MERCHANT) {
+    return moduleKey === 'merchant_portal' || moduleKey === 'products';
+  }
 
   const perms = getStaffPermissions();
   return !!perms[moduleKey];
@@ -108,6 +132,12 @@ export function hasAccess(user, allowedRoles = [], moduleKey = null) {
   if (!user) return false;
   const userRole = normalizeRole(user);
   if (userRole === ROLES.ADMIN) return true;
+  if (userRole === ROLES.SELLER) {
+    return allowedRoles.includes(ROLES.SELLER) || moduleKey === 'products';
+  }
+  if (userRole === ROLES.MERCHANT) {
+    return allowedRoles.includes(ROLES.MERCHANT) || moduleKey === 'merchant_portal' || moduleKey === 'products';
+  }
 
   if (moduleKey) {
     return canAccessModule(user, moduleKey);
