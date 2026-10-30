@@ -19,6 +19,8 @@ const pageTitles = {
   '/products': 'Products & Marketplace',
   '/seller': 'Products & Orders (Seller Hub)',
   '/seller-hub': 'Products & Orders (Seller Hub)',
+  '/wallet': 'Platform Company Wallet',
+  '/subscriptions': 'Subscription Packages & Plans',
 };
 
 export default function AdminLayout() {

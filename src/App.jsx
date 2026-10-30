@@ -21,6 +21,7 @@ import MerchantPortal from './pages/MerchantPortal';
 import Products from './pages/Products';
 import SellerPortal from './pages/SellerPortal';
 import CompanyWallet from './pages/CompanyWallet';
+import Subscriptions from './pages/Subscriptions';
 
 
 // Protected route wrapper — redirects to /login if not authenticated
@@ -177,6 +178,14 @@ function AppRoutes() {
           element={
             <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
               <CompanyWallet />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/subscriptions"
+          element={
+            <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <Subscriptions />
             </RoleProtectedRoute>
           }
         />

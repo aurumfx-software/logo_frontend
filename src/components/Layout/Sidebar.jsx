@@ -14,6 +14,7 @@ import {
   HiOutlineLogout,
   HiOutlineShoppingBag,
   HiOutlineCreditCard,
+  HiOutlineTag,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -39,6 +40,7 @@ const ALL_NAV_ITEMS = [
     title: 'Operations & Insights',
     items: [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
+      { key: 'subscriptions', path: '/subscriptions', icon: HiOutlineTag, label: 'Subscriptions', adminOnly: true },
       { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
@@ -121,6 +123,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     : ALL_NAV_ITEMS.map((section) => {
         const allowedItems = section.items
           .filter((item) => {
+            if (item.adminOnly && !isAdminUser) return false;
             if (isAdminUser) return true;
             return !!staffPerms[item.key];
           })
