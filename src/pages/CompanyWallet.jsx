@@ -78,17 +78,25 @@ export default function CompanyWallet() {
 
   const balance = data?.balance !== undefined ? Number(data.balance).toFixed(2) : '0.00';
   const totalRevenue = data?.total_platform_revenue !== undefined ? Number(data.total_platform_revenue).toFixed(2) : '0.00';
-  const totalSales = data?.total_sales_volume !== undefined ? Number(data.total_sales_volume).toFixed(2) : '0.00';
-  const totalCashback = data?.total_cashback_distributed !== undefined ? Number(data.total_cashback_distributed).toFixed(2) : '0.00';
-  const totalRedemptions = data?.total_redemptions_count || 0;
-  const transactions = Array.isArray(data?.recent_transactions) ? data.recent_transactions : [];
+  const totalSales = (data?.total_sales_volume !== undefined ? data.total_sales_volume : data?.gross_sales_volume) !== undefined
+    ? Number(data?.total_sales_volume ?? data?.gross_sales_volume).toFixed(2)
+    : '0.00';
+  const totalCashback = (data?.total_cashback_distributed !== undefined ? data.total_cashback_distributed : data?.cashback_distributed) !== undefined
+    ? Number(data?.total_cashback_distributed ?? data?.cashback_distributed).toFixed(2)
+    : '0.00';
+  const totalRedemptions = data?.total_redemptions_count ?? data?.qr_redemptions ?? 0;
+  const transactions = Array.isArray(data?.recent_transactions)
+    ? data.recent_transactions
+    : Array.isArray(data?.transactions)
+    ? data.transactions
+    : [];
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: 40 }}>
       {/* Top Header */}
       <PageHeader
         title="Platform Wallet"
-        subtitle="Real-time 2% platform commission ledger from QR code transactions across Kerala"
+        subtitle="Real-time platform commission ledger from QR code transactions across Kerala"
       >
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button
@@ -231,57 +239,9 @@ export default function CompanyWallet() {
               <span style={{ fontSize: 28, color: '#34D399', fontWeight: 700 }}>₹</span>
               {balance}
             </div>
-            <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 8, maxWidth: 440, lineHeight: 1.5 }}>
-              Automatically credited in real-time with the 2% company platform fee whenever a customer redeems a sale QR code at any merchant shop.
+            <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 8, maxWidth: 540, lineHeight: 1.5 }}>
+              Automatically credited in real-time with the company platform fee whenever a customer redeems a sale QR code at any merchant shop.
             </p>
-          </div>
-
-          {/* 3-Way Split Summary Pill */}
-          <div
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: 16,
-              padding: '16px 20px',
-              minWidth: 260,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: '#9CA3AF',
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              3-Way Split Structure
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#D1D5DB' }}>
-                <span>Customer Cashback:</span>
-                <span style={{ fontWeight: 700, color: '#34D399' }}>3.00%</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#D1D5DB' }}>
-                <span>Platform Fee (Company):</span>
-                <span style={{ fontWeight: 700, color: '#FBBF24' }}>2.00%</span>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  color: '#FFFFFF',
-                  paddingTop: 8,
-                  borderTop: '1px solid rgba(255, 255, 255, 0.12)',
-                  fontWeight: 700,
-                }}
-              >
-                <span>Total Shop Deduction:</span>
-                <span>5.00%</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -293,7 +253,7 @@ export default function CompanyWallet() {
           label="Total Platform Revenue"
           value={`₹${totalRevenue}`}
           trend="up"
-          trendValue="2% Platform Fee"
+          trendValue="Platform Commission"
           color="success"
           delay={1}
         />
@@ -343,7 +303,7 @@ export default function CompanyWallet() {
               Platform Ledger & Fee Transactions
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Real-time incoming 2% platform commission credits from customer redemptions
+              Real-time incoming platform commission credits from customer redemptions
             </p>
           </div>
           <span
