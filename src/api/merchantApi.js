@@ -204,7 +204,10 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       longitude: m.longitude || m.lon || m.lng || null,
       rating: m.rating || m.avg_rating || 4.5,
       reviews: m.reviews_count || m.reviews || 0,
-      status: m.status ? m.status.toLowerCase() : (m.is_approved || m.is_active ? 'active' : 'pending'),
+      status: (m.approval_status || '').toUpperCase() === 'APPROVED' || (m.status || '').toUpperCase() === 'APPROVED'
+        ? 'approved'
+        : (m.status ? m.status.toLowerCase() : (m.is_approved || m.is_active ? 'active' : 'pending')),
+      approval_status: m.approval_status || (m.status ? m.status.toUpperCase() : 'APPROVED'),
       owner: m.owner_name || m.contact_person || m.owner || 'N/A',
       owner_name: m.owner_name || m.contact_person || m.owner || 'N/A',
       phone: phoneVal,

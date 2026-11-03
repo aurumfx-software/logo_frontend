@@ -509,7 +509,11 @@ export default function Merchants() {
         const apiMerchants = await fetchMerchantsList(isStaff ? { user_code: currentUserCode } : {});
         if (Array.isArray(apiMerchants)) {
           // Only show approved / active merchants in the Merchants directory (pending registrations stay in Registrations section)
-          const approvedMerchants = apiMerchants.filter((m) => (m.status || '').toLowerCase() !== 'pending');
+          const approvedMerchants = apiMerchants.filter((m) => {
+            const approval = String(m.approval_status || m.raw?.approval_status || '').toUpperCase();
+            if (approval === 'APPROVED') return true;
+            return (m.status || '').toLowerCase() !== 'pending';
+          });
           approvedMerchants.sort((a, b) => {
             const timeA = new Date(a.created_at || a.createdAt || a.joined || 0).getTime();
             const timeB = new Date(b.created_at || b.createdAt || b.joined || 0).getTime();
@@ -555,7 +559,12 @@ export default function Merchants() {
   const filteredData =
     activeTab === 'all'
       ? data
-      : data.filter((m) => m.status === activeTab);
+      : data.filter((m) => {
+          if (activeTab === 'active') {
+            return m.status === 'active' || m.status === 'approved' || String(m.approval_status).toUpperCase() === 'APPROVED';
+          }
+          return m.status === activeTab;
+        });
 
   const columns = [
     { key: 'id', label: 'ID' },
@@ -729,7 +738,7 @@ export default function Merchants() {
 
   const counts = {
     all: data.length,
-    active: data.filter((m) => m.status === 'active' || m.status === 'approved').length,
+    active: data.filter((m) => m.status === 'active' || m.status === 'approved' || String(m.approval_status).toUpperCase() === 'APPROVED').length,
     suspended: data.filter((m) => m.status === 'suspended').length,
     inactive: data.filter((m) => m.status === 'inactive' || m.status === 'rejected').length,
   };
