@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { HiX, HiPhotograph, HiPlus, HiCheckCircle, HiLockClosed } from 'react-icons/hi';
+import { HiX, HiPhotograph, HiPlus, HiCheckCircle, HiLockClosed, HiCreditCard } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createCustomerProduct } from '../../api/productApi';
+import { apiFetch } from '../../api/apiClient';
 
 const PRODUCT_CATEGORIES = [
   'Fashion & Traditional Wear',
@@ -35,6 +36,7 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -103,6 +105,83 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
       `Hello Logo Kerala Admin, I am interested in subscribing to the ₹500 Seller Plan to sell my products on Logo Kerala Marketplace. My Name: ${customerUser?.name || ''}, Phone: ${customerUser?.phone || ''}. Please activate my account.`
     );
     window.open(`https://api.whatsapp.com/send?phone=919847123456&text=${text}`, '_blank');
+  };
+
+  const handleRazorpay500Subscribe = async () => {
+    setIsSubscribing(true);
+    setErrorMsg('');
+    try {
+      if (!customerUser) {
+        alert('Please sign in first to subscribe to the ₹500 Seller Plan.');
+        return;
+      }
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Failed to load Razorpay payment SDK'));
+          document.body.appendChild(script);
+        });
+      }
+
+      const res = await apiFetch('/api/v1/wallet/topup/razorpay/order', {
+        method: 'POST',
+        body: JSON.stringify({ amount: 500 }),
+      });
+      const orderData = await res.json();
+      if (!res.ok) throw new Error(orderData.detail || orderData.message || 'Failed to initialize payment');
+
+      const options = {
+        key: orderData.razorpay_key_id,
+        amount: orderData.amount_paise,
+        currency: orderData.currency || 'INR',
+        name: 'Logo Kerala Marketplace',
+        description: '₹500 Seller Subscription Plan',
+        order_id: orderData.razorpay_order_id,
+        handler: async function (response) {
+          try {
+            await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
+              method: 'POST',
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            await apiFetch('/api/v1/subscriptions/subscribe', {
+              method: 'POST',
+              body: JSON.stringify({
+                package_code: 'USER_SELLER_500',
+                payment_reference: response.razorpay_payment_id,
+              }),
+            });
+
+            alert('🎉 ₹500 Seller Plan activated successfully! You can now publish your products.');
+            window.location.reload();
+          } catch (err) {
+            alert('Payment received! Activating plan... ' + (err.message || ''));
+            window.location.reload();
+          }
+        },
+        prefill: {
+          name: customerUser.name || '',
+          contact: customerUser.phone ? customerUser.phone.replace(/[^0-9]/g, '').slice(-10) : '',
+          email: customerUser.email || '',
+        },
+        theme: {
+          color: '#1769D2',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      alert(err.message || 'Razorpay checkout failed. You can also subscribe via WhatsApp below.');
+    } finally {
+      setIsSubscribing(false);
+    }
   };
 
   return (
@@ -239,27 +318,53 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
 
             <button
               type="button"
-              onClick={handleContactAdminFor500Plan}
+              onClick={handleRazorpay500Subscribe}
+              disabled={isSubscribing}
               style={{
                 width: '100%',
                 padding: '14px',
-                background: '#25D366',
+                background: 'linear-gradient(135deg, #1769D2 0%, #10264B 100%)',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: 12,
                 fontSize: 15,
                 fontWeight: 800,
+                cursor: isSubscribing ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                boxShadow: '0 4px 14px rgba(23, 105, 210, 0.4)',
+                marginBottom: 10,
+              }}
+            >
+              <HiCreditCard size={22} />
+              <span>{isSubscribing ? 'Opening Razorpay...' : 'Pay ₹500 via Razorpay (Instant Active)'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleContactAdminFor500Plan}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#25D366',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 12,
+                fontSize: 14,
+                fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 10,
-                boxShadow: '0 4px 14px rgba(37, 211, 102, 0.4)',
+                boxShadow: '0 3px 10px rgba(37, 211, 102, 0.3)',
                 marginBottom: 10,
               }}
             >
-              <FaWhatsapp size={22} />
-              <span>Subscribe on WhatsApp (₹500 Plan)</span>
+              <FaWhatsapp size={20} />
+              <span>Subscribe via WhatsApp Support</span>
             </button>
 
             <button
