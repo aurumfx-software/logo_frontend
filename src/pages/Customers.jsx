@@ -105,11 +105,13 @@ export default function Customers() {
         user_id: walletModalCustomer.id,
         operation: walletOp.operation,
         amount: Number(walletOp.amount),
+        claim_mode: true,
         note: walletOp.note || `Admin ${walletOp.operation} for customer ${walletModalCustomer.name}`,
       });
+      const opLabel = walletOp.operation === 'credit' ? 'sent to Redeem section for' : 'debited from';
       setWalletMsg({
         type: 'success',
-        text: `✅ ₹${walletOp.amount} ${walletOp.operation === 'credit' ? 'credited to' : 'debited from'} ${walletModalCustomer.name}'s wallet!`,
+        text: `✅ ₹${walletOp.amount} ${opLabel} ${walletModalCustomer.name}! (Claimable in Redeem section)`,
       });
       setWalletOp({ operation: 'credit', amount: '', note: '' });
       setTimeout(() => {

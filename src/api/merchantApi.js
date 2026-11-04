@@ -189,8 +189,11 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
 
     return {
       id: m.id || m.merchant_id || m._id || `MCH-${idx + 1}`,
+      merchant_id: m.id || m.merchant_id || null,
+      user_id: m.user_id !== undefined ? m.user_id : (m.userId || (m.linked_user?.id) || null),
       name: m.business_name || m.name || m.title || 'Merchant Store',
       business_name: m.business_name || m.name,
+      raw: m,
       category: m.category || (m.categories && m.categories[0]) || m.category_name || 'Retail',
       categories: Array.isArray(m.categories) ? m.categories : [m.category || 'Retail'],
       city: m.city || m.city_region || m.location || m.district || 'Payyanur',

@@ -125,23 +125,27 @@ export default function Merchants() {
       setWalletOpMsg({ type: 'error', text: 'Please enter a valid amount.' });
       return;
     }
-    if (!merchantWalletModal?.merchant?.user_id) {
-      setWalletOpMsg({ type: 'error', text: 'Merchant user ID not found.' });
+    const targetUserId = merchantWalletModal?.merchant?.user_id ?? merchantWalletModal?.merchant?.raw?.user_id;
+    const targetMerchantId = merchantWalletModal?.merchant?.id ?? merchantWalletModal?.merchant?.merchant_id;
+    if (!targetUserId && !targetMerchantId) {
+      setWalletOpMsg({ type: 'error', text: 'Merchant ID or user ID not found.' });
       return;
     }
     setWalletOpLoading(true);
     setWalletOpMsg({ type: '', text: '' });
     try {
       await adminAdjustWallet({
-        user_id: Number(merchantWalletModal.merchant.user_id),
+        user_id: targetUserId ? Number(targetUserId) : undefined,
+        merchant_id: targetMerchantId ? Number(targetMerchantId) : undefined,
         operation: walletOp.operation,
         amount: Number(walletOp.amount),
+        claim_mode: true, // Sits in Redeem section until merchant redeems it
         note: walletOp.note || `Admin ${walletOp.operation} for merchant ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}`,
       });
-      const opLabel = walletOp.operation === 'credit' ? 'sent to' : 'deducted from';
+      const opLabel = walletOp.operation === 'credit' ? 'sent to Redeem section for' : 'deducted from';
       setWalletOpMsg({
         type: 'success',
-        text: `✅ ₹${walletOp.amount} ${opLabel} ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}'s wallet!`,
+        text: `✅ ₹${walletOp.amount} ${opLabel} ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}! (Merchant can claim in Redeem section)`,
       });
       setWalletOp({ operation: 'credit', amount: '', note: '' });
     } catch (err) {
@@ -2233,7 +2237,7 @@ export default function Merchants() {
                 {merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}
               </div>
               <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                User Code / ID: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{merchantWalletModal.merchant.user_code || `User #${merchantWalletModal.merchant.user_id}`}</span> | Location: {merchantWalletModal.merchant.city || merchantWalletModal.merchant.district || 'Kerala'}
+                User Code / ID: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{merchantWalletModal.merchant.user_code || (merchantWalletModal.merchant.user_id ? `User #${merchantWalletModal.merchant.user_id}` : `Merchant #${merchantWalletModal.merchant.id}`)}</span> | Location: {merchantWalletModal.merchant.city || merchantWalletModal.merchant.district || 'Kerala'}
               </div>
             </div>
 
