@@ -167,20 +167,6 @@ export default function CompanyWallet() {
           border: '1px solid rgba(255, 255, 255, 0.08)',
         }}
       >
-        {/* Glow orb */}
-        <div
-          style={{
-            position: 'absolute',
-            top: -40,
-            right: -40,
-            width: 240,
-            height: 240,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(108, 99, 255, 0.35) 0%, rgba(108, 99, 255, 0) 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-
         <div
           style={{
             display: 'flex',

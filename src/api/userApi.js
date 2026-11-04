@@ -109,6 +109,9 @@ export async function fetchUsersList(filters = {}) {
   if (district && district !== 'all') params.set('district', district);
   if (city && city !== 'all') params.set('city', city);
 
+  params.set('limit', filters.limit ? String(filters.limit) : '500');
+  params.set('sort', filters.sort ? String(filters.sort) : 'desc');
+
   if (searchVal && String(searchVal).trim()) {
     const q = String(searchVal).trim();
     params.set('search', q);

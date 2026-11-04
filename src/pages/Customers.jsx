@@ -9,17 +9,42 @@ import {
   HiOutlineRefresh,
   HiOutlineCreditCard,
   HiOutlineEye,
+  HiOutlinePencil,
+  HiOutlineTrash,
   HiOutlineCheckCircle,
   HiOutlineBan,
   HiOutlineUserGroup,
+  HiOutlineFilter,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
-import { fetchUsersList } from '../api/userApi';
+import {
+  fetchUsersList,
+  toggleUserStatus,
+  deleteAdminOrStaffAccount,
+  updateAdminOrStaffAccount,
+} from '../api/userApi';
 import { adminAdjustWallet } from '../api/walletApi';
+
+const KERALA_DISTRICTS = [
+  'Alappuzha',
+  'Ernakulam',
+  'Idukki',
+  'Kannur',
+  'Kasaragod',
+  'Kollam',
+  'Kottayam',
+  'Kozhikode',
+  'Malappuram',
+  'Palakkad',
+  'Pathanamthitta',
+  'Thiruvananthapuram',
+  'Thrissur',
+  'Wayanad',
+];
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -31,6 +56,19 @@ export default function Customers() {
   // Selected customer for viewing details
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
+  // Edit customer state
+  const [editModalCustomer, setEditModalCustomer] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    district: '',
+    city: '',
+    status: 'active',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState({ type: '', text: '' });
+
   // Wallet modal state
   const [walletModalCustomer, setWalletModalCustomer] = useState(null);
   const [walletOp, setWalletOp] = useState({ operation: 'credit', amount: '', note: '' });
@@ -40,9 +78,9 @@ export default function Customers() {
   const loadCustomers = async () => {
     setLoading(true);
     try {
-      // Customers are users with role FIELD_STAFF or public mobile customers
-      const allUsers = await fetchUsersList();
-      // Filter to show customers (Field Staff / Public Users / Registered app users)
+      // Fetch users with sort=desc and large limit so newly registered phone users appear at the top
+      const allUsers = await fetchUsersList({ sort: 'desc', limit: 1000 });
+      // Filter out admin users to display customer users
       const custList = (allUsers || []).filter((u) => {
         const r = (u.role || '').toUpperCase();
         return r !== 'ADMIN' && r !== 'SUPER_ADMIN' && r !== 'SUPERADMIN';
@@ -58,6 +96,68 @@ export default function Customers() {
   useEffect(() => {
     loadCustomers();
   }, []);
+
+  const handleOpenEditModal = (customer) => {
+    setEditModalCustomer(customer);
+    setEditForm({
+      name: customer.name || '',
+      phone: customer.phone || '',
+      email: customer.email && customer.email !== 'N/A' ? customer.email : '',
+      district: customer.district || customer.city || 'Kannur',
+      city: customer.city || customer.district || 'Payyanur',
+      status: customer.status === 'suspended' ? 'suspended' : 'active',
+    });
+    setActionMsg({ type: '', text: '' });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editModalCustomer) return;
+    setEditLoading(true);
+    setActionMsg({ type: '', text: '' });
+    try {
+      const cleanId = editModalCustomer.rawId || editModalCustomer.id;
+      await updateAdminOrStaffAccount(cleanId, editForm);
+      setActionMsg({ type: 'success', text: `✓ Customer ${editForm.name} updated successfully!` });
+      setTimeout(() => {
+        setEditModalCustomer(null);
+        setActionMsg({ type: '', text: '' });
+      }, 1200);
+      await loadCustomers();
+    } catch (err) {
+      setActionMsg({ type: 'error', text: err.message || 'Failed to update customer' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleStatusToggle = async (customer) => {
+    const cleanId = customer.rawId || customer.id;
+    const currStatus = customer.status || (customer.is_active ? 'active' : 'suspended');
+    const targetStatus = currStatus === 'active' ? 'suspended' : 'active';
+    const confirmMsg = `Are you sure you want to ${targetStatus === 'suspended' ? 'suspend' : 'activate'} ${customer.name}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await toggleUserStatus(cleanId, currStatus);
+      await loadCustomers();
+    } catch (err) {
+      alert(err.message || 'Failed to update status');
+    }
+  };
+
+  const handleDeleteCustomer = async (customer) => {
+    const cleanId = customer.rawId || customer.id;
+    if (!window.confirm(`Are you sure you want to permanently delete customer "${customer.name}"?`)) {
+      return;
+    }
+    try {
+      await deleteAdminOrStaffAccount(cleanId);
+      await loadCustomers();
+    } catch (err) {
+      alert(err.message || 'Failed to delete customer');
+    }
+  };
 
   // Filtered customer list
   const filteredCustomers = customers.filter((c) => {
@@ -205,31 +305,74 @@ export default function Customers() {
       key: 'actions',
       label: 'Actions',
       sortable: false,
-      render: (_, row) => (
-        <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="View Customer Details"
-            onClick={() => setSelectedCustomer(row)}
-          >
-            <HiOutlineEye />
-          </button>
-          <button
-            className="btn btn-outline btn-sm btn-icon"
-            title="Customer Wallet (Send Cash / Credit)"
-            style={{ color: '#059669', borderColor: '#A7F3D0' }}
-            onClick={() => {
-              setWalletModalCustomer(row);
-              setWalletOp({ operation: 'credit', amount: '', note: '' });
-              setWalletMsg({ type: '', text: '' });
-            }}
-          >
-            <HiOutlineCreditCard />
-          </button>
-        </div>
-      ),
+      render: (_, row) => {
+        const isActive = row.status === 'active' || (row.is_active !== false && row.status !== 'INACTIVE' && row.status !== 'suspended');
+        return (
+          <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="View Customer Details"
+              onClick={() => setSelectedCustomer(row)}
+            >
+              <HiOutlineEye />
+            </button>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Edit Customer"
+              style={{ color: 'var(--primary)', borderColor: 'var(--primary-light)' }}
+              onClick={() => handleOpenEditModal(row)}
+            >
+              <HiOutlinePencil />
+            </button>
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Customer Wallet (Send Cash / Credit)"
+              style={{ color: '#059669', borderColor: '#A7F3D0' }}
+              onClick={() => {
+                setWalletModalCustomer(row);
+                setWalletOp({ operation: 'credit', amount: '', note: '' });
+                setWalletMsg({ type: '', text: '' });
+              }}
+            >
+              <HiOutlineCreditCard />
+            </button>
+            {isActive ? (
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                title="Suspend Customer"
+                style={{ color: 'var(--danger)', borderColor: '#FCA5A5' }}
+                onClick={() => handleStatusToggle(row)}
+              >
+                <HiOutlineBan />
+              </button>
+            ) : (
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                title="Activate Customer"
+                style={{ color: 'var(--success)', borderColor: '#86EFAC' }}
+                onClick={() => handleStatusToggle(row)}
+              >
+                <HiOutlineCheckCircle />
+              </button>
+            )}
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Delete Customer"
+              style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+              onClick={() => handleDeleteCustomer(row)}
+            >
+              <HiOutlineTrash />
+            </button>
+          </div>
+        );
+      },
     },
   ];
+
+  // Distinct districts combining active customers and Kerala districts
+  const allDistrictsList = Array.from(
+    new Set([...KERALA_DISTRICTS, ...customers.map((c) => c.district || c.city).filter(Boolean)])
+  ).sort();
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: 60 }}>
@@ -261,7 +404,7 @@ export default function Customers() {
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Active Users</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>
-              {customers.filter((c) => c.is_active !== false && c.status !== 'INACTIVE').length}
+              {customers.filter((c) => c.is_active !== false && c.status !== 'INACTIVE' && c.status !== 'suspended').length}
             </div>
           </div>
         </div>
@@ -271,49 +414,136 @@ export default function Customers() {
             <HiOutlineLocationMarker />
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Districts Active</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#7C3AED' }}>{districts.length || 14}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Districts Covered</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#7C3AED' }}>{allDistrictsList.length}</div>
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card" style={{ padding: 16, marginBottom: 20, borderRadius: 12 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-          <div style={{ flex: '1 1 240px', position: 'relative' }}>
-            <HiOutlineSearch style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-secondary)', fontSize: 18 }} />
+      {/* Modern Filter and Search Bar */}
+      <div
+        className="card"
+        style={{
+          padding: '14px 18px',
+          marginBottom: 20,
+          borderRadius: 14,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+          border: '1px solid #E2E8F0',
+          background: '#FFFFFF',
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+          {/* Search Input */}
+          <div style={{ flex: '1 1 260px', position: 'relative' }}>
+            <HiOutlineSearch
+              style={{
+                position: 'absolute',
+                left: 14,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#64748B',
+                fontSize: 18,
+              }}
+            />
             <input
               type="text"
               placeholder="Search by customer name, phone, email, place..."
               className="form-input"
-              style={{ paddingLeft: 38 }}
+              style={{
+                paddingLeft: 42,
+                borderRadius: 10,
+                border: '1.5px solid #E2E8F0',
+                background: '#F8FAFC',
+                fontSize: 14,
+                height: 42,
+              }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div style={{ minWidth: 160 }}>
+          {/* District Dropdown with Location Icon */}
+          <div
+            style={{
+              minWidth: 180,
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <HiOutlineLocationMarker
+              style={{
+                position: 'absolute',
+                left: 12,
+                color: '#7C3AED',
+                fontSize: 17,
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
             <select
               className="form-select"
               value={districtFilter}
               onChange={(e) => setDistrictFilter(e.target.value)}
+              style={{
+                paddingLeft: 34,
+                borderRadius: 10,
+                border: '1.5px solid #E2E8F0',
+                background: '#F8FAFC',
+                fontWeight: 600,
+                fontSize: 13,
+                height: 42,
+                color: '#1E293B',
+                cursor: 'pointer',
+              }}
             >
-              <option value="all">All Districts</option>
-              {districts.map((d) => (
-                <option key={d} value={d}>{d}</option>
+              <option value="all">📍 All Districts</option>
+              {allDistrictsList.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
               ))}
             </select>
           </div>
 
-          <div style={{ minWidth: 140 }}>
+          {/* Status Dropdown with Check Icon */}
+          <div
+            style={{
+              minWidth: 150,
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <HiOutlineFilter
+              style={{
+                position: 'absolute',
+                left: 12,
+                color: '#059669',
+                fontSize: 16,
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
             <select
               className="form-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                paddingLeft: 34,
+                borderRadius: 10,
+                border: '1.5px solid #E2E8F0',
+                background: '#F8FAFC',
+                fontWeight: 600,
+                fontSize: 13,
+                height: 42,
+                color: '#1E293B',
+                cursor: 'pointer',
+              }}
             >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Suspended</option>
+              <option value="all">⚡ All Status</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Suspended Only</option>
             </select>
           </div>
         </div>
@@ -537,6 +767,122 @@ export default function Customers() {
                   : walletOp.operation === 'credit'
                   ? `Send ₹${walletOp.amount || '0'} to Customer`
                   : `Deduct ₹${walletOp.amount || '0'} from Customer`}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editModalCustomer && (
+        <Modal
+          isOpen={!!editModalCustomer}
+          onClose={() => setEditModalCustomer(null)}
+          title={`✏️ Edit Customer — ${editModalCustomer.name || 'User'}`}
+          maxWidth="520px"
+        >
+          <form onSubmit={handleEditSubmit}>
+            {actionMsg.text && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: actionMsg.type === 'error' ? '#FEE2E2' : '#DCFCE7',
+                  color: actionMsg.type === 'error' ? '#991B1B' : '#166534',
+                  border: `1px solid ${actionMsg.type === 'error' ? '#FCA5A5' : '#86EFAC'}`,
+                }}
+              >
+                {actionMsg.text}
+              </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Full Name *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                required
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Phone Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Email Address</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>District</label>
+                <select
+                  className="form-select"
+                  value={editForm.district}
+                  onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
+                >
+                  {KERALA_DISTRICTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>City / Town</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Account Status</label>
+              <select
+                className="form-select"
+                value={editForm.status}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setEditModalCustomer(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={editLoading}
+              >
+                {editLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </form>
