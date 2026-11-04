@@ -33,3 +33,16 @@ export async function adminAdjustWallet(payload) {
   }
   return resData;
 }
+
+/**
+ * Fetch a user's wallet balance by user_id (admin only - uses admin adjust endpoint probe)
+ */
+export async function fetchUserWalletBalance(userId) {
+  const response = await apiFetch(`/api/v1/admin/users/${userId}/wallet`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to fetch wallet');
+  }
+  return data?.data || data;
+}
+

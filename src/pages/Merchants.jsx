@@ -15,6 +15,7 @@ import {
   HiOutlineGlobe,
   HiOutlinePencil,
   HiOutlineTrash,
+  HiOutlineCreditCard,
 } from 'react-icons/hi';
 import { FaWhatsapp, FaFacebook, FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa';
 import PageHeader from '../components/UI/PageHeader';
@@ -35,6 +36,7 @@ import {
   togglePromotionAccess,
   EMPTY_MERCHANT_IMAGE,
 } from '../api/merchantApi';
+import { adminAdjustWallet } from '../api/walletApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -110,6 +112,44 @@ export default function Merchants() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditVideoUploading, setIsEditVideoUploading] = useState(false);
   const [editVideoUploadProgress, setEditVideoUploadProgress] = useState(0);
+
+  // --- Merchant Wallet Modal State ---
+  const [merchantWalletModal, setMerchantWalletModal] = useState(null); // { merchant }
+  const [walletOp, setWalletOp] = useState({ operation: 'credit', amount: '', note: '' });
+  const [walletOpLoading, setWalletOpLoading] = useState(false);
+  const [walletOpMsg, setWalletOpMsg] = useState({ type: '', text: '' });
+
+  const handleMerchantWalletOp = async (e) => {
+    e.preventDefault();
+    if (!walletOp.amount || Number(walletOp.amount) <= 0) {
+      setWalletOpMsg({ type: 'error', text: 'Please enter a valid amount.' });
+      return;
+    }
+    if (!merchantWalletModal?.merchant?.user_id) {
+      setWalletOpMsg({ type: 'error', text: 'Merchant user ID not found.' });
+      return;
+    }
+    setWalletOpLoading(true);
+    setWalletOpMsg({ type: '', text: '' });
+    try {
+      await adminAdjustWallet({
+        user_id: Number(merchantWalletModal.merchant.user_id),
+        operation: walletOp.operation,
+        amount: Number(walletOp.amount),
+        note: walletOp.note || `Admin ${walletOp.operation} for merchant ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}`,
+      });
+      const opLabel = walletOp.operation === 'credit' ? 'sent to' : 'deducted from';
+      setWalletOpMsg({
+        type: 'success',
+        text: `✅ ₹${walletOp.amount} ${opLabel} ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}'s wallet!`,
+      });
+      setWalletOp({ operation: 'credit', amount: '', note: '' });
+    } catch (err) {
+      setWalletOpMsg({ type: 'error', text: err.message || 'Wallet operation failed.' });
+    } finally {
+      setWalletOpLoading(false);
+    }
+  };
 
   // --- Add Merchant Upload Handlers ---
   const handlePhotoUpload = async (index, file) => {
@@ -449,10 +489,10 @@ export default function Merchants() {
       if (selectedMerchant && selectedMerchant.id === merchantRow.id) {
         setSelectedMerchant(null);
       }
+      alert(`✅ Merchant "${merchantName}" deleted successfully.`);
     } catch (err) {
       console.error('Failed to delete merchant:', err);
-      // Local fallback removal
-      setData((prev) => prev.filter((m) => m.id !== merchantRow.id));
+      alert(`❌ Failed to delete "${merchantName}": ${err.message || 'Server error. Please try again.'}`);
     }
   };
 
@@ -712,6 +752,18 @@ export default function Merchants() {
             onClick={() => handleOpenEditModal(row)}
           >
             <HiOutlinePencil />
+          </button>
+          <button
+            className="btn btn-outline btn-sm btn-icon"
+            title="Merchant Wallet (Send / Adjust Cash)"
+            style={{ color: '#059669', borderColor: '#A7F3D0' }}
+            onClick={() => {
+              setMerchantWalletModal({ merchant: row });
+              setWalletOp({ operation: 'credit', amount: '', note: '' });
+              setWalletOpMsg({ type: '', text: '' });
+            }}
+          >
+            <HiOutlineCreditCard />
           </button>
           {row.status === 'active' || row.status === 'approved' ? (
             <button
@@ -2158,6 +2210,140 @@ export default function Merchants() {
           </div>
         </form>
       </Modal>
+
+      {/* --- Individual Merchant Wallet Adjustment Modal --- */}
+      {merchantWalletModal && (
+        <Modal
+          isOpen={!!merchantWalletModal}
+          onClose={() => setMerchantWalletModal(null)}
+          title={`💳 Wallet — ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name || 'Merchant'}`}
+          maxWidth="520px"
+        >
+          <form onSubmit={handleMerchantWalletOp}>
+            <div style={{ marginBottom: 16, background: '#F8FAFC', padding: '12px 16px', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: 13, color: '#64748B' }}>Store / Merchant:</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
+                {merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+                User Code / ID: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{merchantWalletModal.merchant.user_code || `User #${merchantWalletModal.merchant.user_id}`}</span> | Location: {merchantWalletModal.merchant.city || merchantWalletModal.merchant.district || 'Kerala'}
+              </div>
+            </div>
+
+            {walletOpMsg.text && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: walletOpMsg.type === 'error' ? '#FEE2E2' : '#DCFCE7',
+                  color: walletOpMsg.type === 'error' ? '#991B1B' : '#166534',
+                  border: `1px solid ${walletOpMsg.type === 'error' ? '#FCA5A5' : '#86EFAC'}`,
+                }}
+              >
+                {walletOpMsg.text}
+              </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Action Type</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setWalletOp({ ...walletOp, operation: 'credit' })}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    border: '1.5px solid',
+                    cursor: 'pointer',
+                    background: walletOp.operation === 'credit' ? '#ECFDF5' : '#ffffff',
+                    borderColor: walletOp.operation === 'credit' ? '#10B981' : '#CBD5E1',
+                    color: walletOp.operation === 'credit' ? '#047857' : '#64748B',
+                  }}
+                >
+                  ➕ Send / Credit Cash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWalletOp({ ...walletOp, operation: 'debit' })}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    border: '1.5px solid',
+                    cursor: 'pointer',
+                    background: walletOp.operation === 'debit' ? '#FEF2F2' : '#ffffff',
+                    borderColor: walletOp.operation === 'debit' ? '#EF4444' : '#CBD5E1',
+                    color: walletOp.operation === 'debit' ? '#B91C1C' : '#64748B',
+                  }}
+                >
+                  ➖ Deduct / Return Cash
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>
+                Amount (₹) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                placeholder="e.g. 500"
+                className="form-input"
+                style={{ fontSize: 16, fontWeight: 700 }}
+                value={walletOp.amount}
+                onChange={(e) => setWalletOp({ ...walletOp, amount: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>
+                Note / Reason (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Promotional funding / settlement / cashback balance"
+                className="form-input"
+                value={walletOp.note}
+                onChange={(e) => setWalletOp({ ...walletOp, note: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setMerchantWalletModal(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={walletOpLoading}
+                style={{
+                  background: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
+                  borderColor: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
+                }}
+              >
+                {walletOpLoading
+                  ? 'Processing...'
+                  : walletOp.operation === 'credit'
+                  ? `Send ₹${walletOp.amount || '0'} to Merchant`
+                  : `Deduct ₹${walletOp.amount || '0'} from Merchant`}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </motion.div>
   );
 }

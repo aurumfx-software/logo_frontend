@@ -344,7 +344,20 @@ export default function CompanyWallet() {
                       {t.created_at ? new Date(t.created_at).toLocaleString('en-IN') : '—'}
                     </td>
                     <td style={{ fontWeight: 700, color: 'var(--text)' }}>
-                      {t.merchant_name || 'Verified Store'}
+                      {t.merchant_name ? (
+                        <>
+                          <div>{t.merchant_name}</div>
+                          {t.merchant_city && (
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                              📍 {t.merchant_city}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: 12 }}>
+                          {t.note && t.note.toLowerCase().includes('admin') ? 'Admin Adjustment' : 'Platform Fee'}
+                        </span>
+                      )}
                     </td>
                     <td style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 360 }}>
                       {t.note || t.description || '2.00% Platform Fee'}

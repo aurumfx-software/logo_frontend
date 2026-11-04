@@ -22,6 +22,7 @@ import Products from './pages/Products';
 import SellerPortal from './pages/SellerPortal';
 import CompanyWallet from './pages/CompanyWallet';
 import Subscriptions from './pages/Subscriptions';
+import Customers from './pages/Customers';
 
 
 // Protected route wrapper — redirects to /login if not authenticated
@@ -122,6 +123,7 @@ function AppRoutes() {
         <Route path="/categories" element={<AdminOnlyRoute><Categories /></AdminOnlyRoute>} />
         <Route path="/merchants" element={<AdminOnlyRoute><Merchants /></AdminOnlyRoute>} />
         <Route path="/merchants/:id" element={<AdminOnlyRoute><MerchantDetail /></AdminOnlyRoute>} />
+        <Route path="/customers" element={<AdminOnlyRoute><Customers /></AdminOnlyRoute>} />
         <Route path="/merchant" element={<MerchantPortal />} />
         <Route path="/merchant/dashboard" element={<MerchantPortal />} />
         <Route path="/merchant-portal" element={<MerchantPortal />} />

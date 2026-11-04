@@ -13,6 +13,7 @@ import {
   HiOutlineExternalLink,
   HiOutlinePlus,
   HiOutlinePhotograph,
+  HiOutlineUpload,
   HiCheckCircle,
   HiXCircle,
 } from 'react-icons/hi';
@@ -31,6 +32,7 @@ import {
   updateCustomerProduct,
   deleteCustomerProduct,
 } from '../api/productApi';
+import { uploadMerchantMedia } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 import { normalizeRole, ROLES } from '../utils/rbac';
 
@@ -340,7 +342,7 @@ export default function Products() {
           }}
         >
           <HiOutlinePlus size={18} />
-          <span>+ Post Product</span>
+          <span>Post Product</span>
         </button>
       </PageHeader>
 
@@ -1255,14 +1257,90 @@ export default function Products() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Product Image URL</label>
-            <input
-              type="url"
-              className="form-input"
-              placeholder="https://images.unsplash.com/..."
-              value={newProduct.image_url}
-              onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
-            />
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Product Image *</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Select from file manager</span>
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {newProduct.image_url ? (
+                <div style={{ position: 'relative', display: 'inline-block', width: 140, height: 140, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <img
+                    src={newProduct.image_url}
+                    alt="Preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      background: 'rgba(0,0,0,0.6)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: 24,
+                      height: 24,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '9px 16px',
+                    borderRadius: 8,
+                    background: 'var(--primary-light, #EEF2FF)',
+                    color: 'var(--primary, #4F46E5)',
+                    border: '1.5px dashed var(--primary, #4F46E5)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  <HiOutlineUpload size={18} />
+                  <span>Choose Image File...</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      // Read file as preview data URL immediately
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setNewProduct((prev) => ({ ...prev, image_url: reader.result }));
+                      };
+                      reader.readAsDataURL(file);
+
+                      // Also attempt multipart upload if backend available
+                      try {
+                        const fd = new FormData();
+                        fd.append('photos', file);
+                        const res = await uploadMerchantMedia(fd);
+                        if (res?.photos?.[0]) {
+                          setNewProduct((prev) => ({ ...prev, image_url: res.photos[0] }));
+                        }
+                      } catch (err) {
+                        // local base64 fallback already set
+                      }
+                    }}
+                  />
+                </label>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>JPG, PNG, WEBP</span>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

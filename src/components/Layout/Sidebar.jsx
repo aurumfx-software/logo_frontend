@@ -15,6 +15,7 @@ import {
   HiOutlineShoppingBag,
   HiOutlineCreditCard,
   HiOutlineTag,
+  HiOutlineUserGroup,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -31,6 +32,7 @@ const ALL_NAV_ITEMS = [
     items: [
       { key: 'registrations', path: '/registration-requests', icon: HiOutlineClipboardCheck, label: 'Registrations', badge: 12 },
       { key: 'merchants', path: '/merchants', icon: HiOutlineOfficeBuilding, label: 'Merchants' },
+      { key: 'customers', path: '/customers', icon: HiOutlineUserGroup, label: 'Customers' },
       { key: 'products', path: '/products', icon: HiOutlineShoppingBag, label: 'Products & Orders' },
       { key: 'categories', path: '/categories', icon: HiOutlineCollection, label: 'Categories' },
       { key: 'users', path: '/users', icon: HiOutlineUsers, label: 'Staff & User Accounts' },

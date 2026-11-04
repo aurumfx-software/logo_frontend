@@ -673,7 +673,7 @@ export default function Promotions() {
               setShowAddModal(true);
             }}
           >
-            <HiOutlinePlus /> + Add New Ad
+            <HiOutlinePlus /> Add New Ad
           </button>
         </div>
       </PageHeader>
