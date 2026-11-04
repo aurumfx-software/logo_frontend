@@ -201,8 +201,28 @@ export default function Customers() {
     setWalletLoading(true);
     setWalletMsg({ type: '', text: '' });
     try {
+      let targetUserId = walletModalCustomer.rawId || walletModalCustomer.user_id || walletModalCustomer.userId;
+      if (!targetUserId && walletModalCustomer.id) {
+        const match = String(walletModalCustomer.id).match(/\d+/);
+        if (match) {
+          targetUserId = parseInt(match[0], 10);
+        }
+      } else if (typeof targetUserId === 'string') {
+        const match = targetUserId.match(/\d+/);
+        if (match) {
+          targetUserId = parseInt(match[0], 10);
+        }
+      }
+      targetUserId = Number(targetUserId);
+
+      if (!targetUserId || isNaN(targetUserId)) {
+        setWalletMsg({ type: 'error', text: 'Customer numeric ID not found' });
+        setWalletLoading(false);
+        return;
+      }
+
       await adminAdjustWallet({
-        user_id: walletModalCustomer.id,
+        user_id: targetUserId,
         operation: walletOp.operation,
         amount: Number(walletOp.amount),
         claim_mode: true,
