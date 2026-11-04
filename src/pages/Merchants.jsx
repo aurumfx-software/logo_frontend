@@ -221,6 +221,12 @@ export default function Merchants() {
       return;
     }
 
+    const email = (newMerchant.email || '').trim().toLowerCase();
+    if (!email || !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(email)) {
+      setAddModalError('Valid Business Email ID is required for merchant account creation & login');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const currentUserCode = user?.user_code || user?.userCode || localStorage.getItem('user_code') || 'FLS_1';
@@ -232,7 +238,7 @@ export default function Merchants() {
         categories: [newMerchant.category || 'Retail'],
         owner_name: newMerchant.owner_name || newMerchant.owner || 'Owner Name',
         phone_number: newMerchant.phone_number || newMerchant.phone || '+91 98470 12345',
-        email: newMerchant.email || null,
+        email: email,
         district: newMerchant.district || 'Kannur',
         city: newMerchant.city || 'Payyanur',
         address: newMerchant.address || 'Main Road',
@@ -1089,12 +1095,13 @@ export default function Merchants() {
 
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <HiOutlineMail style={{ color: '#6C63FF' }} /> Business Email ID
+                  <HiOutlineMail style={{ color: '#6C63FF' }} /> Business Email ID <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
                   type="email"
                   className="form-input"
                   placeholder="contact@yourbusiness.com"
+                  required
                   value={newMerchant.email}
                   onChange={(e) => setNewMerchant({ ...newMerchant, email: e.target.value })}
                 />
