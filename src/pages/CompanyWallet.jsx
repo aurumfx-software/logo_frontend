@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineCreditCard,
   HiOutlineRefresh,
@@ -9,15 +9,21 @@ import {
   HiOutlinePaperAirplane,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
+  HiOutlineChevronDown,
+  HiOutlineChevronUp,
   HiOutlineExclamationCircle,
   HiOutlineCheckCircle,
+  HiOutlineFilter,
+  HiOutlineCollection,
+  HiOutlineReceiptTax,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import StatsCard from '../components/UI/StatsCard';
 import Modal from '../components/UI/Modal';
 import {
   fetchAdminWalletSummary,
-  fetchAdminWalletTransactions,
+  fetchAdminAllTransactions,
+  fetchPlatformLedgerTransactions,
   adminSendFunds,
 } from '../api/walletApi';
 
@@ -27,7 +33,11 @@ export default function CompanyWallet() {
   const [summaryData, setSummaryData] = useState(null);
   const [summaryError, setSummaryError] = useState('');
 
-  // Transactions State
+  // Transactions State & Tabs
+  const [activeTab, setActiveTab] = useState('all_tx'); // 'all_tx' | 'ledger'
+  const [txTypeFilter, setTxTypeFilter] = useState('ALL');
+  const [expandedTxId, setExpandedTxId] = useState(null);
+
   const [txLoading, setTxLoading] = useState(true);
   const [txData, setTxData] = useState([]);
   const [txTotal, setTxTotal] = useState(0);
@@ -65,31 +75,41 @@ export default function CompanyWallet() {
     }
   }, []);
 
-  // ── Load Admin Wallet Transactions ──
+  // ── Load Transactions (All Transactions or Platform Ledger) ──
   const loadTransactions = useCallback(async (page = 1) => {
     setTxLoading(true);
     setTxError('');
     try {
-      const res = await fetchAdminWalletTransactions(page, txPageSize);
+      let res;
+      if (activeTab === 'all_tx') {
+        res = await fetchAdminAllTransactions(page, txPageSize, txTypeFilter);
+      } else {
+        res = await fetchPlatformLedgerTransactions(page, txPageSize);
+      }
       const list = Array.isArray(res?.data) ? res.data : [];
       setTxData(list);
-      setTxTotal(res?.total ?? list.length);
-      setTxPage(res?.page ?? page);
-      const calculatedPages = res?.total_pages || Math.max(1, Math.ceil((res?.total ?? list.length) / txPageSize));
-      setTxTotalPages(calculatedPages);
+      const totalCount = res?.meta?.total_items ?? res?.total ?? list.length;
+      setTxTotal(totalCount);
+      const currentPage = res?.meta?.page ?? res?.page ?? page;
+      setTxPage(currentPage);
+      const totalPages = res?.meta?.total_pages ?? res?.total_pages ?? Math.max(1, Math.ceil(totalCount / txPageSize));
+      setTxTotalPages(totalPages);
     } catch (err) {
       console.error('Transactions load error:', err);
       setTxError(err.message || 'Failed to load wallet transactions');
     } finally {
       setTxLoading(false);
     }
-  }, [txPageSize]);
+  }, [activeTab, txTypeFilter, txPageSize]);
 
-  // Initial load
+  // Initial and reactive load
   useEffect(() => {
     loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
     loadTransactions(1);
-  }, [loadSummary, loadTransactions]);
+  }, [activeTab, txTypeFilter, loadTransactions]);
 
   // Refresh all
   const handleRefreshAll = () => {
@@ -163,6 +183,26 @@ export default function CompanyWallet() {
     : '0.00';
 
   const totalWalletCount = summaryData?.total_wallet_count ?? summaryData?.total_wallets_count ?? 0;
+
+  const getTxTypeBadge = (type) => {
+    const norm = (type || '').toUpperCase();
+    if (norm.includes('CASHBACK')) {
+      return { label: 'Cashback Redemption', bg: '#DCFCE7', text: '#15803D', border: '#BBF7D0' };
+    }
+    if (norm.includes('TRANSFER')) {
+      return { label: 'P2P Transfer', bg: '#DBEAFE', text: '#1D4ED8', border: '#BFDBFE' };
+    }
+    if (norm.includes('ADMIN')) {
+      return { label: 'Admin Credit', bg: '#F3E8FF', text: '#7E22CE', border: '#E9D5FF' };
+    }
+    if (norm.includes('TOPUP')) {
+      return { label: 'Wallet Top-up', bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' };
+    }
+    if (norm.includes('WITHDRAW')) {
+      return { label: 'Bank Withdrawal', bg: '#FEE2E2', text: '#B91C1C', border: '#FECACA' };
+    }
+    return { label: type || 'Transaction', bg: '#F1F5F9', text: '#475569', border: '#E2E8F0' };
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ paddingBottom: 40 }}>
@@ -495,27 +535,117 @@ export default function CompanyWallet() {
         <div
           className="card-header"
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
             padding: '18px 24px',
             borderBottom: '1px solid var(--border-light)',
-            flexWrap: 'wrap',
-            gap: 12,
           }}
         >
-          <div>
-            <div className="card-header-title" style={{ fontSize: 16, fontWeight: 700 }}>
-              Platform Commission & Wallet Transactions
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <div className="card-header-title" style={{ fontSize: 16, fontWeight: 700 }}>
+                {activeTab === 'all_tx' ? 'All Wallet Transactions' : 'Platform Commission Ledger'}
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {activeTab === 'all_tx'
+                  ? 'Complete transaction history across all users, merchants, and platform wallets (GET /api/v1/admin/transactions)'
+                  : 'Company commission ledger of incoming 2% platform fees earned from merchant QR sales (GET /api/v1/wallet/admin/transactions/platform-ledger)'}
+              </p>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Real-time ledger of incoming platform commission earned from customer & merchant QR transactions
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="badge badge-info" style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px' }}>
+                Total: {txTotal} Transactions
+              </span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="badge badge-info" style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px' }}>
-              Total: {txTotal} Transactions
-            </span>
+
+          {/* Navigation Tabs & Filter Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'inline-flex', padding: 3, background: 'var(--bg-light, #F1F5F9)', borderRadius: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('all_tx');
+                  setTxPage(1);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.15s ease',
+                  backgroundColor: activeTab === 'all_tx' ? '#FFFFFF' : 'transparent',
+                  color: activeTab === 'all_tx' ? '#2563EB' : 'var(--text-secondary, #64748B)',
+                  boxShadow: activeTab === 'all_tx' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <HiOutlineCollection style={{ fontSize: 16 }} />
+                <span>All Transactions</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ledger');
+                  setTxPage(1);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.15s ease',
+                  backgroundColor: activeTab === 'ledger' ? '#FFFFFF' : 'transparent',
+                  color: activeTab === 'ledger' ? '#2563EB' : 'var(--text-secondary, #64748B)',
+                  boxShadow: activeTab === 'ledger' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <HiOutlineReceiptTax style={{ fontSize: 16 }} />
+                <span>Platform Commission Ledger</span>
+              </button>
+            </div>
+
+            {/* Filter by Transaction Type (Only on All Transactions tab) */}
+            {activeTab === 'all_tx' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <HiOutlineFilter style={{ fontSize: 14 }} /> Type:
+                </span>
+                <select
+                  value={txTypeFilter}
+                  onChange={(e) => {
+                    setTxTypeFilter(e.target.value);
+                    setTxPage(1);
+                  }}
+                  className="input-select"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    border: '1px solid var(--border-light, #CBD5E1)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0F172A)',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="CASHBACK_REDEMPTION">Cashback Redemption</option>
+                  <option value="P2P_TRANSFER">P2P Transfer</option>
+                  <option value="ADMIN_CREDIT">Admin Credit</option>
+                  <option value="WALLET_TOPUP">Wallet Top-up</option>
+                  <option value="WITHDRAWAL">Bank Withdrawal</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -542,16 +672,236 @@ export default function CompanyWallet() {
           <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
             <HiOutlineCash style={{ fontSize: 44, color: '#CBD5E1', marginBottom: 12 }} />
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-              No platform commission transactions found.
+              {activeTab === 'all_tx' ? 'No transactions found.' : 'No platform commission transactions found.'}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-light)', marginTop: 4 }}>
-              When customers redeem QR cashback at merchant stores, incoming 2% platform fees will appear here.
+              {activeTab === 'all_tx'
+                ? 'Transactions performed across the platform will appear here.'
+                : 'When customers redeem QR cashback at merchant stores, incoming 2% platform fees will appear here.'}
             </div>
           </div>
         )}
 
-        {/* Data Table */}
-        {!txLoading && !txError && txData.length > 0 && (
+        {/* ── Table 1: All Wallet Transactions (GET /api/v1/admin/transactions) ── */}
+        {!txLoading && !txError && txData.length > 0 && activeTab === 'all_tx' && (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Ref ID</th>
+                  <th>Initiated By</th>
+                  <th>Type</th>
+                  <th style={{ textAlign: 'right' }}>Total Amount</th>
+                  <th>Ledger Summary</th>
+                  <th>Description</th>
+                  <th>Date</th>
+                  <th style={{ textAlign: 'center' }}>Breakdown</th>
+                </tr>
+              </thead>
+              <tbody>
+                {txData.map((t) => {
+                  const badge = getTxTypeBadge(t.transaction_type);
+                  const isExpanded = expandedTxId === t.id;
+                  const dateStr = t.created_at ? new Date(t.created_at).toLocaleString('en-IN', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  }) : '—';
+                  const formattedAmount = Number(t.amount || 0).toLocaleString('en-IN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  });
+
+                  return (
+                    <React.Fragment key={t.id}>
+                      <tr style={{ background: isExpanded ? 'rgba(59, 130, 246, 0.03)' : undefined }}>
+                        {/* Ref ID */}
+                        <td style={{ fontWeight: 600, color: 'var(--text)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>#{t.id}</span>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                color: 'var(--text-secondary)',
+                                marginTop: 2,
+                                maxWidth: 140,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={t.transaction_group_id}
+                            >
+                              {t.transaction_group_id}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Initiated By */}
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                            {t.initiated_by_name || (t.initiated_by_email ? t.initiated_by_email.split('@')[0] : 'System')}
+                          </div>
+                          {t.initiated_by_email && (
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                              {t.initiated_by_email}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Type Badge */}
+                        <td>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              backgroundColor: badge.bg,
+                              color: badge.text,
+                              border: `1px solid ${badge.border}`,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em',
+                            }}
+                          >
+                            {badge.label}
+                          </span>
+                        </td>
+
+                        {/* Amount */}
+                        <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>
+                          ₹{formattedAmount}
+                        </td>
+
+                        {/* Ledger Summary */}
+                        <td style={{ fontSize: 12 }}>
+                          {Array.isArray(t.ledger_entries) && t.ledger_entries.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {t.ledger_entries.map((entry, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    fontSize: 11,
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                    fontWeight: 600,
+                                    backgroundColor: (entry.direction || '').toUpperCase() === 'CREDIT' ? '#DCFCE7' : '#FEE2E2',
+                                    color: (entry.direction || '').toUpperCase() === 'CREDIT' ? '#15803D' : '#B91C1C',
+                                  }}
+                                >
+                                  {entry.direction === 'CREDIT' ? '+' : '-'}₹{Number(entry.amount).toFixed(2)} ({entry.wallet_type})
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Description */}
+                        <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 220 }}>
+                          {t.description || '—'}
+                        </td>
+
+                        {/* Date */}
+                        <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                          {dateStr}
+                        </td>
+
+                        {/* Expand Button */}
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedTxId(isExpanded ? null : t.id)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: 11,
+                              borderRadius: 6,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <span>{isExpanded ? 'Hide' : 'Lines'}</span>
+                            {isExpanded ? <HiOutlineChevronUp /> : <HiOutlineChevronDown />}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Ledger Entries Row */}
+                      {isExpanded && (
+                        <tr style={{ background: '#F8FAFC' }}>
+                          <td colSpan={8} style={{ padding: '16px 24px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#334155' }}>
+                              Ledger Breakdown for Transaction #{t.id} ({t.transaction_group_id}):
+                            </div>
+                            {Array.isArray(t.ledger_entries) && t.ledger_entries.length > 0 ? (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                                {t.ledger_entries.map((entry) => {
+                                  const isCred = (entry.direction || '').toUpperCase() === 'CREDIT';
+                                  return (
+                                    <div
+                                      key={entry.id}
+                                      style={{
+                                        background: '#FFFFFF',
+                                        border: `1px solid ${isCred ? '#BBF7D0' : '#FECACA'}`,
+                                        borderRadius: 8,
+                                        padding: '10px 14px',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                        <span style={{ fontWeight: 700, color: isCred ? '#15803D' : '#B91C1C' }}>
+                                          {entry.direction} (₹{Number(entry.amount).toFixed(2)})
+                                        </span>
+                                        <span style={{ fontSize: 10, background: '#F1F5F9', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                                          {entry.wallet_type} WALLET
+                                        </span>
+                                      </div>
+                                      <div style={{ color: '#475569' }}>
+                                        <strong>Account:</strong> {entry.user_name || entry.user_email || `Wallet #${entry.wallet_id}`}
+                                      </div>
+                                      <div style={{ color: '#475569', marginTop: 2 }}>
+                                        <strong>Balance After:</strong> ₹{Number(entry.balance_after || 0).toFixed(2)}
+                                      </div>
+                                      {entry.counterparty_name && (
+                                        <div style={{ color: '#64748B', marginTop: 2 }}>
+                                          <strong>Counterparty:</strong> {entry.counterparty_name}
+                                        </div>
+                                      )}
+                                      {entry.note && (
+                                        <div style={{ color: '#64748B', marginTop: 2, fontStyle: 'italic' }}>
+                                          "{entry.note}"
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div style={{ color: '#94A3B8', fontSize: 12 }}>No ledger lines recorded for this transaction.</div>
+                            )}
+
+                            {/* Bank details if withdrawal */}
+                            {(t.bank_account_holder_name || t.bank_account_last4) && (
+                              <div style={{ marginTop: 10, padding: '8px 12px', background: '#EFF6FF', borderRadius: 6, fontSize: 12, color: '#1E40AF' }}>
+                                <strong>Bank Details:</strong> {t.bank_account_holder_name || '—'} | Account Last 4: {t.bank_account_last4 || '—'} | IFSC: {t.bank_ifsc || '—'}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Table 2: Platform Commission Ledger (GET /api/v1/wallet/admin/transactions/platform-ledger) ── */}
+        {!txLoading && !txError && txData.length > 0 && activeTab === 'ledger' && (
           <div className="table-container">
             <table className="data-table">
               <thead>
