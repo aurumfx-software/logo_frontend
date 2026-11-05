@@ -1,6 +1,6 @@
 const resolveBaseUrl = () => {
   if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
-    return window.location.origin;
+    return `https://${window.location.hostname}`;
   }
   return (
     import.meta.env.VITE_API_BASE_URL ||
@@ -13,7 +13,7 @@ export const API_BASE_URL = resolveBaseUrl();
 
 export const API_V1_URL =
   typeof window !== 'undefined' && window.location && window.location.protocol === 'https:'
-    ? `${window.location.origin}/api/v1`
+    ? `https://${window.location.hostname}/api/v1`
     : (import.meta.env.VITE_API_URL || `${API_BASE_URL.replace(/\/$/, '')}/api/v1`);
 
 export const STATIC_BASE_URL = `${API_BASE_URL.replace(/\/$/, '')}/static`;
