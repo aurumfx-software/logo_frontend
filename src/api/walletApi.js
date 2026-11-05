@@ -90,11 +90,22 @@ export async function fetchPlatformLedgerTransactions(page = 1, pageSize = 20) {
 }
 
 /**
- * Admin Wallet Transactions (Full list from wallet route)
- * GET /api/v1/wallet/admin/transactions?page=1&page_size=20
+ * Admin Wallet Transactions (Full list and platform cash from wallet route)
+ * GET /api/v1/wallet/admin/transactions?page=1&page_size=20&cash_page=1&cash_page_size=20
  */
-export async function fetchAdminWalletTransactions(page = 1, pageSize = 20, transactionType = '') {
-  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+export async function fetchAdminWalletTransactions({
+  page = 1,
+  pageSize = 20,
+  cashPage = 1,
+  cashPageSize = 20,
+  transactionType = '',
+} = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    cash_page: String(cashPage),
+    cash_page_size: String(cashPageSize),
+  });
   if (transactionType && transactionType.toUpperCase() !== 'ALL') {
     params.append('transaction_type', transactionType);
   }
@@ -104,6 +115,19 @@ export async function fetchAdminWalletTransactions(page = 1, pageSize = 20, tran
     throw new Error(data.detail || data.message || 'Failed to fetch wallet transactions');
   }
   return data;
+}
+
+/**
+ * Admin: Get single transaction details with ledger lines
+ * GET /api/v1/wallet/admin/transactions/{transaction_id}
+ */
+export async function fetchAdminTransactionDetail(transactionId) {
+  const response = await apiFetch(`/api/v1/wallet/admin/transactions/${transactionId}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to fetch transaction details');
+  }
+  return data?.data || data;
 }
 
 /**
