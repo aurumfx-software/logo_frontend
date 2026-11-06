@@ -49,14 +49,14 @@ export default function CompanyWallet() {
   const [cashData, setCashData] = useState([]);
   const [cashTotal, setCashTotal] = useState(0);
   const [cashPage, setCashPage] = useState(1);
-  const [cashPageSize] = useState(20);
+  const [cashPageSize] = useState(10);
   const [cashTotalPages, setCashTotalPages] = useState(1);
 
   // ── Table 2: All Wallet Transactions State ──
   const [txData, setTxData] = useState([]);
   const [txTotal, setTxTotal] = useState(0);
   const [txPage, setTxPage] = useState(1);
-  const [txPageSize] = useState(20);
+  const [txPageSize] = useState(10);
   const [txTotalPages, setTxTotalPages] = useState(1);
   const [txTypeFilter, setTxTypeFilter] = useState('ALL');
   const [expandedTxId, setExpandedTxId] = useState(null);
@@ -260,7 +260,12 @@ export default function CompanyWallet() {
 
   // Extract Summary Values
   const companyBalance =
-    summaryData?.company_balance !== undefined
+    summaryData?.total_commission !== undefined
+      ? Number(summaryData.total_commission).toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : summaryData?.company_balance !== undefined
       ? Number(summaryData.company_balance).toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
@@ -312,17 +317,6 @@ export default function CompanyWallet() {
           >
             <HiOutlineRefresh className={summaryLoading || tableLoading ? 'animate-spin' : ''} style={{ fontSize: 16 }} />
             <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => {
-              setSendModalError('');
-              setShowSendModal(true);
-            }}
-            className="btn btn-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <HiOutlinePaperAirplane style={{ fontSize: 18, transform: 'rotate(45deg)' }} />
-            <span>Send Funds</span>
           </button>
         </div>
       </PageHeader>
@@ -398,15 +392,15 @@ export default function CompanyWallet() {
           marginBottom: 24,
         }}
       >
-        {/* Card 1: Company Balance */}
+        {/* Card 1: Commissions (Sky Blue) */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+            background: 'linear-gradient(135deg, #0284C7 0%, #0EA5E9 50%, #38BDF8 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 24px rgba(14, 165, 233, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
             position: 'relative',
             overflow: 'hidden',
           }}
@@ -420,8 +414,8 @@ export default function CompanyWallet() {
                   gap: 6,
                   padding: '3px 8px',
                   borderRadius: 20,
-                  background: 'rgba(59, 130, 246, 0.2)',
-                  color: '#60A5FA',
+                  background: 'rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
                   fontSize: 10.5,
                   fontWeight: 700,
                   letterSpacing: '0.05em',
@@ -430,10 +424,10 @@ export default function CompanyWallet() {
                 }}
               >
                 <HiOutlineCash style={{ fontSize: 13 }} />
-                Platform Reserve
+                Commissions
               </div>
-              <div style={{ fontSize: 12.5, color: '#94A3B8', fontWeight: 500 }}>
-                Company Balance
+              <div style={{ fontSize: 12.5, color: '#E0F2FE', fontWeight: 600 }}>
+                Total Merchant Payment Commissions
               </div>
               <div
                 style={{
@@ -447,11 +441,11 @@ export default function CompanyWallet() {
                   gap: 4,
                 }}
               >
-                <span style={{ fontSize: 20, color: '#3B82F6', fontWeight: 700 }}>₹</span>
+                <span style={{ fontSize: 20, color: '#FFFFFF', fontWeight: 700 }}>₹</span>
                 {summaryLoading ? '—' : companyBalance}
               </div>
-              <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 6 }}>
-                Live platform central pool & fee revenue
+              <div style={{ fontSize: 11.5, color: '#BAE6FD', marginTop: 6 }}>
+                Platform fee earned when customers pay merchants
               </div>
             </div>
             <div
@@ -459,11 +453,11 @@ export default function CompanyWallet() {
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                background: 'rgba(59, 130, 246, 0.15)',
+                background: 'rgba(255, 255, 255, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#3B82F6',
+                color: '#FFFFFF',
                 fontSize: 22,
               }}
             >
@@ -619,153 +613,6 @@ export default function CompanyWallet() {
             </div>
           </div>
         </div>
-
-        {/* Card 4: Active Circulation */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)',
-            borderRadius: 16,
-            padding: '20px 22px',
-            color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(49, 46, 129, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '3px 8px',
-                  borderRadius: 20,
-                  background: 'rgba(99, 102, 241, 0.25)',
-                  color: '#A5B4FC',
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                <HiOutlineTrendingUp style={{ fontSize: 13 }} />
-                Active Circulation
-              </div>
-              <div style={{ fontSize: 12.5, color: '#C7D2FE', fontWeight: 500 }}>
-                Total in User/Merchant Wallets
-              </div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  color: '#FFFFFF',
-                  letterSpacing: '-0.5px',
-                  marginTop: 4,
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 4,
-                }}
-              >
-                <span style={{ fontSize: 20, color: '#818CF8', fontWeight: 700 }}>₹</span>
-                {summaryLoading ? '—' : totalActiveWalletsBalance}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#A5B4FC', marginTop: 6 }}>
-                Active balances circulating in wallets
-              </div>
-            </div>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: 'rgba(99, 102, 241, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#818CF8',
-                fontSize: 22,
-              }}
-            >
-              <HiOutlineTrendingUp />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: Total Wallet Count */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #134E4A 0%, #0F766E 100%)',
-            borderRadius: 16,
-            padding: '20px 22px',
-            color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(15, 118, 110, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '3px 8px',
-                  borderRadius: 20,
-                  background: 'rgba(45, 212, 191, 0.25)',
-                  color: '#5EEAD4',
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                <HiOutlineUsers style={{ fontSize: 13 }} />
-                Active Wallets
-              </div>
-              <div style={{ fontSize: 12.5, color: '#CCFBF1', fontWeight: 500 }}>
-                Total Wallet Accounts
-              </div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  color: '#FFFFFF',
-                  letterSpacing: '-0.5px',
-                  marginTop: 4,
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 4,
-                }}
-              >
-                {summaryLoading ? '—' : Number(totalWalletCount).toLocaleString('en-IN')}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#5EEAD4', marginTop: 6 }}>
-                Registered customer & merchant wallets
-              </div>
-            </div>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: 'rgba(45, 212, 191, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#2DD4BF',
-                fontSize: 22,
-              }}
-            >
-              <HiOutlineUsers />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ═════════════════════════════════════════════════════════════ */}
@@ -896,32 +743,6 @@ export default function CompanyWallet() {
                 >
                   {txTotal}
                 </span>
-              </button>
-
-              {/* Tab 3: Platform Commission Ledger */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('ledger');
-                }}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s ease',
-                  backgroundColor: activeTab === 'ledger' ? '#FFFFFF' : 'transparent',
-                  color: activeTab === 'ledger' ? '#7C3AED' : 'var(--text-secondary, #64748B)',
-                  boxShadow: activeTab === 'ledger' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                <HiOutlineReceiptTax style={{ fontSize: 16 }} />
-                <span>Platform Commission Ledger</span>
               </button>
             </div>
 
@@ -2182,210 +2003,6 @@ export default function CompanyWallet() {
         )}
       </Modal>
 
-      {/* ═════════════════════════════════════════════════════════════ */}
-      {/* 4. ADMIN SEND FUNDS MODAL                                     */}
-      {/* ═════════════════════════════════════════════════════════════ */}
-      <Modal
-        isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
-        title="Send Funds from Admin Wallet"
-        size="md"
-        footer={
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
-            <button
-              type="button"
-              onClick={() => setShowSendModal(false)}
-              className="btn btn-outline"
-              disabled={sendingFunds}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={sendingFunds}
-              onClick={handleSendFundsSubmit}
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {sendingFunds ? (
-                <>
-                  <HiOutlineRefresh className="animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <HiOutlinePaperAirplane style={{ transform: 'rotate(45deg)' }} />
-                  <span>Send Funds</span>
-                </>
-              )}
-            </button>
-          </div>
-        }
-      >
-        <form onSubmit={handleSendFundsSubmit}>
-          {sendModalError && (
-            <div
-              style={{
-                marginBottom: 16,
-                padding: '10px 14px',
-                background: '#FEE2E2',
-                borderLeft: '4px solid #EF4444',
-                borderRadius: 6,
-                color: '#B91C1C',
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              {sendModalError}
-            </div>
-          )}
-
-          {/* Recipient Type: User or Merchant */}
-          <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>
-              Recipient Type *
-            </label>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <label
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  border: `2px solid ${sendRecipientType === 'user' ? '#3B82F6' : '#E2E8F0'}`,
-                  background: sendRecipientType === 'user' ? '#EFF6FF' : '#FFFFFF',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: 13.5,
-                  color: sendRecipientType === 'user' ? '#1E40AF' : '#475569',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="recipient_type"
-                  value="user"
-                  checked={sendRecipientType === 'user'}
-                  onChange={() => setSendRecipientType('user')}
-                />
-                <span>Customer / User</span>
-              </label>
-
-              <label
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  border: `2px solid ${sendRecipientType === 'merchant' ? '#3B82F6' : '#E2E8F0'}`,
-                  background: sendRecipientType === 'merchant' ? '#EFF6FF' : '#FFFFFF',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: 13.5,
-                  color: sendRecipientType === 'merchant' ? '#1E40AF' : '#475569',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="recipient_type"
-                  value="merchant"
-                  checked={sendRecipientType === 'merchant'}
-                  onChange={() => setSendRecipientType('merchant')}
-                />
-                <span>Merchant / Store</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Identifier Type Switch: User ID or Email */}
-          <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                Recipient Identifier *
-              </label>
-              <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
-                <span
-                  onClick={() => setSendIdentifierType('user_id')}
-                  style={{
-                    cursor: 'pointer',
-                    color: sendIdentifierType === 'user_id' ? '#3B82F6' : '#64748B',
-                    fontWeight: sendIdentifierType === 'user_id' ? 700 : 500,
-                    textDecoration: sendIdentifierType === 'user_id' ? 'underline' : 'none',
-                  }}
-                >
-                  Use {sendRecipientType === 'merchant' ? 'Merchant ID' : 'User ID'}
-                </span>
-                <span style={{ color: '#CBD5E1' }}>|</span>
-                <span
-                  onClick={() => setSendIdentifierType('email')}
-                  style={{
-                    cursor: 'pointer',
-                    color: sendIdentifierType === 'email' ? '#3B82F6' : '#64748B',
-                    fontWeight: sendIdentifierType === 'email' ? 700 : 500,
-                    textDecoration: sendIdentifierType === 'email' ? 'underline' : 'none',
-                  }}
-                >
-                  Use Email
-                </span>
-              </div>
-            </div>
-
-            <input
-              type={sendIdentifierType === 'email' ? 'email' : 'number'}
-              placeholder={
-                sendIdentifierType === 'email'
-                  ? 'e.g. merchant@store.com or user@gmail.com'
-                  : sendRecipientType === 'merchant'
-                  ? 'e.g. 102 (Merchant ID or User ID)'
-                  : 'e.g. 45 (User ID)'
-              }
-              value={sendIdentifierValue}
-              onChange={(e) => setSendIdentifierValue(e.target.value)}
-              className="form-input"
-              required
-            />
-            <span style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 4, display: 'block' }}>
-              {sendIdentifierType === 'email'
-                ? 'Enter the registered email of the recipient account.'
-                : 'Enter the numeric database ID of the user or merchant.'}
-            </span>
-          </div>
-
-          {/* Amount */}
-          <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 700 }}>
-              Amount (₹) *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="e.g. 500.00"
-              value={sendAmount}
-              onChange={(e) => setSendAmount(e.target.value)}
-              className="form-input"
-              required
-            />
-          </div>
-
-          {/* Optional Note */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">
-              Transaction Note <span style={{ color: '#94A3B8', fontWeight: 400 }}>(Optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Promotional cash grant / Merchant top-up"
-              value={sendNote}
-              onChange={(e) => setSendNote(e.target.value)}
-              className="form-input"
-            />
-          </div>
-        </form>
-      </Modal>
     </motion.div>
   );
 }
