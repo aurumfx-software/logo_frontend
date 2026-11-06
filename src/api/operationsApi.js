@@ -230,81 +230,182 @@ export const contentApi = {
 };
 
 // ========================
-// GEOGRAPHY API
+// GEOGRAPHY API (Admin / Geography)
 // ========================
 export const geographyApi = {
-  async list({ status = '', search = '' } = {}) {
+  /**
+   * GET /api/v1/admin/geography
+   * Optional filters: district, search, page, page_size
+   */
+  async getAdminGeography({ district = '', search = '', page = 1, pageSize = 20 } = {}) {
     const params = new URLSearchParams();
-    if (status && status !== 'all') params.append('status', status);
-    if (search) params.append('search', search);
+    if (district && district !== 'All Districts') {
+      params.append('district', district);
+    }
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+    params.append('page', String(page));
+    params.append('page_size', String(pageSize));
 
-    const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await apiFetch(`/api/v1/geography${query}`);
-    if (!res.ok) throw new Error('Failed to fetch geography regions');
-    const json = await res.json();
-    return json.data || [];
+    const res = await apiFetch(`/api/v1/admin/geography?${params.toString()}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.message || 'Failed to fetch geography data');
+    }
+    return await res.json();
+  },
+
+  /**
+   * POST /api/v1/admin/geography/towns
+   * { district, town, zones: [...] }
+   * 409 if duplicate
+   */
+  async addTown({ district, town, zones = [] }) {
+    const res = await apiFetch('/api/v1/admin/geography/towns', {
+      method: 'POST',
+      body: JSON.stringify({
+        district: district.trim(),
+        town: town.trim(),
+        zones: Array.isArray(zones) ? zones : typeof zones === 'string' ? zones.split(',').map(z => z.trim()).filter(Boolean) : [],
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 409) {
+        throw new Error(`Town '${town}' already exists in ${district} district.`);
+      }
+      throw new Error(json.detail || json.message || 'Failed to add town');
+    }
+    return json;
+  },
+
+  // Backward compatibility methods
+  async list(opts = {}) {
+    try {
+      const data = await this.getAdminGeography({
+        district: opts.district || '',
+        search: opts.search || '',
+        page: 1,
+        pageSize: 100,
+      });
+      return data.towns || [];
+    } catch {
+      return [];
+    }
   },
 
   async getSummary() {
-    const res = await apiFetch('/api/v1/geography/summary');
-    if (!res.ok) return { total_cities: 0, active_cities: 0, total_zones: 0 };
-    const json = await res.json();
-    return json.data || { total_cities: 0, active_cities: 0, total_zones: 0 };
+    try {
+      const data = await this.getAdminGeography();
+      return data.cards || { kerala_districts_covered: 14, kerala_districts_total: 14, real_merchants: 0 };
+    } catch {
+      return { kerala_districts_covered: 14, kerala_districts_total: 14, real_merchants: 0 };
+    }
   },
 
   async create(data) {
-    const res = await apiFetch('/api/v1/geography', {
-      method: 'POST',
-      body: JSON.stringify(data),
+    return await this.addTown({
+      district: data.district || data.state?.replace(' District, Kerala', '') || 'Kannur',
+      town: data.city || data.town,
+      zones: Array.isArray(data.zones) ? data.zones : [],
     });
-    if (!res.ok) throw new Error('Failed to add city/region');
-    const json = await res.json();
-    return json.data;
-  },
-
-  async update(id, data) {
-    const res = await apiFetch(`/api/v1/geography/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to update region');
-    const json = await res.json();
-    return json.data;
-  },
-
-  async delete(id) {
-    const res = await apiFetch(`/api/v1/geography/${id}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete region');
-    return true;
   },
 };
 
 // ========================
-// REPORTS API
+// REPORTS API (Admin / Reports)
 // ========================
 export const reportsApi = {
-  async getOverview({ fromDate = '', toDate = '', year = null } = {}) {
+  /**
+   * GET /api/v1/admin/reports?year=2026
+   * Optional: date_from, date_to, all_years=true, sector
+   */
+  async getAdminReports({ year = 2026, dateFrom = '', dateTo = '', allYears = false, sector = '' } = {}) {
     const params = new URLSearchParams();
-    if (year !== null && year !== undefined && year !== '') {
-      params.append('year', year === 'all' ? 0 : year);
+    if (allYears || year === 'all' || year === 0) {
+      params.append('all_years', 'true');
+    } else if (year) {
+      params.append('year', String(year));
     }
-    if (fromDate) params.append('from_date', fromDate);
-    if (toDate) params.append('to_date', toDate);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (sector && sector.trim()) params.append('sector', sector.trim());
 
-    const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await apiFetch(`/api/v1/reports/overview${query}`);
-    if (!res.ok) throw new Error('Failed to fetch reports overview');
-    const json = await res.json();
-    return json.data;
+    const res = await apiFetch(`/api/v1/admin/reports?${params.toString()}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.message || 'Failed to fetch admin reports');
+    }
+    return await res.json();
   },
 
-  getExportCsvUrl(type = 'merchants', year = null) {
-    let url = `${BASE_URL}/api/v1/reports/export/csv?type=${type}`;
-    if (year !== null && year !== undefined && year !== '') {
-      url += `&year=${year === 'all' ? 0 : year}`;
+  async getMerchantGrowthReport(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    const res = await apiFetch(`/api/v1/admin/reports/merchants${q ? `?${q}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch merchant growth report');
+    return await res.json();
+  },
+
+  async getEngagementReport(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    const res = await apiFetch(`/api/v1/admin/reports/engagement${q ? `?${q}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch engagement report');
+    return await res.json();
+  },
+
+  async getLeadsReport(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    const res = await apiFetch(`/api/v1/admin/reports/leads${q ? `?${q}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch leads report');
+    return await res.json();
+  },
+
+  getExportCsvUrl({ year = 2026, allYears = false, dateFrom = '', dateTo = '', sector = '' } = {}) {
+    const params = new URLSearchParams();
+    if (allYears || year === 'all' || year === 0) {
+      params.append('all_years', 'true');
+    } else if (year) {
+      params.append('year', String(year));
     }
-    return url;
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (sector) params.append('sector', sector);
+
+    return `${BASE_URL}/api/v1/admin/reports/export?${params.toString()}`;
+  },
+
+  async downloadExportCsv({ year = 2026, allYears = false, dateFrom = '', dateTo = '', sector = '' } = {}) {
+    const params = new URLSearchParams();
+    if (allYears || year === 'all' || year === 0) {
+      params.append('all_years', 'true');
+    } else if (year) {
+      params.append('year', String(year));
+    }
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    if (sector) params.append('sector', sector);
+
+    const res = await apiFetch(`/api/v1/admin/reports/export?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to export CSV report');
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `logo-reports-${allYears || year === 'all' ? 'all-years' : year}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  // Backward compatibility method
+  async getOverview(opts = {}) {
+    return await this.getAdminReports({
+      year: opts.year,
+      dateFrom: opts.fromDate,
+      dateTo: opts.toDate,
+      allYears: opts.year === 'all' || opts.year === 0,
+    });
   },
 };
