@@ -1111,23 +1111,30 @@ export default function CompanyWallet() {
                         <td style={{ fontSize: 12 }}>
                           {Array.isArray(t.ledger_entries) && t.ledger_entries.length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {t.ledger_entries.map((entry, idx) => (
-                                <span
-                                  key={idx}
-                                  style={{
-                                    fontSize: 11,
-                                    padding: '2px 6px',
-                                    borderRadius: 4,
-                                    fontWeight: 600,
-                                    backgroundColor:
-                                      (entry.direction || '').toUpperCase() === 'CREDIT' ? '#DCFCE7' : '#FEE2E2',
-                                    color: (entry.direction || '').toUpperCase() === 'CREDIT' ? '#15803D' : '#B91C1C',
-                                  }}
-                                >
-                                  {entry.direction === 'CREDIT' ? '+' : '-'}₹{Number(entry.amount).toFixed(2)} (
-                                  {entry.wallet_type})
-                                </span>
-                              ))}
+                              {t.ledger_entries.map((entry, idx) => {
+                                const isCredit = (entry.direction || '').toUpperCase() === 'CREDIT';
+                                const roleLabel =
+                                  entry.wallet_type === 'MERCHANT'
+                                    ? (entry.user_name ? `MERCHANT: ${entry.user_name}` : 'MERCHANT')
+                                    : entry.wallet_type === 'COMPANY'
+                                    ? 'COMPANY'
+                                    : (entry.user_name ? `USER: ${entry.user_name}` : 'USER');
+                                return (
+                                  <span
+                                    key={idx}
+                                    style={{
+                                      fontSize: 11,
+                                      padding: '2px 6px',
+                                      borderRadius: 4,
+                                      fontWeight: 600,
+                                      backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2',
+                                      color: isCredit ? '#15803D' : '#B91C1C',
+                                    }}
+                                  >
+                                    {isCredit ? '+' : '-'}₹{Number(entry.amount).toFixed(2)} ({roleLabel})
+                                  </span>
+                                );
+                              })}
                             </div>
                           ) : (
                             <span style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>—</span>
