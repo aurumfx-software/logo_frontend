@@ -28,6 +28,8 @@ import {
   fetchAdminTransactionDetail,
   fetchPlatformLedgerTransactions,
   adminSendFunds,
+  fetchAdminWithdrawals,
+  sendAdminWithdrawal,
 } from '../api/walletApi';
 
 export default function CompanyWallet() {
@@ -40,10 +42,20 @@ export default function CompanyWallet() {
   const [totalReceived, setTotalReceived] = useState('0.00');
   const [totalDeducted, setTotalDeducted] = useState('0.00');
 
-  // ── Tabs: 'cash_flow' (Table 1) | 'all_tx' (Table 2) | 'ledger' (Table 3) ──
+  // ── Tabs: 'cash_flow' | 'all_tx' | 'withdrawals' | 'ledger' ──
   const [activeTab, setActiveTab] = useState('cash_flow');
   const [tableLoading, setTableLoading] = useState(true);
   const [tableError, setTableError] = useState('');
+
+  // ── Table 4: Withdrawals State (2-Step Admin Approval) ──
+  const [withdrawalsData, setWithdrawalsData] = useState([]);
+  const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
+  const [withdrawalsPendingCount, setWithdrawalsPendingCount] = useState(0);
+  const [withdrawalsPage, setWithdrawalsPage] = useState(1);
+  const [withdrawalsPageSize] = useState(15);
+  const [withdrawalsTotalPages, setWithdrawalsTotalPages] = useState(1);
+  const [withdrawalsStatusFilter, setWithdrawalsStatusFilter] = useState('PENDING');
+  const [sendingTxGroupId, setSendingTxGroupId] = useState(null);
 
   // ── Table 1: Platform Cash Flow State ──
   const [cashData, setCashData] = useState([]);
@@ -88,6 +100,17 @@ export default function CompanyWallet() {
   const [sendingFunds, setSendingFunds] = useState(false);
   const [sendModalError, setSendModalError] = useState('');
 
+  // ── Check URL query param on mount ──
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'withdrawals') {
+        setActiveTab('withdrawals');
+      }
+    } catch (_) {}
+  }, []);
+
   // ── Load Admin Wallet Summary ──
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -95,6 +118,10 @@ export default function CompanyWallet() {
     try {
       const res = await fetchAdminWalletSummary();
       setSummaryData(res);
+      // Also fetch pending withdrawals count for notification badge
+      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
+        .then((wRes) => setWithdrawalsPendingCount(wRes?.total ?? 0))
+        .catch(() => {});
     } catch (err) {
       console.error('Wallet summary load error:', err);
       setSummaryError(err.message || 'Failed to load wallet summary');
@@ -103,13 +130,35 @@ export default function CompanyWallet() {
     }
   }, []);
 
-  // ── Load Transactions & Cash Flow ──
+  // ── Load Transactions, Cash Flow, and Withdrawals ──
   const loadWalletData = useCallback(
-    async (targetTxPage = txPage, targetCashPage = cashPage, targetLedgerPage = ledgerPage) => {
+    async (
+      targetTxPage = txPage,
+      targetCashPage = cashPage,
+      targetLedgerPage = ledgerPage,
+      targetWithdrawalsPage = withdrawalsPage
+    ) => {
       setTableLoading(true);
       setTableError('');
       try {
-        if (activeTab === 'ledger') {
+        if (activeTab === 'withdrawals') {
+          const res = await fetchAdminWithdrawals({
+            status: withdrawalsStatusFilter,
+            page: targetWithdrawalsPage,
+            pageSize: withdrawalsPageSize,
+          });
+          const list = Array.isArray(res?.data)
+            ? res.data
+            : (Array.isArray(res?.withdrawals) ? res.withdrawals : []);
+          setWithdrawalsData(list);
+          const totalCount = res?.total ?? list.length;
+          setWithdrawalsTotal(totalCount);
+          setWithdrawalsPage(res?.page ?? targetWithdrawalsPage);
+          setWithdrawalsTotalPages(Math.max(1, Math.ceil(totalCount / withdrawalsPageSize)));
+          if (withdrawalsStatusFilter === 'PENDING') {
+            setWithdrawalsPendingCount(totalCount);
+          }
+        } else if (activeTab === 'ledger') {
           const res = await fetchPlatformLedgerTransactions(targetLedgerPage, ledgerPageSize);
           const list = Array.isArray(res?.data) ? res.data : [];
           setLedgerData(list);
@@ -161,13 +210,25 @@ export default function CompanyWallet() {
           }
         }
       } catch (err) {
-        console.error('Transactions load error:', err);
-        setTableError(err.message || 'Failed to load wallet transactions');
+        console.error('Wallet data load error:', err);
+        setTableError(err.message || 'Failed to load wallet data');
       } finally {
         setTableLoading(false);
       }
     },
-    [activeTab, txPage, cashPage, ledgerPage, txPageSize, cashPageSize, ledgerPageSize, txTypeFilter]
+    [
+      activeTab,
+      txPage,
+      cashPage,
+      ledgerPage,
+      withdrawalsPage,
+      txPageSize,
+      cashPageSize,
+      ledgerPageSize,
+      withdrawalsPageSize,
+      txTypeFilter,
+      withdrawalsStatusFilter,
+    ]
   );
 
   // Initial and reactive load
@@ -176,8 +237,8 @@ export default function CompanyWallet() {
   }, [loadSummary]);
 
   useEffect(() => {
-    loadWalletData(1, 1, 1);
-  }, [activeTab, txTypeFilter]);
+    loadWalletData(1, 1, 1, 1);
+  }, [activeTab, txTypeFilter, withdrawalsStatusFilter]);
 
   // Refresh all
   const handleRefreshAll = () => {
@@ -201,6 +262,30 @@ export default function CompanyWallet() {
       setDetailError(err.message || 'Failed to load transaction details');
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  // ── Admin: Send / Approve Withdrawal Payout via RazorpayX ──
+  const handleAdminSendWithdrawal = async (txnGroupId, userName, amount) => {
+    if (!txnGroupId) return;
+    const confirmed = window.confirm(
+      `Approve and send ₹${Number(amount || 0).toFixed(2)} to ${userName || 'user'} bank account via RazorpayX?`
+    );
+    if (!confirmed) return;
+
+    setSendingTxGroupId(txnGroupId);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await sendAdminWithdrawal(txnGroupId);
+      setActionSuccess(res?.message || `✓ Payout initiated successfully for ₹${Number(amount).toFixed(2)}!`);
+      await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+      await loadSummary();
+    } catch (err) {
+      console.error('Send withdrawal error:', err);
+      setActionError(err.message || 'Failed to send payout to bank.');
+    } finally {
+      setSendingTxGroupId(null);
     }
   };
 
@@ -642,6 +727,8 @@ export default function CompanyWallet() {
                   ? 'Table 1: Platform Cash Flow (Received & Deducted)'
                   : activeTab === 'all_tx'
                   ? 'Table 2: All Wallet Transactions'
+                  : activeTab === 'withdrawals'
+                  ? 'Bank Withdrawal Requests (2-Step Admin Approval)'
                   : 'Platform Commission Ledger'}
               </div>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -649,6 +736,8 @@ export default function CompanyWallet() {
                   ? 'Platform cash movement: money received when merchants top up wallets, and money deducted when users withdraw funds'
                   : activeTab === 'all_tx'
                   ? 'Complete transaction logs across all wallets (Cashback redemptions, P2P transfers, top-ups, withdrawals)'
+                  : activeTab === 'withdrawals'
+                  ? 'Review pending customer withdrawal requests and click "Send to Bank" to disburse funds via RazorpayX'
                   : 'Company commission ledger of incoming 2% platform fees earned from merchant QR sales'}
               </p>
             </div>
@@ -659,6 +748,8 @@ export default function CompanyWallet() {
                   ? `${cashTotal} Cash Entries`
                   : activeTab === 'all_tx'
                   ? `${txTotal} Transactions`
+                  : activeTab === 'withdrawals'
+                  ? `${withdrawalsTotal} Withdrawals`
                   : `${ledgerTotal} Ledger Entries`}
               </span>
             </div>
@@ -744,6 +835,47 @@ export default function CompanyWallet() {
                   {txTotal}
                 </span>
               </button>
+
+              {/* Tab 3: Withdrawals (2-Step Admin Approval) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('withdrawals');
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.15s ease',
+                  backgroundColor: activeTab === 'withdrawals' ? '#FFFFFF' : 'transparent',
+                  color: activeTab === 'withdrawals' ? '#D97706' : 'var(--text-secondary, #64748B)',
+                  boxShadow: activeTab === 'withdrawals' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                }}
+              >
+                <HiOutlineArrowUp style={{ fontSize: 16 }} />
+                <span>Withdrawals</span>
+                {withdrawalsPendingCount > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 2,
+                      fontSize: 11,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                      background: '#FEF3C7',
+                      color: '#B45309',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {withdrawalsPendingCount} Pending
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Filter by Transaction Type (Only on All Transactions tab) */}
@@ -787,6 +919,47 @@ export default function CompanyWallet() {
                 </select>
               </div>
             )}
+
+            {/* Filter by Withdrawal Status (Only on Withdrawals tab) */}
+            {activeTab === 'withdrawals' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <HiOutlineFilter style={{ fontSize: 14 }} /> Status:
+                </span>
+                <select
+                  value={withdrawalsStatusFilter}
+                  onChange={(e) => {
+                    setWithdrawalsStatusFilter(e.target.value);
+                  }}
+                  className="input-select"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    border: '1px solid var(--border-light, #CBD5E1)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0F172A)',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="PENDING">Pending Admin Approval</option>
+                  <option value="PROCESSING">Processing</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="FAILED">Failed</option>
+                  <option value="ALL">All Statuses</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -817,6 +990,7 @@ export default function CompanyWallet() {
           !tableError &&
           ((activeTab === 'cash_flow' && cashData.length === 0) ||
             (activeTab === 'all_tx' && txData.length === 0) ||
+            (activeTab === 'withdrawals' && withdrawalsData.length === 0) ||
             (activeTab === 'ledger' && ledgerData.length === 0)) && (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
               <HiOutlineCash style={{ fontSize: 44, color: '#CBD5E1', marginBottom: 12 }} />
@@ -825,6 +999,8 @@ export default function CompanyWallet() {
                   ? 'No platform cash flow recorded yet.'
                   : activeTab === 'all_tx'
                   ? 'No transactions found.'
+                  : activeTab === 'withdrawals'
+                  ? 'No withdrawal requests found.'
                   : 'No platform commission transactions found.'}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-light)', marginTop: 4 }}>
@@ -832,6 +1008,8 @@ export default function CompanyWallet() {
                   ? 'When merchants add funds or users withdraw to banks, platform cash movement will appear here.'
                   : activeTab === 'all_tx'
                   ? 'Transactions performed across the platform will appear here.'
+                  : activeTab === 'withdrawals'
+                  ? 'Customer withdrawal requests will appear here for admin approval.'
                   : 'Incoming 2% platform fees will appear here when cashback is redeemed.'}
               </div>
             </div>
@@ -1491,6 +1669,184 @@ export default function CompanyWallet() {
           </div>
         )}
 
+        {/* ═════════════════════════════════════════════════════════════ */}
+        {/* TABLE 4: BANK WITHDRAWALS & ADMIN SEND PAYOUTS                */}
+        {/* ═════════════════════════════════════════════════════════════ */}
+        {!tableLoading && !tableError && activeTab === 'withdrawals' && withdrawalsData.length > 0 && (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Beneficiary User</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                  <th>Bank Details</th>
+                  <th>Mode</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th>Requested Date</th>
+                  <th style={{ textAlign: 'center' }}>Admin Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawalsData.map((w) => {
+                  const isPending = (w.status || '').toUpperCase() === 'PENDING';
+                  const isCompleted = (w.status || '').toUpperCase() === 'COMPLETED';
+                  const isFailed = ['FAILED', 'REJECTED'].includes((w.status || '').toUpperCase());
+                  const isProcessing = (w.status || '').toUpperCase() === 'PROCESSING';
+                  const isSendingThis = sendingTxGroupId === w.transaction_group_id;
+
+                  const dateStr = w.created_at
+                    ? new Date(w.created_at).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '—';
+
+                  return (
+                    <tr key={w.id || w.transaction_group_id}>
+                      {/* Beneficiary User */}
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--text, #0F172A)' }}>
+                          {w.account_holder_name || w.user_name || 'Customer'}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748B)', marginTop: 2 }}>
+                          {w.user_phone ? `📞 ${w.user_phone}` : ''}
+                          {w.user_code ? ` • ${w.user_code}` : ''}
+                        </div>
+                      </td>
+
+                      {/* Amount */}
+                      <td style={{ textAlign: 'right' }}>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: 14,
+                            color: '#DC2626',
+                          }}
+                        >
+                          ₹{Number(w.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+
+                      {/* Bank Details */}
+                      <td>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1E293B' }}>
+                          A/C: <span style={{ fontFamily: 'monospace' }}>{w.account_number_masked || '—'}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                          IFSC: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{w.ifsc || '—'}</span>
+                        </div>
+                      </td>
+
+                      {/* Mode */}
+                      <td>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            background: '#F1F5F9',
+                            color: '#334155',
+                          }}
+                        >
+                          {w.payout_mode || 'IMPS'}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            padding: '4px 10px',
+                            borderRadius: 12,
+                            display: 'inline-block',
+                            backgroundColor: isCompleted
+                              ? '#DCFCE7'
+                              : isPending
+                              ? '#FEF3C7'
+                              : isFailed
+                              ? '#FEE2E2'
+                              : '#DBEAFE',
+                            color: isCompleted
+                              ? '#15803D'
+                              : isPending
+                              ? '#B45309'
+                              : isFailed
+                              ? '#B91C1C'
+                              : '#1D4ED8',
+                          }}
+                        >
+                          {isPending ? 'Pending Approval' : w.status}
+                        </span>
+                      </td>
+
+                      {/* Requested Date */}
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {dateStr}
+                      </td>
+
+                      {/* Admin Action */}
+                      <td style={{ textAlign: 'center' }}>
+                        {isPending ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleAdminSendWithdrawal(w.transaction_group_id, w.user_name, w.amount)
+                            }
+                            disabled={isSendingThis}
+                            className="btn btn-primary"
+                            style={{
+                              padding: '6px 14px',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              borderRadius: 8,
+                              background: '#2563EB',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              cursor: isSendingThis ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+                            }}
+                          >
+                            {isSendingThis ? (
+                              <>
+                                <HiOutlineRefresh className="animate-spin" />
+                                <span>Sending...</span>
+                              </>
+                            ) : (
+                              <>
+                                <HiOutlinePaperAirplane style={{ transform: 'rotate(90deg)' }} />
+                                <span>Send</span>
+                              </>
+                            )}
+                          </button>
+                        ) : isProcessing ? (
+                          <span style={{ fontSize: 12, color: '#2563EB', fontWeight: 600 }}>
+                            Processing...
+                          </span>
+                        ) : isCompleted ? (
+                          <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 700 }}>
+                            ✓ Sent to Bank
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, color: '#94A3B8' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* ── Dynamic Pagination Controls ── */}
         {!tableLoading && !tableError && (
           <div
@@ -1675,6 +2031,66 @@ export default function CompanyWallet() {
                       fontSize: 13,
                       opacity: ledgerPage >= ledgerTotalPages ? 0.5 : 1,
                       cursor: ledgerPage >= ledgerTotalPages ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <span>Next</span>
+                    <HiOutlineChevronRight />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'withdrawals' && withdrawalsTotal > 0 && (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Showing {Math.min((withdrawalsPage - 1) * withdrawalsPageSize + 1, withdrawalsTotal)} to{' '}
+                  {Math.min(withdrawalsPage * withdrawalsPageSize, withdrawalsTotal)} of {withdrawalsTotal} withdrawals
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage - 1)}
+                    disabled={withdrawalsPage <= 1 || tableLoading}
+                    className="btn btn-outline"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '6px 12px',
+                      fontSize: 13,
+                      opacity: withdrawalsPage <= 1 ? 0.5 : 1,
+                      cursor: withdrawalsPage <= 1 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <HiOutlineChevronLeft />
+                    <span>Previous</span>
+                  </button>
+
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                      padding: '0 8px',
+                    }}
+                  >
+                    Page {withdrawalsPage} of {withdrawalsTotalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage + 1)}
+                    disabled={withdrawalsPage >= withdrawalsTotalPages || tableLoading}
+                    className="btn btn-outline"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '6px 12px',
+                      fontSize: 13,
+                      opacity: withdrawalsPage >= withdrawalsTotalPages ? 0.5 : 1,
+                      cursor: withdrawalsPage >= withdrawalsTotalPages ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <span>Next</span>

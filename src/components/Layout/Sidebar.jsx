@@ -44,6 +44,7 @@ const ALL_NAV_ITEMS = [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
       { key: 'subscriptions', path: '/subscriptions', icon: HiOutlineTag, label: 'Subscriptions', adminOnly: true },
       { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
+      { key: 'withdrawals', path: '/withdrawals?tab=withdrawals', icon: HiOutlineCreditCard, label: 'Withdrawals', adminOnly: true },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
       { key: 'geography', path: '/geography', icon: HiOutlineGlobe, label: 'Geography' },

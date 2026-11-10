@@ -146,4 +146,36 @@ export async function adminSendFunds(payload) {
   return data;
 }
 
+/**
+ * Admin: List withdrawal requests (e.g. status=PENDING, COMPLETED, ALL)
+ * GET /api/v1/wallet/admin/withdrawals
+ */
+export async function fetchAdminWithdrawals({ status = 'PENDING', page = 1, pageSize = 20 } = {}) {
+  const params = new URLSearchParams();
+  if (status && status !== 'ALL') params.append('status', status);
+  if (page) params.append('page', page);
+  if (pageSize) params.append('page_size', pageSize);
+  const response = await apiFetch(`/api/v1/wallet/admin/withdrawals?${params.toString()}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to fetch withdrawals');
+  }
+  return data;
+}
+
+/**
+ * Admin: Approve and send withdrawal to bank via RazorpayX
+ * POST /api/v1/wallet/admin/withdrawals/{transaction_group_id}/send
+ */
+export async function sendAdminWithdrawal(transactionGroupId) {
+  const response = await apiFetch(`/api/v1/wallet/admin/withdrawals/${encodeURIComponent(transactionGroupId)}/send`, {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to send payout to bank');
+  }
+  return data;
+}
+
 

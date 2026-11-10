@@ -184,6 +184,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/withdrawals"
+          element={
+            <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <CompanyWallet />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
           path="/subscriptions"
           element={
             <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
