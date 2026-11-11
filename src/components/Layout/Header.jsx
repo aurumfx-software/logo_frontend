@@ -60,22 +60,9 @@ export default function Header({ title, onToggleSidebar }) {
     }
   };
 
-  // Initial load & All-time Polling (every 12 seconds for real-time alert!)
+  // Load notifications once on mount without continuous background polling
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 12000);
-
-    const handleFocus = () => loadNotifications();
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('registration-count-updated', loadNotifications);
-    window.addEventListener('promotion-count-updated', loadNotifications);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('registration-count-updated', loadNotifications);
-      window.removeEventListener('promotion-count-updated', loadNotifications);
-    };
   }, []);
 
   // Close dropdown when clicking outside or pressing Escape
