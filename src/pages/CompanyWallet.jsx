@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineCreditCard,
@@ -100,16 +101,35 @@ export default function CompanyWallet() {
   const [sendingFunds, setSendingFunds] = useState(false);
   const [sendModalError, setSendModalError] = useState('');
 
-  // ── Check URL query param on mount ──
-  useEffect(() => {
+  const location = useLocation();
+
+  const updatePendingWithdrawalsCount = useCallback((count) => {
+    const num = isNaN(count) ? 0 : Math.max(0, count);
+    setWithdrawalsPendingCount(num);
     try {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam === 'withdrawals') {
-        setActiveTab('withdrawals');
-      }
+      localStorage.setItem('pending_withdrawals_count', String(num));
+      window.dispatchEvent(new CustomEvent('withdrawals-count-updated', { detail: num }));
     } catch (_) {}
   }, []);
+
+  // ── Sync activeTab with URL (/withdrawals or /wallet?tab=withdrawals) ──
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'withdrawals' || location.pathname === '/withdrawals') {
+        setActiveTab('withdrawals');
+      } else if (tabParam === 'cash_flow') {
+        setActiveTab('cash_flow');
+      } else if (tabParam === 'all_tx') {
+        setActiveTab('all_tx');
+      } else if (tabParam === 'ledger') {
+        setActiveTab('ledger');
+      } else if (location.pathname === '/wallet' && !tabParam) {
+        setActiveTab('cash_flow');
+      }
+    } catch (_) {}
+  }, [location.pathname, location.search]);
 
   // ── Load Admin Wallet Summary ──
   const loadSummary = useCallback(async () => {
@@ -120,7 +140,7 @@ export default function CompanyWallet() {
       setSummaryData(res);
       // Also fetch pending withdrawals count for notification badge
       fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
-        .then((wRes) => setWithdrawalsPendingCount(wRes?.total ?? 0))
+        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
         .catch(() => {});
     } catch (err) {
       console.error('Wallet summary load error:', err);
@@ -156,7 +176,7 @@ export default function CompanyWallet() {
           setWithdrawalsPage(res?.page ?? targetWithdrawalsPage);
           setWithdrawalsTotalPages(Math.max(1, Math.ceil(totalCount / withdrawalsPageSize)));
           if (withdrawalsStatusFilter === 'PENDING') {
-            setWithdrawalsPendingCount(totalCount);
+            updatePendingWithdrawalsCount(totalCount);
           }
         } else if (activeTab === 'ledger') {
           const res = await fetchPlatformLedgerTransactions(targetLedgerPage, ledgerPageSize);
@@ -280,6 +300,9 @@ export default function CompanyWallet() {
       const res = await sendAdminWithdrawal(txnGroupId);
       setActionSuccess(res?.message || `✓ Payout initiated successfully for ₹${Number(amount).toFixed(2)}!`);
       await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
+        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
+        .catch(() => {});
       await loadSummary();
     } catch (err) {
       console.error('Send withdrawal error:', err);

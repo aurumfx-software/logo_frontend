@@ -19,6 +19,7 @@ import {
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
+import { fetchAdminWithdrawals } from '../../api/walletApi';
 
 const ALL_NAV_ITEMS = [
   {
@@ -44,7 +45,7 @@ const ALL_NAV_ITEMS = [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
       { key: 'subscriptions', path: '/subscriptions', icon: HiOutlineTag, label: 'Subscriptions', adminOnly: true },
       { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
-      { key: 'withdrawals', path: '/withdrawals?tab=withdrawals', icon: HiOutlineCreditCard, label: 'Withdrawals', adminOnly: true },
+      { key: 'withdrawals', path: '/withdrawals', icon: HiOutlineCreditCard, label: 'Withdrawals', adminOnly: true },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
       { key: 'geography', path: '/geography', icon: HiOutlineGlobe, label: 'Geography' },
@@ -68,6 +69,16 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     } catch (e) {}
     return 12;
   });
+  const [withdrawalsBadgeCount, setWithdrawalsBadgeCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem('pending_withdrawals_count');
+      if (stored !== null) {
+        const parsed = parseInt(stored, 10);
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
+      }
+    } catch (e) {}
+    return 0;
+  });
 
   const userRole = normalizeRole(user);
   const isAdminUser = userRole === ROLES.ADMIN;
@@ -87,14 +98,32 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
         }
       } catch (e) {}
     };
+    const handleWithdrawalsCountChange = (e) => {
+      try {
+        const count = e?.detail ?? parseInt(localStorage.getItem('pending_withdrawals_count') || '0', 10);
+        setWithdrawalsBadgeCount(isNaN(count) ? 0 : Math.max(0, count));
+      } catch (e) {}
+    };
+
+    if (isAdminUser) {
+      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
+        .then((res) => {
+          const total = res?.total ?? 0;
+          setWithdrawalsBadgeCount(total);
+          localStorage.setItem('pending_withdrawals_count', String(total));
+        })
+        .catch(() => {});
+    }
 
     window.addEventListener('staff-permissions-updated', handlePermChange);
     window.addEventListener('registration-count-updated', handleCountChange);
+    window.addEventListener('withdrawals-count-updated', handleWithdrawalsCountChange);
     return () => {
       window.removeEventListener('staff-permissions-updated', handlePermChange);
       window.removeEventListener('registration-count-updated', handleCountChange);
+      window.removeEventListener('withdrawals-count-updated', handleWithdrawalsCountChange);
     };
-  }, []);
+  }, [isAdminUser]);
 
   const handleLogout = () => {
     if (onCloseMobile) onCloseMobile();
@@ -133,6 +162,9 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
           .map((item) => {
             if (item.key === 'registrations') {
               return { ...item, badge: regBadgeCount };
+            }
+            if (item.key === 'withdrawals') {
+              return { ...item, badge: withdrawalsBadgeCount };
             }
             return item;
           });
@@ -176,9 +208,14 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 onClick={() => {
                   if (onCloseMobile) onCloseMobile();
                 }}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive && location.pathname === item.path ? 'active' : ''}`
-                }
+                className={({ isActive }) => {
+                  const isMatch = item.path === '/withdrawals'
+                    ? location.pathname === '/withdrawals' || (location.pathname === '/wallet' && location.search.includes('tab=withdrawals'))
+                    : item.path === '/wallet'
+                    ? location.pathname === '/wallet' && !location.search.includes('tab=withdrawals')
+                    : isActive && location.pathname === item.path;
+                  return `sidebar-link ${isMatch ? 'active' : ''}`;
+                }}
                 end={item.path === '/'}
                 title={collapsed && !mobileOpen ? item.label : undefined}
               >
