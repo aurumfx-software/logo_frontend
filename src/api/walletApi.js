@@ -178,4 +178,22 @@ export async function sendAdminWithdrawal(transactionGroupId) {
   return data;
 }
 
+/**
+ * Admin: Reject withdrawal request and refund money back to user wallet
+ * POST /api/v1/wallet/admin/withdrawals/{transaction_group_id}/reject
+ */
+export async function rejectAdminWithdrawal(transactionGroupId, reason = '') {
+  const response = await apiFetch(`/api/v1/wallet/admin/withdrawals/${encodeURIComponent(transactionGroupId)}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to reject withdrawal request');
+  }
+  return data;
+}
+
+
 

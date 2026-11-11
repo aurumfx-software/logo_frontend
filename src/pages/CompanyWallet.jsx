@@ -14,6 +14,7 @@ import {
   HiOutlineChevronUp,
   HiOutlineExclamationCircle,
   HiOutlineCheckCircle,
+  HiOutlineXCircle,
   HiOutlineFilter,
   HiOutlineCollection,
   HiOutlineReceiptTax,
@@ -31,6 +32,7 @@ import {
   adminSendFunds,
   fetchAdminWithdrawals,
   sendAdminWithdrawal,
+  rejectAdminWithdrawal,
 } from '../api/walletApi';
 
 export default function CompanyWallet() {
@@ -57,6 +59,7 @@ export default function CompanyWallet() {
   const [withdrawalsTotalPages, setWithdrawalsTotalPages] = useState(1);
   const [withdrawalsStatusFilter, setWithdrawalsStatusFilter] = useState('PENDING');
   const [sendingTxGroupId, setSendingTxGroupId] = useState(null);
+  const [rejectingTxGroupId, setRejectingTxGroupId] = useState(null);
 
   // ── Table 1: Platform Cash Flow State ──
   const [cashData, setCashData] = useState([]);
@@ -285,8 +288,8 @@ export default function CompanyWallet() {
     }
   };
 
-  // ── Admin: Send / Approve Withdrawal Payout via RazorpayX ──
-  const handleAdminSendWithdrawal = async (txnGroupId, userName, amount) => {
+  // ── Admin: Approve Withdrawal Payout via RazorpayX ──
+  const handleAdminApproveWithdrawal = async (txnGroupId, userName, amount) => {
     if (!txnGroupId) return;
     const confirmed = window.confirm(
       `Approve and send ₹${Number(amount || 0).toFixed(2)} to ${userName || 'user'} bank account via RazorpayX?`
@@ -298,7 +301,7 @@ export default function CompanyWallet() {
     setActionSuccess('');
     try {
       const res = await sendAdminWithdrawal(txnGroupId);
-      setActionSuccess(res?.message || `✓ Payout initiated successfully for ₹${Number(amount).toFixed(2)}!`);
+      setActionSuccess(res?.message || `✓ Withdrawal of ₹${Number(amount).toFixed(2)} approved and sent to bank!`);
       await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
       fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
         .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
@@ -309,6 +312,35 @@ export default function CompanyWallet() {
       setActionError(err.message || 'Failed to send payout to bank.');
     } finally {
       setSendingTxGroupId(null);
+    }
+  };
+
+  const handleAdminSendWithdrawal = handleAdminApproveWithdrawal;
+
+  // ── Admin: Reject Withdrawal Request & Refund to User Wallet ──
+  const handleAdminRejectWithdrawal = async (txnGroupId, userName, amount) => {
+    if (!txnGroupId) return;
+    const confirmed = window.confirm(
+      `Reject withdrawal request of ₹${Number(amount || 0).toFixed(2)} for ${userName || 'user'}? The amount will be refunded to the user's wallet.`
+    );
+    if (!confirmed) return;
+
+    setRejectingTxGroupId(txnGroupId);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await rejectAdminWithdrawal(txnGroupId, 'Rejected by Admin');
+      setActionSuccess(res?.message || `✓ Withdrawal request rejected and ₹${Number(amount).toFixed(2)} refunded to wallet.`);
+      await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
+        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
+        .catch(() => {});
+      await loadSummary();
+    } catch (err) {
+      console.error('Reject withdrawal error:', err);
+      setActionError(err.message || 'Failed to reject withdrawal request.');
+    } finally {
+      setRejectingTxGroupId(null);
     }
   };
 
@@ -730,178 +762,166 @@ export default function CompanyWallet() {
         <div
           className="card-header"
           style={{
-            padding: '18px 24px',
+            padding: '16px 24px',
             borderBottom: '1px solid var(--border-light)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 16,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            <div>
-              <div className="card-header-title" style={{ fontSize: 16, fontWeight: 700 }}>
-                {activeTab === 'cash_flow'
-                  ? 'Table 1: Platform Cash Flow (Received & Deducted)'
-                  : activeTab === 'all_tx'
-                  ? 'Table 2: All Wallet Transactions'
-                  : activeTab === 'withdrawals'
-                  ? 'Bank Withdrawal Requests (2-Step Admin Approval)'
-                  : 'Platform Commission Ledger'}
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {activeTab === 'cash_flow'
-                  ? 'Platform cash movement: money received when merchants top up wallets, and money deducted when users withdraw funds'
-                  : activeTab === 'all_tx'
-                  ? 'Complete transaction logs across all wallets (Cashback redemptions, P2P transfers, top-ups, withdrawals)'
-                  : activeTab === 'withdrawals'
-                  ? 'Review pending customer withdrawal requests and click "Send to Bank" to disburse funds via RazorpayX'
-                  : 'Company commission ledger of incoming 2% platform fees earned from merchant QR sales'}
-              </p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="badge badge-info" style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px' }}>
-                Total:{' '}
-                {activeTab === 'cash_flow'
-                  ? `${cashTotal} Cash Entries`
-                  : activeTab === 'all_tx'
-                  ? `${txTotal} Transactions`
-                  : activeTab === 'withdrawals'
-                  ? `${withdrawalsTotal} Withdrawals`
-                  : `${ledgerTotal} Ledger Entries`}
-              </span>
-            </div>
+          {/* Left: Total Badge */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span
+              className="badge badge-info"
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '6px 14px',
+                borderRadius: 8,
+                background: '#EFF6FF',
+                color: '#2563EB',
+                border: '1px solid #DBEAFE',
+              }}
+            >
+              Total:{' '}
+              {activeTab === 'cash_flow'
+                ? `${cashTotal} Cash Entries`
+                : activeTab === 'all_tx'
+                ? `${txTotal} Transactions`
+                : activeTab === 'withdrawals'
+                ? `${withdrawalsTotal} Withdrawals`
+                : `${ledgerTotal} Ledger Entries`}
+            </span>
           </div>
 
-          {/* Navigation Tabs & Filter Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'inline-flex', padding: 3, background: 'var(--bg-light, #F1F5F9)', borderRadius: 10 }}>
-              {/* Tab 1: Platform Cash Flow */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('cash_flow');
-                }}
+          {/* Center: Navigation Tabs */}
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: 4,
+              background: 'var(--bg-light, #F1F5F9)',
+              borderRadius: 12,
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+            }}
+          >
+            {/* Tab 1: Platform Cash Flow */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('cash_flow')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 9,
+                fontSize: 13,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+                backgroundColor: activeTab === 'cash_flow' ? '#FFFFFF' : 'transparent',
+                color: activeTab === 'cash_flow' ? '#059669' : 'var(--text-secondary, #64748B)',
+                boxShadow: activeTab === 'cash_flow' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <HiOutlineCash style={{ fontSize: 16 }} />
+              <span>Platform Cash Flow</span>
+              <span
                 style={{
-                  padding: '7px 16px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s ease',
-                  backgroundColor: activeTab === 'cash_flow' ? '#FFFFFF' : 'transparent',
-                  color: activeTab === 'cash_flow' ? '#059669' : 'var(--text-secondary, #64748B)',
-                  boxShadow: activeTab === 'cash_flow' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  marginLeft: 2,
+                  fontSize: 11,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  background: activeTab === 'cash_flow' ? '#DCFCE7' : '#E2E8F0',
+                  color: activeTab === 'cash_flow' ? '#15803D' : '#64748B',
+                  fontWeight: 700,
                 }}
               >
-                <HiOutlineCash style={{ fontSize: 16 }} />
-                <span>Platform Cash Flow</span>
+                {cashTotal}
+              </span>
+            </button>
+
+            {/* Tab 2: All Wallet Transactions */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('all_tx')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 9,
+                fontSize: 13,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+                backgroundColor: activeTab === 'all_tx' ? '#FFFFFF' : 'transparent',
+                color: activeTab === 'all_tx' ? '#2563EB' : 'var(--text-secondary, #64748B)',
+                boxShadow: activeTab === 'all_tx' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <HiOutlineCollection style={{ fontSize: 16 }} />
+              <span>All Transactions</span>
+              <span
+                style={{
+                  marginLeft: 2,
+                  fontSize: 11,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  background: activeTab === 'all_tx' ? '#DBEAFE' : '#E2E8F0',
+                  color: activeTab === 'all_tx' ? '#1D4ED8' : '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                {txTotal}
+              </span>
+            </button>
+
+            {/* Tab 3: Withdrawals */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('withdrawals')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 9,
+                fontSize: 13,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s ease',
+                backgroundColor: activeTab === 'withdrawals' ? '#FFFFFF' : 'transparent',
+                color: activeTab === 'withdrawals' ? '#D97706' : 'var(--text-secondary, #64748B)',
+                boxShadow: activeTab === 'withdrawals' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              <HiOutlineArrowUp style={{ fontSize: 16 }} />
+              <span>Withdrawals</span>
+              {withdrawalsPendingCount > 0 && (
                 <span
                   style={{
                     marginLeft: 2,
                     fontSize: 11,
-                    padding: '1px 6px',
+                    padding: '1px 7px',
                     borderRadius: 10,
-                    background: activeTab === 'cash_flow' ? '#DCFCE7' : '#E2E8F0',
-                    color: activeTab === 'cash_flow' ? '#15803D' : '#64748B',
+                    background: '#FEF3C7',
+                    color: '#B45309',
                     fontWeight: 700,
                   }}
                 >
-                  {cashTotal}
+                  {withdrawalsPendingCount} Pending
                 </span>
-              </button>
+              )}
+            </button>
+          </div>
 
-              {/* Tab 2: All Wallet Transactions */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('all_tx');
-                }}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s ease',
-                  backgroundColor: activeTab === 'all_tx' ? '#FFFFFF' : 'transparent',
-                  color: activeTab === 'all_tx' ? '#2563EB' : 'var(--text-secondary, #64748B)',
-                  boxShadow: activeTab === 'all_tx' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                <HiOutlineCollection style={{ fontSize: 16 }} />
-                <span>All Transactions</span>
-                <span
-                  style={{
-                    marginLeft: 2,
-                    fontSize: 11,
-                    padding: '1px 6px',
-                    borderRadius: 10,
-                    background: activeTab === 'all_tx' ? '#DBEAFE' : '#E2E8F0',
-                    color: activeTab === 'all_tx' ? '#1D4ED8' : '#64748B',
-                    fontWeight: 700,
-                  }}
-                >
-                  {txTotal}
-                </span>
-              </button>
-
-              {/* Tab 3: Withdrawals (2-Step Admin Approval) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('withdrawals');
-                }}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  transition: 'all 0.15s ease',
-                  backgroundColor: activeTab === 'withdrawals' ? '#FFFFFF' : 'transparent',
-                  color: activeTab === 'withdrawals' ? '#D97706' : 'var(--text-secondary, #64748B)',
-                  boxShadow: activeTab === 'withdrawals' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                }}
-              >
-                <HiOutlineArrowUp style={{ fontSize: 16 }} />
-                <span>Withdrawals</span>
-                {withdrawalsPendingCount > 0 && (
-                  <span
-                    style={{
-                      marginLeft: 2,
-                      fontSize: 11,
-                      padding: '1px 6px',
-                      borderRadius: 10,
-                      background: '#FEF3C7',
-                      color: '#B45309',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {withdrawalsPendingCount} Pending
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Filter by Transaction Type (Only on All Transactions tab) */}
+          {/* Right: Filter dropdowns */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' }}>
             {activeTab === 'all_tx' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
@@ -918,9 +938,7 @@ export default function CompanyWallet() {
                 </span>
                 <select
                   value={txTypeFilter}
-                  onChange={(e) => {
-                    setTxTypeFilter(e.target.value);
-                  }}
+                  onChange={(e) => setTxTypeFilter(e.target.value)}
                   className="input-select"
                   style={{
                     padding: '6px 12px',
@@ -943,7 +961,6 @@ export default function CompanyWallet() {
               </div>
             )}
 
-            {/* Filter by Withdrawal Status (Only on Withdrawals tab) */}
             {activeTab === 'withdrawals' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
@@ -960,9 +977,7 @@ export default function CompanyWallet() {
                 </span>
                 <select
                   value={withdrawalsStatusFilter}
-                  onChange={(e) => {
-                    setWithdrawalsStatusFilter(e.target.value);
-                  }}
+                  onChange={(e) => setWithdrawalsStatusFilter(e.target.value)}
                   className="input-select"
                   style={{
                     padding: '6px 12px',
@@ -975,9 +990,10 @@ export default function CompanyWallet() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="PENDING">Pending Admin Approval</option>
+                  <option value="PENDING">Pending Approval</option>
                   <option value="PROCESSING">Processing</option>
-                  <option value="COMPLETED">Completed</option>
+                  <option value="COMPLETED">Withdrawed</option>
+                  <option value="REJECTED">Rejected</option>
                   <option value="FAILED">Failed</option>
                   <option value="ALL">All Statuses</option>
                 </select>
@@ -1713,9 +1729,11 @@ export default function CompanyWallet() {
                 {withdrawalsData.map((w) => {
                   const isPending = (w.status || '').toUpperCase() === 'PENDING';
                   const isCompleted = (w.status || '').toUpperCase() === 'COMPLETED';
-                  const isFailed = ['FAILED', 'REJECTED'].includes((w.status || '').toUpperCase());
+                  const isRejected = (w.status || '').toUpperCase() === 'REJECTED';
+                  const isFailed = (w.status || '').toUpperCase() === 'FAILED';
                   const isProcessing = (w.status || '').toUpperCase() === 'PROCESSING';
                   const isSendingThis = sendingTxGroupId === w.transaction_group_id;
+                  const isRejectingThis = rejectingTxGroupId === w.transaction_group_id;
 
                   const dateStr = w.created_at
                     ? new Date(w.created_at).toLocaleString('en-IN', {
@@ -1783,28 +1801,36 @@ export default function CompanyWallet() {
                       <td style={{ textAlign: 'center' }}>
                         <span
                           style={{
-                            fontSize: 11,
+                            fontSize: 11.5,
                             fontWeight: 800,
-                            padding: '4px 10px',
+                            padding: '4px 12px',
                             borderRadius: 12,
                             display: 'inline-block',
                             backgroundColor: isCompleted
                               ? '#DCFCE7'
                               : isPending
                               ? '#FEF3C7'
-                              : isFailed
+                              : (isRejected || isFailed)
                               ? '#FEE2E2'
                               : '#DBEAFE',
                             color: isCompleted
                               ? '#15803D'
                               : isPending
                               ? '#B45309'
-                              : isFailed
+                              : (isRejected || isFailed)
                               ? '#B91C1C'
                               : '#1D4ED8',
                           }}
                         >
-                          {isPending ? 'Pending Approval' : w.status}
+                          {isCompleted
+                            ? 'Withdrawed'
+                            : isPending
+                            ? 'Pending Approval'
+                            : isRejected
+                            ? 'Rejected'
+                            : isFailed
+                            ? 'Failed'
+                            : w.status}
                         </span>
                       </td>
 
@@ -1816,47 +1842,91 @@ export default function CompanyWallet() {
                       {/* Admin Action */}
                       <td style={{ textAlign: 'center' }}>
                         {isPending ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleAdminSendWithdrawal(w.transaction_group_id, w.user_name, w.amount)
-                            }
-                            disabled={isSendingThis}
-                            className="btn btn-primary"
-                            style={{
-                              padding: '6px 14px',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              borderRadius: 8,
-                              background: '#2563EB',
-                              color: '#FFFFFF',
-                              border: 'none',
-                              cursor: isSendingThis ? 'not-allowed' : 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-                            }}
-                          >
-                            {isSendingThis ? (
-                              <>
-                                <HiOutlineRefresh className="animate-spin" />
-                                <span>Sending...</span>
-                              </>
-                            ) : (
-                              <>
-                                <HiOutlinePaperAirplane style={{ transform: 'rotate(90deg)' }} />
-                                <span>Send</span>
-                              </>
-                            )}
-                          </button>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                            {/* Approve Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAdminApproveWithdrawal(w.transaction_group_id, w.account_holder_name || w.user_name, w.amount)
+                              }
+                              disabled={isSendingThis || isRejectingThis}
+                              className="btn btn-success"
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                borderRadius: 8,
+                                background: '#16A34A',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                cursor: (isSendingThis || isRejectingThis) ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)',
+                              }}
+                              title="Approve withdrawal and disburse money to user bank account"
+                            >
+                              {isSendingThis ? (
+                                <>
+                                  <HiOutlineRefresh className="animate-spin" />
+                                  <span>Approving...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <HiOutlineCheckCircle style={{ fontSize: 15 }} />
+                                  <span>Approve</span>
+                                </>
+                              )}
+                            </button>
+
+                            {/* Reject Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAdminRejectWithdrawal(w.transaction_group_id, w.account_holder_name || w.user_name, w.amount)
+                              }
+                              disabled={isSendingThis || isRejectingThis}
+                              className="btn btn-danger"
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                borderRadius: 8,
+                                background: '#FEE2E2',
+                                color: '#DC2626',
+                                border: '1px solid #FECACA',
+                                cursor: (isSendingThis || isRejectingThis) ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                              }}
+                              title="Reject request and refund amount to customer wallet"
+                            >
+                              {isRejectingThis ? (
+                                <>
+                                  <HiOutlineRefresh className="animate-spin" />
+                                  <span>Rejecting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <HiOutlineXCircle style={{ fontSize: 15 }} />
+                                  <span>Reject</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         ) : isProcessing ? (
                           <span style={{ fontSize: 12, color: '#2563EB', fontWeight: 600 }}>
                             Processing...
                           </span>
                         ) : isCompleted ? (
-                          <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 700 }}>
-                            ✓ Sent to Bank
+                          <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <HiOutlineCheckCircle style={{ fontSize: 15 }} /> Withdrawed
+                          </span>
+                        ) : isRejected ? (
+                          <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <HiOutlineXCircle style={{ fontSize: 15 }} /> Rejected
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, color: '#94A3B8' }}>—</span>
