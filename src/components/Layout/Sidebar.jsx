@@ -45,6 +45,7 @@ const ALL_NAV_ITEMS = [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
       { key: 'subscriptions', path: '/subscriptions', icon: HiOutlineTag, label: 'Subscriptions', adminOnly: true },
       { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
+      { key: 'withdrawals', path: '/withdrawals', icon: HiOutlineCreditCard, label: 'Withdrawals', adminOnly: true },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },
       { key: 'content', path: '/content', icon: HiOutlineDocumentText, label: 'Content' },
       { key: 'geography', path: '/geography', icon: HiOutlineGlobe, label: 'Geography' },
@@ -162,7 +163,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
             if (item.key === 'registrations') {
               return { ...item, badge: regBadgeCount };
             }
-            if (item.key === 'wallet') {
+            if (item.key === 'withdrawals') {
               return { ...item, badge: withdrawalsBadgeCount };
             }
             return item;
@@ -208,9 +209,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                   if (onCloseMobile) onCloseMobile();
                 }}
                 className={({ isActive }) => {
-                  const isMatch = item.path === '/wallet'
-                    ? location.pathname === '/wallet' || location.pathname === '/withdrawals'
-                    : isActive && location.pathname === item.path;
+                  const isMatch = isActive && location.pathname === item.path;
                   return `sidebar-link ${isMatch ? 'active' : ''}`;
                 }}
                 end={item.path === '/'}

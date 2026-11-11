@@ -21,6 +21,7 @@ import MerchantPortal from './pages/MerchantPortal';
 import Products from './pages/Products';
 import SellerPortal from './pages/SellerPortal';
 import CompanyWallet from './pages/CompanyWallet';
+import Withdrawals from './pages/Withdrawals';
 import Subscriptions from './pages/Subscriptions';
 import Customers from './pages/Customers';
 
@@ -187,7 +188,7 @@ function AppRoutes() {
           path="/withdrawals"
           element={
             <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-              <CompanyWallet />
+              <Withdrawals />
             </RoleProtectedRoute>
           }
         />
