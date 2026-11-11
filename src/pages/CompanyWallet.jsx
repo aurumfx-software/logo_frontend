@@ -755,10 +755,58 @@ export default function CompanyWallet() {
         </div>
       </div>
 
+      {/* Action Success Alert (Visible above tables) */}
+      {actionSuccess && (
+        <div
+          style={{
+            marginTop: 20,
+            marginBottom: 10,
+            padding: '12px 18px',
+            background: '#DCFCE7',
+            borderLeft: '4px solid #16A34A',
+            borderRadius: 8,
+            color: '#15803D',
+            fontSize: 14,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 2px 4px rgba(22, 163, 74, 0.1)',
+          }}
+        >
+          <HiOutlineCheckCircle style={{ fontSize: 22, color: '#16A34A', flexShrink: 0 }} />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* Action Error Alert (Visible above tables) */}
+      {actionError && (
+        <div
+          style={{
+            marginTop: 20,
+            marginBottom: 10,
+            padding: '12px 18px',
+            background: '#FEE2E2',
+            borderLeft: '4px solid #EF4444',
+            borderRadius: 8,
+            color: '#991B1B',
+            fontSize: 14,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.1)',
+          }}
+        >
+          <HiOutlineExclamationCircle style={{ fontSize: 22, color: '#EF4444', flexShrink: 0 }} />
+          <span>{actionError}</span>
+        </div>
+      )}
+
       {/* ═════════════════════════════════════════════════════════════ */}
       {/* 2. ADMIN WALLET TABLES (Table 1, Table 2 & Ledger)            */}
       {/* ═════════════════════════════════════════════════════════════ */}
-      <div className="card" style={{ marginTop: 24 }}>
+      <div className="card" style={{ marginTop: 16 }}>
         <div
           className="card-header"
           style={{
