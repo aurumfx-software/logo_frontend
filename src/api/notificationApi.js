@@ -5,10 +5,7 @@ import { apiFetch } from './apiClient';
  */
 export async function fetchNotifications(limit = 30) {
   try {
-    let response = await apiFetch(`/api/v1/admin/notifications?limit=${limit}`, { method: 'GET' });
-    if (!response || !response.ok) {
-      response = await apiFetch(`/api/v1/notifications?limit=${limit}`, { method: 'GET' });
-    }
+    const response = await apiFetch(`/api/v1/notifications?limit=${limit}`, { method: 'GET' });
     if (response && response.ok) {
       const data = await response.json();
       return {

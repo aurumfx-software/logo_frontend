@@ -10,6 +10,11 @@ import {
   HiOutlineChevronRight,
   HiOutlineClock,
   HiOutlineCash,
+  HiOutlineInformationCircle,
+  HiOutlineEye,
+  HiOutlineX,
+  HiOutlineClipboardCopy,
+  HiOutlineCheck,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import {
@@ -36,6 +41,18 @@ export default function Withdrawals() {
   const [rejectingId, setRejectingId] = useState(null);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
+
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
+  const [copiedKey, setCopiedKey] = useState('');
+
+  const handleCopy = (text, key) => {
+    if (!text) return;
+    try {
+      navigator.clipboard?.writeText(String(text));
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(''), 1800);
+    } catch (_) {}
+  };
 
   const updateBadgeCount = useCallback((count) => {
     const num = isNaN(count) ? 0 : Math.max(0, count);
@@ -537,11 +554,11 @@ export default function Withdrawals() {
 
                       {/* Bank Details */}
                       <td>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1E293B' }}>
-                          A/C: <span style={{ fontFamily: 'monospace' }}>{w.account_number_masked || '—'}</span>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0F172A' }}>
+                          A/C: <span style={{ fontFamily: 'monospace', color: '#1E293B', background: '#F8FAFC', padding: '1px 6px', borderRadius: 4, border: '1px solid #E2E8F0' }}>{w.account_number || w.account_number_masked || '—'}</span>
                         </div>
-                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                          IFSC: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{w.ifsc || '—'}</span>
+                        <div style={{ fontSize: 11, color: '#64748B', marginTop: 3 }}>
+                          IFSC: <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#334155' }}>{w.ifsc || '—'}</span>
                         </div>
                       </td>
 
@@ -605,101 +622,114 @@ export default function Withdrawals() {
 
                       {/* Admin Action */}
                       <td style={{ textAlign: 'center' }}>
-                        {isPending ? (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                            {/* Approve Button */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleApprove(
-                                  w.transaction_group_id,
-                                  w.account_holder_name || w.user_name,
-                                  w.amount
-                                )
-                              }
-                              disabled={isSendingThis || isRejectingThis}
-                              className="btn btn-success"
-                              style={{
-                                padding: '6px 14px',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                borderRadius: 8,
-                                background: '#16A34A',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: isSendingThis || isRejectingThis ? 'not-allowed' : 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)',
-                              }}
-                              title="Approve withdrawal and disburse money to user bank account"
-                            >
-                              {isSendingThis ? (
-                                <>
-                                  <HiOutlineRefresh className="animate-spin" />
-                                  <span>Approving...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <HiOutlineCheckCircle style={{ fontSize: 15 }} />
-                                  <span>Approve</span>
-                                </>
-                              )}
-                            </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                          {/* Details Button for every row */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedWithdrawal(w)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '5px 11px',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              borderRadius: 8,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              color: '#2563EB',
+                              borderColor: '#BFDBFE',
+                              background: '#EFF6FF',
+                              cursor: 'pointer',
+                            }}
+                            title="View complete withdrawal payment details"
+                          >
+                            <HiOutlineInformationCircle style={{ fontSize: 14 }} />
+                            <span>Details</span>
+                          </button>
 
-                            {/* Reject Button */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleReject(
-                                  w.transaction_group_id,
-                                  w.account_holder_name || w.user_name,
-                                  w.amount
-                                )
-                              }
-                              disabled={isSendingThis || isRejectingThis}
-                              className="btn btn-danger"
-                              style={{
-                                padding: '6px 14px',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                borderRadius: 8,
-                                background: '#DC2626',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: isSendingThis || isRejectingThis ? 'not-allowed' : 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.25)',
-                              }}
-                              title="Reject withdrawal and refund money back to user wallet"
-                            >
-                              {isRejectingThis ? (
-                                <>
-                                  <HiOutlineRefresh className="animate-spin" />
-                                  <span>Rejecting...</span>
-                                </>
-                              ) : (
-                                <span>Reject</span>
-                              )}
-                            </button>
-                          </div>
-                        ) : isCompleted ? (
-                          <div style={{ fontSize: 11, color: '#15803D', fontWeight: 700 }}>
-                            ✓ Withdrawed
-                            {w.payout_id && (
-                              <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#64748B' }}>
-                                Ref: {w.payout_id}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 11, color: '#991B1B', fontWeight: 600 }}>
-                            {w.failure_reason || (isRejected ? 'Rejected' : 'Failed')}
-                          </div>
-                        )}
+                          {isPending && (
+                            <>
+                              {/* Approve Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleApprove(
+                                    w.transaction_group_id,
+                                    w.account_holder_name || w.user_name,
+                                    w.amount
+                                  )
+                                }
+                                disabled={isSendingThis || isRejectingThis}
+                                className="btn btn-success"
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  borderRadius: 8,
+                                  background: '#16A34A',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  cursor: isSendingThis || isRejectingThis ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  boxShadow: '0 1px 3px rgba(22, 163, 74, 0.25)',
+                                }}
+                                title="Approve withdrawal and disburse money to user bank account"
+                              >
+                                {isSendingThis ? (
+                                  <>
+                                    <HiOutlineRefresh className="animate-spin" />
+                                    <span>Approving...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <HiOutlineCheckCircle style={{ fontSize: 14 }} />
+                                    <span>Approve</span>
+                                  </>
+                                )}
+                              </button>
+
+                              {/* Reject Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleReject(
+                                    w.transaction_group_id,
+                                    w.account_holder_name || w.user_name,
+                                    w.amount
+                                  )
+                                }
+                                disabled={isSendingThis || isRejectingThis}
+                                className="btn btn-danger"
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  borderRadius: 8,
+                                  background: '#DC2626',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  cursor: isSendingThis || isRejectingThis ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  boxShadow: '0 1px 3px rgba(220, 38, 38, 0.25)',
+                                }}
+                                title="Reject withdrawal and refund money back to user wallet"
+                              >
+                                {isRejectingThis ? (
+                                  <>
+                                    <HiOutlineRefresh className="animate-spin" />
+                                    <span>Rejecting...</span>
+                                  </>
+                                ) : (
+                                  <span>Reject</span>
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -748,6 +778,334 @@ export default function Withdrawals() {
           </div>
         )}
       </div>
+
+      {/* ── Withdrawal Payment Details Modal ── */}
+      {selectedWithdrawal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: 16,
+          }}
+          onClick={() => setSelectedWithdrawal(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              maxWidth: 620,
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              border: '1px solid #E2E8F0',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '18px 24px',
+                borderBottom: '1px solid #E2E8F0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: '#EFF6FF',
+                    color: '#2563EB',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                  }}
+                >
+                  <HiOutlineCreditCard />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+                    Withdrawal Payment Details
+                  </h3>
+                  <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2, fontFamily: 'monospace' }}>
+                    Group ID: {selectedWithdrawal.transaction_group_id || `#${selectedWithdrawal.id}`}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedWithdrawal(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                  color: '#94A3B8',
+                  padding: 4,
+                  display: 'flex',
+                }}
+              >
+                <HiOutlineX />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: 24 }}>
+              {/* Amount & Status Banner */}
+              <div
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 12,
+                  padding: '16px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 20,
+                  flexWrap: 'wrap',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Withdrawal Amount
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#DC2626', marginTop: 2 }}>
+                    ₹{Number(selectedWithdrawal.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      background: '#F1F5F9',
+                      color: '#334155',
+                      border: '1px solid #CBD5E1',
+                    }}
+                  >
+                    {selectedWithdrawal.payout_mode || 'IMPS'}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: '4px 12px',
+                      borderRadius: 12,
+                      backgroundColor:
+                        (selectedWithdrawal.status || '').toUpperCase() === 'COMPLETED'
+                          ? '#DCFCE7'
+                          : (selectedWithdrawal.status || '').toUpperCase() === 'PENDING'
+                          ? '#FEF3C7'
+                          : '#FEE2E2',
+                      color:
+                        (selectedWithdrawal.status || '').toUpperCase() === 'COMPLETED'
+                          ? '#15803D'
+                          : (selectedWithdrawal.status || '').toUpperCase() === 'PENDING'
+                          ? '#B45309'
+                          : '#B91C1C',
+                    }}
+                  >
+                    {(selectedWithdrawal.status || '').toUpperCase() === 'COMPLETED'
+                      ? 'Withdrawed'
+                      : (selectedWithdrawal.status || '').toUpperCase() === 'PENDING'
+                      ? 'Pending Approval'
+                      : selectedWithdrawal.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Section 1: Beneficiary Information */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                  Beneficiary User Information
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Account Holder Name</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.account_holder_name || selectedWithdrawal.user_name || '—'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Registered Customer Name</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.user_name || '—'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Phone Number</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.user_phone ? `+91 ${selectedWithdrawal.user_phone}` : '—'}
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Email Address</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0F172A', marginTop: 2, wordBreak: 'break-all' }}>
+                      {selectedWithdrawal.user_email || '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Full Bank Account & Payment Details */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                  Bank Account & Payout Details
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                  <div style={{ padding: '12px 14px', background: '#F0FDF4', borderRadius: 8, border: '1px solid #BBF7D0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: '#166534', fontWeight: 700 }}>Bank Account Number (Full)</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(selectedWithdrawal.account_number || selectedWithdrawal.account_number_masked, 'acc')}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 3 }}
+                      >
+                        {copiedKey === 'acc' ? <HiOutlineCheck style={{ color: '#16A34A' }} /> : <HiOutlineClipboardCopy />}
+                        <span style={{ fontSize: 10, fontWeight: 700 }}>{copiedKey === 'acc' ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, fontFamily: 'monospace', color: '#14532D', marginTop: 4, letterSpacing: 0.5 }}>
+                      {selectedWithdrawal.account_number || selectedWithdrawal.account_number_masked || '—'}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: '#64748B', fontWeight: 700 }}>IFSC Code</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(selectedWithdrawal.ifsc, 'ifsc')}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#2563EB', display: 'flex', alignItems: 'center', gap: 3 }}
+                      >
+                        {copiedKey === 'ifsc' ? <HiOutlineCheck style={{ color: '#16A34A' }} /> : <HiOutlineClipboardCopy />}
+                        <span style={{ fontSize: 10, fontWeight: 700 }}>{copiedKey === 'ifsc' ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'monospace', color: '#0F172A', marginTop: 4 }}>
+                      {selectedWithdrawal.ifsc || '—'}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Payment Transfer Mode</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.payout_mode || 'IMPS'} (Instant Transfer)
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Payout Reference / UTR ID</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.payout_id || 'Pending disbursement'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Audit & Timestamps */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                  Audit & Timestamps
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Requested At</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.created_at ? new Date(selectedWithdrawal.created_at).toLocaleString('en-IN') : '—'}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: 11, color: '#64748B' }}>Last Status Update</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0F172A', marginTop: 2 }}>
+                      {selectedWithdrawal.updated_at ? new Date(selectedWithdrawal.updated_at).toLocaleString('en-IN') : '—'}
+                    </div>
+                  </div>
+
+                  {selectedWithdrawal.failure_reason && (
+                    <div style={{ gridColumn: '1 / -1', padding: '10px 14px', background: '#FEF2F2', borderRadius: 8, border: '1px solid #FCA5A5' }}>
+                      <div style={{ fontSize: 11, color: '#991B1B', fontWeight: 700 }}>Failure / Rejection Reason</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#B91C1C', marginTop: 2 }}>
+                        {selectedWithdrawal.failure_reason}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: 10,
+                padding: '16px 24px',
+                borderTop: '1px solid #E2E8F0',
+                background: '#F8FAFC',
+                borderBottomLeftRadius: 16,
+                borderBottomRightRadius: 16,
+              }}
+            >
+              {(selectedWithdrawal.status || '').toUpperCase() === 'PENDING' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const w = selectedWithdrawal;
+                      setSelectedWithdrawal(null);
+                      handleReject(w.transaction_group_id, w.account_holder_name || w.user_name, w.amount);
+                    }}
+                    className="btn btn-danger"
+                    style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, background: '#DC2626', color: '#FFF', border: 'none', cursor: 'pointer' }}
+                  >
+                    Reject Request
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const w = selectedWithdrawal;
+                      setSelectedWithdrawal(null);
+                      handleApprove(w.transaction_group_id, w.account_holder_name || w.user_name, w.amount);
+                    }}
+                    className="btn btn-success"
+                    style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, background: '#16A34A', color: '#FFF', border: 'none', cursor: 'pointer' }}
+                  >
+                    Approve & Disburse Funds
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedWithdrawal(null)}
+                className="btn btn-outline"
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

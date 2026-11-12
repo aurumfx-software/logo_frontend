@@ -15,55 +15,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import {
-  fetchNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from '../../api/notificationApi';
-
-function formatNotifTime(isoString) {
-  if (!isoString) return 'Recent';
-  try {
-    const diffMs = Date.now() - new Date(isoString).getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return 'Just now';
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    const diffDays = Math.floor(diffHr / 24);
-    return `${diffDays}d ago`;
-  } catch {
-    return 'Recent';
-  }
-}
 
 export default function Header({ title, onToggleSidebar }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-
-  // Notification State
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
-  const notifRef = useRef(null);
-
-  const loadNotifications = async () => {
-    try {
-      const res = await fetchNotifications(25);
-      setNotifications(res.notifications || []);
-      setUnreadCount(res.unread_count || 0);
-    } catch (err) {
-      console.warn('Failed to load notifications in header:', err);
-    }
-  };
-
-  // Load notifications once on mount without continuous background polling
-  useEffect(() => {
-    loadNotifications();
-  }, []);
 
   // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
@@ -78,8 +35,6 @@ export default function Header({ title, onToggleSidebar }) {
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setDropdownOpen(false);
-        setNotifDropdownOpen(false);
-      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
@@ -88,36 +43,6 @@ export default function Header({ title, onToggleSidebar }) {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
-
-  const handleMarkAllRead = async () => {
-    await markAllNotificationsAsRead();
-    setUnreadCount(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-  };
-
-  const handleNotificationClick = async (notif) => {
-    if (!notif.is_read) {
-      await markNotificationAsRead(notif.id);
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
-      );
-    }
-    setNotifDropdownOpen(false);
-
-    const type = notif.type || '';
-    if (type === 'PROMOTION_REQUEST' || type === 'PROMOTION_APPROVED' || type === 'PROMOTION_REJECTED') {
-      navigate('/promotions');
-    } else if (type === 'PROMO_ACCESS_REQUEST') {
-      navigate('/registration-requests?section=promo-access');
-    } else if (type === 'MERCHANT_REGISTRATION') {
-      navigate('/registration-requests');
-    } else if (type === 'PROMO_ACCESS_APPROVED') {
-      navigate('/merchant');
-    } else {
-      navigate('/registration-requests');
-    }
-  };
 
   const handleLogout = () => {
     setDropdownOpen(false);
