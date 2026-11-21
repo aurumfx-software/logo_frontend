@@ -522,49 +522,36 @@ export default function LandingPage({ defaultTab = 'home' }) {
         (p) =>
           isEligiblePromotion(p) &&
           (!p.placement || p.placement === 'Home Top' || p.placement.toLowerCase().includes('top')) &&
-          (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url) &&
-          !((p.title || '').toLowerCase().includes('bag bazaar')) &&
-          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('f183f22512ae4d35990bbef9cbb018fe')) &&
-          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('4adc352793f74a30873381a9aa97dddb')) &&
-          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('264078ee513f48cb9bfdbdcc0698d330')) &&
-          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('a700b5903440478bab885e729bf0e67a')) &&
-          !((p.imageUrl || p.bannerUrl || p.image_url || '').includes('e763c69e5ccb420eb42f7ef46db960de'))
+          (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url)
       );
       if (top.length > 0) return top;
     }
     return [
       {
-        id: 'def-wide-1',
-        title: 'Kerala Festive Mega Grand Shopping Festival — Up to 50% Off',
-        imageUrl: '/banners/top_grand_festival.png',
+        id: 'def-1',
+        title: 'BAG BAZAAR',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-wide-2',
-        title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
-        imageUrl: '/banners/top_fashion_lifestyle.png',
+        id: 'def-2',
+        title: 'VR HERO MOTORS',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-wide-3',
-        title: 'Kerala 5G Smart Tech & Mega Electronics Expo',
-        imageUrl: '/banners/kerala_electronics_fest.png',
+        id: 'def-3',
+        title: 'Pavizham Associates',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
         targetUrl: '#',
         placement: 'Home Top',
       },
       {
-        id: 'def-wide-4',
-        title: 'Kerala Bridal Gold & Diamond Jewellery Fest',
-        imageUrl: '/banners/kerala_gold_jewellery_fest.png',
-        targetUrl: '#',
-        placement: 'Home Top',
-      },
-      {
-        id: 'def-wide-5',
-        title: 'Malabar Traditional Food & Dining Festival',
-        imageUrl: '/banners/malabar_food_fest.png',
+        id: 'def-4',
+        title: 'Life Medicals',
+        imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/df515a74b6b746a8bb961f1b71097873.jpeg',
         targetUrl: '#',
         placement: 'Home Top',
       },

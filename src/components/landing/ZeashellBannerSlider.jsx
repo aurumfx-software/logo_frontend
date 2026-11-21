@@ -3,37 +3,30 @@ import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
 const DEFAULT_BANNER_FALLBACK = [
   {
-    id: 'def-wide-1',
-    title: 'Kerala Festive Mega Grand Shopping Festival — Up to 50% Off',
-    imageUrl: '/banners/top_grand_festival.png',
+    id: 'def-1',
+    title: 'BAG BAZAAR',
+    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-wide-2',
-    title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
-    imageUrl: '/banners/top_fashion_lifestyle.png',
+    id: 'def-2',
+    title: 'VR HERO MOTORS',
+    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-wide-3',
-    title: 'Kerala 5G Smart Tech & Mega Electronics Expo',
-    imageUrl: '/banners/kerala_electronics_fest.png',
+    id: 'def-3',
+    title: 'Pavizham Associates',
+    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-wide-4',
-    title: 'Kerala Bridal Gold & Diamond Jewellery Fest',
-    imageUrl: '/banners/kerala_gold_jewellery_fest.png',
-    targetUrl: '#',
-    placement: 'Home Top',
-  },
-  {
-    id: 'def-wide-5',
-    title: 'Malabar Traditional Food & Dining Festival',
-    imageUrl: '/banners/malabar_food_fest.png',
+    id: 'def-4',
+    title: 'Life Medicals',
+    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/df515a74b6b746a8bb961f1b71097873.jpeg',
     targetUrl: '#',
     placement: 'Home Top',
   },
@@ -121,23 +114,11 @@ function SlideVideo({
 }
 
 export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
-  // Purge any old low-quality or irrelevant banners from API data
+  // Active banners with valid media, or authentic original defaults
   const validBanners = React.useMemo(() => {
     const list = Array.isArray(banners) ? banners : [];
-    const filtered = list.filter((b) => {
-      if (!b) return false;
-      const title = (b.title || '').toLowerCase();
-      const img = (b.imageUrl || b.bannerUrl || b.image_url || '').toLowerCase();
-      const hasMedia = b.videoUrl || b.video_url || b.imageUrl || b.image_url || b.bannerUrl;
-      const isBadOldImage =
-        img.includes('4adc352793f74a30873381a9aa97dddb') ||
-        img.includes('f183f22512ae4d35990bbef9cbb018fe') ||
-        img.includes('264078ee513f48cb9bfdbdcc0698d330') ||
-        img.includes('a700b5903440478bab885e729bf0e67a') ||
-        img.includes('e763c69e5ccb420eb42f7ef46db960de');
-      return hasMedia && !title.includes('bag bazaar') && !isBadOldImage;
-    });
-    return filtered.length > 0 ? filtered : DEFAULT_BANNER_FALLBACK;
+    const withMedia = list.filter((b) => b && (b.videoUrl || b.video_url || b.imageUrl || b.bannerUrl || b.image_url));
+    return withMedia.length > 0 ? withMedia : DEFAULT_BANNER_FALLBACK;
   }, [banners]);
 
   const [current, setCurrent] = useState(0);
@@ -240,8 +221,8 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'contain',
-                      objectPosition: 'top center',
+                      objectFit: 'cover',
+                      objectPosition: 'center',
                       position: 'absolute',
                       inset: 0,
                     }}
@@ -273,8 +254,8 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain',
-                    objectPosition: 'top center',
+                    objectFit: 'cover',
+                    objectPosition: 'center',
                   }}
                   draggable={false}
                   onError={(e) => {
