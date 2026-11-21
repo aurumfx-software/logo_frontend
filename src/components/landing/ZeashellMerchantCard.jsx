@@ -21,6 +21,9 @@ export default function ZeashellMerchantCard({
   const shopName = merchant.business_name || merchant.name || 'Local Business';
   const categoryName = merchant.category || (merchant.categories && merchant.categories[0]) || 'General';
   const locationText = merchant.city || merchant.location || merchant.district || 'Kerala';
+  const exactPlace = merchant.place || merchant.city || merchant.town || merchant.location || merchant.district || 'Kerala';
+  const displayDistrict = merchant.district && merchant.district.toLowerCase() !== exactPlace.toLowerCase() ? merchant.district : '';
+  const placeBadge = displayDistrict ? `${exactPlace}, ${displayDistrict}` : exactPlace;
   const phoneText =
     merchant.phone ||
     merchant.phone_number ||
@@ -142,12 +145,33 @@ export default function ZeashellMerchantCard({
 
       {/* Card Body */}
       <div className="zeas-blue-merchant-card-body">
-        <h3 className="zeas-blue-merchant-card-name" title={shopName}>
-          {shopName}
-        </h3>
+        {/* Merchant Name + Category Badge inline / beside name */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+          <h3 className="zeas-blue-merchant-card-name" style={{ margin: 0, flex: 1 }} title={shopName}>
+            {shopName}
+          </h3>
+          <span className="zeas-blue-merchant-card-cat" style={{ flexShrink: 0 }} title={categoryName}>
+            {categoryName}
+          </span>
+        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <span className="zeas-blue-merchant-card-cat">{categoryName}</span>
+        {/* Exact Place Name right below Merchant Name */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            color: '#1d4ed8',
+            fontSize: '12px',
+            fontWeight: 700,
+            marginBottom: '6px',
+          }}
+          title={`Location: ${placeBadge}`}
+        >
+          <HiLocationMarker size={13} style={{ color: '#2563eb', flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {placeBadge}
+          </span>
         </div>
 
         {/* Rating, Distance, Status Row */}

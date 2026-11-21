@@ -121,3 +121,22 @@ export async function clearCustomerFavoritesApi() {
   });
   return res.ok;
 }
+
+// Aliases for component compatibility
+export const registerCustomer = customerRegister;
+export const loginCustomer = customerPhoneLogin;
+export async function updateCustomerLocation(locationData) {
+  try {
+    const token = getCustomerToken();
+    if (!token) return null;
+    const res = await apiFetch('/api/v1/customer/location', {
+      method: 'POST',
+      headers: getCustomerHeaders(),
+      body: JSON.stringify(locationData),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}

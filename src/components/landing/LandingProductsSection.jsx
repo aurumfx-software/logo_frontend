@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   HiShoppingBag,
   HiLocationMarker,
@@ -6,6 +7,7 @@ import {
   HiPlus,
   HiCheckCircle,
   HiSparkles,
+  HiArrowRight,
 } from 'react-icons/hi';
 import { fetchPublicProducts } from '../../api/productApi';
 
@@ -22,6 +24,7 @@ export default function LandingProductsSection({
   onOpenOrderModal,
   onOpenAddProductModal,
 }) {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -124,7 +127,7 @@ export default function LandingProductsSection({
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
           >
             <HiPlus size={18} />
-            <span>Sell Your Product (₹500 Plan)</span>
+            <span>Sell Your Product</span>
           </button>
         </div>
 
@@ -218,7 +221,7 @@ export default function LandingProductsSection({
               gap: 20,
             }}
           >
-            {products.map((item) => {
+            {products.slice(0, 8).map((item) => {
               const unitP = Number(item.price) || 0;
               const origP = item.original_price ? Number(item.original_price) : 0;
               const discount = origP > unitP ? Math.round(((origP - unitP) / origP) * 100) : 0;
@@ -425,6 +428,43 @@ export default function LandingProductsSection({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* View All Products Button (Navigates to Full Products Page) */}
+        {!isLoading && products.length > 0 && (
+          <div style={{ textAlign: 'center', marginTop: 32 }}>
+            <button
+              type="button"
+              onClick={() => navigate('/marketplace')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '13px 32px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.28)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 24px rgba(37, 99, 235, 0.36)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 235, 0.28)';
+              }}
+            >
+              <HiShoppingBag size={18} />
+              <span>View All Products ({products.length})</span>
+              <HiArrowRight size={16} />
+            </button>
           </div>
         )}
       </div>

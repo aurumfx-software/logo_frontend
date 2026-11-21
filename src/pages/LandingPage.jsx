@@ -57,6 +57,7 @@ import ZeashellEnvatoShowcase from '../components/landing/ZeashellEnvatoShowcase
 import ZeashellCategoryRow from '../components/landing/ZeashellCategoryRow';
 import ZeashellMerchantCard from '../components/landing/ZeashellMerchantCard';
 import ZeashellOffersCarousel from '../components/landing/ZeashellOffersCarousel';
+import ZeashellBusinessNetworkSlider from '../components/landing/ZeashellBusinessNetworkSlider';
 import ZeashellSpecialOfferWidget from '../components/landing/ZeashellSpecialOfferWidget';
 import ZeashellShopModal from '../components/landing/ZeashellShopModal';
 import ZeashellCallDialog from '../components/landing/ZeashellCallDialog';
@@ -2052,6 +2053,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 ? `Results for "${searchQuery}"`
                 : isWishlistActive
                 ? `❤️ Saved Wishlist (${sortedEstablishments.length})`
+                : selectedCategory !== 'all' && selectedLocation !== 'all'
+                ? `${selectedCategory} in ${selectedLocation.toUpperCase()} (${getDistrictName(selectedDistrict)})`
+                : selectedCategory !== 'all' && selectedDistrict !== 'all'
+                ? `${selectedCategory} in ${getDistrictName(selectedDistrict)}`
+                : selectedCategory !== 'all'
+                ? `${selectedCategory} in Kerala`
+                : selectedLocation !== 'all' && selectedDistrict !== 'all'
+                ? `Shops in ${selectedLocation.toUpperCase()} (${getDistrictName(selectedDistrict)})`
                 : selectedDistrict !== 'all'
                 ? `Shops in ${getDistrictName(selectedDistrict)}`
                 : selectedLocation !== 'all'
@@ -2123,135 +2132,148 @@ export default function LandingPage({ defaultTab = 'home' }) {
             <div style={{ fontSize: 13, color: '#64748b' }}>Accessing 1,034 verified merchants in Kerala</div>
           </div>
         ) : sortedEstablishments.length === 0 ? (
-          <div>
-            {selectedDistrict !== 'all' || selectedLocation !== 'all' ? (
-              <div style={{ marginBottom: 24 }}>
-                <div
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 20,
+              border: '1.5px dashed #cbd5e1',
+              padding: '48px 24px',
+              textAlign: 'center',
+              maxWidth: 720,
+              margin: '20px auto 40px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                background: '#eff6ff',
+                color: '#2563eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 28,
+                margin: '0 auto 16px',
+              }}
+            >
+              {selectedCategory !== 'all' ? '🔍' : '📍'}
+            </div>
+
+            <h3
+              style={{
+                margin: '0 0 8px',
+                fontSize: 'clamp(18px, 2.5vw, 22px)',
+                fontWeight: 800,
+                color: '#0f172a',
+              }}
+            >
+              {selectedCategory !== 'all' && selectedLocation !== 'all'
+                ? `No ${selectedCategory} found in ${selectedLocation.toUpperCase()}`
+                : selectedCategory !== 'all' && selectedDistrict !== 'all'
+                ? `No ${selectedCategory} found in ${getDistrictName(selectedDistrict)}`
+                : selectedCategory !== 'all'
+                ? `No listings found for "${selectedCategory}"`
+                : selectedLocation !== 'all'
+                ? `No merchants found in ${selectedLocation.toUpperCase()}`
+                : selectedDistrict !== 'all'
+                ? `No merchants found in ${getDistrictName(selectedDistrict)}`
+                : searchQuery.trim()
+                ? `No verified merchants found matching "${searchQuery}"`
+                : 'No verified merchants found in this selection'}
+            </h3>
+
+            <p
+              style={{
+                margin: '0 auto 24px',
+                fontSize: 14,
+                color: '#64748b',
+                maxWidth: 480,
+                lineHeight: 1.5,
+              }}
+            >
+              {selectedLocation !== 'all'
+                ? `We couldn't find any verified merchants in ${selectedLocation.toUpperCase()}. Local shops are currently being onboarded in this area.`
+                : selectedCategory !== 'all'
+                ? `There are currently no verified merchants listed under "${selectedCategory}" in this area.`
+                : 'Try adjusting your location or category filters to discover verified shops across Kerala.'}
+            </p>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {selectedLocation !== 'all' && selectedDistrict !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedLocation('all')}
                   style={{
-                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    background: '#eff6ff',
+                    color: '#2563eb',
                     border: '1.5px solid #bfdbfe',
-                    borderRadius: 16,
-                    padding: '20px 24px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.08)',
+                    padding: '10px 18px',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        background: '#2563eb',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#ffffff',
-                        fontSize: 22,
-                        flexShrink: 0,
-                      }}
-                    >
-                      🏛️
-                    </div>
-                    <div>
-                      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#1e40af' }}>
-                        Showing Verified Kerala Merchants for{' '}
-                        {selectedDistrict !== 'all'
-                          ? `${getDistrictName(selectedDistrict)} District`
-                          : selectedLocation.toUpperCase()}
-                      </h3>
-                      <p style={{ margin: 0, fontSize: 13, color: '#2563eb', fontWeight: 500 }}>
-                        Local merchants are currently being onboarded in this area. Explore genuine verified shops in Kerala below!
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDistrict('all');
-                        setSelectedLocation('all');
-                      }}
-                      className="btn"
-                      style={{
-                        background: '#ffffff',
-                        color: '#1e40af',
-                        border: '1.5px solid #bfdbfe',
-                        padding: '9px 16px',
-                        borderRadius: 10,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      View All Kerala
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomerAuthTab('register');
-                        if (selectedDistrict !== 'all') {
-                          setCustomerRegisterForm((prev) => ({
-                            ...prev,
-                            district: getDistrictName(selectedDistrict),
-                          }));
-                        }
-                        setCustomerLoginModalOpen(true);
-                      }}
-                      className="btn"
-                      style={{
-                        background: '#2563eb',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '9px 16px',
-                        borderRadius: 10,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
-                      }}
-                    >
-                      Register as Customer / Merchant
-                    </button>
-                  </div>
-                </div>
-
-                <div className="zeas-blue-merchant-grid" style={{ marginTop: 24 }}>
-                  {(sourceEstablishments.length > 0 ? sourceEstablishments : initialEstablishments)
-                    .slice(0, 10)
-                    .map((merchant) => (
-                      <ZeashellMerchantCard
-                        key={merchant.id}
-                        merchant={merchant}
-                        userCoordinates={userCoordinates}
-                        merchantCoords={getMerchantCoords(merchant)}
-                        isFavorite={userFavorites.includes(merchant.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                        onViewShop={handleSelectMerchantCard}
-                        onDirections={handleCardDirections}
-                        onCall={handleCardCall}
-                      />
-                    ))}
-                </div>
-              </div>
-            ) : (
-              <div className="landing-empty-state">
-                <HiInformationCircle className="empty-icon" />
-                <h3>No establishments found</h3>
-                <p>Try searching for a different term or select "All Locations".</p>
-                <button
-                  onClick={resetAllFilters}
-                  className="btn btn-primary"
-                  style={{ marginTop: 12 }}
-                >
-                  Reset Filters
+                  View All in {getDistrictName(selectedDistrict)}
                 </button>
-              </div>
-            )}
+              )}
+
+              {selectedCategory !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('all')}
+                  style={{
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    border: '1.5px solid #bfdbfe',
+                    padding: '10px 18px',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear Category Filter
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                style={{
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                }}
+              >
+                Reset All Filters
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOnboardModalOpen(true)}
+                style={{
+                  background: '#f8fafc',
+                  color: '#0f172a',
+                  border: '1.5px solid #cbd5e1',
+                  padding: '10px 18px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                + Register Your Shop Here
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -2393,132 +2415,14 @@ export default function LandingPage({ defaultTab = 'home' }) {
         onSelectOffer={(offer) => setSelectedPromoModal(offer)}
       />
 
-      {/* 6. News & Updates Section (Ultra-Sharp High-Clarity UI) */}
-      <section className="landing-news-section">
-        <div className="landing-news-header">
-          <div className="news-badge-pill">📢 LOGO BUSINESS NETWORK</div>
-          <h2 className="news-title">News & Updates</h2>
-          <p className="news-subtitle">Grow Your Business With Kerala's Fastest Growing Local Directory</p>
-        </div>
+      {/* 6. 📢 LOGO BUSINESS NETWORK News & Updates (Auto-sliding 5s carousel) */}
+      <ZeashellBusinessNetworkSlider
+        onOpenOnboard={() => setOnboardModalOpen(true)}
+        promotions={livePromotions}
+        onSelectPromo={(p) => setSelectedPromoModal(p)}
+      />
 
-        <div className="news-grid">
-          {/* Card 1 */}
-          <div className="news-card card-royal">
-            <div className="news-card-top-row">
-              <span className="news-card-badge">JOIN US</span>
-              <span className="news-card-badge-sub">STANDARD LISTING</span>
-            </div>
-            <div className="news-card-content">
-              <h3>My Locality Info</h3>
-              <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
-              <h4>ലോകമറിയട്ടെ നിങ്ങളുടെ</h4>
-              <h2 className="news-highlight">BUSINESS & OFFERS</h2>
-
-              <ul className="news-features">
-                <li><HiCheckCircle className="feat-check" /> Multi Photos & Store Details</li>
-                <li><HiCheckCircle className="feat-check" /> Address & Exact GPS Location</li>
-                <li><HiCheckCircle className="feat-check" /> Direct Calling & One-Tap WhatsApp</li>
-                <li><HiCheckCircle className="feat-check" /> Social Page Sharing & Distance</li>
-              </ul>
-            </div>
-
-            <div className="news-card-footer">
-              <div className="discount-tag">
-                <span>Special Launch Offer</span>
-                <strong>50% OFF</strong>
-              </div>
-              <button
-                type="button"
-                className="news-join-btn"
-                onClick={() => setOnboardModalOpen(true)}
-              >
-                List Business
-              </button>
-            </div>
-            <div className="news-contact">
-              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className="news-card card-black">
-            <div className="news-card-top-row">
-              <span className="news-card-badge dark">⭐ PREMIUM SUBSCRIPTION</span>
-              <span className="news-card-badge-sub emerald">TOP RANKING</span>
-            </div>
-            <div className="news-card-content">
-              <h3>My Locality Info</h3>
-              <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
-              <h4>ലോകമറിയട്ടെ നിങ്ങളുടെ</h4>
-              <h2 className="news-highlight yellow">BUSINESS & OFFERS</h2>
-
-              <ul className="news-features">
-                <li><HiCheckCircle className="feat-check gold" /> E-Commerce Portal Access</li>
-                <li><HiCheckCircle className="feat-check gold" /> Video Reels & HD Image Gallery</li>
-                <li><HiCheckCircle className="feat-check gold" /> Flash Offers & Distance Filter</li>
-                <li><HiCheckCircle className="feat-check gold" /> Customer Analytics & Direct Leads</li>
-              </ul>
-            </div>
-
-            <div className="news-card-footer">
-              <div className="discount-tag tag-green">
-                <span>Annual Plan Savings</span>
-                <strong>50% OFF</strong>
-              </div>
-              <button
-                type="button"
-                className="news-join-btn gold"
-                onClick={() => setOnboardModalOpen(true)}
-              >
-                Get Premium
-              </button>
-            </div>
-            <div className="news-contact">
-              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="news-card card-crimson">
-            <div className="news-card-top-row">
-              <span className="news-card-badge">🔥 SPECIAL OFFER</span>
-              <span className="news-card-badge-sub rose">FESTIVAL PROMO</span>
-            </div>
-            <div className="news-card-content">
-              <h3>My Locality Info</h3>
-              <p className="news-malayalam">Mobile Application ൽ ലിസ്റ്റ് ചെയ്യൂ</p>
-              <h4>ലോകമറിയട്ടെ നിങ്ങളുടെ</h4>
-              <h2 className="news-highlight pink">BUSINESS & OFFERS</h2>
-
-              <ul className="news-features">
-                <li><HiCheckCircle className="feat-check pink" /> Verified Blue Tick Merchant Badge</li>
-                <li><HiCheckCircle className="feat-check pink" /> Boosted Top 3 Search Ranking</li>
-                <li><HiCheckCircle className="feat-check pink" /> WhatsApp Catalog & Direct Orders</li>
-                <li><HiCheckCircle className="feat-check pink" /> Dedicated Account Manager & Support</li>
-              </ul>
-            </div>
-
-            <div className="news-card-footer">
-              <div className="discount-tag tag-purple">
-                <span>Festival Promotion</span>
-                <strong>50% OFF</strong>
-              </div>
-              <button
-                type="button"
-                className="news-join-btn rose"
-                onClick={() => setOnboardModalOpen(true)}
-              >
-                Claim Offer
-              </button>
-            </div>
-            <div className="news-contact">
-              <a href="tel:+918606080074">📞 Mob: +91 860 60 800 74</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6.5. Subscriber Products Marketplace (₹500 Plan Sell & Direct WhatsApp Order) */}
+      {/* 6.5. Subscriber Products Marketplace (Direct WhatsApp Order) */}
       <LandingProductsSection
         customerUser={customerUser}
         onOpenOrderModal={handleOpenOrderModal}

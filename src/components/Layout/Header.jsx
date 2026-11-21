@@ -2,15 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   HiOutlineMenu,
   HiOutlineSearch,
-  HiOutlineBell,
-  HiOutlineMoon,
   HiOutlineLogout,
   HiOutlineUser,
   HiOutlineShieldCheck,
   HiOutlineChevronDown,
-  HiOutlineSparkles,
-  HiOutlineOfficeBuilding,
-  HiOutlineKey,
 } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,13 +23,11 @@ export default function Header({ title, onToggleSidebar }) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setNotifDropdownOpen(false);
-      }
     }
     function handleKeyDown(event) {
       if (event.key === 'Escape') {
         setDropdownOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);

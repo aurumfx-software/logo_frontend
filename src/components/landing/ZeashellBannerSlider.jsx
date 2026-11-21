@@ -274,7 +274,7 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                    objectPosition: 'center',
+                    objectPosition: 'top center',
                   }}
                   draggable={false}
                   onError={(e) => {

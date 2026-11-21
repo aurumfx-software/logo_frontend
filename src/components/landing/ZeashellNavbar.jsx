@@ -774,7 +774,7 @@ export default function ZeashellNavbar({
             <button
               type="button"
               className="zeas-blue-action-link"
-              title="Subscriber Products Marketplace (₹500 Seller)"
+              title="Subscriber Products Marketplace"
               onClick={() => {
                 const el = document.getElementById('products-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -852,10 +852,10 @@ export default function ZeashellNavbar({
               <span>Merchant</span>
             </Link>
 
-            {/* ₹500 Subscriber Seller Hub Button */}
+            {/* Subscriber Seller Hub Button */}
             <Link
               to="/seller"
-              title="₹500 Subscriber Seller Hub (Post Products & View Orders)"
+              title="Subscriber Seller Hub (Post Products & View Orders)"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

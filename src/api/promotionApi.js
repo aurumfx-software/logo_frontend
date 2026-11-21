@@ -32,6 +32,8 @@ export async function fetchPromotionsList(params = {}) {
   return null;
 }
 
+export const fetchActivePromotions = (params = {}) => fetchPromotionsList({ status: 'active', ...params });
+
 /**
  * Create a new promotion: POST /promotions (without /api/v1)
  */
