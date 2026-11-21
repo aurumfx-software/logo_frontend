@@ -60,6 +60,7 @@ const initialMerchantState = {
   categories: [],
   address: '',
   landmark: '',
+  place: '',
   city: 'Payyanur',
   district: 'Kannur',
   state: 'Kerala',
@@ -243,10 +244,13 @@ export default function Merchants() {
         owner_name: newMerchant.owner_name || newMerchant.owner || 'Owner Name',
         phone_number: newMerchant.phone_number || newMerchant.phone || '+91 98470 12345',
         email: email,
+        state: newMerchant.state || DEFAULT_STATE,
         district: newMerchant.district || 'Kannur',
         city: newMerchant.city || 'Payyanur',
+        place: newMerchant.place || newMerchant.city || 'Payyanur',
+        location: newMerchant.place || newMerchant.city || 'Payyanur',
         address: newMerchant.address || 'Main Road',
-        landmark: newMerchant.landmark || newMerchant.address || 'Near Bus Stand',
+        landmark: newMerchant.place || newMerchant.landmark || newMerchant.address || 'Near Bus Stand',
         services: [newMerchant.category || 'Retail'],
         service_timing: newMerchant.service_timing || '09:00 AM - 09:00 PM',
         merchant_photos: validPhotos,
@@ -365,7 +369,8 @@ export default function Merchants() {
       category: merchantRow.category || 'Retail',
       categories: merchantRow.categories || [merchantRow.category || 'Retail'],
       address: merchantRow.address || '',
-      landmark: merchantRow.landmark || '',
+      landmark: merchantRow.landmark || merchantRow.place || '',
+      place: merchantRow.place || merchantRow.landmark || merchantRow.location || merchantRow.city || '',
       city: resolvedCities.join(', '),
       district: resolvedDistricts.join(', '),
       state: resolvedStates.join(', '),
@@ -427,10 +432,13 @@ export default function Merchants() {
         phone_number: editFormData.phone_number || editFormData.phone,
         email: editFormData.email,
         category: editFormData.category,
+        state: editFormData.state,
         district: editFormData.district,
         city: editFormData.city,
+        place: editFormData.place || editFormData.city,
+        location: editFormData.place || editFormData.city,
         address: editFormData.address,
-        landmark: editFormData.landmark,
+        landmark: editFormData.place || editFormData.landmark,
         service_timing: editFormData.service_timing,
         status: editFormData.status,
         cashback_percent: cleanCb,
@@ -459,8 +467,12 @@ export default function Merchants() {
               twitter: editFormData.twitter || m.twitter,
               youtube: editFormData.youtube || m.youtube,
               city: editFormData.city || m.city,
+              place: editFormData.place || editFormData.city || m.place,
+              location: editFormData.place || editFormData.city || m.location,
               district: editFormData.district || m.district,
+              state: editFormData.state || m.state,
               address: editFormData.address || m.address,
+              landmark: editFormData.place || editFormData.landmark || m.landmark,
               latitude: editFormData.latitude !== undefined ? editFormData.latitude : m.latitude,
               longitude: editFormData.longitude !== undefined ? editFormData.longitude : m.longitude,
               status: statusValue,
@@ -876,12 +888,18 @@ export default function Merchants() {
               <div>
                 <h3 style={{ fontWeight: 700, fontSize: 18, margin: 0 }}>{selectedMerchant.name}</h3>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                  {selectedMerchant.category} · {selectedMerchant.city}
+                  {selectedMerchant.category} · {selectedMerchant.place || selectedMerchant.city}{selectedMerchant.district ? `, ${selectedMerchant.district}` : ''}
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-light)' }}>Place / Location</label>
+                <p style={{ fontWeight: 600, margin: 0, color: '#1D4ED8' }}>
+                  📍 {selectedMerchant.place || selectedMerchant.city}, {selectedMerchant.district}
+                </p>
+              </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-light)' }}>Owner / Contact Person</label>
                 <p style={{ fontWeight: 600, margin: 0, color: '#1F2937' }}>
@@ -1193,21 +1211,22 @@ export default function Merchants() {
             <GoogleMapsLocationInput
               value={newMerchant.address}
               onChange={(addr) => setNewMerchant({ ...newMerchant, address: addr })}
-              onSelectLocation={(place) => {
+              onSelectLocation={(loc) => {
                 setNewMerchant((prev) => ({
                   ...prev,
-                  address: place.address,
-                  city: place.city || place.name,
-                  district: place.district,
-                  state: place.state || prev.state,
-                  latitude: place.latitude || place.lat || null,
-                  longitude: place.longitude || place.lon || null,
+                  address: loc.address,
+                  place: loc.name || prev.place || loc.city || '',
+                  city: loc.city || loc.name || prev.city,
+                  district: loc.district || prev.district,
+                  state: loc.state || prev.state,
+                  latitude: loc.latitude || loc.lat || null,
+                  longitude: loc.longitude || loc.lon || null,
                 }));
               }}
               placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12 }}>
             {/* State Select */}
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label" style={{ fontWeight: 600 }}>State *</label>
@@ -1280,10 +1299,23 @@ export default function Merchants() {
                 )}
               </select>
             </div>
+
+            {/* Place / Locality Input */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>Place *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Feroke, Palayam, Kaloor..."
+                value={newMerchant.place || ''}
+                onChange={(e) => setNewMerchant((prev) => ({ ...prev, place: e.target.value }))}
+                required
+              />
+            </div>
           </div>
 
           {/* Auto-updating Map Preview */}
-          {(newMerchant.city || newMerchant.address || (newMerchant.latitude && newMerchant.longitude)) && (
+          {(newMerchant.city || newMerchant.place || newMerchant.address || (newMerchant.latitude && newMerchant.longitude)) && (
             <div style={{ marginTop: 12 }}>
               <div
                 style={{
@@ -1305,13 +1337,13 @@ export default function Merchants() {
                 <strong style={{ fontFamily: 'monospace' }}>
                   {newMerchant.latitude && newMerchant.longitude
                     ? `${Number(newMerchant.latitude).toFixed(6)}, ${Number(newMerchant.longitude).toFixed(6)}`
-                    : `${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}`}
+                    : `${newMerchant.place ? `${newMerchant.place}, ` : ''}${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}`}
                 </strong>
                 <a
                   href={`https://www.google.com/maps?q=${encodeURIComponent(
                     newMerchant.latitude && newMerchant.longitude
                       ? `${newMerchant.latitude},${newMerchant.longitude}`
-                      : `${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}, India`
+                      : `${newMerchant.place ? `${newMerchant.place}, ` : ''}${newMerchant.city || ''}, ${newMerchant.district || ''}, ${newMerchant.state || ''}, India`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1867,21 +1899,22 @@ export default function Merchants() {
             <GoogleMapsLocationInput
               value={editFormData.address}
               onChange={(addr) => setEditFormData({ ...editFormData, address: addr })}
-              onSelectLocation={(place) => {
+              onSelectLocation={(loc) => {
                 setEditFormData((prev) => ({
                   ...prev,
-                  address: place.address,
-                  city: place.city || place.name,
-                  district: place.district,
-                  state: place.state || prev.state,
-                  latitude: place.latitude || place.lat || null,
-                  longitude: place.longitude || place.lon || null,
+                  address: loc.address,
+                  place: loc.name || prev.place || loc.city || '',
+                  city: loc.city || loc.name || prev.city,
+                  district: loc.district || prev.district,
+                  state: loc.state || prev.state,
+                  latitude: loc.latitude || loc.lat || null,
+                  longitude: loc.longitude || loc.lon || null,
                 }));
               }}
               placeholder="Type place name or click 'GPS' button to get exact coordinates..."
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12 }}>
             {/* State Select */}
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label" style={{ fontWeight: 600 }}>State *</label>
@@ -1954,10 +1987,23 @@ export default function Merchants() {
                 )}
               </select>
             </div>
+
+            {/* Place / Locality Input */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>Place *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Feroke, Palayam, Kaloor..."
+                value={editFormData.place || ''}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, place: e.target.value }))}
+                required
+              />
+            </div>
           </div>
 
           {/* Auto-updating Map Preview */}
-          {(editFormData.city || editFormData.address || (editFormData.latitude && editFormData.longitude)) && (
+          {(editFormData.city || editFormData.place || editFormData.address || (editFormData.latitude && editFormData.longitude)) && (
             <div style={{ marginTop: 12 }}>
               <div
                 style={{
@@ -1979,13 +2025,13 @@ export default function Merchants() {
                 <strong style={{ fontFamily: 'monospace' }}>
                   {editFormData.latitude && editFormData.longitude
                     ? `${Number(editFormData.latitude).toFixed(6)}, ${Number(editFormData.longitude).toFixed(6)}`
-                    : `${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}`}
+                    : `${editFormData.place ? `${editFormData.place}, ` : ''}${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}`}
                 </strong>
                 <a
                   href={`https://www.google.com/maps?q=${encodeURIComponent(
                     editFormData.latitude && editFormData.longitude
                       ? `${editFormData.latitude},${editFormData.longitude}`
-                      : `${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}, India`
+                      : `${editFormData.place ? `${editFormData.place}, ` : ''}${editFormData.city || ''}, ${editFormData.district || ''}, ${editFormData.state || ''}, India`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

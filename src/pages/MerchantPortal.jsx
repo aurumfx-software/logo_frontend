@@ -112,6 +112,7 @@ export default function MerchantPortal() {
     twitter: '',
     youtube: '',
     address: 'Ambalathara, Payyanur',
+    place: 'Payyanur',
     landmark: 'Near Town Center',
     city: 'Payyanur',
     district: 'Kannur',
@@ -488,9 +489,11 @@ export default function MerchantPortal() {
         email: formData.email,
         district: formData.district || 'Kannur',
         city: formData.city || 'Payyanur',
+        place: formData.place || formData.city || 'Payyanur',
+        location: formData.place || formData.city || 'Payyanur',
         state: formData.state || 'Kerala',
         address: formData.address || 'Ambalathara, Payyanur',
-        landmark: formData.landmark,
+        landmark: formData.place || formData.landmark,
         service_timing: formData.service_timing,
         about: formData.about,
         photos: validPhotos,
@@ -1072,7 +1075,7 @@ export default function MerchantPortal() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12, marginBottom: 16 }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">State *</label>
                   <select
@@ -1109,6 +1112,18 @@ export default function MerchantPortal() {
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     placeholder="Payyanur"
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Place *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.place || ''}
+                    onChange={(e) => setFormData({ ...formData, place: e.target.value })}
+                    placeholder="e.g. Feroke, Palayam, Kaloor..."
                     required
                   />
                 </div>
