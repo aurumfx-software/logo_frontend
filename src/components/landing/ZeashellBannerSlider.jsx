@@ -240,8 +240,8 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
-                      objectPosition: 'center',
+                      objectFit: 'contain',
+                      objectPosition: 'top center',
                       position: 'absolute',
                       inset: 0,
                     }}
@@ -273,7 +273,7 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover',
+                    objectFit: 'contain',
                     objectPosition: 'top center',
                   }}
                   draggable={false}
