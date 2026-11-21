@@ -1026,8 +1026,8 @@
   z-index: 2;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: top center;
   display: block;
   margin: 0 auto;
   transition: transform 0.35s ease, opacity 0.25s ease;
@@ -3280,8 +3280,8 @@
 .zeas-fs-hero-stage .zeas-fs-hero-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: top center;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
@@ -3770,16 +3770,16 @@
 .zeas-envato-video-player {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: top center;
   display: block;
 }
 
 .zeas-envato-media-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: top center;
   display: block;
 }
 

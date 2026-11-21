@@ -3,30 +3,37 @@ import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
 const DEFAULT_BANNER_FALLBACK = [
   {
-    id: 'def-1',
-    title: 'BAG BAZAAR',
-    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f183f22512ae4d35990bbef9cbb018fe.jpeg',
+    id: 'banner-fashion',
+    title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
+    imageUrl: '/banners/top_fashion_lifestyle.png',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-2',
-    title: 'VR HERO MOTORS',
-    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/f8e526085d604b85a677e96cc18c00e7.png',
+    id: 'banner-gold',
+    title: 'Kerala Bridal Gold & Diamond Jewellery Fest',
+    imageUrl: '/banners/kerala_gold_jewellery_fest.png',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-3',
-    title: 'Pavizham Associates',
-    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/aa95cf6a6a1e4ca69e2ec8c7df871d92.jpg',
+    id: 'banner-fest',
+    title: 'Kerala Festive Mega Grand Shopping Festival — Up to 50% Off',
+    imageUrl: '/banners/top_grand_festival.png',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
-    id: 'def-4',
-    title: 'Life Medicals',
-    imageUrl: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/banners/df515a74b6b746a8bb961f1b71097873.jpeg',
+    id: 'banner-tech',
+    title: 'Kerala 5G Smart Tech & Mega Electronics Expo',
+    imageUrl: '/banners/kerala_electronics_fest.png',
+    targetUrl: '#',
+    placement: 'Home Top',
+  },
+  {
+    id: 'banner-food',
+    title: 'Malabar Traditional Food & Dining Festival',
+    imageUrl: '/banners/malabar_food_fest.png',
     targetUrl: '#',
     placement: 'Home Top',
   },
@@ -254,8 +261,8 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover',
-                    objectPosition: 'center',
+                    objectFit: 'contain',
+                    objectPosition: 'top center',
                   }}
                   draggable={false}
                   onError={(e) => {
