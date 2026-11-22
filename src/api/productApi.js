@@ -121,16 +121,64 @@ export async function toggleUserSellerPermission(userId, payload) {
 }
 
 /**
+ * Admin: Create new product directly without subscription restrictions
+ */
+export async function createAdminProduct(productData) {
+  let res = await apiFetch('/api/v1/admin/products', {
+    method: 'POST',
+    body: JSON.stringify(productData),
+  }).catch(() => null);
+
+  if (!res || !res.ok) {
+    res = await apiFetch('/api/v1/customer/products', {
+      method: 'POST',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    let msg = 'Failed to publish product';
+    if (Array.isArray(data.detail)) {
+      msg = data.detail.map((e) => (typeof e === 'object' ? `${e.loc?.slice(-1)[0] || 'Field'}: ${e.msg}` : String(e))).join(', ');
+    } else if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/**
  * Customer / Seller: Create new product
  */
 export async function createCustomerProduct(productData) {
-  const res = await apiFetch('/api/v1/customer/products', {
+  // Try admin endpoint first if admin is publishing
+  let res = await apiFetch('/api/v1/admin/products', {
     method: 'POST',
     body: JSON.stringify(productData),
-  });
-  const data = await res.json();
+  }).catch(() => null);
+
+  if (!res || !res.ok) {
+    res = await apiFetch('/api/v1/customer/products', {
+      method: 'POST',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || data.detail || 'Failed to publish product');
+    let msg = 'Failed to publish product';
+    if (Array.isArray(data.detail)) {
+      msg = data.detail.map((e) => (typeof e === 'object' ? `${e.loc?.slice(-1)[0] || 'Field'}: ${e.msg}` : String(e))).join(', ');
+    } else if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
   }
   return data;
 }

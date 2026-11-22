@@ -27,24 +27,36 @@ import {
   deleteAdminProduct,
   fetchAdminOrders,
   createCustomerProduct,
+  createAdminProduct,
   fetchMyProducts,
   fetchMyOrders,
   updateCustomerProduct,
   deleteCustomerProduct,
 } from '../api/productApi';
+import { fetchCategoriesList } from '../api/categoryApi';
 import { uploadMerchantMedia } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 import { normalizeRole, ROLES } from '../utils/rbac';
 
 const PRODUCT_CATEGORIES = [
+  'Kerala Kasavu Sarees',
   'Fashion & Traditional Wear',
   'Organic & Agro Products',
+  'Traditional Spices',
   'Handicrafts & Decor',
-  'Spices & Gourmet',
-  'Electronics & Accessories',
+  'Jewellery & Accessories',
   'Home & Kitchen',
   'Health & Beauty',
+  'Electronics & Accessories',
   'Other Local Goods',
+];
+
+const QUICK_SIZES = ['Free Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '1 Kg', '500g', 'Standard'];
+
+const KERALA_DISTRICTS = [
+  'Thiruvananthapuram', 'Kollam', 'Pathanamthitta', 'Alappuzha', 'Kottayam',
+  'Idukki', 'Ernakulam', 'Thrissur', 'Palakkad', 'Malappuram',
+  'Kozhikode', 'Wayanad', 'Kannur', 'Kasaragod',
 ];
 
 export default function Products() {
@@ -71,20 +83,40 @@ export default function Products() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [backendCategories, setBackendCategories] = useState(PRODUCT_CATEGORIES);
+  const [customSizeInput, setCustomSizeInput] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const [newProduct, setNewProduct] = useState({
     name: '',
     category: 'Fashion & Traditional Wear',
     price: '',
     original_price: '',
-    sizes: 'Free Size, S, M, L, XL',
+    sizes: ['Free Size'],
+    stock_quantity: 10,
+    stock_status: 'IN_STOCK',
+    images: [],
     image_url: '',
     description: '',
-    seller_name: user?.name || (isSeller ? 'user01' : 'Admin Seller'),
+    seller_name: user?.name || (isSeller ? 'user01' : 'Logo Admin'),
     seller_phone: user?.phone || '9847123456',
     seller_whatsapp: user?.phone || '9847123456',
     district: user?.district || 'Kannur',
     city: user?.city || 'Payyanur',
+    location: user?.city || 'Payyanur',
   });
+
+  useEffect(() => {
+    fetchCategoriesList()
+      .then((cats) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          const names = Array.from(new Set(cats.map((c) => c.name || c.category_name).filter(Boolean)));
+          setBackendCategories((prev) => Array.from(new Set([...prev, ...names])));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [toastMsg, setToastMsg] = useState({ type: '', text: '' });
 
@@ -217,32 +249,53 @@ export default function Products() {
       return;
     }
 
+    const allImages = Array.isArray(newProduct.images) && newProduct.images.length > 0
+      ? newProduct.images
+      : (newProduct.image_url?.trim() ? [newProduct.image_url.trim()] : []);
+
+    if (allImages.length === 0) {
+      setModalError('Please upload or provide at least one product image');
+      return;
+    }
+
     setIsSubmittingProduct(true);
     try {
-      const sizeArr = newProduct.sizes
-        ? newProduct.sizes.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['Free Size'];
+      const sizeArr = Array.isArray(newProduct.sizes) && newProduct.sizes.length > 0
+        ? newProduct.sizes
+        : (typeof newProduct.sizes === 'string' && newProduct.sizes.trim()
+            ? newProduct.sizes.split(',').map((s) => s.trim()).filter(Boolean)
+            : ['Free Size']);
+
+      const stockQty = newProduct.stock_quantity !== undefined && newProduct.stock_quantity !== ''
+        ? Math.max(0, parseInt(newProduct.stock_quantity, 10) || 0)
+        : 10;
 
       const payload = {
         name: newProduct.name.trim(),
         description: newProduct.description.trim() || null,
-        category: newProduct.category,
+        category: newProduct.category || 'General',
         price: numPrice,
         original_price: newProduct.original_price ? Number(newProduct.original_price) : null,
         sizes: sizeArr,
-        images: newProduct.image_url.trim() ? [newProduct.image_url.trim()] : [],
-        seller_name: newProduct.seller_name || user?.name || (isSeller ? 'user01' : 'Admin Seller'),
-        seller_phone: newProduct.seller_phone || '9847123456',
-        seller_whatsapp: newProduct.seller_whatsapp || '9847123456',
-        district: newProduct.district || 'Kannur',
-        city: newProduct.city || 'Payyanur',
+        images: allImages,
+        stock_quantity: stockQty,
+        stock_status: stockQty === 0 ? 'OUT_OF_STOCK' : (newProduct.stock_status || 'IN_STOCK'),
+        seller_name: newProduct.seller_name || user?.name || (isSeller ? 'user01' : 'Logo Admin Seller'),
+        seller_phone: newProduct.seller_phone || user?.phone || '9847123456',
+        seller_whatsapp: newProduct.seller_whatsapp || user?.phone || '9847123456',
+        district: newProduct.district || user?.district || 'Kannur',
+        city: newProduct.city || user?.city || 'Payyanur',
+        location: newProduct.location || newProduct.city || 'Payyanur',
       };
 
-      const created = await createCustomerProduct(payload);
+      const created = isSeller
+        ? await createCustomerProduct(payload)
+        : await createAdminProduct(payload);
+
       if (isSeller) {
         showToast('success', '🎉 Product request submitted! Waiting for Admin approval before it appears on the landing page.');
       } else {
-        showToast('success', '🎉 Product created and published live to landing page!');
+        showToast('success', '🎉 Product created and published live! (Exempt from subscription fee)');
       }
       setProducts((prev) => [created, ...prev]);
       setIsAddModalOpen(false);
@@ -251,15 +304,21 @@ export default function Products() {
         category: 'Fashion & Traditional Wear',
         price: '',
         original_price: '',
-        sizes: 'Free Size, S, M, L, XL',
+        sizes: ['Free Size'],
+        stock_quantity: 10,
+        stock_status: 'IN_STOCK',
+        images: [],
         image_url: '',
         description: '',
-        seller_name: user?.name || (isSeller ? 'user01' : 'Admin Seller'),
+        seller_name: user?.name || (isSeller ? 'user01' : 'Logo Admin Seller'),
         seller_phone: user?.phone || '9847123456',
         seller_whatsapp: user?.phone || '9847123456',
         district: user?.district || 'Kannur',
         city: user?.city || 'Payyanur',
+        location: user?.city || 'Payyanur',
       });
+      setNewImageUrl('');
+      setCustomSizeInput('');
     } catch (err) {
       setModalError(err.message || 'Failed to create product');
     } finally {
@@ -1134,13 +1193,13 @@ export default function Products() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: POST PRODUCT (Exact Admin Modal Style) */}
+      {/* MODAL: POST PRODUCT (Full Mobile Parity + Admin Direct Publishing) */}
       {/* ========================================================================= */}
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title={isSeller ? '+ Post Product (Submit Request)' : '+ Post Product for Sale'}
-        size="md"
+        size="lg"
       >
         {/* Role guidance banner */}
         {isSeller ? (
@@ -1169,13 +1228,20 @@ export default function Products() {
               background: '#F0FDF4',
               border: '1px solid #BBF7D0',
               borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
+              padding: '12px 14px',
               fontSize: 12,
               color: '#166534',
               marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
-            ✨ <strong>Admin Mode:</strong> Products published by Admin are automatically approved and made live on the landing page immediately.
+            <span style={{ fontSize: 20 }}>✨</span>
+            <div>
+              <div style={{ fontWeight: 800 }}>Admin Direct Publishing (100% Free)</div>
+              <div>Admin products bypass all ₹500 subscription plan restrictions and are automatically approved & live immediately.</div>
+            </div>
           </div>
         )}
 
@@ -1196,6 +1262,7 @@ export default function Products() {
         )}
 
         <form onSubmit={handleCreateProductSubmit}>
+          {/* Title */}
           <div className="form-group">
             <label className="form-label">Product Title / Name *</label>
             <input
@@ -1208,19 +1275,43 @@ export default function Products() {
             />
           </div>
 
+          {/* Category */}
           <div className="form-group">
-            <label className="form-label">Category</label>
+            <label className="form-label">Category *</label>
             <select
               className="form-select"
               value={newProduct.category}
               onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
             >
-              {PRODUCT_CATEGORIES.map((c) => (
+              {backendCategories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+            {/* Quick category chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {PRODUCT_CATEGORIES.slice(0, 6).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setNewProduct({ ...newProduct, category: cat })}
+                  style={{
+                    background: newProduct.category === cat ? 'var(--primary-light, #EEF2FF)' : '#F3F4F6',
+                    color: newProduct.category === cat ? 'var(--primary, #4F46E5)' : '#4B5563',
+                    border: newProduct.category === cat ? '1px solid var(--primary, #4F46E5)' : '1px solid #E5E7EB',
+                    borderRadius: 14,
+                    padding: '3px 10px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Pricing with Discount calculation */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="form-group">
               <label className="form-label">Selling Price (₹) *</label>
@@ -1245,104 +1336,340 @@ export default function Products() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Available Sizes (comma separated)</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Free Size, S, M, L, XL"
-              value={newProduct.sizes}
-              onChange={(e) => setNewProduct({ ...newProduct, sizes: e.target.value })}
-            />
-          </div>
+          {/* Live Discount Calculation Badge */}
+          {newProduct.price && newProduct.original_price && Number(newProduct.original_price) > Number(newProduct.price) && (
+            <div
+              style={{
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: 12,
+                color: '#065F46',
+                fontWeight: 700,
+                marginBottom: 14,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              🎉 {Math.round(((Number(newProduct.original_price) - Number(newProduct.price)) / Number(newProduct.original_price)) * 100)}% OFF (Customer saves ₹{Number(newProduct.original_price) - Number(newProduct.price)})
+            </div>
+          )}
 
-          <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Product Image *</span>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Select from file manager</span>
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {newProduct.image_url ? (
-                <div style={{ position: 'relative', display: 'inline-block', width: 140, height: 140, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img
-                    src={newProduct.image_url}
-                    alt="Preview"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setNewProduct({ ...newProduct, image_url: '' })}
-                    style={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      background: 'rgba(0,0,0,0.6)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: 24,
-                      height: 24,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : null}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <label
+          {/* Stock Details */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="form-group">
+              <label className="form-label">Stock Quantity (Units)</label>
+              <input
+                type="number"
+                min="0"
+                className="form-input"
+                placeholder="e.g. 10"
+                value={newProduct.stock_quantity}
+                onChange={(e) => setNewProduct({ ...newProduct, stock_quantity: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Stock Status</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setNewProduct({ ...newProduct, stock_status: 'IN_STOCK' })}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '9px 16px',
+                    flex: 1,
+                    padding: '8px 12px',
                     borderRadius: 8,
-                    background: 'var(--primary-light, #EEF2FF)',
-                    color: 'var(--primary, #4F46E5)',
-                    border: '1.5px dashed var(--primary, #4F46E5)',
+                    border: newProduct.stock_status === 'IN_STOCK' ? '2px solid #10B981' : '1px solid #E5E7EB',
+                    background: newProduct.stock_status === 'IN_STOCK' ? '#ECFDF5' : '#fff',
+                    color: newProduct.stock_status === 'IN_STOCK' ? '#065F46' : '#6B7280',
+                    fontWeight: 700,
+                    fontSize: 12,
                     cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: 13,
                   }}
                 >
-                  <HiOutlineUpload size={18} />
-                  <span>Choose Image File...</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      // Read file as preview data URL immediately
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setNewProduct((prev) => ({ ...prev, image_url: reader.result }));
-                      };
-                      reader.readAsDataURL(file);
-
-                      // Also attempt multipart upload if backend available
-                      try {
-                        const fd = new FormData();
-                        fd.append('photos', file);
-                        const res = await uploadMerchantMedia(fd);
-                        if (res?.photos?.[0]) {
-                          setNewProduct((prev) => ({ ...prev, image_url: res.photos[0] }));
-                        }
-                      } catch (err) {
-                        // local base64 fallback already set
-                      }
-                    }}
-                  />
-                </label>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>JPG, PNG, WEBP</span>
+                  ✓ In Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewProduct({ ...newProduct, stock_status: 'OUT_OF_STOCK' })}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: newProduct.stock_status === 'OUT_OF_STOCK' ? '2px solid #EF4444' : '1px solid #E5E7EB',
+                    background: newProduct.stock_status === 'OUT_OF_STOCK' ? '#FEF2F2' : '#fff',
+                    color: newProduct.stock_status === 'OUT_OF_STOCK' ? '#991B1B' : '#6B7280',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ Out of Stock
+                </button>
               </div>
             </div>
           </div>
 
+          {/* Available Sizes Selection */}
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Available Sizes / Units</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Click to toggle or add custom</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {QUICK_SIZES.map((sz) => {
+                const isSelected = Array.isArray(newProduct.sizes) && newProduct.sizes.includes(sz);
+                return (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => {
+                      const cur = Array.isArray(newProduct.sizes) ? [...newProduct.sizes] : [];
+                      const updated = cur.includes(sz) ? cur.filter((x) => x !== sz) : [...cur, sz];
+                      setNewProduct({ ...newProduct, sizes: updated.length ? updated : ['Free Size'] });
+                    }}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 14,
+                      border: isSelected ? '1.5px solid var(--primary, #4F46E5)' : '1px solid #D1D5DB',
+                      background: isSelected ? 'var(--primary-light, #EEF2FF)' : '#fff',
+                      color: isSelected ? 'var(--primary, #4F46E5)' : '#374151',
+                      fontWeight: isSelected ? 700 : 500,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isSelected ? `✓ ${sz}` : sz}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Custom size input */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                className="form-input"
+                style={{ padding: '6px 10px', fontSize: 12 }}
+                placeholder="Add custom size/pack (e.g. 250ml, 2 Kg, 42...)"
+                value={customSizeInput}
+                onChange={(e) => setCustomSizeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (customSizeInput.trim()) {
+                      const cur = Array.isArray(newProduct.sizes) ? [...newProduct.sizes] : [];
+                      if (!cur.includes(customSizeInput.trim())) {
+                        setNewProduct({ ...newProduct, sizes: [...cur, customSizeInput.trim()] });
+                      }
+                      setCustomSizeInput('');
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                style={{ whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  if (customSizeInput.trim()) {
+                    const cur = Array.isArray(newProduct.sizes) ? [...newProduct.sizes] : [];
+                    if (!cur.includes(customSizeInput.trim())) {
+                      setNewProduct({ ...newProduct, sizes: [...cur, customSizeInput.trim()] });
+                    }
+                    setCustomSizeInput('');
+                  }
+                }}
+              >
+                + Add Size
+              </button>
+            </div>
+          </div>
+
+          {/* Product Photos (Up to 4 Photos) */}
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Product Photos (Up to 4 Photos) *</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                {Array.isArray(newProduct.images) ? newProduct.images.length : (newProduct.image_url ? 1 : 0)} / 4 uploaded
+              </span>
+            </label>
+
+            {/* Thumbnail Preview Grid */}
+            {((Array.isArray(newProduct.images) && newProduct.images.length > 0) || newProduct.image_url) && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                {(Array.isArray(newProduct.images) && newProduct.images.length > 0
+                  ? newProduct.images
+                  : [newProduct.image_url]
+                ).map((img, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      position: 'relative',
+                      width: 90,
+                      height: 90,
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      border: idx === 0 ? '2px solid var(--primary, #4F46E5)' : '1px solid var(--border)',
+                    }}
+                  >
+                    <img src={img} alt={`Preview ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {idx === 0 && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          background: 'rgba(79, 70, 229, 0.85)',
+                          color: '#fff',
+                          fontSize: 9,
+                          fontWeight: 700,
+                          textAlign: 'center',
+                          padding: '1px 0',
+                        }}
+                      >
+                        Main Photo
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Array.isArray(newProduct.images) ? [...newProduct.images] : (newProduct.image_url ? [newProduct.image_url] : []);
+                        const updated = cur.filter((_, i) => i !== idx);
+                        setNewProduct({
+                          ...newProduct,
+                          images: updated,
+                          image_url: updated[0] || '',
+                        });
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        background: 'rgba(0,0,0,0.65)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 20,
+                        height: 20,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 11,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload & URL Buttons */}
+            {(!Array.isArray(newProduct.images) || newProduct.images.length < 4) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      background: 'var(--primary-light, #EEF2FF)',
+                      color: 'var(--primary, #4F46E5)',
+                      border: '1.5px dashed var(--primary, #4F46E5)',
+                      cursor: isUploadingImage ? 'wait' : 'pointer',
+                      fontWeight: 600,
+                      fontSize: 12,
+                    }}
+                  >
+                    <HiOutlineUpload size={16} />
+                    <span>{isUploadingImage ? 'Uploading photo...' : 'Choose Photo File...'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      disabled={isUploadingImage}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setIsUploadingImage(true);
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                          const previewUrl = reader.result;
+                          let finalUrl = previewUrl;
+                          try {
+                            const fd = new FormData();
+                            fd.append('photos', file);
+                            const res = await uploadMerchantMedia(fd);
+                            if (res?.photos?.[0]) {
+                              finalUrl = res.photos[0];
+                            }
+                          } catch (err) {}
+
+                          setNewProduct((prev) => {
+                            const cur = Array.isArray(prev.images) ? [...prev.images] : (prev.image_url ? [prev.image_url] : []);
+                            if (cur.length < 4) cur.push(finalUrl);
+                            return {
+                              ...prev,
+                              images: cur,
+                              image_url: cur[0] || '',
+                            };
+                          });
+                          setIsUploadingImage(false);
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>JPG, PNG, WEBP</span>
+                </div>
+
+                {/* Paste URL Input */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="url"
+                    className="form-input"
+                    style={{ padding: '6px 10px', fontSize: 12 }}
+                    placeholder="Or paste photo image URL..."
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newImageUrl.trim()) {
+                          const cur = Array.isArray(newProduct.images) ? [...newProduct.images] : (newProduct.image_url ? [newProduct.image_url] : []);
+                          if (cur.length < 4) cur.push(newImageUrl.trim());
+                          setNewProduct({ ...newProduct, images: cur, image_url: cur[0] || '' });
+                          setNewImageUrl('');
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    onClick={() => {
+                      if (newImageUrl.trim()) {
+                        const cur = Array.isArray(newProduct.images) ? [...newProduct.images] : (newProduct.image_url ? [newProduct.image_url] : []);
+                        if (cur.length < 4) cur.push(newImageUrl.trim());
+                        setNewProduct({ ...newProduct, images: cur, image_url: cur[0] || '' });
+                        setNewImageUrl('');
+                      }
+                    }}
+                  >
+                    Add URL
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Seller & Contact Details */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div className="form-group">
               <label className="form-label">Seller Name</label>
@@ -1364,12 +1691,39 @@ export default function Products() {
             </div>
           </div>
 
+          {/* Location Details: District & City/Place */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="form-group">
+              <label className="form-label">Kerala District</label>
+              <select
+                className="form-select"
+                value={newProduct.district}
+                onChange={(e) => setNewProduct({ ...newProduct, district: e.target.value })}
+              >
+                {KERALA_DISTRICTS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">City / Place</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Payyanur, Feroke, Fort Kochi"
+                value={newProduct.city}
+                onChange={(e) => setNewProduct({ ...newProduct, city: e.target.value, location: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
           <div className="form-group">
             <label className="form-label">Description (Optional)</label>
             <textarea
               className="form-input"
               rows={3}
-              placeholder="Product details, material, origin..."
+              placeholder="Product details, material, origin, delivery info..."
               value={newProduct.description}
               onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
             />
