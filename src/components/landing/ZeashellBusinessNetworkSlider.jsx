@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiCheckCircle, HiChevronLeft, HiChevronRight, HiArrowRight, HiSpeakerphone } from 'react-icons/hi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 const DEFAULT_NEWS_CARDS = [
   {
@@ -79,6 +80,162 @@ const DEFAULT_NEWS_CARDS = [
     btnClass: 'rose',
     phone: '+91 860 60 800 74',
   },
+  {
+    id: 'news-4',
+    cardClass: 'card-emerald',
+    badge: '🌾 AGRO & B2B HUB',
+    badgeClass: 'dark',
+    badgeSub: 'DIRECT FARM CONNECT',
+    badgeSubClass: 'emerald',
+    title: 'Kerala Farmers Mart',
+    malayalam: 'ഉൽപ്പാദകരിൽ നിന്ന് നേരിട്ട് വിപണിയിലേക്ക്',
+    subtitle: 'കേരളത്തിലെ ഏറ്റവും വലിയ',
+    highlight: 'ORGANIC & WHOLESALE',
+    highlightClass: 'yellow',
+    features: [
+      'Zero Middleman Direct Pricing',
+      'Bulk Buyers & Hotel Supply Links',
+      'Cold Chain & Logistics Access',
+      'Organic Farm Verification Badge',
+    ],
+    checkClass: 'gold',
+    discountLabel: 'Agro Special',
+    discountValue: 'FREE 30 DAYS',
+    discountClass: 'tag-green',
+    btnText: 'Join Agro Hub',
+    btnClass: 'gold',
+    phone: '+91 860 60 800 74',
+  },
+  {
+    id: 'news-5',
+    cardClass: 'card-amber',
+    badge: '✨ GOLD & JEWELLERY',
+    badgeClass: 'dark',
+    badgeSub: 'VERIFIED CIRCLE',
+    badgeSubClass: 'emerald',
+    title: 'Kerala Gold Exchange',
+    malayalam: 'വിശ്വസ്തരായ സ്വർണ്ണ വ്യാപാരികൾ',
+    subtitle: 'ആഭരണ പ്രേമികളിലേക്ക് നേരിട്ട്',
+    highlight: 'BRIDAL & JEWELLERY',
+    highlightClass: 'yellow',
+    features: [
+      '916 BIS Hallmark Verification',
+      'Daily Live Gold Rate Display',
+      'Bridal Booking Lead Network',
+      'Showroom Video Showcase Link',
+    ],
+    checkClass: 'gold',
+    discountLabel: 'Festive Promo',
+    discountValue: '40% OFF',
+    discountClass: 'tag-green',
+    btnText: 'List Showroom',
+    btnClass: 'gold',
+    phone: '+91 860 60 800 74',
+  },
+  {
+    id: 'news-6',
+    cardClass: 'card-violet',
+    badge: '🚀 TECH & AGENCIES',
+    badgeClass: '',
+    badgeSub: 'IT SOLUTIONS',
+    badgeSubClass: 'rose',
+    title: 'Kerala Digital Network',
+    malayalam: 'ഐടി & ബിസിനസ്സ് സർവീസുകൾ',
+    subtitle: 'നിങ്ങളുടെ സാങ്കേതിക സേവനങ്ങൾ',
+    highlight: 'B2B DIGITAL SOLUTIONS',
+    highlightClass: 'pink',
+    features: [
+      'Verified Software & Web Agencies',
+      'Global Malayali Client Enquiries',
+      'Portfolio & Live Project Showcase',
+      'Priority B2B RFQ Leads',
+    ],
+    checkClass: 'pink',
+    discountLabel: 'Startup Boost',
+    discountValue: '60% OFF',
+    discountClass: 'tag-purple',
+    btnText: 'Register Agency',
+    btnClass: 'rose',
+    phone: '+91 860 60 800 74',
+  },
+  {
+    id: 'news-7',
+    cardClass: 'card-teal',
+    badge: '🌴 TOURISM & STAYS',
+    badgeClass: 'dark',
+    badgeSub: 'GODS OWN COUNTRY',
+    badgeSubClass: 'emerald',
+    title: 'Kerala Tourism Direct',
+    malayalam: 'റിസോർട്ടുകൾ & ഹൗസ് ബോട്ടുകൾ',
+    subtitle: 'സഞ്ചാരികൾ നിങ്ങളെ തേടിയെത്തട്ടെ',
+    highlight: 'RESORTS & TRAVEL',
+    highlightClass: 'yellow',
+    features: [
+      'Wayanad & Munnar Stays Listing',
+      'Zero Commission Direct Bookings',
+      'Tourist Cab & Houseboat Link',
+      'Google Review Integration',
+    ],
+    checkClass: 'gold',
+    discountLabel: 'Holiday Package',
+    discountValue: 'FLAT 50%',
+    discountClass: 'tag-green',
+    btnText: 'List Property',
+    btnClass: 'gold',
+    phone: '+91 860 60 800 74',
+  },
+  {
+    id: 'news-8',
+    cardClass: 'card-orange',
+    badge: '🚚 EXPRESS LOGISTICS',
+    badgeClass: 'dark',
+    badgeSub: 'SAME-DAY PARCEL',
+    badgeSubClass: 'emerald',
+    title: 'Hyperlocal Delivery',
+    malayalam: 'ഡോർസ്റ്റെപ് ഡെലിവറി വേഗത്തിൽ',
+    subtitle: 'സംസ്ഥാനത്തുടനീളം അതിവേഗം',
+    highlight: 'KERALA CARGO LINK',
+    highlightClass: 'yellow',
+    features: [
+      '14 Districts Express Network',
+      'Live Package Tracking for Buyers',
+      'Hyperlocal 2-Hour Courier Option',
+      'Integrated Merchant Dispatch Hub',
+    ],
+    checkClass: 'gold',
+    discountLabel: 'Delivery Special',
+    discountValue: 'FIRST 50 FREE',
+    discountClass: 'tag-green',
+    btnText: 'Book Delivery',
+    btnClass: 'gold',
+    phone: '+91 860 60 800 74',
+  },
+  {
+    id: 'news-9',
+    cardClass: 'card-ruby',
+    badge: '🌿 AYURVEDA & HEALTH',
+    badgeClass: '',
+    badgeSub: 'TRADITIONAL HEALING',
+    badgeSubClass: 'rose',
+    title: 'AyurKerala Directory',
+    malayalam: 'പാരമ്പര്യ ആയുർവേദ കേന്ദ്രങ്ങൾ',
+    subtitle: 'ആരോഗ്യ പരിചരണ രംഗത്തെ വിശ്വസ്തർ',
+    highlight: 'HERBAL & WELLNESS',
+    highlightClass: 'pink',
+    features: [
+      'Certified Vaidyas & Clinics List',
+      'Doctor Appointment Booking Link',
+      'Authentic Herbal Pharmacy Store',
+      'Verified Patient Ratings',
+    ],
+    checkClass: 'pink',
+    discountLabel: 'Wellness Pass',
+    discountValue: '35% OFF',
+    discountClass: 'tag-purple',
+    btnText: 'Enlist Clinic',
+    btnClass: 'rose',
+    phone: '+91 860 60 800 74',
+  },
 ];
 
 export default function ZeashellBusinessNetworkSlider({
@@ -92,29 +249,59 @@ export default function ZeashellBusinessNetworkSlider({
   const containerRef = useRef(null);
   const touchStartX = useRef(0);
 
-  // Combine default news cards with any live promotions with rich ad designs
-  const allCards = React.useMemo(() => {
+  // Hook into live Super Admin slider speed (default 5s for multi-card business network)
+  const autoSlideInterval = useSliderInterval(5);
+
+  // Responsive items per view: 3 on desktop, 2 on tablet, 1 on mobile
+  const [windowWidth, setWindowWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const cardsPerPage = windowWidth >= 1024 ? 3 : windowWidth >= 640 ? 2 : 1;
+
+  const allCards = useMemo(() => {
     return DEFAULT_NEWS_CARDS;
   }, []);
 
-  const totalSlides = allCards.length;
+  // Group into pages of 3 cards on desktop
+  const pages = useMemo(() => {
+    const res = [];
+    for (let i = 0; i < allCards.length; i += cardsPerPage) {
+      res.push(allCards.slice(i, i + cardsPerPage));
+    }
+    return res;
+  }, [allCards, cardsPerPage]);
+
+  const totalPages = pages.length;
+
+  useEffect(() => {
+    if (currentIndex >= totalPages) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, totalPages]);
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % totalSlides);
-  }, [totalSlides]);
+    setCurrentIndex((prev) => (prev + 1) % totalPages);
+  }, [totalPages]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
-  }, [totalSlides]);
+    setCurrentIndex((prev) => (prev - 1 + totalPages) % totalPages);
+  }, [totalPages]);
 
-  // 5-second Auto-slide
+  // Dynamic Auto-slide with Super Admin speed setting
   useEffect(() => {
-    if (isPaused || totalSlides <= 1) return;
+    if (isPaused || totalPages <= 1) return;
     const interval = setInterval(() => {
       nextSlide();
-    }, 5000);
+    }, autoSlideInterval);
     return () => clearInterval(interval);
-  }, [isPaused, totalSlides, nextSlide]);
+  }, [isPaused, totalPages, nextSlide, autoSlideInterval]);
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -198,7 +385,7 @@ export default function ZeashellBusinessNetworkSlider({
               cursor: 'pointer',
               boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
             }}
-            aria-label="Previous Slide"
+            aria-label="Previous Set"
           >
             <HiChevronLeft size={18} />
           </button>
@@ -219,14 +406,14 @@ export default function ZeashellBusinessNetworkSlider({
               cursor: 'pointer',
               boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
             }}
-            aria-label="Next Slide"
+            aria-label="Next Set"
           >
             <HiChevronRight size={18} />
           </button>
         </div>
       </div>
 
-      {/* Auto-sliding Carousel Container */}
+      {/* Auto-sliding Multi-Poster Container (3 Posters at a time on desktop) */}
       <div
         ref={containerRef}
         onMouseEnter={() => setIsPaused(true)}
@@ -242,116 +429,131 @@ export default function ZeashellBusinessNetworkSlider({
         <div
           style={{
             display: 'flex',
-            transition: 'transform 0.55s cubic-bezier(0.25, 1, 0.5, 1)',
+            transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
             transform: `translateX(-${currentIndex * 100}%)`,
             width: '100%',
           }}
         >
-          {allCards.map((card, idx) => (
+          {pages.map((pageCards, pageIdx) => (
             <div
-              key={card.id || idx}
+              key={pageIdx}
               style={{
                 minWidth: '100%',
                 width: '100%',
                 flexShrink: 0,
                 padding: '4px',
                 boxSizing: 'border-box',
+                display: 'grid',
+                gridTemplateColumns: `repeat(${cardsPerPage}, 1fr)`,
+                gap: 16,
               }}
             >
-              <div
-                className={`news-card ${card.cardClass}`}
-                style={{
-                  maxWidth: 720,
-                  margin: '0 auto',
-                  padding: '24px 28px',
-                  borderRadius: 20,
-                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.18)',
-                }}
-              >
-                <div className="news-card-top-row">
-                  <span className={`news-card-badge ${card.badgeClass || ''}`}>{card.badge}</span>
-                  <span className={`news-card-badge-sub ${card.badgeSubClass || ''}`}>
-                    {card.badgeSub}
-                  </span>
-                </div>
-                <div className="news-card-content">
-                  <h3 style={{ fontSize: 20, margin: '4px 0' }}>{card.title}</h3>
-                  <p className="news-malayalam" style={{ fontSize: 15, margin: '2px 0 8px' }}>
-                    {card.malayalam}
-                  </p>
-                  <h4 style={{ fontSize: 14, margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>
-                    {card.subtitle}
-                  </h4>
-                  <h2
-                    className={`news-highlight ${card.highlightClass || ''}`}
-                    style={{ fontSize: 'clamp(22px, 3.5vw, 28px)', margin: '4px 0 14px' }}
-                  >
-                    {card.highlight}
-                  </h2>
-
-                  <ul
-                    className="news-features"
+              {pageCards.map((card, idx) => (
+                <div key={card.id || idx} style={{ height: '100%', display: 'flex' }}>
+                  <div
+                    className={`news-card ${card.cardClass}`}
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                      gap: '8px 16px',
-                      padding: 0,
-                      margin: '0 0 16px',
-                      listStyle: 'none',
+                      width: '100%',
+                      height: '100%',
+                      boxSizing: 'border-box',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      padding: '22px 24px',
+                      borderRadius: 20,
+                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.16)',
                     }}
                   >
-                    {card.features.map((feat, fIdx) => (
-                      <li
-                        key={fIdx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          fontSize: 13,
-                          color: '#ffffff',
-                        }}
-                      >
-                        <HiCheckCircle
-                          className={`feat-check ${card.checkClass || ''}`}
-                          size={16}
-                          style={{ flexShrink: 0 }}
-                        />
-                        <span>{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                    <div>
+                      <div className="news-card-top-row">
+                        <span className={`news-card-badge ${card.badgeClass || ''}`}>{card.badge}</span>
+                        <span className={`news-card-badge-sub ${card.badgeSubClass || ''}`}>
+                          {card.badgeSub}
+                        </span>
+                      </div>
+                      <div className="news-card-content">
+                        <h3 style={{ fontSize: 18, margin: '4px 0' }}>{card.title}</h3>
+                        <p className="news-malayalam" style={{ fontSize: 13, margin: '2px 0 8px' }}>
+                          {card.malayalam}
+                        </p>
+                        <h4 style={{ fontSize: 13, margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>
+                          {card.subtitle}
+                        </h4>
+                        <h2
+                          className={`news-highlight ${card.highlightClass || ''}`}
+                          style={{ fontSize: 'clamp(19px, 2.2vw, 24px)', margin: '4px 0 12px' }}
+                        >
+                          {card.highlight}
+                        </h2>
 
-                <div className="news-card-footer" style={{ marginTop: 'auto', paddingTop: 12 }}>
-                  <div className={`discount-tag ${card.discountClass || ''}`}>
-                    <span>{card.discountLabel}</span>
-                    <strong>{card.discountValue}</strong>
+                        <ul
+                          className="news-features"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            padding: '8px 12px',
+                            margin: '0 0 14px',
+                            listStyle: 'none',
+                          }}
+                        >
+                          {card.features.map((feat, fIdx) => (
+                            <li
+                              key={fIdx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: 12.5,
+                                color: '#ffffff',
+                              }}
+                            >
+                              <HiCheckCircle
+                                className={`feat-check ${card.checkClass || ''}`}
+                                size={15}
+                                style={{ flexShrink: 0 }}
+                              />
+                              <span>{feat}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="news-card-footer" style={{ marginTop: 'auto', paddingTop: 12 }}>
+                        <div className={`discount-tag ${card.discountClass || ''}`}>
+                          <span>{card.discountLabel}</span>
+                          <strong>{card.discountValue}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          className={`news-join-btn ${card.btnClass || ''}`}
+                          onClick={onOpenOnboard}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {card.btnText}
+                        </button>
+                      </div>
+                      <div className="news-contact" style={{ marginTop: 10, textAlign: 'center' }}>
+                        <a
+                          href={`tel:${card.phone.replace(/\s+/g, '')}`}
+                          style={{ color: 'rgba(255,255,255,0.95)', textDecoration: 'none', fontWeight: 700, fontSize: 12.5 }}
+                        >
+                          📞 Mob: {card.phone}
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className={`news-join-btn ${card.btnClass || ''}`}
-                    onClick={onOpenOnboard}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {card.btnText}
-                  </button>
                 </div>
-                <div className="news-contact" style={{ marginTop: 12, textAlign: 'center' }}>
-                  <a
-                    href={`tel:${card.phone.replace(/\s+/g, '')}`}
-                    style={{ color: 'rgba(255,255,255,0.95)', textDecoration: 'none', fontWeight: 700, fontSize: 13 }}
-                  >
-                    📞 Mob: {card.phone}
-                  </a>
-                </div>
-              </div>
+              ))}
             </div>
           ))}
         </div>
       </div>
 
       {/* Dots Indicator */}
-      {totalSlides > 1 && (
+      {totalPages > 1 && (
         <div
           style={{
             display: 'flex',
@@ -361,7 +563,7 @@ export default function ZeashellBusinessNetworkSlider({
             marginTop: 18,
           }}
         >
-          {allCards.map((_, i) => (
+          {pages.map((_, i) => (
             <button
               key={i}
               type="button"
@@ -375,7 +577,7 @@ export default function ZeashellBusinessNetworkSlider({
                 cursor: 'pointer',
                 transition: 'all 0.25s ease',
               }}
-              aria-label={`Slide ${i + 1}`}
+              aria-label={`Slide group ${i + 1}`}
             />
           ))}
         </div>

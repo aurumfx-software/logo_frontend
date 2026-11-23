@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HiChevronLeft, HiChevronRight, HiArrowRight, HiSparkles, HiPlay } from 'react-icons/hi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 const DEFAULT_MIDDLE_FALLBACK = [
   {
@@ -196,17 +197,19 @@ export default function ZeashellMiddleBannerSlider({ banners = [], onBannerClick
   );
   const currentImgUrl = currentBanner ? (currentBanner.imageUrl || currentBanner.image_url || currentBanner.bannerUrl) : '';
 
-  // Auto-slide: 3.5s for images; if current ad is video, wait for video onEnded
+  const autoSlideInterval = useSliderInterval(4);
+
+  // Auto-slide: dynamic interval from Super Admin; if current ad is video, wait for video onEnded
   useEffect(() => {
     if (isPaused || validBanners.length <= 1) return;
     if (isCurrentVideo) return;
 
     const timer = setTimeout(() => {
       next();
-    }, 3500);
+    }, autoSlideInterval);
 
     return () => clearTimeout(timer);
-  }, [current, isPaused, isCurrentVideo, next, validBanners.length]);
+  }, [current, isPaused, isCurrentVideo, next, validBanners.length, autoSlideInterval]);
 
   // Touch Swipe
   const handleTouchStart = (e) => {

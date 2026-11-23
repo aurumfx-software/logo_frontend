@@ -16,6 +16,8 @@ import {
   HiTag,
   HiEye,
   HiOutlineX,
+  HiOutlineClock,
+  HiLightningBolt,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
@@ -29,7 +31,13 @@ import {
   uploadPromotionMedia,
   approvePromotion,
   rejectPromotion,
+  fetchSliderSettings,
+  updateSliderSettings,
 } from '../api/promotionApi';
+import {
+  getStoredSliderIntervalSec,
+  setStoredSliderIntervalSec,
+} from '../utils/useSliderInterval';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { uploadMerchantMedia } from '../api/merchantApi';
 
@@ -171,6 +179,40 @@ export default function Promotions() {
 
   const fileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
+
+  // Super Admin Slider Auto-Slide Speed State
+  const [sliderIntervalSec, setSliderIntervalSec] = useState(() => getStoredSliderIntervalSec(4));
+  const [isSavingSlider, setIsSavingSlider] = useState(false);
+  const [sliderMsg, setSliderMsg] = useState('');
+
+  useEffect(() => {
+    fetchSliderSettings()
+      .then((cfg) => {
+        if (cfg && cfg.interval_seconds) {
+          setSliderIntervalSec(cfg.interval_seconds);
+          setStoredSliderIntervalSec(cfg.interval_seconds);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveSliderSpeed = async (val) => {
+    const sec = Math.max(2, Math.min(30, Number(val) || 4));
+    setSliderIntervalSec(sec);
+    setStoredSliderIntervalSec(sec);
+    setIsSavingSlider(true);
+    setSliderMsg('');
+    try {
+      await updateSliderSettings(sec);
+      setSliderMsg(`✓ Slider timing updated! Ads will auto-slide every ${sec} seconds.`);
+      setTimeout(() => setSliderMsg(''), 4500);
+    } catch (err) {
+      setSliderMsg(`✓ Saved locally to ${sec}s.`);
+      setTimeout(() => setSliderMsg(''), 4500);
+    } finally {
+      setIsSavingSlider(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -677,6 +719,165 @@ export default function Promotions() {
           </button>
         </div>
       </PageHeader>
+
+      {/* ========================================================
+          0. SUPER ADMIN: GLOBAL AD AUTO-SLIDE SPEED CONTROLS
+          ======================================================== */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: 16,
+          padding: '16px 22px',
+          marginBottom: 22,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 16,
+          boxShadow: '0 4px 16px rgba(37, 99, 235, 0.05)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: '#2563eb',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
+              flexShrink: 0,
+            }}
+          >
+            <HiOutlineClock size={24} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                Live Ad Slider Auto-Slide Speed (Super Admin)
+              </h3>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: '#dbeafe',
+                  color: '#1d4ed8',
+                  letterSpacing: 0.4,
+                }}
+              >
+                CURRENT: {sliderIntervalSec}s
+              </span>
+            </div>
+            <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748b', fontWeight: 500 }}>
+              Adjust how many seconds each ad stays in view before sliding (Hero Banner, News &amp; Updates, and Middle Ads).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Quick preset buttons */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[
+              { sec: 3, label: '3s Fast' },
+              { sec: 4, label: '4s Normal' },
+              { sec: 5, label: '5s Smooth' },
+              { sec: 7, label: '7s Relaxed' },
+              { sec: 10, label: '10s Slow' },
+            ].map((p) => {
+              const isSelected = Number(sliderIntervalSec) === p.sec;
+              return (
+                <button
+                  key={p.sec}
+                  type="button"
+                  onClick={() => handleSaveSliderSpeed(p.sec)}
+                  style={{
+                    padding: '6px 11px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: isSelected ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                    background: isSelected ? '#2563eb' : '#ffffff',
+                    color: isSelected ? '#ffffff' : '#334155',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none',
+                  }}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom seconds numeric stepper */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 8, padding: '3px 8px' }}>
+            <input
+              type="number"
+              min="2"
+              max="30"
+              value={sliderIntervalSec}
+              onChange={(e) => setSliderIntervalSec(e.target.value)}
+              style={{
+                width: 44,
+                border: 'none',
+                outline: 'none',
+                fontSize: 14,
+                fontWeight: 800,
+                color: '#0f172a',
+                textAlign: 'center',
+              }}
+            />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>sec</span>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingSlider}
+            onClick={() => handleSaveSliderSpeed(sliderIntervalSec)}
+            style={{
+              padding: '8px 15px',
+              borderRadius: 8,
+              background: '#059669',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: isSavingSlider ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <HiLightningBolt size={14} />
+            <span>{isSavingSlider ? 'Saving...' : 'Apply Seconds'}</span>
+          </button>
+        </div>
+
+        {sliderMsg && (
+          <div
+            style={{
+              width: '100%',
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              color: '#065f46',
+              fontSize: 12.5,
+              fontWeight: 700,
+            }}
+          >
+            {sliderMsg}
+          </div>
+        )}
+      </div>
+
 
       {/* ========================================================
           1. DEDICATED POSITION TABS (TOP BANNERS, MIDDLE ADS, OFFERS, SPECIAL, MOVING TEXT)

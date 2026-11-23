@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   HiLocationMarker,
   HiChevronDown,
@@ -80,6 +80,7 @@ export default function ZeashellNavbar({
   onOpenCustomerLogin,
   onCustomerLogout,
 }) {
+  const navigate = useNavigate();
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -776,8 +777,7 @@ export default function ZeashellNavbar({
               className="zeas-blue-action-link"
               title="Subscriber Products Marketplace"
               onClick={() => {
-                const el = document.getElementById('products-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                navigate('/marketplace');
               }}
             >
               <div className="zeas-blue-badge-wrap">
@@ -1088,8 +1088,7 @@ export default function ZeashellNavbar({
                 border: '1px solid #bfdbfe',
               }}
               onClick={() => {
-                const el = document.getElementById('products-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                navigate('/marketplace');
               }}
             >
               🛍️ Products

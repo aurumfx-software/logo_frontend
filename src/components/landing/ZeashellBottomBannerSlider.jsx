@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 const DEFAULT_BOTTOM_FALLBACK = [
   {
@@ -142,17 +143,19 @@ export default function ZeashellBottomBannerSlider({ banners = [], onBannerClick
     currentVideoUrl
   );
 
-  // Auto-slide: 3 seconds for images; if current ad is a video, wait for full video playback (onEnded)
+  const autoSlideInterval = useSliderInterval(4);
+
+  // Auto-slide: dynamic interval from Super Admin; if current ad is a video, wait for full video playback (onEnded)
   useEffect(() => {
     if (isPaused || validBanners.length <= 1) return;
     if (isCurrentVideo) return; // Video controls its slide transition when playback finishes
 
     const timer = setTimeout(() => {
       next();
-    }, 3000);
+    }, autoSlideInterval);
 
     return () => clearTimeout(timer);
-  }, [current, isPaused, isCurrentVideo, next, validBanners.length]);
+  }, [current, isPaused, isCurrentVideo, next, validBanners.length, autoSlideInterval]);
 
   const handleTouchStart = (e) => {
     touchStart.current = e.touches[0].clientX;

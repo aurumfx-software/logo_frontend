@@ -284,3 +284,35 @@ export async function fetchMerchantPromotions(merchantId) {
   } catch (_) {}
   return [];
 }
+
+/**
+ * Fetch global slider auto-slide settings
+ */
+export async function fetchSliderSettings() {
+  try {
+    const response = await apiFetch('/api/v1/promotions/settings/slider', { method: 'GET' });
+    if (response && response.ok) {
+      const resData = await response.json();
+      return resData.data || resData;
+    }
+  } catch (err) {
+    console.warn('fetchSliderSettings notice:', err);
+  }
+  return null;
+}
+
+/**
+ * Update global slider auto-slide speed in seconds (Super Admin)
+ */
+export async function updateSliderSettings(intervalSeconds) {
+  const response = await apiFetch('/api/v1/promotions/settings/slider', {
+    method: 'PUT',
+    body: JSON.stringify({ interval_seconds: Number(intervalSeconds) }),
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok) {
+    throw new Error(resData.detail || resData.message || 'Failed to update slider speed');
+  }
+  return resData.data || resData;
+}
+
