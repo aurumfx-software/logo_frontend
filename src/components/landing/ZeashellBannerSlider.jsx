@@ -5,35 +5,35 @@ const DEFAULT_BANNER_FALLBACK = [
   {
     id: 'banner-fashion',
     title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
-    imageUrl: '/banners/top_fashion_lifestyle.png',
+    imageUrl: '/banners/hero_fashion.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
     id: 'banner-gold',
     title: 'Kerala Bridal Gold & Diamond Jewellery Fest',
-    imageUrl: '/banners/kerala_gold_jewellery_fest.png',
+    imageUrl: '/banners/hero_gold.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
     id: 'banner-fest',
     title: 'Kerala Festive Mega Grand Shopping Festival — Up to 50% Off',
-    imageUrl: '/banners/top_grand_festival.png',
+    imageUrl: '/banners/hero_shopping.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
     id: 'banner-tech',
     title: 'Kerala 5G Smart Tech & Mega Electronics Expo',
-    imageUrl: '/banners/kerala_electronics_fest.png',
+    imageUrl: '/banners/hero_electronics.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
   {
     id: 'banner-food',
     title: 'Malabar Traditional Food & Dining Festival',
-    imageUrl: '/banners/malabar_food_fest.png',
+    imageUrl: '/banners/hero_food.jpg',
     targetUrl: '#',
     placement: 'Home Top',
   },
@@ -262,7 +262,7 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
                     width: '100%',
                     height: '100%',
                     objectFit: 'contain',
-                    objectPosition: 'top center',
+                    objectPosition: 'center',
                   }}
                   draggable={false}
                   onError={(e) => {
