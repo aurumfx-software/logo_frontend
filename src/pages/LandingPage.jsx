@@ -367,6 +367,11 @@ const renderCategoryIcon = (key) => {
 };
 
 
+// Module-level in-memory cache for instant "through" back navigation (zero reload flash)
+let cachedLandingMerchants = null;
+let cachedLandingMasterMerchants = null;
+let cachedLandingPromotions = null;
+
 export default function LandingPage({ defaultTab = 'home' }) {
   const { isAuthenticated, user, login, logout } = useAuth();
   const location = useLocation();
@@ -397,10 +402,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
-  // Backend API Merchant Integration State
-  const [apiMerchants, setApiMerchants] = useState([]);
-  const [masterMerchants, setMasterMerchants] = useState([]);
-  const [isLoadingMerchants, setIsLoadingMerchants] = useState(false);
+  // Backend API Merchant Integration State - initialized from cache if returning via Back
+  const [apiMerchants, setApiMerchants] = useState(() => cachedLandingMerchants || []);
+  const [masterMerchants, setMasterMerchants] = useState(() => cachedLandingMasterMerchants || cachedLandingMerchants || []);
+  const [isLoadingMerchants, setIsLoadingMerchants] = useState(() => !cachedLandingMerchants);
 
   // Search intent detection for typo corrections & location/category tags
   const searchIntent = useMemo(() => {
@@ -415,9 +420,29 @@ export default function LandingPage({ defaultTab = 'home' }) {
   const [onboardSuccess, setOnboardSuccess] = useState('');
   const [categoryOptionsList, setCategoryOptionsList] = useState([]);
 
-  // Backend Promotions API Integration State
-  const [livePromotions, setLivePromotions] = useState([]);
+  // Backend Promotions API Integration State - initialized from cache
+  const [livePromotions, setLivePromotions] = useState(() => cachedLandingPromotions || []);
   const [selectedPromoModal, setSelectedPromoModal] = useState(null);
+
+  // Scroll restoration for smooth "through" back navigation
+  useEffect(() => {
+    const savedY = sessionStorage.getItem('landing_scroll_pos');
+    if (savedY) {
+      const y = parseInt(savedY, 10);
+      if (!isNaN(y) && y > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, y);
+        });
+      }
+    }
+
+    const handleScroll = () => {
+      sessionStorage.setItem('landing_scroll_pos', String(window.scrollY));
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -471,6 +496,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
               endDate: item.end_date || item.endDate || null,
             };
           });
+          cachedLandingPromotions = formatted;
           setLivePromotions(formatted);
         }
       })
@@ -784,7 +810,13 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // 1. GET ALL MERCHANTS from Backend (GET /api/v1/merchants)
   useEffect(() => {
     let active = true;
-    setIsLoadingMerchants(true);
+    const hasCache = Array.isArray(cachedLandingMerchants) && cachedLandingMerchants.length > 0;
+    const isDefaultFilter = selectedCategory === 'all' && selectedDistrict === 'all' && selectedLocation === 'all';
+
+    // Only show loading spinner if no cached data exists or if user explicitly changes filters
+    if (!hasCache || !isDefaultFilter) {
+      setIsLoadingMerchants(true);
+    }
 
     const loc = selectedDistrict !== 'all' ? selectedDistrict : selectedLocation !== 'all' ? selectedLocation : '';
     const cat = selectedCategory !== 'all' ? selectedCategory : '';
@@ -797,7 +829,11 @@ export default function LandingPage({ defaultTab = 'home' }) {
       .then((data) => {
         if (active && Array.isArray(data)) {
           setApiMerchants(data);
+          if (isDefaultFilter) {
+            cachedLandingMerchants = data;
+          }
           if (data.length > 0) {
+            cachedLandingMasterMerchants = data;
             setMasterMerchants((prev) => (data.length >= prev.length ? data : prev));
           }
         }

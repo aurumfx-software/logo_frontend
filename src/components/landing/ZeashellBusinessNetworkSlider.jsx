@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { HiCheckCircle, HiChevronLeft, HiChevronRight, HiArrowRight, HiSpeakerphone } from 'react-icons/hi';
 import { useSliderInterval } from '../../utils/useSliderInterval';
 
-const DEFAULT_NEWS_CARDS = [
+export const DEFAULT_NEWS_CARDS = [
   {
     id: 'news-1',
     cardClass: 'card-royal',
@@ -265,9 +265,54 @@ export default function ZeashellBusinessNetworkSlider({
 
   const cardsPerPage = windowWidth >= 1024 ? 3 : windowWidth >= 640 ? 2 : 1;
 
+  const CARD_CLASSES = useMemo(
+    () => ['card-royal', 'card-black', 'card-crimson', 'card-emerald', 'card-amber', 'card-violet', 'card-teal', 'card-orange', 'card-ruby'],
+    []
+  );
+
   const allCards = useMemo(() => {
-    return DEFAULT_NEWS_CARDS;
-  }, []);
+    const adminCards = (promotions || [])
+      .filter((p) => {
+        const place = String(p.placement || '').toLowerCase();
+        return place === 'business network' || place === 'business_network' || place === 'news & updates' || place === 'news';
+      })
+      .map((p, idx) => {
+        const cls = CARD_CLASSES[idx % CARD_CLASSES.length];
+        const img = p.imageUrl || p.image_url || p.bannerUrl || p.banner_url || '';
+        return {
+          id: p.id || `custom-news-${idx}`,
+          cardClass: cls,
+          badge: p.badge || '⭐ PARTNER AD',
+          badgeClass: 'dark',
+          badgeSub: p.placement || 'BUSINESS NETWORK',
+          badgeSubClass: 'emerald',
+          title: p.title || p.merchant_name || 'Business Partner',
+          malayalam: p.description || p.category || 'വിശ്വസ്ത സേവനങ്ങൾ നിങ്ങൾക്കായി',
+          subtitle: p.subtitle || 'കേരളത്തിലെ വിശ്വസ്ത വ്യാപാരികൾ',
+          highlight: p.highlight || (p.discount_percent ? `${p.discount_percent}% OFF SPECIAL` : 'BUSINESS SHOWCASE'),
+          highlightClass: 'yellow',
+          features: Array.isArray(p.features) && p.features.length > 0
+            ? p.features
+            : [
+                p.category ? `Category: ${p.category}` : 'Verified Business Listing',
+                p.location ? `Location: ${p.location}` : 'Statewide Kerala Reach',
+                'One-Tap WhatsApp & Direct Calling',
+                'Exclusive Directory Partner',
+              ],
+          checkClass: 'gold',
+          discountLabel: p.discount_label || 'Special Deal',
+          discountValue: p.discount_percent ? `${p.discount_percent}% OFF` : 'ACTIVE',
+          discountClass: 'tag-green',
+          btnText: p.btn_text || 'Contact Merchant',
+          btnClass: 'gold',
+          phone: p.phone_number || p.contact_number || '+91 860 60 800 74',
+          imageUrl: img,
+          rawPromo: p,
+        };
+      });
+
+    return [...DEFAULT_NEWS_CARDS, ...adminCards];
+  }, [promotions, CARD_CLASSES]);
 
   // Group into pages of 3 cards on desktop
   const pages = useMemo(() => {
@@ -471,6 +516,11 @@ export default function ZeashellBusinessNetworkSlider({
                           {card.badgeSub}
                         </span>
                       </div>
+                      {card.imageUrl && (
+                        <div style={{ width: '100%', height: 120, borderRadius: 12, overflow: 'hidden', margin: '8px 0 10px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                          <img src={card.imageUrl} alt={card.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
                       <div className="news-card-content">
                         <h3 style={{ fontSize: 18, margin: '4px 0' }}>{card.title}</h3>
                         <p className="news-malayalam" style={{ fontSize: 13, margin: '2px 0 8px' }}>
@@ -529,7 +579,13 @@ export default function ZeashellBusinessNetworkSlider({
                         <button
                           type="button"
                           className={`news-join-btn ${card.btnClass || ''}`}
-                          onClick={onOpenOnboard}
+                          onClick={() => {
+                            if (card.rawPromo && onSelectPromo) {
+                              onSelectPromo(card.rawPromo);
+                            } else if (onOpenOnboard) {
+                              onOpenOnboard();
+                            }
+                          }}
                           style={{ cursor: 'pointer' }}
                         >
                           {card.btnText}

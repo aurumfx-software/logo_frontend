@@ -83,6 +83,7 @@ const initialMerchantState = {
   status: 'PENDING',
   photos: ['', '', '', ''],
   videoUrl: '',
+  password: '',
   cashback_percent: 3.0,
   company_fee_percent: 2.0,
   total_deduction_percent: 5.0,
@@ -237,6 +238,14 @@ export default function Merchants() {
       const currentUserCode = user?.user_code || user?.userCode || localStorage.getItem('user_code') || 'FLS_1';
       const validPhotos = (newMerchant.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
 
+      let cb = newMerchant.cashback_percent !== '' && newMerchant.cashback_percent !== undefined ? parseFloat(newMerchant.cashback_percent) : 3.0;
+      let cf = newMerchant.company_fee_percent !== '' && newMerchant.company_fee_percent !== undefined ? parseFloat(newMerchant.company_fee_percent) : 2.0;
+      if (cb === 0 || cf === 0) {
+        cb = 0;
+        cf = 0;
+      }
+      const cleanTot = Number((cb + cf).toFixed(2));
+
       const createdItem = await createMerchant({
         business_name: storeName,
         category: newMerchant.category || 'Retail',
@@ -257,6 +266,10 @@ export default function Merchants() {
         merchant_videos: newMerchant.videoUrl ? [newMerchant.videoUrl] : [],
         user_code: currentUserCode,
         status: 'PENDING',
+        cashback_percent: cb,
+        company_fee_percent: cf,
+        total_deduction_percent: cleanTot,
+        password: newMerchant.password && newMerchant.password.trim() ? newMerchant.password.trim() : undefined,
       });
 
       setShowAddModal(false);
@@ -662,6 +675,11 @@ export default function Merchants() {
             {val?.charAt(0)}
           </div>
           <span style={{ fontWeight: 600 }}>{val}</span>
+          {row.login_id && (
+            <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }} title="Merchant Login ID">
+              {row.login_id}
+            </span>
+          )}
         </div>
       ),
     },
@@ -694,6 +712,11 @@ export default function Merchants() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <HiOutlineStar style={{ color: '#FFB946', fontSize: 14 }} />
           <span style={{ fontWeight: 600 }}>{val}</span>
+          {row.login_id && (
+            <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }} title="Merchant Login ID">
+              {row.login_id}
+            </span>
+          )}
         </div>
       ),
     },
@@ -1144,7 +1167,96 @@ export default function Merchants() {
             </div>
           </div>
 
-          {/* Social Media Links Section */}
+          {/* Merchant Login Password */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🔐 Merchant Login Password
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">
+                Login Password (Optional - auto-generated if left blank)
+              </label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Enter password (e.g. MerchantPass123)"
+                value={newMerchant.password || ''}
+                onChange={(e) => setNewMerchant((prev) => ({ ...prev, password: e.target.value }))}
+                autoComplete="new-password"
+              />
+              <span style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'block' }}>
+                When set, merchant can sign in immediately using their email or unique Login ID.
+              </span>
+            </div>
+          </div>
+
+          {/* Cashback & Platform Commission Split */}
+          <div style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #F5F3FF 100%)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #BFDBFE' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E3A8A', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              💰 Cashback &amp; Platform Fee Rates
+            </div>
+            <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
+              Default: 3% customer cashback + 2% company fee. If either commission is set to 0, both are saved as 0%.
+            </div>
+
+            <div className="grid-3" style={{ gap: 12 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 11.5 }}>Customer Cashback %</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  className="form-input"
+                  value={newMerchant.cashback_percent ?? 3.0}
+                  onChange={(e) => {
+                    const cbVal = e.target.value;
+                    const cb = parseFloat(cbVal) || 0;
+                    const cf = parseFloat(newMerchant.company_fee_percent) || 0;
+                    setNewMerchant((prev) => ({
+                      ...prev,
+                      cashback_percent: cbVal,
+                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 11.5 }}>Company Fee %</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="50"
+                  className="form-input"
+                  value={newMerchant.company_fee_percent ?? 2.0}
+                  onChange={(e) => {
+                    const cfVal = e.target.value;
+                    const cf = parseFloat(cfVal) || 0;
+                    const cb = parseFloat(newMerchant.cashback_percent) || 0;
+                    setNewMerchant((prev) => ({
+                      ...prev,
+                      company_fee_percent: cfVal,
+                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: 11.5 }}>Total Deduction %</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  readOnly
+                  style={{ background: '#E2E8F0', color: '#1E293B', fontWeight: 700 }}
+                  value={`${Number(((parseFloat(newMerchant.cashback_percent) || 0) + (parseFloat(newMerchant.company_fee_percent) || 0)).toFixed(2))}%`}
+                  title="Automatically calculated as Customer Cashback % + Company Fee %"
+                />
+              </div>
+            </div>
+          </div>
           <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               🔗 Social Media Links
@@ -1832,7 +1944,29 @@ export default function Merchants() {
             </div>
           </div>
 
-          {/* Social Media Links Section */}
+          {/* Merchant Login Password */}
+          <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🔐 Merchant Login Password
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">
+                Update Login Password (Optional - leave blank to keep existing password)
+              </label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Enter new password (e.g. MerchantPass123)"
+                value={editFormData.password || ''}
+                onChange={(e) => setEditFormData((prev) => ({ ...prev, password: e.target.value }))}
+                autoComplete="new-password"
+              />
+              <span style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'block' }}>
+                When set, merchant can sign in immediately using their email or unique Login ID.
+              </span>
+            </div>
+          </div>
+
           <div style={{ background: '#F8FAFC', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #E2E8F0' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               🔗 Social Media Links

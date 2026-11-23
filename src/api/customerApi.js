@@ -11,8 +11,13 @@ export function setCustomerSession(authData) {
   if (authData?.access_token) {
     localStorage.setItem(CUSTOMER_TOKEN_KEY, authData.access_token);
   }
-  if (authData?.customer) {
-    localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(authData.customer));
+  const cust = authData?.customer || authData?.user || authData?.data;
+  if (cust) {
+    const enriched = {
+      ...cust,
+      login_id: authData?.login_id || cust.login_id || null,
+    };
+    localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(enriched));
   }
 }
 

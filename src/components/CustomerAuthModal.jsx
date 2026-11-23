@@ -378,16 +378,16 @@ export default function CustomerAuthModal({
           {mode !== 'location' && (
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                Email Address *
+                {mode === 'login' ? 'Email Address or Login ID *' : 'Email Address *'}
               </label>
               <div style={{ position: 'relative' }}>
                 <HiMail style={{ position: 'absolute', left: 12, top: 12, color: '#94A3B8', fontSize: 18 }} />
                 <input
-                  type="email"
+                  type={mode === 'login' ? 'text' : 'email'}
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  placeholder="customer@example.com"
+                  placeholder={mode === 'login' ? 'customer@example.com or Login ID (e.g. RAJ48291)' : 'customer@example.com'}
                   required={mode === 'register'}
                   style={{
                     width: '100%',

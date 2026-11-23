@@ -116,6 +116,16 @@ const AD_SECTIONS = [
     recommendedRatio: 'Compact Widget 4:3 (600×450 px) or Square 1:1 (500×500 px)',
   },
   {
+    id: 'Business Network',
+    label: 'Business Network',
+    badge: 'Business Network',
+    icon: '💼',
+    headline: 'LOGO Business Network & News Updates Posters',
+    description:
+      'Multi-poster business network showcase and news updates slider. Add as many promotional cards or custom posters as you want. They auto-slide on the landing page and are listed completely on the All Ads page.',
+    recommendedRatio: 'Poster Card 3:4 (900×1200 px) or Square 1:1 (1080×1080 px)',
+  },
+  {
     id: 'Moving Text',
     label: 'Moving Text',
     badge: 'Moving Text',
@@ -1740,6 +1750,7 @@ export default function Promotions() {
                   <option value="Above Footer">Above Footer (Showcase Banner & Video)</option>
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
+                  <option value="Business Network">Business Network (News &amp; Updates Multi-Card Slider)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
                 </select>
               </div>
@@ -2182,6 +2193,7 @@ export default function Promotions() {
                   <option value="Above Footer">Above Footer (Showcase Banner & Video)</option>
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
+                  <option value="Business Network">Business Network (News &amp; Updates Multi-Card Slider)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
                 </select>
               </div>

@@ -70,6 +70,18 @@ export const PLACEMENT_SPECS = {
     tips: 'Recommended size: 600 × 450 px or 500 × 500 px. Punchy, eye-catching visual.',
     videoSpecs: 'Short highlight clip, Max 20MB',
   },
+  'Business Network': {
+    label: 'Business Network Poster',
+    ratio: 3 / 4,
+    ratioLabel: '3:4 / 1:1 (Poster Card)',
+    idealWidth: 900,
+    idealHeight: 1200,
+    minWidth: 450,
+    minHeight: 600,
+    description: 'Poster card shown in the LOGO Business Network News & Updates multi-card slider and listed on All Ads page.',
+    tips: 'Recommended size: 900 × 1200 px (3:4) or 1080 × 1080 px (1:1 Square).',
+    videoSpecs: 'Poster or Square format MP4/WebM, Max 30MB',
+  },
   'Square Poster': {
     label: 'Square Festival Poster',
     ratio: 1 / 1,

@@ -35,13 +35,14 @@ export default function Login() {
     const cleanPassword = password.trim();
 
     if (!cleanEmail) {
-      setError('Please enter your email address');
+      setError('Please enter your email address or Login ID');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      setError('Please enter a valid email address');
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
+    const isLoginId = /^[a-zA-Z0-9_-]{3,25}$/.test(cleanEmail);
+    if (!isEmail && !isLoginId) {
+      setError('Please enter a valid email address or Login ID (e.g. RAJ48291)');
       return;
     }
 
@@ -79,6 +80,7 @@ export default function Login() {
         name: apiUser.name || (detectedRole === 'Seller' ? 'Product Seller (user01)' : detectedRole === 'Merchant' ? 'Logo Merchant' : detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
         role: detectedRole === 'Seller' ? 'SELLER' : detectedRole === 'Merchant' ? 'MERCHANT' : detectedRole,
         user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Seller' ? 'SELLER_01' : detectedRole === 'Merchant' ? 'MERCH_1' : detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
+        login_id: loginRes.login_id || apiUser.login_id || null,
         loginTime: new Date().toISOString(),
         ...apiUser,
       };
@@ -158,7 +160,7 @@ export default function Login() {
 
         <form className="login-form" onSubmit={handleLogin}>
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">Email Address or Login ID</label>
             <div style={{ position: 'relative' }}>
               <HiOutlineMail
                 style={{
@@ -171,14 +173,14 @@ export default function Login() {
                 }}
               />
               <input
-                type="email"
+                type="text"
                 className="form-input"
-                placeholder="Enter email address..."
+                placeholder="Enter email address or Login ID (e.g. RAJ48291)..."
                 value={email}
                 onChange={handleEmailChange}
                 style={{ paddingLeft: 42 }}
                 disabled={loading}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
           </div>
