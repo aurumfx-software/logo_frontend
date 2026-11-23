@@ -1841,29 +1841,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
         </div>
       ) : (
         <>
-      {/* 2. Scrolling Ticker Announcement Bar (Seamless Infinite Loop) */}
-      <div className="zeas-ticker-bar" aria-label="Live Announcements">
-        <div className="zeas-ticker-track">
-          <div className="zeas-ticker-items">
-            {displayTickerTexts.concat(displayTickerTexts).map((ticker, idx) => (
-              <span key={`t1-${ticker.id || idx}-${idx}`} className="zeas-ticker-item">
-                <span>{ticker.title || ticker.description}</span>
-                <span className="zeas-ticker-bullet">&bull;</span>
-              </span>
-            ))}
-          </div>
-          <div className="zeas-ticker-items" aria-hidden="true">
-            {displayTickerTexts.concat(displayTickerTexts).map((ticker, idx) => (
-              <span key={`t2-${ticker.id || idx}-${idx}`} className="zeas-ticker-item">
-                <span>{ticker.title || ticker.description}</span>
-                <span className="zeas-ticker-bullet">&bull;</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Full-Width Advertisement Banner Slider (Zeashell Style - Uncropped Full View) */}
+      {/* 2. Advertisement Hero Banner Slider (Meesho-style Clean Contained Showcase) */}
       <ZeashellBannerSlider
         banners={displayTopBanners}
         onBannerClick={(banner) => setSelectedPromoModal(banner)}

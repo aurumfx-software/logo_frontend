@@ -184,142 +184,135 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
       onTouchEnd={handleTouchEnd}
       aria-label="Advertisement Banners"
     >
-      <div
-        className="zeas-blue-banner-slider-track"
-        style={{ transform: `translateX(-${current * 100}%)` }}
-      >
-        {validBanners.map((banner, idx) => {
-          const videoUrl = banner.videoUrl || banner.video_url;
-          const isVideo = banner.mediaType === 'video' || banner.media_type === 'video' || !!videoUrl;
-          const imgUrl = banner.imageUrl || banner.image_url || banner.bannerUrl;
-          const target = banner.targetUrl || banner.target_url || '#';
+      <div className="zeas-blue-banner-slider-wrapper">
+        <div
+          className="zeas-blue-banner-slider-track"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {validBanners.map((banner, idx) => {
+            const videoUrl = banner.videoUrl || banner.video_url;
+            const isVideo = banner.mediaType === 'video' || banner.media_type === 'video' || !!videoUrl;
+            const imgUrl = banner.imageUrl || banner.image_url || banner.bannerUrl;
+            const target = banner.targetUrl || banner.target_url || '#';
 
-          return (
-            <div
-              key={banner.id || idx}
-              className="zeas-blue-banner-slide"
-              onClick={() => {
-                if (onBannerClick) {
-                  onBannerClick(banner);
-                } else if (target && target !== '#') {
-                  window.open(target, '_blank', 'noopener,noreferrer');
-                }
-              }}
-            >
-              {/* Blurred Ambient Backdrop for widescreen edge-to-edge aesthetic */}
-              {imgUrl && (
-                <div
-                  className="zeas-blue-banner-blur-backdrop"
-                  style={{ backgroundImage: `url(${imgUrl})` }}
-                  aria-hidden="true"
-                />
-              )}
-
-              {isVideo && videoUrl ? (
-                <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <SlideVideo
-                    src={videoUrl}
-                    poster={imgUrl || ''}
-                    isActive={idx === current}
-                    isPaused={isPaused}
-                    onEnded={next}
-                    totalSlides={validBanners.length}
+            return (
+              <div
+                key={banner.id || idx}
+                className="zeas-blue-banner-slide"
+                onClick={() => {
+                  if (onBannerClick) {
+                    onBannerClick(banner);
+                  } else if (target && target !== '#') {
+                    window.open(target, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+              >
+                {isVideo && videoUrl ? (
+                  <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <SlideVideo
+                      src={videoUrl}
+                      poster={imgUrl || ''}
+                      isActive={idx === current}
+                      isPaused={isPaused}
+                      onEnded={next}
+                      totalSlides={validBanners.length}
+                      className="zeas-blue-banner-image"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        objectPosition: 'center',
+                        position: 'absolute',
+                        inset: 0,
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        right: '16px',
+                        background: 'rgba(15, 23, 42, 0.75)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        letterSpacing: '0.5px',
+                        zIndex: 3,
+                      }}
+                    >
+                      VIDEO
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={imgUrl}
+                    alt={banner.title || 'Advertisement'}
                     className="zeas-blue-banner-image"
                     style={{
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover',
                       objectPosition: 'center',
-                      position: 'absolute',
-                      inset: 0,
+                    }}
+                    draggable={false}
+                    onError={(e) => {
+                      e.target.src = DEFAULT_BANNER_FALLBACK[0].imageUrl;
                     }}
                   />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '12px',
-                      right: '16px',
-                      background: 'rgba(15, 23, 42, 0.75)',
-                      backdropFilter: 'blur(4px)',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      letterSpacing: '0.5px',
-                      zIndex: 3,
-                    }}
-                  >
-                    VIDEO
-                  </div>
-                </div>
-              ) : (
-                <img
-                  src={imgUrl}
-                  alt={banner.title || 'Advertisement'}
-                  className="zeas-blue-banner-image"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    objectPosition: 'center',
-                  }}
-                  draggable={false}
-                  onError={(e) => {
-                    e.target.src = DEFAULT_BANNER_FALLBACK[0].imageUrl;
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      {/* Navigation Chevrons */}
-      {validBanners.length > 1 && (
-        <>
-          <button
-            type="button"
-            className="zeas-blue-banner-arrow prev"
-            onClick={(e) => {
-              e.stopPropagation();
-              prev();
-            }}
-            aria-label="Previous Banner"
-          >
-            <HiChevronLeft size={24} />
-          </button>
-          <button
-            type="button"
-            className="zeas-blue-banner-arrow next"
-            onClick={(e) => {
-              e.stopPropagation();
-              next();
-            }}
-            aria-label="Next Banner"
-          >
-            <HiChevronRight size={24} />
-          </button>
-        </>
-      )}
-
-      {/* Dots Indicator */}
-      {validBanners.length > 1 && (
-        <div className="zeas-blue-banner-dots">
-          {validBanners.map((_, i) => (
+        {/* Navigation Chevrons */}
+        {validBanners.length > 1 && (
+          <>
             <button
-              key={i}
               type="button"
-              className={`zeas-blue-banner-dot ${i === current ? 'active' : ''}`}
+              className="zeas-blue-banner-arrow prev"
               onClick={(e) => {
                 e.stopPropagation();
-                setCurrent(i);
+                prev();
               }}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+              aria-label="Previous Banner"
+            >
+              <HiChevronLeft size={24} />
+            </button>
+            <button
+              type="button"
+              className="zeas-blue-banner-arrow next"
+              onClick={(e) => {
+                e.stopPropagation();
+                next();
+              }}
+              aria-label="Next Banner"
+            >
+              <HiChevronRight size={24} />
+            </button>
+          </>
+        )}
+
+        {/* Dots Indicator */}
+        {validBanners.length > 1 && (
+          <div className="zeas-blue-banner-dots">
+            {validBanners.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`zeas-blue-banner-dot ${i === current ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrent(i);
+                }}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
