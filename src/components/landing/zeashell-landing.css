@@ -51,8 +51,11 @@
 }
 
 .zeas-blue-navbar-inner {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 clamp(8px, 1.5vw, 24px);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -497,8 +500,11 @@
 }
 
 .zeas-blue-cat-strip-inner {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 clamp(8px, 1.5vw, 24px);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1116,9 +1122,9 @@
 
 .zeas-blue-category-section,
 .zeas-blue-categories-section {
-  max-width: 1440px;
+  max-width: 1800px;
   margin: 32px auto 24px;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 3vw, 48px);
   width: 100%;
   box-sizing: border-box;
 }
@@ -1275,9 +1281,11 @@
    ========================================================================== */
 
 .zeas-blue-filter-container {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto 28px;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 3vw, 48px);
 }
 
 .zeas-blue-search-pill-box {
@@ -1336,9 +1344,11 @@
    ========================================================================== */
 
 .zeas-blue-merchants-section {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto 48px;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 3vw, 48px);
 }
 
 .zeas-blue-merchants-header {
@@ -1385,11 +1395,18 @@
   cursor: pointer;
 }
 
-/* EXACT 5 CARDS IN A ROW ON DESKTOP */
+/* 5-6 CARDS IN A ROW ON DESKTOP & WIDESCREEN */
 .zeas-blue-merchant-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
+}
+
+@media (min-width: 1720px) {
+  .zeas-blue-merchant-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 18px;
+  }
 }
 
 @media (max-width: 1380px) {
@@ -1700,7 +1717,7 @@
 .zeas-middle-ad-wrapper {
   grid-column: 1 / -1;
   width: 100%;
-  max-width: 1440px;
+  max-width: 1800px;
   margin: 28px auto;
   padding: 0;
   position: relative;
@@ -2050,9 +2067,11 @@
    ========================================================================== */
 
 .zeas-blue-offers-section {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 40px auto;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 3vw, 48px);
 }
 
 .zeas-blue-offers-header {
@@ -2900,9 +2919,11 @@
    12. DEDICATED WISHLIST VIEW / PAGE
    ========================================================================== */
 .dedicated-wishlist-page {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: 32px clamp(16px, 3vw, 48px) 80px;
   animation: fadeIn 0.25s ease;
 }
 
@@ -3027,9 +3048,11 @@
 }
 
 .zeas-shop-modal-nav-inner {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 12px 24px;
+  padding: 12px clamp(16px, 2.5vw, 40px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3145,9 +3168,11 @@
 }
 
 .zeas-shop-nav-strip-inner {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 10px 24px;
+  padding: 10px clamp(16px, 2.5vw, 40px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3225,8 +3250,11 @@
 }
 
 .zeas-shop-cat-inner {
-  max-width: 1440px;
+  max-width: 1800px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
+  padding: 0 clamp(16px, 2.5vw, 40px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3619,9 +3647,10 @@
 
 .zeas-envato-hero-container {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1800px;
   margin: 16px auto 24px;
-  padding: 0 16px;
+  padding: 0 clamp(16px, 3vw, 48px);
+  box-sizing: border-box;
   position: relative;
   user-select: none;
 }
@@ -3903,8 +3932,8 @@
    ========================================================================== */
 
 .zeas-bottom-ad-wrapper {
-  width: calc(100% - 32px);
-  max-width: 1400px;
+  width: calc(100% - clamp(32px, 6vw, 96px));
+  max-width: 1800px;
   margin: 40px auto 20px;
   position: relative;
   overflow: hidden;

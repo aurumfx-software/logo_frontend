@@ -55,7 +55,7 @@ export default function LandingProductsSection({
 
   return (
     <section id="products-section" className="zeas-landing-section" style={{ background: '#f8fafc', padding: '60px 0' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px' }}>
+      <div style={{ maxWidth: 1800, width: '100%', margin: '0 auto', padding: '0 clamp(16px, 3vw, 48px)', boxSizing: 'border-box' }}>
         {/* Section Header */}
         <div
           style={{
