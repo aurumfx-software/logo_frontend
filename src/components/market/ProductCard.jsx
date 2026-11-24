@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiStar, HiHeart, HiOutlineHeart, HiOutlineShoppingBag } from 'react-icons/hi';
+import { HiStar, HiHeart, HiOutlineHeart } from 'react-icons/hi';
 import './market-web.css';
 
 export default function ProductCard({
@@ -8,7 +8,6 @@ export default function ProductCard({
   variant = 'grid',
   isWishlisted = false,
   onToggleWishlist,
-  onQuickAddToCart,
 }) {
   const navigate = useNavigate();
   if (!product) return null;
@@ -16,12 +15,6 @@ export default function ProductCard({
   const discount = Number(product.discountPercent || product.discount_percent || 0);
   const originalPrice = Number(product.originalPrice || product.original_price || 0);
   const price = Number(product.price || 0);
-  const merchantName =
-    product.sellerName ||
-    product.seller_name ||
-    product.merchant_name ||
-    product.business_name ||
-    'Kerala Seller';
   const rating = product.rating || '4.8';
   const reviewsCount = product.reviewsCount || product.reviews_count || product.reviews || '24';
 
@@ -47,22 +40,15 @@ export default function ProductCard({
     }
   };
 
-  const handleQuickAdd = (e) => {
-    e.stopPropagation();
-    if (onQuickAddToCart) {
-      onQuickAddToCart(product);
-    }
-  };
-
   // ── Horizontal Variant (for recommended carousels) ──
   if (variant === 'horizontal') {
     return (
       <div
         onClick={handleCardClick}
         className="mkt-card mkt-card-horiz"
-        style={{ width: '210px', flexShrink: 0 }}
+        style={{ width: '200px', flexShrink: 0 }}
       >
-        <div className="mkt-card-img-wrap" style={{ height: '145px', aspectRatio: 'unset' }}>
+        <div className="mkt-card-img-wrap" style={{ height: '150px', aspectRatio: 'unset' }}>
           <img
             src={product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400'}
             alt={product.name}
@@ -75,44 +61,49 @@ export default function ProductCard({
           ) : discount > 0 ? (
             <span className="mkt-badge-discount">{discount}% OFF</span>
           ) : (
-            <span className="mkt-badge-deal">DEAL</span>
+            <span className="mkt-badge-deal">SPECIAL</span>
           )}
 
-          <button
-            type="button"
-            onClick={handleWishlistClick}
-            className="mkt-card-heart-btn"
-            title="Wishlist"
-          >
-            {isWishlisted ? (
-              <HiHeart size={16} color="#ef4444" />
-            ) : (
-              <HiOutlineHeart size={16} />
-            )}
-          </button>
+          {onToggleWishlist && (
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              className="mkt-card-heart-btn"
+              title="Wishlist"
+            >
+              {isWishlisted ? (
+                <HiHeart size={16} color="#ef4444" />
+              ) : (
+                <HiOutlineHeart size={16} />
+              )}
+            </button>
+          )}
         </div>
 
         <div className="mkt-card-content">
-          <div>
-            <h4 className="mkt-card-title" style={{ minHeight: 'unset', marginBottom: '4px' }}>
-              {product.name}
-            </h4>
-            <div className="mkt-card-price-row">
-              <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
-              {originalPrice > price && (
-                <span className="mkt-card-original-price">
-                  ₹{originalPrice.toLocaleString('en-IN')}
-                </span>
-              )}
-            </div>
+          <h4 className="mkt-card-title" style={{ minHeight: 'unset', marginBottom: '4px' }}>
+            {product.name}
+          </h4>
+
+          <div className="mkt-card-price-row">
+            <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
+            {originalPrice > price && (
+              <span className="mkt-card-original-price">
+                ₹{originalPrice.toLocaleString('en-IN')}
+              </span>
+            )}
+            {discount > 0 && (
+              <span className="mkt-card-discount-tag">{discount}% off</span>
+            )}
           </div>
 
           <div className="mkt-card-footer">
             <div className="mkt-card-rating-wrap">
               <span className="mkt-card-rating-pill">
                 <span>{rating}</span>
-                <HiStar size={10} />
+                <HiStar size={9} />
               </span>
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>({reviewsCount})</span>
             </div>
             <span className="mkt-card-delivery-tag">Free Delivery</span>
           </div>
@@ -121,7 +112,7 @@ export default function ProductCard({
     );
   }
 
-  // ── Standard Grid Variant (Market Screen) ──
+  // ── Standard Grid Variant (Market Screen - Matches Mobile App ProductCard.js) ──
   return (
     <div onClick={handleCardClick} className="mkt-card">
       {/* Product Image Container */}
@@ -139,95 +130,54 @@ export default function ProductCard({
         ) : discount > 0 ? (
           <span className="mkt-badge-discount">{discount}% OFF</span>
         ) : (
-          <span className="mkt-badge-deal">SPECIAL DEAL</span>
+          <span className="mkt-badge-deal">SPECIAL</span>
         )}
 
         {/* Wishlist Button */}
-        <button
-          type="button"
-          onClick={handleWishlistClick}
-          aria-label="Wishlist"
-          className="mkt-card-heart-btn"
-        >
-          {isWishlisted ? (
-            <HiHeart size={16} color="#ef4444" />
-          ) : (
-            <HiOutlineHeart size={16} />
-          )}
-        </button>
-
-        {/* Store Pill */}
-        <div className="mkt-card-store-pill">
-          <span>{merchantName}</span>
-          {product.district && (
-            <span className="mkt-card-district">{product.district}</span>
-          )}
-        </div>
+        {onToggleWishlist && (
+          <button
+            type="button"
+            onClick={handleWishlistClick}
+            aria-label="Wishlist"
+            className="mkt-card-heart-btn"
+          >
+            {isWishlisted ? (
+              <HiHeart size={16} color="#ef4444" />
+            ) : (
+              <HiOutlineHeart size={16} />
+            )}
+          </button>
+        )}
       </div>
 
-      {/* Product Content Details */}
+      {/* Card Content - Clean Typography, No Seller Name or Kannur */}
       <div className="mkt-card-content">
-        <div>
-          <h3 className="mkt-card-title">{product.name}</h3>
+        {/* Product Title (2 lines clamp) */}
+        <h4 className="mkt-card-title">{product.name}</h4>
 
-          {/* Pricing Row */}
-          <div className="mkt-card-price-row">
-            <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
-            {originalPrice > price && (
-              <span className="mkt-card-original-price">
-                ₹{originalPrice.toLocaleString('en-IN')}
-              </span>
-            )}
-            {discount > 0 && (
-              <span className="mkt-card-save-text">
-                Save ₹{(originalPrice - price).toLocaleString('en-IN')}
-              </span>
-            )}
-          </div>
+        {/* Price & MRP Row */}
+        <div className="mkt-card-price-row">
+          <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
+          {originalPrice > price && (
+            <span className="mkt-card-original-price">
+              ₹{originalPrice.toLocaleString('en-IN')}
+            </span>
+          )}
+          {discount > 0 && (
+            <span className="mkt-card-discount-tag">{discount}% off</span>
+          )}
         </div>
 
-        {/* Rating & Delivery Row */}
+        {/* Rating & Free Delivery Meta Row */}
         <div className="mkt-card-footer">
           <div className="mkt-card-rating-wrap">
             <span className="mkt-card-rating-pill">
               <span>{rating}</span>
-              <HiStar size={11} />
+              <HiStar size={10} />
             </span>
-            <span className="mkt-card-reviews-count">({reviewsCount})</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>({reviewsCount})</span>
+            <span style={{ color: '#cbd5e1', fontSize: '10px' }}>•</span>
             <span className="mkt-card-delivery-tag">Free Delivery</span>
-            {onQuickAddToCart && !isOutOfStock && (
-              <button
-                type="button"
-                onClick={handleQuickAdd}
-                title="Add to Cart"
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  background: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  color: '#2563eb',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#2563eb';
-                  e.currentTarget.style.color = '#ffffff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#eff6ff';
-                  e.currentTarget.style.color = '#2563eb';
-                }}
-              >
-                <HiOutlineShoppingBag size={14} />
-              </button>
-            )}
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
   HiOutlineTruck,
   HiOutlineChevronRight,
   HiExclamationCircle,
+  HiHeart,
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import {
@@ -20,6 +21,8 @@ import {
   getSavedDeliveryAddress,
   getBuyerOrders,
   cancelBuyerOrder,
+  getMarketplaceWishlist,
+  removeFromMarketplaceWishlist,
 } from '../../api/productApi';
 import './market-web.css';
 
@@ -33,6 +36,7 @@ export default function MarketCartDrawer({
   const [activeTab, setActiveTab] = useState(initialTab);
   const [cartItems, setCartItems] = useState([]);
   const [buyerOrders, setBuyerOrders] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [deliveryAddress, setDeliveryAddress] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -41,14 +45,16 @@ export default function MarketCartDrawer({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [items, addr, orders] = await Promise.all([
+      const [items, addr, orders, wish] = await Promise.all([
         getMarketCart(),
         getSavedDeliveryAddress(),
         getBuyerOrders(),
+        getMarketplaceWishlist().catch(() => null),
       ]);
       setCartItems(items || []);
       setDeliveryAddress(addr || null);
       setBuyerOrders(orders || []);
+      setWishlistItems(wish?.items || []);
     } catch (err) {
       console.warn('Failed to load cart/orders:', err);
     } finally {
@@ -161,6 +167,13 @@ export default function MarketCartDrawer({
     }
   };
 
+  const handleRemoveWishlist = async (productId) => {
+    try {
+      await removeFromMarketplaceWishlist(productId);
+      setWishlistItems((prev) => prev.filter((it) => String(it.product_id || it.id) !== String(productId)));
+    } catch (_) {}
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -189,14 +202,21 @@ export default function MarketCartDrawer({
             onClick={() => setActiveTab('cart')}
             className={`mkt-drawer-tab-btn ${activeTab === 'cart' ? 'is-active' : ''}`}
           >
-            Shopping Cart ({totalItemsCount})
+            Cart ({totalItemsCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('wishlist')}
+            className={`mkt-drawer-tab-btn ${activeTab === 'wishlist' ? 'is-active' : ''}`}
+          >
+            Liked ({wishlistItems.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('track')}
             className={`mkt-drawer-tab-btn ${activeTab === 'track' ? 'is-active' : ''}`}
           >
-            Track Orders ({buyerOrders.length})
+            Orders ({buyerOrders.length})
           </button>
         </div>
 
@@ -210,7 +230,88 @@ export default function MarketCartDrawer({
 
         {/* Drawer Body Content */}
         <div className="mkt-drawer-body">
-          {activeTab === 'cart' ? (
+          {activeTab === 'wishlist' ? (
+            wishlistItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 10px', margin: 'auto 0' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <HiHeart size={28} />
+                </div>
+                <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>No Liked Items Yet</h4>
+                <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#64748b' }}>
+                  Click the heart icon on any product in the marketplace to save your favorites here.
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{ padding: '8px 20px', fontSize: '12.5px', fontWeight: 800, color: '#fff', background: '#2563eb', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  Browse Marketplace
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {wishlistItems.map((item) => {
+                  const p = item.product || item;
+                  const price = Number(p.price || 0);
+                  const pId = item.product_id || p.id;
+                  return (
+                    <div
+                      key={pId}
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        padding: '12px',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <img
+                        src={p.image || p.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'}
+                        alt={p.name}
+                        style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4
+                          onClick={() => {
+                            onClose();
+                            navigate(`/product/${pId}`);
+                          }}
+                          style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                        >
+                          {p.name}
+                        </h4>
+                        <div style={{ fontSize: '14px', fontWeight: 900, color: '#2563eb', marginBottom: '6px' }}>
+                          ₹{price.toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              navigate(`/checkout?product_id=${pId}&selected_size=${encodeURIComponent(p.sizes?.[0] || 'Standard')}&quantity=1`);
+                            }}
+                            className="mkt-btn-buy-now"
+                            style={{ padding: '4px 10px', fontSize: '11px', flex: 'unset' }}
+                          >
+                            Buy Now
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveWishlist(pId)}
+                            style={{ background: 'none', border: '1px solid #e2e8f0', color: '#94a3b8', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : activeTab === 'cart' ? (
             cartItems.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 10px', margin: 'auto 0' }}>
                 <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>

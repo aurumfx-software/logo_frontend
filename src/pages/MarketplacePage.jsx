@@ -10,6 +10,7 @@ import {
   HiOutlineAdjustments,
   HiOutlineTruck,
   HiPlus,
+  HiHeart,
 } from 'react-icons/hi';
 import {
   fetchPublicProducts,
@@ -74,6 +75,7 @@ export default function MarketplacePage() {
   // Cart & Wishlist
   const [cartCount, setCartCount] = useState(0);
   const [wishlistIds, setWishlistIds] = useState(new Set());
+  const [showLikedOnly, setShowLikedOnly] = useState(false);
 
   // Modals & Drawers
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -162,6 +164,11 @@ export default function MarketplacePage() {
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
+    // Filter by Liked / Wishlist items
+    if (showLikedOnly) {
+      list = list.filter((p) => wishlistIds.has(String(p.id)));
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -202,7 +209,7 @@ export default function MarketplacePage() {
     }
 
     return list;
-  }, [products, searchQuery, selectedCategory, selectedDistrict, selectedPriceRange, sortBy]);
+  }, [products, searchQuery, selectedCategory, selectedDistrict, selectedPriceRange, sortBy, showLikedOnly, wishlistIds]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -210,6 +217,7 @@ export default function MarketplacePage() {
     setSelectedDistrict('All Kerala');
     setSelectedPriceRange('all');
     setSortBy('newest');
+    setShowLikedOnly(false);
   };
 
   const hasActiveFilters =
@@ -217,7 +225,8 @@ export default function MarketplacePage() {
     selectedCategory !== 'all' ||
     selectedDistrict !== 'All Kerala' ||
     selectedPriceRange !== 'all' ||
-    sortBy !== 'newest';
+    sortBy !== 'newest' ||
+    showLikedOnly;
 
   return (
     <div className="mkt-page-wrapper">
@@ -251,6 +260,24 @@ export default function MarketplacePage() {
 
             {/* Right: Actions */}
             <div className="mkt-nav-actions">
+              <button
+                type="button"
+                onClick={() => setShowLikedOnly(!showLikedOnly)}
+                className={`mkt-btn-secondary ${showLikedOnly ? 'is-active' : ''}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: showLikedOnly ? '#fee2e2' : undefined,
+                  color: showLikedOnly ? '#dc2626' : undefined,
+                  borderColor: showLikedOnly ? '#f87171' : undefined,
+                }}
+                title="View Liked Products"
+              >
+                <HiHeart size={16} color={showLikedOnly || wishlistIds.size > 0 ? '#ef4444' : '#64748b'} />
+                <span>Liked ({wishlistIds.size})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -333,11 +360,27 @@ export default function MarketplacePage() {
             <div className="mkt-categories-scroll">
               <button
                 type="button"
-                onClick={() => setSelectedCategory('all')}
-                className={`mkt-cat-pill ${selectedCategory === 'all' ? 'is-active' : ''}`}
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setShowLikedOnly(false);
+                }}
+                className={`mkt-cat-pill ${selectedCategory === 'all' && !showLikedOnly ? 'is-active' : ''}`}
               >
                 <span>✨</span>
                 <span>All Products</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLikedOnly(!showLikedOnly);
+                  if (!showLikedOnly) setSelectedCategory('all');
+                }}
+                className={`mkt-cat-pill ${showLikedOnly ? 'is-active' : ''}`}
+                style={showLikedOnly ? { background: '#ef4444', borderColor: '#ef4444', color: '#ffffff' } : {}}
+              >
+                <span>❤️</span>
+                <span>Liked Items ({wishlistIds.size})</span>
               </button>
 
               {categoriesList.map((cat) => {
@@ -448,52 +491,97 @@ export default function MarketplacePage() {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '16px',
-                background: '#eff6ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-              }}
-            >
-              <HiOutlineAdjustments size={32} />
+          showLikedOnly ? (
+            <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  color: '#ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <HiHeart size={34} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a' }}>
+                Your Wishlist is Empty
+              </h3>
+              <p
+                style={{
+                  fontSize: '13px',
+                  color: '#64748b',
+                  maxWidth: '360px',
+                  margin: '0 auto 16px',
+                }}
+              >
+                You haven't liked any items yet. Click the heart icon on any product to save it here!
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowLikedOnly(false)}
+                className="mkt-btn-buy-now"
+                style={{
+                  display: 'inline-flex',
+                  padding: '10px 24px',
+                  flex: 'unset',
+                }}
+              >
+                Browse All Products
+              </button>
             </div>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a' }}>
-              No products found
-            </h3>
-            <p
-              style={{
-                fontSize: '13px',
-                color: '#64748b',
-                maxWidth: '360px',
-                margin: '0 auto 16px',
-              }}
-            >
-              We couldn't find any items matching your selected filters or search query.
-            </p>
-            <button
-              type="button"
-              onClick={resetFilters}
-              style={{
-                padding: '10px 20px',
-                fontSize: '13px',
-                fontWeight: 800,
-                color: '#ffffff',
-                background: '#2563eb',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              Reset All Filters
-            </button>
-          </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '16px',
+                  background: '#eff6ff',
+                  color: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <HiOutlineAdjustments size={32} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a' }}>
+                No products found
+              </h3>
+              <p
+                style={{
+                  fontSize: '13px',
+                  color: '#64748b',
+                  maxWidth: '360px',
+                  margin: '0 auto 16px',
+                }}
+              >
+                We couldn't find any items matching your selected filters or search query.
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  background: '#2563eb',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Reset All Filters
+              </button>
+            </div>
+          )
         ) : (
           <div className="mkt-product-grid">
             {filteredProducts.map((prod) => (

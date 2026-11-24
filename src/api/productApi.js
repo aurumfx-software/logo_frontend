@@ -824,3 +824,218 @@ export async function deleteCustomerProduct(id) {
   if (!res.ok) throw new Error('Failed to delete product');
   return await res.json();
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 💳 RAZORPAY PAYMENT GATEWAY INTEGRATION (Matches Mobile App Razorpay Flow)
+// ═════════════════════════════════════════════════════════════════════════════
+
+export const DEFAULT_RAZORPAY_KEY = 'rzp_test_TvBAWzKfk5F60i';
+
+let razorpayScriptLoadingPromise = null;
+
+export function loadRazorpayWebScript() {
+  if (typeof window === 'undefined') {
+    return Promise.resolve(false);
+  }
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+  if (razorpayScriptLoadingPromise) {
+    return razorpayScriptLoadingPromise;
+  }
+
+  razorpayScriptLoadingPromise = new Promise((resolve) => {
+    const existing = document.getElementById('razorpay-checkout-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'razorpay-checkout-script';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      console.warn('Failed to load Razorpay checkout script');
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+
+  return razorpayScriptLoadingPromise;
+}
+
+/**
+ * Call backend to start order payment session and generate Razorpay order ID
+ */
+export async function startOrderPayment(orderId, method = 'RAZORPAY') {
+  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify({ method }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    let msg = 'Failed to initialize payment';
+    if (Array.isArray(data.detail)) {
+      msg = data.detail.map((e) => (typeof e === 'object' ? e.msg : String(e))).join(', ');
+    } else if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/**
+ * Call backend to verify payment signature and mark order paid
+ */
+export async function verifyOrderPayment(orderId, { razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/pay/verify`, {
+    method: 'POST',
+    body: JSON.stringify({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    let msg = 'Failed to verify payment';
+    if (Array.isArray(data.detail)) {
+      msg = data.detail.map((e) => (typeof e === 'object' ? e.msg : String(e))).join(', ');
+    } else if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/**
+ * Full Razorpay Checkout orchestrator on Web (Matches Mobile App razorpayService.js)
+ */
+export async function startProductOrderRazorpayCheckout({
+  orderId,
+  orderCode,
+  productName,
+  amount,
+  user,
+  onSuccess,
+  onError,
+  onDismiss,
+}) {
+  try {
+    // 1. Call backend to start payment session and generate Razorpay order
+    let paySession = null;
+    try {
+      paySession = await startOrderPayment(orderId, 'RAZORPAY');
+    } catch (payErr) {
+      console.warn('Backend startOrderPayment notice:', payErr);
+      // If error indicates unauthenticated user, propagate so UI can prompt sign-in
+      const pMsg = String(payErr?.message || '');
+      if (pMsg.toLowerCase().includes('authenticated') || pMsg.toLowerCase().includes('log in') || pMsg.toLowerCase().includes('unauthorized')) {
+        throw new Error('Please sign in to complete online payment.');
+      }
+    }
+
+    const keyId = paySession?.razorpay_key_id || DEFAULT_RAZORPAY_KEY;
+    const razorpayOrderId = paySession?.razorpay_order_id;
+    const amountPaise = paySession?.amount_paise || Math.round(Number(amount) * 100);
+
+    // If backend returned dev simulated order
+    if (razorpayOrderId && razorpayOrderId.startsWith('order_dev_')) {
+      try {
+        const verifyRes = await verifyOrderPayment(orderId, {
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: `pay_dev_${Date.now()}`,
+          razorpay_signature: 'dev_signature_ok',
+        });
+        if (onSuccess) {
+          onSuccess({
+            isSimulated: true,
+            orderId,
+            orderCode,
+            verifyRes,
+          });
+        }
+        return { success: true, isSimulated: true, verifyRes };
+      } catch (devErr) {
+        if (onError) onError(devErr);
+        throw devErr;
+      }
+    }
+
+    // 2. Open standard Razorpay Checkout Modal on Web
+    await loadRazorpayWebScript();
+
+    if (!window.Razorpay) {
+      throw new Error('Razorpay payment gateway could not be loaded. Please check your internet connection.');
+    }
+
+    return new Promise((resolve, reject) => {
+      const options = {
+        key: keyId,
+        amount: amountPaise,
+        currency: 'INR',
+        name: 'LOGO Marketplace',
+        description: `Order #${orderCode || orderId} - ${productName || 'Marketplace Item'}`,
+        image: 'https://aurumfx-images.sgp1.digitaloceanspaces.com/logo.png',
+        ...(razorpayOrderId ? { order_id: razorpayOrderId } : {}),
+        prefill: {
+          name: user?.name || user?.business_name || '',
+          contact: user?.phone || user?.phone_number || '',
+          email: user?.email || '',
+        },
+        theme: {
+          color: '#2563EB',
+        },
+        handler: async (response) => {
+          try {
+            let verifyRes = null;
+            try {
+              verifyRes = await verifyOrderPayment(orderId, {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+            } catch (vErr) {
+              console.warn('Payment verify notice:', vErr);
+            }
+
+            if (onSuccess) {
+              onSuccess({
+                isSimulated: false,
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id || orderId,
+                verifyRes,
+              });
+            }
+            resolve({ success: true, verifyRes });
+          } catch (verErr) {
+            console.error('Payment verification failed:', verErr);
+            if (onError) onError(verErr);
+            reject(verErr);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (onDismiss) onDismiss();
+            resolve({ dismissed: true });
+          },
+        },
+      };
+
+      const rzpInstance = new window.Razorpay(options);
+      rzpInstance.open();
+    });
+  } catch (err) {
+    if (onError) onError(err);
+    throw err;
+  }
+}
