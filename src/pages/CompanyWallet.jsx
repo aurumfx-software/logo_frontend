@@ -62,7 +62,7 @@ export default function CompanyWallet() {
   const [totalReceived, setTotalReceived] = useState('0.00');
   const [totalDeducted, setTotalDeducted] = useState('0.00');
 
-  // ── Tabs: 'added_fund' | 'commission' | 'received' ──
+  // ── Tabs: 'added_fund' | 'commission' | 'received' | 'cash_send' ──
   const [activeTab, setActiveTab] = useState('added_fund');
   const [tableLoading, setTableLoading] = useState(true);
   const [tableError, setTableError] = useState('');
@@ -102,6 +102,7 @@ export default function CompanyWallet() {
   const [ledgerPageSize] = useState(20);
   const [ledgerTotalPages, setLedgerTotalPages] = useState(1);
   const [selectedCommissionDetail, setSelectedCommissionDetail] = useState(null);
+  const [selectedCashSendDetail, setSelectedCashSendDetail] = useState(null);
 
   // ── Global Alerts ──
   const [actionSuccess, setActionSuccess] = useState('');
@@ -149,6 +150,8 @@ export default function CompanyWallet() {
         setActiveTab('commission');
       } else if (tabParam === 'received' || tabParam === 'withdrawals') {
         setActiveTab('received');
+      } else if (tabParam === 'cash_send' || tabParam === 'send_cash' || tabParam === 'send') {
+        setActiveTab('cash_send');
       } else {
         setActiveTab('added_fund');
       }
@@ -634,6 +637,58 @@ export default function CompanyWallet() {
     }
     return result;
   }, [cashData]);
+
+  // Cash Send Entries (Admin sent funds to customers and merchants)
+  const cashSendEntries = React.useMemo(() => {
+    let customEntries = [];
+    try {
+      customEntries = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+    } catch (_) {}
+
+    const allSource = [
+      ...customEntries,
+      ...(Array.isArray(cashData) ? cashData : []),
+      ...(Array.isArray(txData) ? txData : []),
+    ];
+
+    const seen = new Set();
+    const result = [];
+
+    for (const item of allSource) {
+      if (!item || typeof item !== 'object') continue;
+      const key = item.id || item.transaction_group_id || JSON.stringify(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const m = String(item.movement || '').toUpperCase();
+      const t = String(item.type || item.transaction_type || '').toUpperCase();
+      const desc = String(item.description || item.note || '').toUpperCase();
+
+      if (desc.includes('SUBSCRIPTION') || desc.includes('MEMBERSHIP') || desc.includes('SELLER PLAN')) continue;
+
+      const isSent =
+        m === 'SENT' ||
+        t === 'ADMIN_SEND_FUNDS' ||
+        t === 'ADMIN_CREDIT' ||
+        desc.includes('ADMIN CASH TRANSFER') ||
+        desc.includes('CASH SENT') ||
+        desc.includes('ADMIN FUNDS TRANSFER') ||
+        desc.includes('SENT FROM ADMIN') ||
+        (desc.includes('ADDED FUND') && m === 'SENT');
+
+      if (isSent) {
+        result.push(item);
+      }
+    }
+
+    return result;
+  }, [cashData, txData]);
+
+  // Total Cash Sent by Admin across all wallets
+  const totalCashSent = React.useMemo(() => {
+    const sum = cashSendEntries.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    return sum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [cashSendEntries]);
 
   // Total Received for Withdrawal Payouts
   const totalReceivedForWithdrawals = React.useMemo(() => {
@@ -1139,42 +1194,95 @@ export default function CompanyWallet() {
 
         {/* Card 4: Cash Send (Dark Violet / Amber Action Card) */}
         <div
+          onClick={() => setActiveTab('cash_send')}
           style={{
             background: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 50%, #4C1D95 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(76, 29, 149, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            boxShadow:
+              activeTab === 'cash_send'
+                ? '0 0 0 3px #FFFFFF, 0 10px 28px rgba(76, 29, 149, 0.6)'
+                : '0 8px 24px rgba(76, 29, 149, 0.25)',
+            border: activeTab === 'cash_send' ? '2px solid #DDD6FE' : '1px solid rgba(255, 255, 255, 0.15)',
             position: 'relative',
             overflow: 'hidden',
+            cursor: 'pointer',
+            transform: activeTab === 'cash_send' ? 'translateY(-2px)' : 'none',
+            transition: 'all 0.2s ease',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
           }}
         >
           <div>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '3px 8px',
-                borderRadius: 20,
-                background: 'rgba(245, 158, 11, 0.25)',
-                color: '#FCD34D',
-                fontSize: 10.5,
-                fontWeight: 700,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                marginBottom: 8,
-              }}
-            >
-              <HiOutlinePaperAirplane style={{ fontSize: 13, transform: 'rotate(45deg)' }} />
-              <span>💸 Cash Send</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  borderRadius: 20,
+                  background: 'rgba(245, 158, 11, 0.25)',
+                  color: '#FCD34D',
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                <HiOutlinePaperAirplane style={{ fontSize: 13, transform: 'rotate(45deg)' }} />
+                <span>💸 Cash Send</span>
+                {activeTab === 'cash_send' && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: '#F59E0B',
+                      color: '#1E1B4B',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    Viewing History ↓
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FCD34D',
+                  fontSize: 18,
+                }}
+              >
+                <HiOutlinePaperAirplane style={{ transform: 'rotate(45deg)' }} />
+              </div>
             </div>
             <div style={{ fontSize: 12.5, color: '#DDD6FE', fontWeight: 600 }}>
               Send Funds to Users &amp; Merchants
+            </div>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 900,
+                color: '#FFFFFF',
+                letterSpacing: '-0.5px',
+                marginTop: 4,
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 4,
+              }}
+            >
+              <span style={{ fontSize: 20, color: '#FCD34D', fontWeight: 700 }}>₹</span>
+              {tableLoading ? '—' : totalCashSent}
             </div>
             <div style={{ fontSize: 11.5, color: '#C4B5FD', marginTop: 4 }}>
               Deduct from Added Fund, Commission, or Received Fund
@@ -1184,7 +1292,8 @@ export default function CompanyWallet() {
           <div style={{ marginTop: 14 }}>
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedRecipient(null);
                 setSendSearchQuery('');
                 setSendAmount('');
@@ -1344,6 +1453,26 @@ export default function CompanyWallet() {
                 </span>
               </div>
             )}
+            {activeTab === 'cash_send' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    background: '#FAF5FF',
+                    color: '#7C3AED',
+                    border: '1px solid #DDD6FE',
+                  }}
+                >
+                  💸 Admin Cash Send Ledger ({cashSendEntries.length} transfers)
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)' }}>
+                  All direct cash transfers sent by admin to customers and merchants with source wallet details
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right: Actions / Filters */}
@@ -1364,6 +1493,31 @@ export default function CompanyWallet() {
                 }}
               >
                 <HiOutlinePlus style={{ strokeWidth: 3 }} /> Add Capital
+              </button>
+            )}
+
+            {activeTab === 'cash_send' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setSelectedRecipient(null);
+                  setSendSearchQuery('');
+                  setSendAmount('');
+                  setSendNote('');
+                  setShowSendModal(true);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+                }}
+              >
+                <HiOutlinePaperAirplane style={{ transform: 'rotate(45deg)' }} /> Send Cash Now
               </button>
             )}
 
@@ -1433,7 +1587,8 @@ export default function CompanyWallet() {
           !tableError &&
           ((activeTab === 'added_fund' && addedFundEntries.length === 0) ||
             (activeTab === 'commission' && commissionRows.length === 0) ||
-            (activeTab === 'received' && withdrawalsData.length === 0)) && (
+            (activeTab === 'received' && withdrawalsData.length === 0) ||
+            (activeTab === 'cash_send' && cashSendEntries.length === 0)) && (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
               <HiOutlineCash style={{ fontSize: 44, color: '#CBD5E1', marginBottom: 12 }} />
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text, #0F172A)' }}>
@@ -1441,14 +1596,18 @@ export default function CompanyWallet() {
                   ? 'No Added Fund transactions recorded yet.'
                   : activeTab === 'commission'
                   ? 'No platform commission entries recorded yet.'
-                  : 'No withdrawal requests found for this filter.'}
+                  : activeTab === 'received'
+                  ? 'No withdrawal requests found for this filter.'
+                  : 'No cash transfers sent by admin recorded yet.'}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-light, #64748B)', marginTop: 4 }}>
                 {activeTab === 'added_fund'
                   ? 'Click "+ Add Capital" above to inject funds or send money from Added Fund.'
                   : activeTab === 'commission'
                   ? 'Platform fee percentage commissions will appear here when customer purchases occur at registered merchants.'
-                  : 'Customer and merchant withdrawal requests for admin payout will appear here.'}
+                  : activeTab === 'received'
+                  ? 'Customer and merchant withdrawal requests for admin payout will appear here.'
+                  : 'Click "Send Cash Now" on the card above or top right to transfer funds directly to customers or merchants.'}
               </div>
             </div>
           )}
@@ -1946,6 +2105,213 @@ export default function CompanyWallet() {
           </div>
         )}
 
+        {/* ── TABLE 4: CASH SEND LEDGER ── */}
+        {!tableLoading && !tableError && activeTab === 'cash_send' && cashSendEntries.length > 0 && (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Recipient (Customer / Merchant)</th>
+                  <th>Recipient Role</th>
+                  <th>Deducted From</th>
+                  <th style={{ textAlign: 'right' }}>Amount Sent</th>
+                  <th>Purpose / Note</th>
+                  <th>Date &amp; Time</th>
+                  <th style={{ textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashSendEntries.map((item) => {
+                  const desc = item.description || item.note || '';
+                  const rawName =
+                    item.user_name ||
+                    item.recipient_name ||
+                    item.name ||
+                    (desc.includes('Cash sent to ')
+                      ? desc.split('Cash sent to ')[1].split(' (')[0]
+                      : desc.includes('transfer to ')
+                      ? desc.split('transfer to ')[1].split(' from')[0]
+                      : 'Recipient');
+
+                  const isMerchant =
+                    item.user_role === 'MERCHANT' ||
+                    String(item.recipient_type || '').toUpperCase() === 'MERCHANT' ||
+                    desc.toUpperCase().includes('MERCHANT');
+
+                  let deductedFrom = 'Admin Added Fund';
+                  let deductedBadgeBg = '#EDE9FE';
+                  let deductedBadgeColor = '#6D28D9';
+                  let deductedBadgeBorder = '#DDD6FE';
+
+                  if (desc.toUpperCase().includes('COMMISSION')) {
+                    deductedFrom = 'Commission Fund';
+                    deductedBadgeBg = '#E0F2FE';
+                    deductedBadgeColor = '#0284C7';
+                    deductedBadgeBorder = '#BAE6FD';
+                  } else if (desc.toUpperCase().includes('RECEIVED')) {
+                    deductedFrom = 'Received Fund';
+                    deductedBadgeBg = '#ECFDF5';
+                    deductedBadgeColor = '#059669';
+                    deductedBadgeBorder = '#A7F3D0';
+                  }
+
+                  const dateStr = item.created_at
+                    ? new Date(item.created_at).toLocaleString('en-IN', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })
+                    : '—';
+
+                  const formattedAmount = Number(item.amount || 0).toLocaleString('en-IN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  });
+
+                  const loginCode =
+                    item.user_email ||
+                    item.phone ||
+                    item.user_code ||
+                    item.reference_id ||
+                    (desc.includes('(') && desc.includes(')') ? desc.split('(')[1].split(')')[0] : `ID #${item.user_id || item.id}`);
+
+                  return (
+                    <tr key={item.id || item.transaction_group_id || Math.random()}>
+                      <td style={{ fontWeight: 600, color: 'var(--text)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '50%',
+                              backgroundColor: isMerchant ? '#FEF3C7' : '#EEF2FF',
+                              color: isMerchant ? '#B45309' : '#4F46E5',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 16,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {isMerchant ? <HiOutlineShoppingBag /> : <HiOutlineUser />}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
+                              {rawName}
+                            </span>
+                            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B', marginTop: 1 }}>
+                              {loginCode}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            backgroundColor: isMerchant ? '#FFFBEB' : '#F5F3FF',
+                            color: isMerchant ? '#B45309' : '#6D28D9',
+                            border: `1px solid ${isMerchant ? '#FDE68A' : '#DDD6FE'}`,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {isMerchant ? 'MERCHANT' : 'CUSTOMER'}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 9px',
+                            borderRadius: 6,
+                            backgroundColor: deductedBadgeBg,
+                            color: deductedBadgeColor,
+                            border: `1px solid ${deductedBadgeBorder}`,
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {deductedFrom}
+                        </span>
+                      </td>
+
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <span style={{ fontSize: 14.5, fontWeight: 900, color: '#DC2626' }}>
+                            -₹{formattedAmount}
+                          </span>
+                          <span style={{ fontSize: 10, color: '#16A34A', fontWeight: 700, marginTop: 1 }}>
+                            ● CREDITED TO WALLET
+                          </span>
+                        </div>
+                      </td>
+
+                      <td style={{ maxWidth: 220 }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: '#475569',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={desc}
+                        >
+                          {desc || 'Direct admin wallet credit'}
+                        </span>
+                      </td>
+
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {dateStr}
+                      </td>
+
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() =>
+                            setSelectedCashSendDetail({
+                              ...item,
+                              recipientName: rawName,
+                              recipientRole: isMerchant ? 'MERCHANT' : 'CUSTOMER',
+                              recipientCode: loginCode,
+                              deductedFrom,
+                              formattedAmount,
+                              dateStr,
+                              description: desc,
+                            })
+                          }
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            borderColor: '#DDD6FE',
+                            color: '#6D28D9',
+                            background: '#FAF5FF',
+                          }}
+                        >
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* ── Dynamic Pagination Controls ── */}
         {!tableLoading && !tableError && (
           <div
@@ -1962,6 +2328,12 @@ export default function CompanyWallet() {
             {activeTab === 'added_fund' && (
               <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 Showing all {addedFundEntries.length} Added Fund entries
+              </div>
+            )}
+
+            {activeTab === 'cash_send' && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Showing all {cashSendEntries.length} admin cash transfers
               </div>
             )}
 
@@ -3141,6 +3513,171 @@ export default function CompanyWallet() {
                 onClick={() => setSelectedCommissionDetail(null)}
                 style={{
                   padding: '10px 24px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#0F172A',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════ */}
+      {/* 7. CASH SEND DETAILS MODAL                                   */}
+      {/* ═════════════════════════════════════════════════════════════ */}
+      <Modal
+        isOpen={!!selectedCashSendDetail}
+        onClose={() => setSelectedCashSendDetail(null)}
+        title="Admin Cash Transfer Details"
+        size="md"
+      >
+        {selectedCashSendDetail && (
+          <div style={{ padding: '4px 0' }}>
+            {/* Top Banner */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px 20px',
+                background: 'linear-gradient(135deg, #1E1B4B 0%, #3B0764 50%, #4C1D95 100%)',
+                borderRadius: 14,
+                color: '#FFFFFF',
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, color: '#DDD6FE', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                  Transfer Reference / Group ID
+                </div>
+                <div style={{ fontSize: 13.5, fontFamily: 'monospace', fontWeight: 800, marginTop: 3, wordBreak: 'break-all' }}>
+                  {selectedCashSendDetail.transaction_group_id || selectedCashSendDetail.reference_id || `#${selectedCashSendDetail.id}`}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 10px',
+                    borderRadius: 20,
+                    background: '#D1FAE5',
+                    color: '#065F46',
+                    fontSize: 11,
+                    fontWeight: 800,
+                  }}
+                >
+                  ● COMPLETED
+                </span>
+                <div style={{ fontSize: 11, color: '#DDD6FE', marginTop: 4 }}>
+                  {selectedCashSendDetail.dateStr || '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Transfer Amount Card */}
+            <div
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 14,
+                padding: '16px 20px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                  Amount Sent by Admin
+                </span>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#DC2626', marginTop: 2 }}>
+                  -₹{selectedCashSendDetail.formattedAmount}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                  Deducted From Wallet
+                </span>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#4F46E5', marginTop: 2 }}>
+                  {selectedCashSendDetail.deductedFrom}
+                </div>
+              </div>
+            </div>
+
+            {/* Recipient Profile Card */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: 14,
+                padding: '16px 20px',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: 12 }}>
+                Recipient Profile Information
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Recipient Name:</span>
+                  <strong style={{ color: '#0F172A' }}>{selectedCashSendDetail.recipientName}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Recipient Role:</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      background: selectedCashSendDetail.recipientRole === 'MERCHANT' ? '#FEF3C7' : '#EEF2FF',
+                      color: selectedCashSendDetail.recipientRole === 'MERCHANT' ? '#B45309' : '#4F46E5',
+                    }}
+                  >
+                    {selectedCashSendDetail.recipientRole}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Login / Phone ID:</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
+                    {selectedCashSendDetail.recipientCode}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Admin Transfer Purpose:</span>
+                  <span style={{ color: '#334155', maxWidth: 280, textAlign: 'right', fontWeight: 500 }}>
+                    {selectedCashSendDetail.description || 'Admin direct fund credit'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Credit Status:</span>
+                  <strong style={{ color: '#16A34A' }}>Instant Wallet Balance Credit</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 6 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCashSendDetail(null)}
+                style={{
+                  padding: '9px 22px',
                   borderRadius: 10,
                   border: 'none',
                   background: '#0F172A',

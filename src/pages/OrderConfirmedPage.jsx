@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
+  HiChevronLeft,
   HiCheckCircle,
   HiOutlineTruck,
   HiLocationMarker,
@@ -28,7 +29,12 @@ export default function OrderConfirmedPage() {
   const productId = searchParams.get('product_id');
   const quantity = Number(searchParams.get('quantity') || 1);
   const size = searchParams.get('size') || 'Standard';
-  const totalAmount = Number(searchParams.get('total_amount') || 0);
+  const totalAmount =
+    Number(searchParams.get('total_amount')) ||
+    Number(buyerOrder?.total_price) ||
+    Number(buyerOrder?.total_amount) ||
+    Number(buyerOrder?.unit_price) ||
+    0;
   const paymentMethod = searchParams.get('payment_method') || 'cod';
 
   const [product, setProduct] = useState(null);
@@ -116,15 +122,25 @@ export default function OrderConfirmedPage() {
       <header className="mkt-navbar">
         <div className="mkt-container">
           <div className="mkt-navbar-inner">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <HiCheckCircle size={22} />
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: '#047857' }}>
-                  Order Confirmed
-                </h1>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Order ID: {orderCode}</span>
+            <div className="mkt-nav-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/market')}
+                className="mkt-nav-back-btn"
+                title="Back to Marketplace"
+              >
+                <HiChevronLeft size={20} />
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <HiCheckCircle size={22} />
+                </div>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: '#047857' }}>
+                    Order Confirmed
+                  </h1>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Order ID: {orderCode}</span>
+                </div>
               </div>
             </div>
 
