@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -675,6 +675,7 @@ export default function CompanyWallet() {
   // Filter out any topup or subscription rows from platform commission ledger
   const commissionRows = useMemo(() => {
     return (ledgerData || []).filter((t) => {
+      if (!t) return false;
       const type = String(t.transaction_type || '').toUpperCase();
       const desc = String(t.note || t.description || '').toUpperCase();
       // Exclude subscriptions and wallet topups
@@ -692,9 +693,9 @@ export default function CompanyWallet() {
         maximumFractionDigits: 2,
       });
     }
-    if (commissionRows.length > 0) {
+    if (commissionRows && commissionRows.length > 0) {
       const sum = commissionRows.reduce(
-        (acc, curr) => acc + (Number(curr.company_fee || curr.amount) || 0),
+        (acc, curr) => acc + (Number(curr?.company_fee || curr?.amount) || 0),
         0
       );
       return sum.toLocaleString('en-IN', {
