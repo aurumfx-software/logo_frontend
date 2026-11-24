@@ -52,6 +52,20 @@ import {
   getCitiesForDistricts,
 } from '../utils/locations';
 
+const safeAddPercentages = (a, b) => {
+  const numA = parseFloat(a);
+  const numB = parseFloat(b);
+  const validA = isNaN(numA) ? 0 : numA;
+  const validB = isNaN(numB) ? 0 : numB;
+  return Number((validA + validB).toFixed(2));
+};
+
+const parseCommission = (val, defaultVal) => {
+  if (val === '' || val === null || val === undefined) return defaultVal;
+  const num = parseFloat(val);
+  return isNaN(num) ? defaultVal : Math.max(0, num);
+};
+
 const initialMerchantState = {
   name: '',
   business_name: '',
@@ -241,21 +255,14 @@ export default function Merchants() {
       const currentUserCode = user?.user_code || user?.userCode || localStorage.getItem('user_code') || 'FLS_1';
       const validPhotos = (newMerchant.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
 
-      let cb = newMerchant.cashback_percent !== '' && newMerchant.cashback_percent !== undefined && newMerchant.cashback_percent !== null
-        ? parseFloat(newMerchant.cashback_percent)
-        : 3.0;
-      let cf = newMerchant.company_fee_percent !== '' && newMerchant.company_fee_percent !== undefined && newMerchant.company_fee_percent !== null
-        ? parseFloat(newMerchant.company_fee_percent)
-        : 2.0;
-
-      if (isNaN(cb)) cb = 3.0;
-      if (isNaN(cf)) cf = 2.0;
+      let cb = parseCommission(newMerchant.cashback_percent, 3.0);
+      let cf = parseCommission(newMerchant.company_fee_percent, 2.0);
 
       if (cb === 0 || cf === 0) {
         cb = 0;
         cf = 0;
       }
-      const cleanTot = Number((cb + cf).toFixed(2));
+      const cleanTot = safeAddPercentages(cb, cf);
 
       const createdItem = await createMerchant({
         business_name: storeName,
@@ -417,14 +424,13 @@ export default function Merchants() {
       status: merchantRow.status ? merchantRow.status.toUpperCase() : 'APPROVED',
       photos: photosArr,
       videoUrl: merchantRow.videoUrl || '',
-      cashback_percent: merchantRow.cashback_percent !== undefined && merchantRow.cashback_percent !== null ? Number(merchantRow.cashback_percent) : 3.0,
-      company_fee_percent: merchantRow.company_fee_percent !== undefined && merchantRow.company_fee_percent !== null ? Number(merchantRow.company_fee_percent) : 2.0,
-      total_deduction_percent: Number(
-        (
-          (merchantRow.cashback_percent !== undefined && merchantRow.cashback_percent !== null ? Number(merchantRow.cashback_percent) : 3.0) +
-          (merchantRow.company_fee_percent !== undefined && merchantRow.company_fee_percent !== null ? Number(merchantRow.company_fee_percent) : 2.0)
-        ).toFixed(2)
-      ),
+      cashback_percent: merchantRow.cashback_percent !== undefined && merchantRow.cashback_percent !== null && !isNaN(Number(merchantRow.cashback_percent))
+        ? Number(merchantRow.cashback_percent)
+        : 3.0,
+      company_fee_percent: merchantRow.company_fee_percent !== undefined && merchantRow.company_fee_percent !== null && !isNaN(Number(merchantRow.company_fee_percent))
+        ? Number(merchantRow.company_fee_percent)
+        : 2.0,
+      total_deduction_percent: safeAddPercentages(merchantRow.cashback_percent, merchantRow.company_fee_percent),
     });
     setEditModalError('');
     setIsEditModalOpen(true);
@@ -445,21 +451,14 @@ export default function Merchants() {
       const validPhotos = (editFormData.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
       const statusValue = editFormData.status ? editFormData.status.toLowerCase() : 'active';
 
-      let cleanCb = editFormData.cashback_percent !== '' && editFormData.cashback_percent !== undefined && editFormData.cashback_percent !== null
-        ? parseFloat(editFormData.cashback_percent)
-        : 3.0;
-      let cleanCf = editFormData.company_fee_percent !== '' && editFormData.company_fee_percent !== undefined && editFormData.company_fee_percent !== null
-        ? parseFloat(editFormData.company_fee_percent)
-        : 2.0;
-
-      if (isNaN(cleanCb)) cleanCb = 3.0;
-      if (isNaN(cleanCf)) cleanCf = 2.0;
+      let cleanCb = parseCommission(editFormData.cashback_percent, 3.0);
+      let cleanCf = parseCommission(editFormData.company_fee_percent, 2.0);
 
       if (cleanCb === 0 || cleanCf === 0) {
         cleanCb = 0;
         cleanCf = 0;
       }
-      const cleanTot = Number((cleanCb + cleanCf).toFixed(2));
+      const cleanTot = safeAddPercentages(cleanCb, cleanCf);
 
       await updateMerchant(editFormData.id, {
         business_name: storeName,
@@ -1267,16 +1266,13 @@ export default function Merchants() {
                   min="0"
                   max="100"
                   className="form-input"
-                  value={newMerchant.cashback_percent ?? 3.0}
+                  value={newMerchant.cashback_percent !== undefined && newMerchant.cashback_percent !== null ? newMerchant.cashback_percent : 3.0}
                   onChange={(e) => {
                     const cbVal = e.target.value;
-                    const cb = cbVal === '' ? '' : parseFloat(cbVal);
-                    const cf = newMerchant.company_fee_percent === '' ? 0 : (parseFloat(newMerchant.company_fee_percent) || 0);
-                    const isZero = cb === 0 || cf === 0;
                     setNewMerchant((prev) => ({
                       ...prev,
                       cashback_percent: cbVal,
-                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
+                      total_deduction_percent: safeAddPercentages(cbVal, prev.company_fee_percent),
                     }));
                   }}
                   placeholder="0"
@@ -1291,16 +1287,13 @@ export default function Merchants() {
                   min="0"
                   max="100"
                   className="form-input"
-                  value={newMerchant.company_fee_percent ?? 2.0}
+                  value={newMerchant.company_fee_percent !== undefined && newMerchant.company_fee_percent !== null ? newMerchant.company_fee_percent : 2.0}
                   onChange={(e) => {
                     const cfVal = e.target.value;
-                    const cf = cfVal === '' ? '' : parseFloat(cfVal);
-                    const cb = newMerchant.cashback_percent === '' ? 0 : (parseFloat(newMerchant.cashback_percent) || 0);
-                    const isZero = cb === 0 || cf === 0;
                     setNewMerchant((prev) => ({
                       ...prev,
                       company_fee_percent: cfVal,
-                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
+                      total_deduction_percent: safeAddPercentages(prev.cashback_percent, cfVal),
                     }));
                   }}
                   placeholder="0"
@@ -1317,7 +1310,7 @@ export default function Merchants() {
                   value={
                     (parseFloat(newMerchant.cashback_percent) === 0 || parseFloat(newMerchant.company_fee_percent) === 0)
                       ? '0% (Zero Fee)'
-                      : `${Number(((parseFloat(newMerchant.cashback_percent) || 0) + (parseFloat(newMerchant.company_fee_percent) || 0)).toFixed(2))}%`
+                      : `${safeAddPercentages(newMerchant.cashback_percent, newMerchant.company_fee_percent)}%`
                   }
                   title="Automatically calculated as Customer Cashback % + Company Fee % (If either is 0%, both are saved as 0%)"
                 />
@@ -1896,13 +1889,10 @@ export default function Merchants() {
                   value={editFormData.cashback_percent !== undefined && editFormData.cashback_percent !== null ? editFormData.cashback_percent : 3.0}
                   onChange={(e) => {
                     const cbVal = e.target.value;
-                    const cb = cbVal === '' ? '' : parseFloat(cbVal);
-                    const cf = editFormData.company_fee_percent === '' ? 0 : (parseFloat(editFormData.company_fee_percent) || 0);
-                    const isZero = cb === 0 || cf === 0;
                     setEditFormData((prev) => ({
                       ...prev,
                       cashback_percent: cbVal,
-                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
+                      total_deduction_percent: safeAddPercentages(cbVal, prev.company_fee_percent),
                     }));
                   }}
                   placeholder="0"
@@ -1923,13 +1913,10 @@ export default function Merchants() {
                   value={editFormData.company_fee_percent !== undefined && editFormData.company_fee_percent !== null ? editFormData.company_fee_percent : 2.0}
                   onChange={(e) => {
                     const cfVal = e.target.value;
-                    const cf = cfVal === '' ? '' : parseFloat(cfVal);
-                    const cb = editFormData.cashback_percent === '' ? 0 : (parseFloat(editFormData.cashback_percent) || 0);
-                    const isZero = cb === 0 || cf === 0;
                     setEditFormData((prev) => ({
                       ...prev,
                       company_fee_percent: cfVal,
-                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
+                      total_deduction_percent: safeAddPercentages(prev.cashback_percent, cfVal),
                     }));
                   }}
                   placeholder="0"
@@ -1948,7 +1935,7 @@ export default function Merchants() {
                   value={
                     (parseFloat(editFormData.cashback_percent) === 0 || parseFloat(editFormData.company_fee_percent) === 0)
                       ? '0% (Zero Fee)'
-                      : `${Number(((parseFloat(editFormData.cashback_percent) || 0) + (parseFloat(editFormData.company_fee_percent) || 0)).toFixed(2))}%`
+                      : `${safeAddPercentages(editFormData.cashback_percent, editFormData.company_fee_percent)}%`
                   }
                   title="Automatically calculated as Customer Cashback % + Company Fee % (If either is 0%, both are saved as 0%)"
                 />
