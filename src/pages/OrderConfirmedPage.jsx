@@ -339,7 +339,7 @@ export default function OrderConfirmedPage() {
               </button>
             </div>
 
-            <div className="mkt-grid">
+            <div className="mkt-product-grid">
               {recommendedProducts.slice(0, 5).map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}

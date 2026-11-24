@@ -208,6 +208,27 @@
   color: var(--mkt-text-main);
 }
 
+.mkt-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--mkt-text-main);
+  background: #ffffff;
+  border: 1px solid var(--mkt-border);
+  border-radius: var(--mkt-radius-md);
+  cursor: pointer;
+  transition: var(--mkt-transition);
+}
+
+.mkt-btn-outline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
 @media (min-width: 640px) {
   .mkt-btn-secondary {
     display: flex;
@@ -541,17 +562,20 @@
    2. RESPONSIVE PRODUCT GRID (WEB BREAKPOINTS)
    ========================================================================== */
 
-.mkt-product-grid {
+.mkt-product-grid,
+.mkt-grid {
   display: grid;
   gap: 14px;
   padding: 20px 0 40px;
   /* Mobile default: 2 columns */
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
 }
 
 /* Small Tablets & Phablets (>= 600px) */
 @media (min-width: 600px) {
-  .mkt-product-grid {
+  .mkt-product-grid,
+  .mkt-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
   }
@@ -559,7 +583,8 @@
 
 /* Standard Tablets & Laptops (>= 900px) */
 @media (min-width: 900px) {
-  .mkt-product-grid {
+  .mkt-product-grid,
+  .mkt-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 18px;
   }
@@ -567,7 +592,8 @@
 
 /* Large Desktops (>= 1240px) */
 @media (min-width: 1240px) {
-  .mkt-product-grid {
+  .mkt-product-grid,
+  .mkt-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 20px;
   }
@@ -765,6 +791,26 @@
   font-size: 11px;
   font-weight: 800;
   color: var(--mkt-emerald);
+}
+
+.mkt-card-discount-tag {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--mkt-emerald);
+}
+
+.mkt-card-horiz {
+  flex-direction: column;
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+
+.mkt-card-horiz .mkt-card-img-wrap {
+  height: 150px;
+  width: 100%;
+  aspect-ratio: unset;
 }
 
 .mkt-card-footer {
@@ -1378,6 +1424,69 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Celebration Overlay on Order Placement */
+.mkt-celebrate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: mktFadeIn 0.3s ease;
+}
+
+.mkt-celebrate-box {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+  border-radius: 20px;
+  padding: 36px 32px;
+  text-align: center;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.35);
+  animation: mktScaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mkt-celebrate-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  animation: mktPulse 1.5s infinite;
+}
+
+@keyframes mktScaleUp {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mktPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* ==========================================================================
