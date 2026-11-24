@@ -180,10 +180,20 @@ export async function apiFetch(endpoint, options = {}) {
     headers['Authorization'] = bearer;
   }
 
-  let response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  // 15-second timeout to avoid indefinite hang when backend is unreachable
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Handle 401 Unauthorized token refresh
   if (response.status === 401 && getRefreshToken()) {
