@@ -1,50 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   HiShoppingBag,
   HiLocationMarker,
-  HiTag,
-  HiPlus,
   HiSearch,
   HiX,
   HiChevronLeft,
   HiSparkles,
   HiOutlineAdjustments,
+  HiOutlineHeart,
+  HiOutlineTruck,
+  HiCheck,
+  HiPlus,
 } from 'react-icons/hi';
-import { fetchPublicProducts } from '../api/productApi';
-import ProductOrderModal from '../components/products/ProductOrderModal';
+import {
+  fetchPublicProducts,
+  fetchProductCategories,
+  getMarketCart,
+  addToMarketCart,
+  getMarketplaceWishlist,
+  addToMarketplaceWishlist,
+  removeFromMarketplaceWishlist,
+  getSavedDeliveryAddress,
+} from '../api/productApi';
+import ProductCard from '../components/market/ProductCard';
+import MarketCartDrawer from '../components/market/MarketCartDrawer';
+import DeliveryAddressModal, { KERALA_DISTRICTS } from '../components/market/DeliveryAddressModal';
 import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
 import { useAuth } from '../context/AuthContext';
 
-const KERALA_DISTRICTS = [
-  'All Kerala',
-  'Alappuzha',
-  'Ernakulam',
-  'Idukki',
-  'Kannur',
-  'Kasaragod',
-  'Kollam',
-  'Kottayam',
-  'Kozhikode',
-  'Malappuram',
-  'Palakkad',
-  'Pathanamthitta',
-  'Thiruvananthapuram',
-  'Thrissur',
-  'Wayanad',
-];
-
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All Categories', icon: '✨' },
-  { id: 'Fashion', label: 'Fashion & Traditional', icon: '👗' },
-  { id: 'Organic', label: 'Organic & Agro', icon: '🌿' },
-  { id: 'Handicrafts', label: 'Handicrafts & Decor', icon: '🏺' },
-  { id: 'Spices', label: 'Spices & Gourmet', icon: '🌶️' },
-  { id: 'Electronics', label: 'Electronics & Gadgets', icon: '📱' },
-  { id: 'Home', label: 'Home & Kitchen', icon: '🏠' },
-  { id: 'Health', label: 'Health & Beauty', icon: '🧴' },
-  { id: 'Other', label: 'Other Goods', icon: '📦' },
-];
+const CATEGORY_ICONS = {
+  'Kerala Kasavu Sarees': '✨',
+  'Fashion & Traditional Wear': '👗',
+  'Organic & Agro Products': '🌿',
+  'Traditional Spices': '🌶️',
+  'Handicrafts & Decor': '🏺',
+  'Jewellery & Accessories': '💍',
+  'Home & Kitchen': '🏠',
+  'Health & Beauty': '🧴',
+  'Electronics & Accessories': '📱',
+  'Other Local Goods': '📦',
+};
 
 const SORT_OPTIONS = [
   { id: 'newest', label: 'Newest First' },
@@ -63,45 +59,110 @@ const PRICE_RANGES = [
 
 export default function MarketplacePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
   const [products, setProducts] = useState([]);
+  const [categoriesList, setCategoriesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters & Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedDistrict, setSelectedDistrict] = useState('All Kerala');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
+  const [selectedDistrict, setSelectedDistrict] = useState(searchParams.get('district') || 'All Kerala');
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  // Modals
-  const [selectedOrderProduct, setSelectedOrderProduct] = useState(null);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Cart & Wishlist
+  const [cartItems, setCartItems] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistIds, setWishlistIds] = useState(new Set());
 
-  // Load Products
-  const loadProducts = async () => {
+  // Modals & Drawers
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartTab, setCartTab] = useState('cart');
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  // Load Categories & Products
+  const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchPublicProducts({});
-      setProducts(data || []);
+      const [cats, prods, cart, wish] = await Promise.all([
+        fetchProductCategories().catch(() => []),
+        fetchPublicProducts({}).catch(() => []),
+        getMarketCart().catch(() => []),
+        getMarketplaceWishlist().catch(() => null),
+      ]);
+
+      setCategoriesList(cats || []);
+      setProducts(prods || []);
+      setCartItems(cart || []);
+      setCartCount((cart || []).reduce((sum, it) => sum + Number(it.quantity || 1), 0));
+
+      if (wish?.items && Array.isArray(wish.items)) {
+        setWishlistIds(new Set(wish.items.map((it) => String(it.product_id || it.id))));
+      }
     } catch (err) {
-      console.warn('Failed to load marketplace products:', err);
+      console.warn('Failed to load marketplace data:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadProducts();
+    loadData();
   }, []);
 
+  // Real-time synchronization event listeners
   useEffect(() => {
-    const handleRefresh = () => loadProducts();
+    const handleCartChanged = (e) => {
+      const items = e?.detail || [];
+      setCartItems(items);
+      setCartCount(items.reduce((sum, it) => sum + Number(it.quantity || 1), 0));
+    };
+
+    const handleRefresh = () => loadData();
+
+    window.addEventListener('logo-cart-changed', handleCartChanged);
     window.addEventListener('logo:refresh_products', handleRefresh);
-    return () => window.removeEventListener('logo:refresh_products', handleRefresh);
+
+    return () => {
+      window.removeEventListener('logo-cart-changed', handleCartChanged);
+      window.removeEventListener('logo:refresh_products', handleRefresh);
+    };
   }, []);
+
+  // Wishlist Toggle
+  const handleToggleWishlist = async (productId) => {
+    const pId = String(productId);
+    const newSet = new Set(wishlistIds);
+    if (newSet.has(pId)) {
+      newSet.delete(pId);
+      setWishlistIds(newSet);
+      await removeFromMarketplaceWishlist(pId);
+      showToast('Removed from Wishlist');
+    } else {
+      newSet.add(pId);
+      setWishlistIds(newSet);
+      await addToMarketplaceWishlist(pId);
+      showToast('Saved to Wishlist ❤️');
+    }
+  };
+
+  // Quick Add to Cart
+  const handleQuickAdd = async (product) => {
+    const itemPrice = Number(product.price || 0);
+    const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
+    await addToMarketCart(product, minQty, product.sizes?.[0] || 'Standard');
+    showToast(`Added ${product.name} to cart! 🛍️`);
+  };
 
   // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
@@ -115,54 +176,41 @@ export default function MarketplacePage() {
           (p.name || '').toLowerCase().includes(q) ||
           (p.category || '').toLowerCase().includes(q) ||
           (p.description || '').toLowerCase().includes(q) ||
-          (p.district || '').toLowerCase().includes(q) ||
-          (p.city || '').toLowerCase().includes(q) ||
-          (p.seller_name || '').toLowerCase().includes(q)
+          (p.sellerName || '').toLowerCase().includes(q) ||
+          (p.district || '').toLowerCase().includes(q)
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
+    // Category
+    if (selectedCategory && selectedCategory !== 'all') {
       const catLower = selectedCategory.toLowerCase();
       list = list.filter((p) => (p.category || '').toLowerCase().includes(catLower));
     }
 
-    // District filter
-    if (selectedDistrict !== 'All Kerala') {
-      const distLower = selectedDistrict.toLowerCase();
-      list = list.filter((p) => {
-        const text = `${p.district || ''} ${p.city || ''} ${p.address || ''}`.toLowerCase();
-        return text.includes(distLower);
-      });
+    // District
+    if (selectedDistrict && selectedDistrict !== 'All Kerala') {
+      list = list.filter(
+        (p) => (p.district || '').toLowerCase() === selectedDistrict.toLowerCase()
+      );
     }
 
-    // Price range filter
-    if (selectedPriceRange !== 'all') {
-      const range = PRICE_RANGES.find((r) => r.id === selectedPriceRange);
-      if (range) {
-        list = list.filter((p) => {
-          const price = Number(p.price) || 0;
-          if (range.min !== null && price < range.min) return false;
-          if (range.max !== null && price > range.max) return false;
-          return true;
-        });
-      }
+    // Price range
+    const activeRange = PRICE_RANGES.find((r) => r.id === selectedPriceRange);
+    if (activeRange) {
+      if (activeRange.min !== null) list = list.filter((p) => Number(p.price || 0) >= activeRange.min);
+      if (activeRange.max !== null) list = list.filter((p) => Number(p.price || 0) <= activeRange.max);
     }
 
-    // Sorting
+    // Sort
     if (sortBy === 'price_asc') {
-      list.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+      list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     } else if (sortBy === 'price_desc') {
-      list.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+      list.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     } else if (sortBy === 'discount') {
-      list.sort((a, b) => {
-        const discA = a.original_price ? Math.max(0, Number(a.original_price) - Number(a.price)) : 0;
-        const discB = b.original_price ? Math.max(0, Number(b.original_price) - Number(b.price)) : 0;
-        return discB - discA;
-      });
+      list.sort((a, b) => Number(b.discountPercent || 0) - Number(a.discountPercent || 0));
     } else {
-      // newest
-      list.sort((a, b) => (b.id || 0) - (a.id || 0));
+      // Newest
+      list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
     }
 
     return list;
@@ -176,628 +224,299 @@ export default function MarketplacePage() {
     setSortBy('newest');
   };
 
+  const hasActiveFilters =
+    searchQuery ||
+    selectedCategory !== 'all' ||
+    selectedDistrict !== 'All Kerala' ||
+    selectedPriceRange !== 'all' ||
+    sortBy !== 'newest';
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a' }}>
-      {/* Top Header */}
-      <header
-        style={{
-          background: '#ffffff',
-          borderBottom: '1px solid #e2e8f0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40,
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1360,
-            margin: '0 auto',
-            padding: '12px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* Back & Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                background: '#eff6ff',
-                color: '#2563eb',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-              }}
-              title="Back to Home"
-            >
-              <HiChevronLeft size={20} />
-            </button>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>Kerala Marketplace</span>
-                <span
-                  style={{
-                    background: '#eff6ff',
-                    color: '#2563eb',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                  }}
-                >
-                  LIVE DIRECT
-                </span>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* ── Top Navigation Bar ── */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-4">
+            {/* Left: Back & Title */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                title="Back to Home"
+              >
+                <HiChevronLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                    Kerala Marketplace
+                  </h1>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                    <HiSparkles className="w-3 h-3 text-blue-600" />
+                    Verified Local Sellers
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 hidden sm:block">
+                  Kasavu Sarees, Malabar Spices, Organic Produce & Authentic Kerala Crafts
+                </p>
               </div>
-              <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
-                Handloom, Organic Goods, Crafts &amp; Spices from verified Kerala sellers
-              </p>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* My Orders Button */}
+              <button
+                onClick={() => {
+                  setCartTab('track');
+                  setIsCartOpen(true);
+                }}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                <HiOutlineTruck className="w-4 h-4 text-slate-600" />
+                <span>My Orders</span>
+              </button>
+
+              {/* Sell on Logo */}
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="hidden md:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors"
+              >
+                <HiPlus className="w-4 h-4" />
+                <span>Sell Product</span>
+              </button>
+
+              {/* Cart Drawer Trigger */}
+              <button
+                onClick={() => {
+                  setCartTab('cart');
+                  setIsCartOpen(true);
+                }}
+                className="relative p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center"
+                title="View Shopping Cart"
+              >
+                <HiShoppingBag className="w-5 h-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-md animate-pulse">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Search bar & Action */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, maxWidth: 640 }}>
-            <div
-              style={{
-                position: 'relative',
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <HiSearch size={18} style={{ position: 'absolute', left: 14, color: '#94a3b8' }} />
+          {/* Search & Location Bar */}
+          <div className="pb-3 flex flex-col sm:flex-row items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full">
+              <HiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search Sarees, Organic Spices, Handicrafts, Gadgets..."
+                placeholder="Search Sarees, Spices, Handicrafts, Jewellery, Gadgets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 38px 10px 40px',
-                  borderRadius: 12,
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: 13,
-                  outline: 'none',
-                  background: '#f8fafc',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#2563eb')}
-                onBlur={(e) => (e.target.style.borderColor = '#cbd5e1')}
+                className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all"
               />
               {searchQuery && (
                 <button
-                  type="button"
                   onClick={() => setSearchQuery('')}
-                  style={{
-                    position: 'absolute',
-                    right: 12,
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                  }}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
                 >
-                  <HiX size={16} />
+                  <HiX className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              style={{
-                padding: '10px 18px',
-                borderRadius: 12,
-                background: '#16a34a',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                whiteSpace: 'nowrap',
-                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.28)',
-              }}
-            >
-              <HiPlus size={16} />
-              <span>Sell Your Product</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Category Pills Slider */}
-        <div
-          style={{
-            maxWidth: 1360,
-            margin: '0 auto',
-            padding: '8px 20px',
-            display: 'flex',
-            gap: 8,
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            borderTop: '1px solid #f1f5f9',
-          }}
-        >
-          {CATEGORY_TABS.map((tab) => {
-            const active = selectedCategory === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedCategory(tab.id)}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: active ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                  background: active ? '#2563eb' : '#ffffff',
-                  color: active ? '#ffffff' : '#475569',
-                  boxShadow: active ? '0 3px 10px rgba(37, 99, 235, 0.2)' : 'none',
-                  transition: 'all 0.15s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main style={{ maxWidth: 1360, margin: '24px auto', padding: '0 20px' }}>
-        {/* Filter and Sort Toolbar */}
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: 16,
-            padding: '16px 20px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          {/* Price Range Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginRight: 4 }}>
-              PRICE:
-            </span>
-            {PRICE_RANGES.map((r) => {
-              const active = selectedPriceRange === r.id;
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setSelectedPriceRange(r.id)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 16,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: active ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-                    background: active ? '#eff6ff' : '#ffffff',
-                    color: active ? '#2563eb' : '#475569',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {r.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* District & Sort Dropdowns */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* District Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <HiLocationMarker size={15} color="#2563eb" />
+            {/* Kerala District Selector */}
+            <div className="relative w-full sm:w-56 shrink-0">
+              <HiLocationMarker className="absolute left-3 top-2.5 text-blue-600 w-4 h-4 pointer-events-none" />
               <select
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
-                style={{
-                  padding: '7px 12px',
-                  borderRadius: 10,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#1e293b',
-                  background: '#f8fafc',
-                  border: selectedDistrict !== 'All Kerala' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
+                className="w-full pl-9 pr-8 py-2.5 text-xs sm:text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all cursor-pointer text-slate-800"
               >
-                {KERALA_DISTRICTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
+                <option value="All Kerala">📍 All Kerala (14 Districts)</option>
+                {KERALA_DISTRICTS.map((dist) => (
+                  <option key={dist} value={dist}>
+                    {dist}
+                  </option>
                 ))}
               </select>
             </div>
-
-            {/* Sort Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Sort:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                style={{
-                  padding: '7px 12px',
-                  borderRadius: 10,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#1e293b',
-                  background: '#f8fafc',
-                  border: '1px solid #cbd5e1',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.id} value={opt.id}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Reset Button */}
-            {(selectedCategory !== 'all' ||
-              selectedDistrict !== 'All Kerala' ||
-              selectedPriceRange !== 'all' ||
-              searchQuery.trim() ||
-              sortBy !== 'newest') && (
-              <button
-                type="button"
-                onClick={resetFilters}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 8,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: '#ef4444',
-                  background: '#fee2e2',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                Reset All
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Results Counter */}
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
-            {selectedCategory !== 'all'
-              ? `${selectedCategory} Products`
-              : 'All Verified Kerala Products'}{' '}
-            <span style={{ color: '#64748b', fontSize: 14, fontWeight: 600 }}>
-              ({filteredProducts.length} items)
-            </span>
-          </h2>
-        </div>
+        {/* ── Horizontal Scrollable Categories ── */}
+        <div className="border-t border-slate-100 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+                  selectedCategory === 'all'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <span>✨</span>
+                <span>All Products</span>
+              </button>
 
-        {/* Products Grid */}
+              {categoriesList.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                const icon = CATEGORY_ICONS[cat] || '📦';
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>{icon}</span>
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Secondary Filter Bar: Price Range & Sorting ── */}
+      <div className="bg-slate-50 border-b border-slate-200/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Price Range Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1">
+                Price:
+              </span>
+              {PRICE_RANGES.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedPriceRange(r.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+                    selectedPriceRange === r.id
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort & Stats */}
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs font-semibold text-slate-500">
+                <span className="font-bold text-slate-900">{filteredProducts.length}</span> items
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-500">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 outline-none focus:border-blue-600 cursor-pointer shadow-sm"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 underline decoration-blue-300"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Products Grid Content ── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748b' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🛍️</div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 16 }}>Loading Kerala marketplace products...</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6 animate-pulse">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-slate-200 p-3 space-y-3">
+                <div className="w-full aspect-square bg-slate-200 rounded-xl" />
+                <div className="h-4 bg-slate-200 rounded w-3/4" />
+                <div className="h-4 bg-slate-200 rounded w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              background: '#ffffff',
-              borderRadius: 20,
-              border: '1.5px dashed #cbd5e1',
-              maxWidth: 600,
-              margin: '40px auto',
-            }}
-          >
-            <div style={{ fontSize: 36, marginBottom: 10 }}>🛍️</div>
-            <h3 style={{ margin: '0 0 6px', fontSize: 18, color: '#1e293b', fontWeight: 800 }}>
-              No products found
-            </h3>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>
-              We couldn't find any products matching your selected filters. Try searching for something else or reset your filters.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button
-                type="button"
-                onClick={resetFilters}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: 10,
-                  background: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                Reset Filters
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(true)}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: 10,
-                  background: '#16a34a',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                + List Your Product
-              </button>
+          <div className="py-20 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
+              <HiOutlineAdjustments className="w-8 h-8" />
             </div>
+            <h3 className="text-lg font-bold text-slate-800">No products found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              We couldn't find any items matching your selected filters or search query.
+            </p>
+            <button
+              onClick={resetFilters}
+              className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all"
+            >
+              Reset All Filters
+            </button>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 22,
-            }}
-          >
-            {filteredProducts.map((item) => {
-              const unitP = Number(item.price) || 0;
-              const origP = item.original_price ? Number(item.original_price) : 0;
-              const discount = origP > unitP ? Math.round(((origP - unitP) / origP) * 100) : 0;
-              const mainImg =
-                item.images?.[0] ||
-                'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
-
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: 16,
-                    border: '1.5px solid #e2e8f0',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'all 0.25s ease',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 12px 24px -6px rgba(0, 0, 0, 0.12)';
-                    e.currentTarget.style.borderColor = '#bfdbfe';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                  }}
-                >
-                  {/* Image container */}
-                  <div style={{ position: 'relative', width: '100%', height: 220, overflow: 'hidden' }}>
-                    <img
-                      src={mainImg}
-                      alt={item.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.4s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
-                    />
-
-                    {/* Discount Badge */}
-                    {discount > 0 && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          left: 10,
-                          background: '#ef4444',
-                          color: '#ffffff',
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: '0.02em',
-                          boxShadow: '0 2px 6px rgba(239, 68, 68, 0.4)',
-                        }}
-                      >
-                        {discount}% OFF
-                      </div>
-                    )}
-
-                    {/* District location badge */}
-                    {item.district && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: 10,
-                          left: 10,
-                          background: 'rgba(15, 23, 42, 0.8)',
-                          backdropFilter: 'blur(4px)',
-                          color: '#ffffff',
-                          padding: '3px 8px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <HiLocationMarker size={12} color="#38bdf8" />
-                        <span>{item.city || item.district}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Body Content */}
-                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: '#2563eb',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        marginBottom: 4,
-                      }}
-                    >
-                      {item.category}
-                    </span>
-
-                    <h3
-                      style={{
-                        margin: '0 0 8px',
-                        fontSize: 15,
-                        fontWeight: 700,
-                        color: '#0f172a',
-                        lineHeight: 1.35,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        minHeight: 40,
-                      }}
-                    >
-                      {item.name}
-                    </h3>
-
-                    {/* Sizes Pill row */}
-                    {Array.isArray(item.sizes) && item.sizes.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-                        {item.sizes.slice(0, 3).map((sz, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              fontSize: 11,
-                              background: '#f1f5f9',
-                              color: '#475569',
-                              padding: '2px 7px',
-                              borderRadius: 4,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {sz}
-                          </span>
-                        ))}
-                        {item.sizes.length > 3 && (
-                          <span style={{ fontSize: 11, color: '#94a3b8', padding: '2px 4px' }}>
-                            +{item.sizes.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Price and Order Row */}
-                    <div
-                      style={{
-                        marginTop: 'auto',
-                        paddingTop: 12,
-                        borderTop: '1px solid #f1f5f9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                          <span style={{ fontSize: 18, fontWeight: 900, color: '#16a34a' }}>
-                            ₹{unitP.toLocaleString('en-IN')}
-                          </span>
-                          {origP > unitP && (
-                            <span style={{ fontSize: 12, color: '#94a3b8', textDecoration: 'line-through' }}>
-                              ₹{origP.toLocaleString('en-IN')}
-                            </span>
-                          )}
-                        </div>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>
-                          By {item.seller_name || 'Verified Seller'}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedOrderProduct(item);
-                          setIsOrderModalOpen(true);
-                        }}
-                        style={{
-                          padding: '9px 16px',
-                          borderRadius: 10,
-                          background: '#2563eb',
-                          color: '#ffffff',
-                          border: 'none',
-                          fontSize: 13,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
-                          transition: 'all 0.15s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#1d4ed8')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#2563eb')}
-                      >
-                        <HiShoppingBag size={15} />
-                        <span>Order Now</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-5">
+            {filteredProducts.map((prod) => (
+              <ProductCard
+                key={prod.id}
+                product={prod}
+                isWishlisted={wishlistIds.has(String(prod.id))}
+                onToggleWishlist={handleToggleWishlist}
+                onQuickAddToCart={handleQuickAdd}
+              />
+            ))}
           </div>
         )}
       </main>
 
-      {/* Product Order Modal */}
-      <ProductOrderModal
-        isOpen={isOrderModalOpen}
-        onClose={() => {
-          setIsOrderModalOpen(false);
-          setSelectedOrderProduct(null);
-        }}
-        product={selectedOrderProduct}
-        customerUser={user}
+      {/* ── Toast Notification ── */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-slate-900/95 text-white text-xs font-bold shadow-2xl backdrop-blur-sm animate-bounce flex items-center gap-2">
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* ── Slide-Out Cart Drawer ── */}
+      <MarketCartDrawer
+        isOpen={isCartOpen}
+        initialTab={cartTab}
+        onClose={() => setIsCartOpen(false)}
+        onOpenAddressModal={() => setIsAddressModalOpen(true)}
       />
 
-      {/* Customer Add Product Modal */}
+      {/* ── Delivery Address Modal ── */}
+      <DeliveryAddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onAddressSaved={() => {
+          showToast('Delivery address updated!');
+        }}
+      />
+
+      {/* ── Add Product Modal (Seller) ── */}
       <CustomerAddProductModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         customerUser={user}
         onProductCreated={() => {
-          loadProducts();
+          showToast('Product published successfully!');
+          loadData();
         }}
       />
     </div>

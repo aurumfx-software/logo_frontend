@@ -232,6 +232,7 @@ export default function LandingProductsSection({
               return (
                 <div
                   key={item.id}
+                  onClick={() => navigate(`/product/${item.id}`)}
                   style={{
                     background: '#ffffff',
                     borderRadius: 16,
@@ -241,6 +242,7 @@ export default function LandingProductsSection({
                     flexDirection: 'column',
                     transition: 'all 0.25s ease',
                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                    cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
@@ -401,7 +403,10 @@ export default function LandingProductsSection({
 
                       <button
                         type="button"
-                        onClick={() => onOpenOrderModal(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/product/${item.id}`);
+                        }}
                         style={{
                           padding: '9px 16px',
                           borderRadius: 10,

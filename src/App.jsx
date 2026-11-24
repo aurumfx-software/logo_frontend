@@ -12,6 +12,10 @@ import Merchants from './pages/Merchants';
 import MerchantDetail from './pages/MerchantDetail';
 import AdDetail from './pages/AdDetail';
 import MarketplacePage from './pages/MarketplacePage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import CheckoutPage from './pages/CheckoutPage';
+import OrderConfirmedPage from './pages/OrderConfirmedPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 import AdsPage from './pages/AdsPage';
 import Users from './pages/Users';
 import Promotions from './pages/Promotions';
@@ -105,6 +109,15 @@ function AppRoutes() {
       <Route path="/market" element={<MarketplacePage />} />
       <Route path="/store" element={<MarketplacePage />} />
       <Route path="/products-catalog" element={<MarketplacePage />} />
+      <Route path="/product/:id" element={<ProductDetailPage />} />
+      <Route path="/market/product/:id" element={<ProductDetailPage />} />
+      <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/order/checkout" element={<CheckoutPage />} />
+      <Route path="/order/confirmed" element={<OrderConfirmedPage />} />
+      <Route path="/order/:id" element={<OrderTrackingPage />} />
+      <Route path="/track/:id" element={<OrderTrackingPage />} />
+      <Route path="/my-orders" element={<OrderTrackingPage />} />
+      <Route path="/orders" element={<OrderTrackingPage />} />
       <Route path="/ads" element={<AdsPage />} />
       <Route path="/featured-ads" element={<AdsPage />} />
       <Route path="/network" element={<AdsPage />} />

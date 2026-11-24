@@ -106,6 +106,27 @@ export default function ZeashellNavbar({
   const [policyLastUpdated, setPolicyLastUpdated] = useState('');
   const [policyLoading, setPolicyLoading] = useState(false);
 
+  // Real-time market cart badge count
+  const [cartCount, setCartCount] = useState(() => {
+    try {
+      const raw = localStorage.getItem('@logo_marketplace_cart');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.reduce((sum, it) => sum + Number(it.quantity || 1), 0) : 0;
+      }
+    } catch (_) {}
+    return 0;
+  });
+
+  useEffect(() => {
+    const handleCartChanged = (e) => {
+      const items = e?.detail || [];
+      setCartCount(items.reduce((sum, it) => sum + Number(it.quantity || 1), 0));
+    };
+    window.addEventListener('logo-cart-changed', handleCartChanged);
+    return () => window.removeEventListener('logo-cart-changed', handleCartChanged);
+  }, []);
+
   const openPolicyModal = async (policyKey) => {
     setLegalModalPolicy(policyKey);
     setPolicyLoading(true);
@@ -780,12 +801,34 @@ export default function ZeashellNavbar({
                 navigate('/marketplace');
               }}
             >
-              <div className="zeas-blue-badge-wrap">
+              <div className="zeas-blue-badge-wrap" style={{ position: 'relative' }}>
                 <HiOutlineShoppingBag
                   size={21}
                   className="zeas-blue-action-icon"
                   style={{ color: '#0284c7' }}
                 />
+                {cartCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      width: 17,
+                      height: 17,
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)',
+                    }}
+                  >
+                    {cartCount}
+                  </span>
+                )}
               </div>
               <span
                 className="zeas-blue-action-label desktop-only"
