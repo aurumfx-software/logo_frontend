@@ -651,34 +651,66 @@ export default function CompanyWallet() {
       ...(Array.isArray(txData) ? txData : []),
     ];
 
-    const seen = new Set();
+    const seenKeys = new Set();
     const result = [];
 
     for (const item of allSource) {
       if (!item || typeof item !== 'object') continue;
-      const key = item.id || item.transaction_group_id || JSON.stringify(item);
-      if (seen.has(key)) continue;
-      seen.add(key);
+
+      const desc = String(item.description || item.note || '');
+      const descUpper = desc.toUpperCase();
+
+      // Exclude subscriptions, memberships, seller plans
+      if (descUpper.includes('SUBSCRIPTION') || descUpper.includes('MEMBERSHIP') || descUpper.includes('SELLER PLAN')) {
+        continue;
+      }
+
+      // Exclude Received Fund entries completely as requested
+      if (descUpper.includes('RECEIVED FUND') || descUpper.includes('FROM RECEIVED')) {
+        continue;
+      }
 
       const m = String(item.movement || '').toUpperCase();
       const t = String(item.type || item.transaction_type || '').toUpperCase();
-      const desc = String(item.description || item.note || '').toUpperCase();
-
-      if (desc.includes('SUBSCRIPTION') || desc.includes('MEMBERSHIP') || desc.includes('SELLER PLAN')) continue;
 
       const isSent =
         m === 'SENT' ||
         t === 'ADMIN_SEND_FUNDS' ||
         t === 'ADMIN_CREDIT' ||
-        desc.includes('ADMIN CASH TRANSFER') ||
-        desc.includes('CASH SENT') ||
-        desc.includes('ADMIN FUNDS TRANSFER') ||
-        desc.includes('SENT FROM ADMIN') ||
-        (desc.includes('ADDED FUND') && m === 'SENT');
+        descUpper.includes('ADMIN CASH TRANSFER') ||
+        descUpper.includes('CASH SENT') ||
+        descUpper.includes('ADMIN FUNDS TRANSFER') ||
+        descUpper.includes('SENT FROM ADMIN') ||
+        (descUpper.includes('ADDED FUND') && m === 'SENT');
 
-      if (isSent) {
-        result.push(item);
+      if (!isSent) continue;
+
+      // Extract recipient name
+      const rawName =
+        item.user_name ||
+        item.recipient_name ||
+        item.name ||
+        (desc.includes('Cash sent to ')
+          ? desc.split('Cash sent to ')[1].split(' (')[0].trim()
+          : desc.includes('transfer to ')
+          ? desc.split('transfer to ')[1].split(' from')[0].trim()
+          : '');
+
+      // Exclude generic "Recipient" entries (user requested: no "Recipient" entries in history or total)
+      if (!rawName || rawName.trim().toLowerCase() === 'recipient') {
+        continue;
       }
+
+      // Deduplicate: avoid duplicating between customEntries and backend records
+      const amtKey = Math.round(Number(item.amount || 0));
+      const targetKey = (item.user_code || item.user_id || rawName).toString().trim().toLowerCase();
+      const dateKey = item.created_at ? new Date(item.created_at).toISOString().slice(0, 13) : '';
+      const dedupeKey = `${targetKey}_${amtKey}_${dateKey}`;
+
+      if (seenKeys.has(dedupeKey)) continue;
+      seenKeys.add(dedupeKey);
+
+      result.push(item);
     }
 
     return result;

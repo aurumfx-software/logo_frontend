@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   HiOutlineUser,
   HiOutlinePhone,
@@ -26,7 +27,10 @@ import {
   toggleUserStatus,
   deleteAdminOrStaffAccount,
   updateAdminOrStaffAccount,
+  impersonateMemberApi,
 } from '../api/userApi';
+import { getAccessToken, getRefreshToken } from '../api/apiClient';
+import { useAuth } from '../context/AuthContext';
 import { adminAdjustWallet } from '../api/walletApi';
 
 const KERALA_DISTRICTS = [
@@ -47,7 +51,53 @@ const KERALA_DISTRICTS = [
 ];
 
 export default function Customers() {
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
+
+  const isSuperOrAdmin =
+    !user?.role ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    String(user?.role).toUpperCase().includes('ADMIN');
+
+  const handleImpersonateCustomer = async (cust) => {
+    if (!cust) return;
+    const custId = cust.rawId || cust.user_id || cust.id;
+    const name = cust.name || cust.full_name || cust.email || `Customer #${custId}`;
+    if (!window.confirm(`Login as customer "${name}" (Impersonation mode)?`)) {
+      return;
+    }
+    try {
+      const res = await impersonateMemberApi(custId);
+      // Backup current admin session
+      const adminBackup = {
+        user: localStorage.getItem('logo_admin_user'),
+        userId: localStorage.getItem('user_id'),
+        userCode: localStorage.getItem('user_code'),
+        accessToken: getAccessToken(),
+        refreshToken: getRefreshToken(),
+      };
+      localStorage.setItem('admin_session_backup', JSON.stringify(adminBackup));
+      localStorage.setItem('is_impersonation', 'true');
+      localStorage.setItem(
+        'impersonated_user',
+        JSON.stringify(res.user || { name, role: res.role, user_code: res.user_code, login_id: res.login_id })
+      );
+
+      login(
+        res.user || { name, role: res.role, user_code: res.user_code, login_id: res.login_id },
+        {
+          accessToken: res.access_token,
+          refreshToken: res.refresh_token,
+        }
+      );
+
+      navigate('/marketplace');
+    } catch (err) {
+      alert(err.message || 'Failed to impersonate customer');
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [districtFilter, setDistrictFilter] = useState('all');
@@ -400,6 +450,23 @@ export default function Customers() {
             >
               <HiOutlinePencil />
             </button>
+            {isSuperOrAdmin && (
+              <button
+                className="btn btn-outline btn-sm btn-icon"
+                title="Login as Customer (Impersonate)"
+                style={{
+                  color: '#6D28D9',
+                  borderColor: '#DDD6FE',
+                  background: '#F5F3FF',
+                  fontWeight: 900,
+                  fontSize: 13,
+                  minWidth: 32,
+                }}
+                onClick={() => handleImpersonateCustomer(row)}
+              >
+                <span style={{ fontFamily: 'monospace', fontWeight: 900 }}>I</span>
+              </button>
+            )}
             <button
               className="btn btn-outline btn-sm btn-icon"
               title="Customer Wallet (Send Cash / Credit)"

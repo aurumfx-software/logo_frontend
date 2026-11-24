@@ -39,6 +39,8 @@ import {
 } from '../api/merchantApi';
 import { adminAdjustWallet } from '../api/walletApi';
 import { fetchCategoriesList } from '../api/categoryApi';
+import { impersonateMerchantApi } from '../api/userApi';
+import { getAccessToken, getRefreshToken } from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import {
   STATE_DISTRICT_REGIONS,
@@ -105,9 +107,53 @@ const initialMerchantState = {
 };
 
 export default function Merchants() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isSuperOrAdmin =
+    !user?.role ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    String(user?.role).toUpperCase().includes('ADMIN');
+
+  const handleImpersonateMerchant = async (merchantRow) => {
+    if (!merchantRow) return;
+    const merchantId = merchantRow.id || merchantRow.user_id;
+    const name = merchantRow.name || merchantRow.business_name || `Merchant #${merchantId}`;
+    if (!window.confirm(`Login as merchant "${name}" (Impersonation mode)?`)) {
+      return;
+    }
+    try {
+      const res = await impersonateMerchantApi(merchantId);
+      // Backup current admin session
+      const adminBackup = {
+        user: localStorage.getItem('logo_admin_user'),
+        userId: localStorage.getItem('user_id'),
+        userCode: localStorage.getItem('user_code'),
+        accessToken: getAccessToken(),
+        refreshToken: getRefreshToken(),
+      };
+      localStorage.setItem('admin_session_backup', JSON.stringify(adminBackup));
+      localStorage.setItem('is_impersonation', 'true');
+      localStorage.setItem(
+        'impersonated_user',
+        JSON.stringify(res.user || { name, role: res.role, user_code: res.user_code, login_id: res.login_id })
+      );
+
+      login(
+        res.user || { name, role: res.role, user_code: res.user_code, login_id: res.login_id },
+        {
+          accessToken: res.access_token,
+          refreshToken: res.refresh_token,
+        }
+      );
+
+      navigate('/merchant');
+    } catch (err) {
+      alert(err.message || 'Failed to impersonate merchant');
+    }
+  };
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
@@ -342,7 +388,13 @@ export default function Merchants() {
         landmark: newMerchant.place || newMerchant.landmark || newMerchant.address || 'Near Bus Stand',
         services: [newMerchant.category || 'Retail'],
         service_timing: newMerchant.service_timing || '09:00 AM - 09:00 PM',
+        photos: validPhotos,
         merchant_photos: validPhotos,
+        photo_1: validPhotos[0] || null,
+        photo_2: validPhotos[1] || null,
+        photo_3: validPhotos[2] || null,
+        photo_4: validPhotos[3] || null,
+        video_url: newMerchant.videoUrl || null,
         merchant_videos: newMerchant.videoUrl ? [newMerchant.videoUrl] : [],
         user_code: currentUserCode,
         status: 'PENDING',
@@ -431,9 +483,22 @@ export default function Merchants() {
 
   const handleOpenEditModal = (merchantRow) => {
     setEditingMerchant(merchantRow);
-    const photosArr = Array.isArray(merchantRow.photos) && merchantRow.photos.length > 0
-      ? [...merchantRow.photos, '', '', '', ''].slice(0, 4)
-      : ['', '', '', ''];
+    const existingPhotos = [
+      ...(Array.isArray(merchantRow.photos) ? merchantRow.photos : []),
+      ...(Array.isArray(merchantRow.merchant_photos) ? merchantRow.merchant_photos : []),
+      merchantRow.photo_1,
+      merchantRow.photo_2,
+      merchantRow.photo_3,
+      merchantRow.photo_4,
+    ].filter((p) => p && typeof p === 'string' && p.trim() && !p.includes('images.unsplash.com'));
+
+    const photosArr = [...existingPhotos, '', '', '', ''].slice(0, 4);
+
+    const existingVideo =
+      merchantRow.videoUrl ||
+      merchantRow.video_url ||
+      (Array.isArray(merchantRow.merchant_videos) ? merchantRow.merchant_videos[0] : '') ||
+      '';
 
     const resolvedDistricts = Array.isArray(merchantRow.districts) && merchantRow.districts.length > 0
       ? merchantRow.districts
@@ -485,7 +550,7 @@ export default function Merchants() {
       service_timing: merchantRow.service_timing || '09:00 AM - 09:00 PM',
       status: merchantRow.status ? merchantRow.status.toUpperCase() : 'APPROVED',
       photos: photosArr,
-      videoUrl: merchantRow.videoUrl || '',
+      videoUrl: existingVideo,
       cashback_percent: merchantRow.cashback_percent !== undefined && merchantRow.cashback_percent !== null && !isNaN(Number(merchantRow.cashback_percent))
         ? Number(merchantRow.cashback_percent)
         : 3.0,
@@ -541,6 +606,14 @@ export default function Merchants() {
         cashback_percent: cleanCb,
         company_fee_percent: cleanCf,
         total_deduction_percent: cleanTot,
+        photos: validPhotos,
+        merchant_photos: validPhotos,
+        photo_1: validPhotos[0] || null,
+        photo_2: validPhotos[1] || null,
+        photo_3: validPhotos[2] || null,
+        photo_4: validPhotos[3] || null,
+        video_url: editFormData.videoUrl || null,
+        merchant_videos: editFormData.videoUrl ? [editFormData.videoUrl] : [],
       });
 
       // Update local table data
@@ -576,8 +649,15 @@ export default function Merchants() {
               cashback_percent: cleanCb,
               company_fee_percent: cleanCf,
               total_deduction_percent: cleanTot,
-              photos: validPhotos.length > 0 ? validPhotos : m.photos,
-              videoUrl: editFormData.videoUrl || m.videoUrl,
+              photos: validPhotos,
+              merchant_photos: validPhotos,
+              photo_1: validPhotos[0] || null,
+              photo_2: validPhotos[1] || null,
+              photo_3: validPhotos[2] || null,
+              photo_4: validPhotos[3] || null,
+              videoUrl: editFormData.videoUrl || '',
+              video_url: editFormData.videoUrl || '',
+              merchant_videos: editFormData.videoUrl ? [editFormData.videoUrl] : [],
             }
             : m
         )
@@ -794,26 +874,7 @@ export default function Merchants() {
       key: 'name',
       label: 'Merchant Name',
       render: (val) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--primary-ultra-light)',
-              color: 'var(--primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 13,
-              flexShrink: 0,
-            }}
-          >
-            {val?.charAt(0)}
-          </div>
-          <span style={{ fontWeight: 600 }}>{val}</span>
-        </div>
+        <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>
       ),
     },
     { key: 'category', label: 'Category' },
@@ -944,6 +1005,23 @@ export default function Merchants() {
           >
             <HiOutlinePencil />
           </button>
+          {isSuperOrAdmin && (
+            <button
+              className="btn btn-outline btn-sm btn-icon"
+              title="Login as Merchant (Impersonate)"
+              style={{
+                color: '#6D28D9',
+                borderColor: '#DDD6FE',
+                background: '#F5F3FF',
+                fontWeight: 900,
+                fontSize: 13,
+                minWidth: 32,
+              }}
+              onClick={() => handleImpersonateMerchant(row)}
+            >
+              <span style={{ fontFamily: 'monospace', fontWeight: 900 }}>I</span>
+            </button>
+          )}
           <button
             className="btn btn-outline btn-sm btn-icon"
             title="Merchant Wallet (Send / Adjust Cash)"

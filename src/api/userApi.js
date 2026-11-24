@@ -321,6 +321,48 @@ export async function updateAdminOrStaffAccount(userId, updatedData) {
   return data;
 }
 
+/**
+ * Impersonate a customer or member by ID or code.
+ */
+export async function impersonateMemberApi(userId) {
+  const response = await apiFetch(`/api/v1/admin/members/${userId}/impersonate`, {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to impersonate customer');
+  }
+  return data;
+}
+
+/**
+ * Impersonate a merchant from the merchant list by profile ID or user ID.
+ */
+export async function impersonateMerchantApi(merchantId) {
+  const response = await apiFetch(`/api/v1/admin/merchants/${merchantId}/impersonate`, {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to impersonate merchant');
+  }
+  return data;
+}
+
+/**
+ * Return to the admin session from an impersonation session.
+ */
+export async function switchBackToAdminApi() {
+  const response = await apiFetch('/api/v1/auth/switch-back', {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to switch back to admin');
+  }
+  return data;
+}
+
 
 
 

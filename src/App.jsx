@@ -30,6 +30,7 @@ import CompanyWallet from './pages/CompanyWallet';
 import Withdrawals from './pages/Withdrawals';
 import Subscriptions from './pages/Subscriptions';
 import Customers from './pages/Customers';
+import ImpersonationBanner from './components/common/ImpersonationBanner';
 
 
 // Protected route wrapper — redirects to /login if not authenticated
@@ -234,6 +235,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ImpersonationBanner />
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>

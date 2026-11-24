@@ -26,7 +26,7 @@ import {
   FaGlobe,
   FaEnvelope,
 } from 'react-icons/fa';
-import { fetchMerchantsList, getMerchantById } from '../api/merchantApi';
+import { fetchMerchantsList, getMerchantById, formatMediaUrl } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 import ZeashellShopModal from '../components/landing/ZeashellShopModal';
 
@@ -40,7 +40,7 @@ function formatSocialUrl(url) {
   return `https://${str.replace(/^\/+/, '')}`;
 }
 
-// Standard fallback establishments matching landing page & screenshot
+// Standard fallback establishments matching landing page
 const FALLBACK_MERCHANTS = [
   {
     id: 'mock-001',
@@ -59,8 +59,7 @@ const FALLBACK_MERCHANTS = [
       'Authentic Kerala cuisine with traditional recipes passed down through generations. Famous for our fish curry and appam.',
     description:
       'Authentic Kerala cuisine with traditional recipes passed down through generations. Famous for our fish curry and appam.',
-    image:
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&auto=format&fit=crop&q=80',
+    image: '',
     latitude: 9.9716,
     longitude: 76.2846,
     status: 'active',
@@ -86,8 +85,7 @@ const FALLBACK_MERCHANTS = [
       'Free Parking Available',
       'Cards & UPI Accepted',
     ],
-    image:
-      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000&auto=format&fit=crop&q=80',
+    image: '',
     latitude: 12.1025,
     longitude: 75.2032,
     status: 'active',
@@ -107,8 +105,7 @@ const FALLBACK_MERCHANTS = [
     description:
       'Freshly baked cakes, pastries, traditional snacks, and hot beverages served daily.',
     highlights: ['Custom Cakes', 'Fresh Pastries', 'Drive-through', 'Clean Hygiene'],
-    image:
-      'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1000&auto=format&fit=crop&q=80',
+    image: '',
     latitude: 12.105,
     longitude: 75.201,
     status: 'active',
@@ -128,8 +125,7 @@ const FALLBACK_MERCHANTS = [
     description:
       'Premium ISI & ECE certified helmets, riding jackets, gloves, and motorcycle accessories.',
     highlights: ['Certified Gear', 'Top Brands', 'Rider Discounts', 'Visor Replacement'],
-    image:
-      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=1000&auto=format&fit=crop&q=80',
+    image: '',
     latitude: 12.098,
     longitude: 75.208,
     status: 'active',
@@ -229,43 +225,32 @@ export default function MerchantDetail({ isPublic = false }) {
     }
   };
 
-  // Raw photos array
+  // Raw photos array — filter out dummy images completely and only keep real photos
   const rawPhotos = merchant
     ? [
-        merchant.image,
         ...(Array.isArray(merchant.photos) ? merchant.photos : []),
+        ...(Array.isArray(merchant.merchant_photos) ? merchant.merchant_photos : []),
         merchant.photo_1,
         merchant.photo_2,
         merchant.photo_3,
         merchant.photo_4,
-      ].filter(Boolean)
+        merchant.photo_5,
+        merchant.photo_6,
+        merchant.image,
+      ]
+        .filter((p) => p && typeof p === 'string' && p.trim() && !p.includes('images.unsplash.com'))
+        .map((p) => formatMediaUrl(p.trim()))
     : [];
 
-  const defaultFallbackPhotos = [
-    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&auto=format&fit=crop&q=80',
-  ];
+  const photos = Array.from(new Set(rawPhotos));
 
-  const upgradeDetailPhoto = (url) => {
-    if (!url || typeof url !== 'string') return '';
-    let res = url.trim();
-    if (res.includes('images.unsplash.com')) {
-      res = res.replace(/w=\d+/, 'w=1600').replace(/q=\d+/, 'q=90');
-    }
-    return res;
-  };
-
-  const photos = (
-    rawPhotos.length > 1
-      ? rawPhotos
-      : rawPhotos.length === 1
-      ? [rawPhotos[0], ...defaultFallbackPhotos.slice(1)]
-      : defaultFallbackPhotos
-  ).map(upgradeDetailPhoto);
+  // Promo video URL
+  const promoVideo =
+    merchant?.videoUrl ||
+    merchant?.video_url ||
+    (Array.isArray(merchant?.merchant_videos) && merchant.merchant_videos[0]) ||
+    null;
+  const formattedVideoUrl = promoVideo ? formatMediaUrl(promoVideo) : null;
 
   // Key highlights
   const highlights =
@@ -468,23 +453,62 @@ export default function MerchantDetail({ isPublic = false }) {
         <div style={{ padding: '24px 28px 32px', display: 'grid', gap: 28 }}>
           {/* ── HERO BANNER IMAGE ── */}
           <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
-            <img
-              src={photos[activePhoto] || photos[0]}
-              alt={merchant.name}
-              style={{
-                width: '100%',
-                height: 'clamp(220px, 42vw, 380px)',
-                objectFit: 'cover',
-                display: 'block',
-                imageRendering: '-webkit-optimize-contrast',
-                filter: 'contrast(1.02) saturate(1.02)',
-              }}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src =
-                  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&auto=format&fit=crop&q=90';
-              }}
-            />
+            {photos.length > 0 ? (
+              <img
+                src={photos[activePhoto] || photos[0]}
+                alt={merchant.name}
+                style={{
+                  width: '100%',
+                  height: 'clamp(220px, 42vw, 380px)',
+                  objectFit: 'cover',
+                  display: 'block',
+                  imageRendering: '-webkit-optimize-contrast',
+                  filter: 'contrast(1.02) saturate(1.02)',
+                }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: 'clamp(200px, 35vw, 300px)',
+                  background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  border: '1px solid #E2E8F0',
+                }}
+              >
+                <div
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 16,
+                    background: '#EDE9FE',
+                    color: '#6D28D9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 26,
+                  }}
+                >
+                  <HiOutlinePhotograph />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#334155' }}>
+                    {merchant.name || 'Merchant Store'}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
+                    No storefront photos uploaded yet
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Thumbnail selector overlay if multiple photos */}
             {photos.length > 1 && (
@@ -830,74 +854,93 @@ export default function MerchantDetail({ isPublic = false }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <HiOutlinePhotograph style={{ color: '#6C63FF' }} /> Photo Gallery
-                <span style={{ fontSize: 13, background: '#EDE9FE', color: '#5B21B6', padding: '2px 10px', borderRadius: 20, fontWeight: 700 }}>
+                <span style={{ fontSize: 13, background: photos.length > 0 ? '#EDE9FE' : '#F1F5F9', color: photos.length > 0 ? '#5B21B6' : '#64748B', padding: '2px 10px', borderRadius: 20, fontWeight: 700 }}>
                   {photos.length} Photos
                 </span>
               </h3>
-              <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Click photo to enlarge</span>
+              {photos.length > 0 && (
+                <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Click photo to enlarge</span>
+              )}
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                gap: 12,
-              }}
-            >
-              {photos.map((photoUrl, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setLightboxIndex(idx)}
-                  style={{
-                    position: 'relative',
-                    height: 120,
-                    borderRadius: 14,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    border: '1px solid #E2E8F0',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.03)';
-                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(108, 99, 255, 0.25)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
-                  }}
-                >
-                  <img
-                    src={photoUrl}
-                    alt={`Gallery photo ${idx + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80';
-                    }}
-                  />
+            {photos.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {photos.map((photoUrl, idx) => (
                   <div
+                    key={idx}
+                    onClick={() => setLightboxIndex(idx)}
                     style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(15, 23, 42, 0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#FFFFFF',
-                      opacity: 0,
-                      transition: 'opacity 0.2s ease',
+                      position: 'relative',
+                      height: 120,
+                      borderRadius: 14,
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                      border: '1px solid #E2E8F0',
+                      transition: 'all 0.2s ease',
                     }}
-                    onMouseOver={(e) => (e.currentTarget.style.opacity = 1)}
-                    onMouseOut={(e) => (e.currentTarget.style.opacity = 0)}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.03)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(108, 99, 255, 0.25)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
+                    }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.75)', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                      <HiOutlineZoomIn size={16} /> View Photo
+                    <img
+                      src={photoUrl}
+                      alt={`Gallery photo ${idx + 1}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(15, 23, 42, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FFFFFF',
+                        opacity: 0,
+                        transition: 'opacity 0.2s ease',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.opacity = 1)}
+                      onMouseOut={(e) => (e.currentTarget.style.opacity = 0)}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.75)', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                        <HiOutlineZoomIn size={16} /> View Photo
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '36px 16px',
+                  background: '#F8FAFC',
+                  borderRadius: 14,
+                  border: '1.5px dashed #CBD5E1',
+                }}
+              >
+                <HiOutlinePhotograph style={{ fontSize: 36, color: '#94A3B8', margin: '0 auto 8px', display: 'block' }} />
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: '#64748B' }}>
+                  No photos uploaded for this merchant yet
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ── MAP EMBED & COORDINATES SECTION ── */}
@@ -941,7 +984,7 @@ export default function MerchantDetail({ isPublic = false }) {
           })()}
 
           {/* ── PROMO VIDEO IF PRESENT ── */}
-          {merchant.videoUrl && (
+          {formattedVideoUrl && (
             <div style={{ display: 'grid', gap: 10 }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <HiOutlineVideoCamera style={{ color: '#6C63FF' }} /> Promo Video
@@ -951,8 +994,8 @@ export default function MerchantDetail({ isPublic = false }) {
                   controls
                   playsInline
                   preload="metadata"
-                  key={merchant.videoUrl}
-                  src={merchant.videoUrl}
+                  key={formattedVideoUrl}
+                  src={formattedVideoUrl}
                   style={{ width: '100%', maxHeight: 360, display: 'block' }}
                 />
               </div>
