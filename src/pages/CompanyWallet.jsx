@@ -101,6 +101,7 @@ export default function CompanyWallet() {
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerPageSize] = useState(20);
   const [ledgerTotalPages, setLedgerTotalPages] = useState(1);
+  const [selectedCommissionDetail, setSelectedCommissionDetail] = useState(null);
 
   // ── Global Alerts ──
   const [actionSuccess, setActionSuccess] = useState('');
@@ -671,19 +672,40 @@ export default function CompanyWallet() {
     });
   }, [cashData, cashMovementFilter]);
 
-  // Extract Summary Values
-  const companyBalance =
-    summaryData?.total_commission !== undefined
-      ? Number(summaryData.total_commission).toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : summaryData?.company_balance !== undefined
-      ? Number(summaryData.company_balance).toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : '0.00';
+  // Filter out any topup or subscription rows from platform commission ledger
+  const commissionRows = useMemo(() => {
+    return (ledgerData || []).filter((t) => {
+      const type = String(t.transaction_type || '').toUpperCase();
+      const desc = String(t.note || t.description || '').toUpperCase();
+      // Exclude subscriptions and wallet topups
+      if (type === 'WALLET_TOPUP' || desc.includes('RAZORPAY') || desc.includes('TOP-UP') || desc.includes('TOPUP')) return false;
+      if (desc.includes('SUBSCRIPTION') || desc.includes('MEMBERSHIP') || desc.includes('SELLER PLAN')) return false;
+      return true;
+    });
+  }, [ledgerData]);
+
+  // Extract Summary Values - Total percentage cash commission earned by platform
+  const companyCommissionTotal = useMemo(() => {
+    if (summaryData?.total_commission !== undefined && Number(summaryData.total_commission) > 0) {
+      return Number(summaryData.total_commission).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    if (commissionRows.length > 0) {
+      const sum = commissionRows.reduce(
+        (acc, curr) => acc + (Number(curr.company_fee || curr.amount) || 0),
+        0
+      );
+      return sum.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    return '0.00';
+  }, [summaryData, commissionRows]);
+
+  const companyBalance = companyCommissionTotal;
 
   const totalActiveWalletsBalance =
     (summaryData?.total_balance_across_active_wallets ?? summaryData?.total_active_wallets_balance) !== undefined
@@ -1294,10 +1316,10 @@ export default function CompanyWallet() {
                     border: '1px solid #BAE6FD',
                   }}
                 >
-                  🔵 Platform Commission Ledger ({ledgerTotal} entries)
+                  🔵 Platform Commission Ledger ({commissionRows.length} entries)
                 </span>
                 <span style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)' }}>
-                  Platform fees earned from customer merchant transactions
+                  Percentage platform fee commissions earned from customer purchases at merchants
                 </span>
               </div>
             )}
@@ -1409,7 +1431,7 @@ export default function CompanyWallet() {
         {!tableLoading &&
           !tableError &&
           ((activeTab === 'added_fund' && addedFundEntries.length === 0) ||
-            (activeTab === 'commission' && ledgerData.length === 0) ||
+            (activeTab === 'commission' && commissionRows.length === 0) ||
             (activeTab === 'received' && withdrawalsData.length === 0)) && (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
               <HiOutlineCash style={{ fontSize: 44, color: '#CBD5E1', marginBottom: 12 }} />
@@ -1424,7 +1446,7 @@ export default function CompanyWallet() {
                 {activeTab === 'added_fund'
                   ? 'Click "+ Add Capital" above to inject funds or send money from Added Fund.'
                   : activeTab === 'commission'
-                  ? 'Platform fees will appear here when cashback transactions occur.'
+                  ? 'Platform fee percentage commissions will appear here when customer purchases occur at registered merchants.'
                   : 'Customer and merchant withdrawal requests for admin payout will appear here.'}
               </div>
             </div>
@@ -1603,32 +1625,28 @@ export default function CompanyWallet() {
         )}
 
         {/* ── TABLE 2: PLATFORM COMMISSION LEDGER ── */}
-        {!tableLoading && !tableError && activeTab === 'commission' && ledgerData.length > 0 && (
+        {!tableLoading && !tableError && activeTab === 'commission' && commissionRows.length > 0 && (
           <div className="table-container">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Customer</th>
                   <th>Merchant / Store</th>
-                  <th>Transaction Type</th>
-                  <th style={{ textAlign: 'center' }}>Direction</th>
-                  <th style={{ textAlign: 'right' }}>Commission Received</th>
-                  <th style={{ textAlign: 'right' }}>Balance After</th>
-                  <th>Note</th>
-                  <th>Date</th>
+                  <th style={{ textAlign: 'right' }}>Sale Amount</th>
+                  <th style={{ textAlign: 'center' }}>Merchant Debited</th>
+                  <th style={{ textAlign: 'center' }}>Customer Cashback</th>
+                  <th style={{ textAlign: 'center' }}>Admin Commission</th>
+                  <th>Date &amp; Time</th>
+                  <th style={{ textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {ledgerData.map((t) => {
-                  const isCredit = (t.direction || '').toUpperCase() === 'CREDIT';
-                  const formattedAmount = Number(t.amount || 0).toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
-                  const formattedBalanceAfter = Number(t.balance_after || 0).toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
+                {commissionRows.map((t) => {
+                  const saleAmt = Number(t.sale_amount || t.amount || 0);
+                  const mDebit = Number(t.merchant_debit || (t.sale_amount && t.merchant_deduction_percent ? (t.sale_amount * t.merchant_deduction_percent / 100) : 0));
+                  const cCashback = Number(t.customer_cashback || (t.sale_amount && t.customer_cashback_percent ? (t.sale_amount * t.customer_cashback_percent / 100) : 0));
+                  const adminFee = Number(t.company_fee || t.amount || 0);
+
                   const dateStr = t.date
                     ? new Date(t.date).toLocaleString('en-IN', {
                         dateStyle: 'medium',
@@ -1642,100 +1660,114 @@ export default function CompanyWallet() {
                   return (
                     <tr key={t.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text)' }}>
-                        {customerDisplay ? (
-                          <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text)' }}>
-                              {t.customer_name || customerDisplay}
-                            </div>
-                            {(t.customer_phone || t.customer_email) && (
-                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                                {t.customer_phone || t.customer_email}
-                              </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                            {t.customer_name || customerDisplay || 'Customer'}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span>{t.customer_phone || t.customer_email || '—'}</span>
+                            {t.customer_user_code && (
+                              <span style={{ fontFamily: 'monospace', background: '#F1F5F9', color: '#475569', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>
+                                {t.customer_user_code}
+                              </span>
                             )}
                           </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-light)', fontStyle: 'italic', fontSize: 12 }}>—</span>
-                        )}
+                        </div>
                       </td>
 
                       <td style={{ fontWeight: 600, color: 'var(--text)' }}>
-                        {merchantDisplay ? (
-                          <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text)' }}>
-                              {t.merchant_name || merchantDisplay}
-                            </div>
-                            {t.merchant_city && (
-                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                                📍 {t.merchant_city}
-                              </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                            {t.merchant_name || merchantDisplay || 'Merchant'}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
+                            {t.merchant_city && <span>📍 {t.merchant_city}</span>}
+                            {t.merchant_login_id && (
+                              <span style={{ fontFamily: 'monospace', background: '#EFF6FF', color: '#1D4ED8', padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                                {t.merchant_login_id}
+                              </span>
                             )}
                           </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-light)', fontStyle: 'italic', fontSize: 12 }}>—</span>
-                        )}
+                        </div>
                       </td>
 
-                      <td style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            backgroundColor: '#F1F5F9',
-                            color: '#334155',
-                            fontFamily: 'monospace',
-                            fontWeight: 700,
-                            fontSize: 11,
-                          }}
-                        >
-                          {t.transaction_type || 'PLATFORM_FEE'}
-                        </span>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--text)' }}>
+                        ₹{saleAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       <td style={{ textAlign: 'center' }}>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2',
-                            color: isCredit ? '#15803D' : '#B91C1C',
-                          }}
-                        >
-                          {isCredit ? '+ CREDIT' : '- DEBIT'}
-                        </span>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, color: '#E11D48' }}>
+                            -₹{mDebit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          {t.merchant_deduction_percent !== null && t.merchant_deduction_percent !== undefined && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#BE123C', background: '#FFE4E6', padding: '1px 6px', borderRadius: 6, marginTop: 2 }}>
+                              {t.merchant_deduction_percent}% split
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      <td
-                        style={{
-                          textAlign: 'right',
-                          fontWeight: 800,
-                          color: isCredit ? '#15803D' : '#B91C1C',
-                          fontSize: 14,
-                        }}
-                      >
-                        {isCredit ? '+' : '-'}₹{formattedAmount}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 800, color: '#059669' }}>
+                            +₹{cCashback.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          {t.customer_cashback_percent !== null && t.customer_cashback_percent !== undefined && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#047857', background: '#D1FAE5', padding: '1px 6px', borderRadius: 6, marginTop: 2 }}>
+                              {t.customer_cashback_percent}% cashback
+                            </span>
+                          )}
+                        </div>
                       </td>
 
-                      <td
-                        style={{
-                          textAlign: 'right',
-                          fontFamily: 'monospace',
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: 'var(--text)',
-                        }}
-                      >
-                        ₹{formattedBalanceAfter}
-                      </td>
-
-                      <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 240 }}>
-                        {t.note || '—'}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: '#0284C7' }}>
+                            +₹{adminFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          {t.company_fee_percent !== null && t.company_fee_percent !== undefined && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#0369A1', background: '#E0F2FE', padding: '1px 6px', borderRadius: 6, marginTop: 2 }}>
+                              {t.company_fee_percent}% fee
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {dateStr}
+                      </td>
+
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCommissionDetail(t)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '6px 12px',
+                            borderRadius: 8,
+                            border: '1px solid #BAE6FD',
+                            background: '#F0F9FF',
+                            color: '#0284C7',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#0284C7';
+                            e.currentTarget.style.color = '#FFFFFF';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#F0F9FF';
+                            e.currentTarget.style.color = '#0284C7';
+                          }}
+                        >
+                          <HiOutlineEye style={{ fontSize: 15 }} />
+                          <span>Details</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -2877,6 +2909,251 @@ export default function CompanyWallet() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════ */}
+      {/* 6. COMMISSION BREAKDOWN DETAILS MODAL                        */}
+      {/* ═════════════════════════════════════════════════════════════ */}
+      <Modal
+        isOpen={!!selectedCommissionDetail}
+        onClose={() => setSelectedCommissionDetail(null)}
+        title="Merchant Payment & Commission Breakdown"
+        size="lg"
+      >
+        {selectedCommissionDetail && (
+          <div style={{ padding: '4px 0' }}>
+            {/* Top Banner */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '14px 18px',
+                background: 'linear-gradient(135deg, #0369A1 0%, #0284C7 100%)',
+                borderRadius: 12,
+                color: '#FFFFFF',
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, color: '#BAE6FD', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                  Transaction Reference / Group ID
+                </div>
+                <div style={{ fontSize: 13.5, fontFamily: 'monospace', fontWeight: 800, marginTop: 2, wordBreak: 'break-all' }}>
+                  {selectedCommissionDetail.reference_id || selectedCommissionDetail.transaction_group_id || `#${selectedCommissionDetail.id}`}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 10px',
+                    borderRadius: 20,
+                    background: '#D1FAE5',
+                    color: '#065F46',
+                    fontSize: 11,
+                    fontWeight: 800,
+                  }}
+                >
+                  ● COMPLETED
+                </span>
+                <div style={{ fontSize: 11, color: '#BAE6FD', marginTop: 4 }}>
+                  {selectedCommissionDetail.date ? new Date(selectedCommissionDetail.date).toLocaleString('en-IN') : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* 3-Way Percentage Split Card */}
+            <div
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 14,
+                padding: '18px 20px',
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Cashback &amp; Platform Fee Distribution
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', marginTop: 2 }}>
+                    Total Sale Amount: ₹{Number(selectedCommissionDetail.sale_amount || selectedCommissionDetail.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                {/* Merchant Deduction */}
+                <div
+                  style={{
+                    background: '#FFF1F2',
+                    border: '1px solid #FECDD3',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#E11D48', textTransform: 'uppercase' }}>
+                    Merchant Debited
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#BE123C', marginTop: 4 }}>
+                    -₹{Number(selectedCommissionDetail.merchant_debit || (selectedCommissionDetail.sale_amount && selectedCommissionDetail.merchant_deduction_percent ? (selectedCommissionDetail.sale_amount * selectedCommissionDetail.merchant_deduction_percent / 100) : 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9F1239', marginTop: 4 }}>
+                    {selectedCommissionDetail.merchant_deduction_percent !== null && selectedCommissionDetail.merchant_deduction_percent !== undefined
+                      ? `${selectedCommissionDetail.merchant_deduction_percent}% total deduction`
+                      : 'Split rate'}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#881337', marginTop: 6 }}>
+                    Deducted from merchant wallet balance on sale
+                  </div>
+                </div>
+
+                {/* Customer Cashback */}
+                <div
+                  style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
+                    Customer Cashback
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#047857', marginTop: 4 }}>
+                    +₹{Number(selectedCommissionDetail.customer_cashback || (selectedCommissionDetail.sale_amount && selectedCommissionDetail.customer_cashback_percent ? (selectedCommissionDetail.sale_amount * selectedCommissionDetail.customer_cashback_percent / 100) : 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#065F46', marginTop: 4 }}>
+                    {selectedCommissionDetail.customer_cashback_percent !== null && selectedCommissionDetail.customer_cashback_percent !== undefined
+                      ? `${selectedCommissionDetail.customer_cashback_percent}% cashback reward`
+                      : 'Reward rate'}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#064E3B', marginTop: 6 }}>
+                    Directly credited into customer wallet
+                  </div>
+                </div>
+
+                {/* Admin Platform Commission */}
+                <div
+                  style={{
+                    background: '#F0F9FF',
+                    border: '1px solid #BAE6FD',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#0284C7', textTransform: 'uppercase' }}>
+                    Admin Commission
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#0369A1', marginTop: 4 }}>
+                    +₹{Number(selectedCommissionDetail.company_fee || selectedCommissionDetail.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#075985', marginTop: 4 }}>
+                    {selectedCommissionDetail.company_fee_percent !== null && selectedCommissionDetail.company_fee_percent !== undefined
+                      ? `${selectedCommissionDetail.company_fee_percent}% platform fee`
+                      : 'Company fee'}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#0C4A6E', marginTop: 6 }}>
+                    Credited into Platform Company Wallet
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer & Merchant Info Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              {/* Customer Card */}
+              <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid #F1F5F9', paddingBottom: 8 }}>
+                  <HiOutlineUser style={{ fontSize: 18, color: '#0284C7' }} />
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase' }}>
+                    Customer Details
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Customer Name:</span>
+                    <span style={{ fontWeight: 700, color: '#0F172A' }}>{selectedCommissionDetail.customer_name || 'Customer'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Customer ID / Code:</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'monospace', color: '#0284C7' }}>{selectedCommissionDetail.customer_user_code || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Phone:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{selectedCommissionDetail.customer_phone || '—'}</span>
+                  </div>
+                  {selectedCommissionDetail.customer_email && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B' }}>Email:</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{selectedCommissionDetail.customer_email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Merchant Card */}
+              <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 12, padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid #F1F5F9', paddingBottom: 8 }}>
+                  <HiOutlineShoppingBag style={{ fontSize: 18, color: '#10B981' }} />
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', textTransform: 'uppercase' }}>
+                    Merchant Store Details
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Store / Business Name:</span>
+                    <span style={{ fontWeight: 700, color: '#0F172A' }}>{selectedCommissionDetail.merchant_name || 'Merchant'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Login ID:</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'monospace', color: '#1D4ED8' }}>{selectedCommissionDetail.merchant_login_id || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>City / Location:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{selectedCommissionDetail.merchant_city || '—'}</span>
+                  </div>
+                  {selectedCommissionDetail.merchant_category && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B' }}>Category:</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{selectedCommissionDetail.merchant_category}</span>
+                    </div>
+                  )}
+                  {selectedCommissionDetail.merchant_owner_name && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B' }}>Owner Name:</span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{selectedCommissionDetail.merchant_owner_name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Close button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCommissionDetail(null)}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#0F172A',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
     </motion.div>
