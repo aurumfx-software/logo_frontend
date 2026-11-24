@@ -286,8 +286,43 @@ export default function CompanyWallet() {
       withdrawalsPageSize,
       txTypeFilter,
       withdrawalsStatusFilter,
+      updatePendingWithdrawalsCount,
     ]
   );
+
+  // ── Initial and reactive load ──
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    loadWalletData(1, 1, 1, 1);
+  }, [activeTab, txTypeFilter, withdrawalsStatusFilter]);
+
+  // ── Refresh all ──
+  const handleRefreshAll = useCallback(() => {
+    setActionSuccess('');
+    setActionError('');
+    loadSummary();
+    loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+  }, [loadSummary, loadWalletData, txPage, cashPage, ledgerPage, withdrawalsPage]);
+
+  // ── Open Transaction Detail Modal ──
+  const handleOpenTxDetail = async (txId) => {
+    setDetailModalOpen(true);
+    setDetailLoading(true);
+    setDetailError('');
+    setDetailTx(null);
+    try {
+      const detail = await fetchAdminTransactionDetail(txId);
+      setDetailTx(detail);
+    } catch (err) {
+      console.error('Failed to load transaction detail:', err);
+      setDetailError(err.message || 'Failed to load transaction details');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   // ── Pre-fetch Directory when Send Cash Modal Opens ──
   const loadRecipientsDirectory = useCallback(async () => {
@@ -319,17 +354,19 @@ export default function CompanyWallet() {
 
   // ── Filtered Search Suggestions for Recipient ──
   const filteredRecipients = React.useMemo(() => {
-    const list = sendRecipientType === 'merchant' ? allMerchants : allCustomers;
+    const rawList = sendRecipientType === 'merchant' ? allMerchants : allCustomers;
+    const list = Array.isArray(rawList) ? rawList : [];
     if (!sendSearchQuery || !sendSearchQuery.trim()) {
       return list.slice(0, 8);
     }
     const q = sendSearchQuery.toLowerCase().trim();
     return list
       .filter((item) => {
-        const name = (item.business_name || item.name || '').toLowerCase();
-        const phone = (item.phone || item.phone_number || '').toLowerCase();
-        const email = (item.email || '').toLowerCase();
-        const loginId = (item.login_id || item.user_code || '').toLowerCase();
+        if (!item || typeof item !== 'object') return false;
+        const name = String(item.business_name || item.name || '').toLowerCase();
+        const phone = String(item.phone || item.phone_number || '').toLowerCase();
+        const email = String(item.email || '').toLowerCase();
+        const loginId = String(item.login_id || item.user_code || '').toLowerCase();
         const idStr = String(item.id || item.user_id || '').toLowerCase();
         return (
           name.includes(q) ||
@@ -505,17 +542,19 @@ export default function CompanyWallet() {
 
   // Filtered Cash Data excluding subscriptions and matching movement filter
   const filteredCashData = React.useMemo(() => {
+    if (!Array.isArray(cashData)) return [];
     return cashData.filter((item) => {
+      if (!item || typeof item !== 'object') return false;
       // Exclude subscriptions
       const str = `${item.transaction_type || ''} ${item.type || ''} ${item.description || ''} ${item.note || ''}`.toUpperCase();
       if (str.includes('SUBSCRIPTION') || str.includes('MEMBERSHIP')) return false;
 
-      const m = (item.movement || '').toUpperCase();
+      const m = String(item.movement || '').toUpperCase();
       if (cashMovementFilter === 'RECEIVED') {
         return m === 'RECEIVED';
       }
       if (cashMovementFilter === 'SENT') {
-        return m === 'SENT' || m === 'DEDUCTED' || (item.direction || '').toUpperCase() === 'DEBIT';
+        return m === 'SENT' || m === 'DEDUCTED' || String(item.direction || '').toUpperCase() === 'DEBIT';
       }
       if (cashMovementFilter === 'ADDED_FUND') {
         return m === 'ADDED_FUND';
@@ -707,7 +746,7 @@ export default function CompanyWallet() {
                 }}
               >
                 <span style={{ fontSize: 20, color: '#C7D2FE', fontWeight: 700 }}>₹</span>
-                {addedFundBalance.toLocaleString('en-IN', {
+                {Number(addedFundBalance || 0).toLocaleString('en-IN', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -1387,20 +1426,20 @@ export default function CompanyWallet() {
                                 padding: '1px 6px',
                                 borderRadius: 4,
                                 backgroundColor:
-                                  item.party_role.toUpperCase() === 'MERCHANT'
+                                  String(item.party_role || '').toUpperCase() === 'MERCHANT'
                                     ? '#EFF6FF'
-                                    : item.party_role.toUpperCase() === 'ADMIN'
+                                    : String(item.party_role || '').toUpperCase() === 'ADMIN'
                                     ? '#EDE9FE'
                                     : '#F1F5F9',
                                 color:
-                                  item.party_role.toUpperCase() === 'MERCHANT'
+                                  String(item.party_role || '').toUpperCase() === 'MERCHANT'
                                     ? '#2563EB'
-                                    : item.party_role.toUpperCase() === 'ADMIN'
+                                    : String(item.party_role || '').toUpperCase() === 'ADMIN'
                                     ? '#6D28D9'
                                     : '#475569',
                               }}
                             >
-                              {item.party_role}
+                              {String(item.party_role)}
                             </span>
                           )}
                         </div>
@@ -2584,7 +2623,7 @@ export default function CompanyWallet() {
                       fontSize: 16,
                     }}
                   >
-                    {(selectedRecipient.business_name || selectedRecipient.name || 'U').charAt(0).toUpperCase()}
+                    {String(selectedRecipient.business_name || selectedRecipient.name || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 14, color: '#14532D', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2720,7 +2759,7 @@ export default function CompanyWallet() {
                   🟣 Added Fund
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 900, color: '#1E1B4B', marginTop: 4 }}>
-                  ₹{addedFundBalance.toFixed(2)}
+                  ₹{Number(addedFundBalance || 0).toFixed(2)}
                 </div>
                 <div style={{ fontSize: 10, color: '#6366F1', marginTop: 2 }}>Admin Capital</div>
               </div>
