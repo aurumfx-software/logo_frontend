@@ -121,6 +121,7 @@ function SlideVideo({
   );
 }
 
+// Zeashell Top Hero Banner Slider Component
 export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
   // Active banners with valid media, or authentic original defaults
   const validBanners = React.useMemo(() => {
