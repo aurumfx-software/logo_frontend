@@ -21,9 +21,15 @@ import {
   HiOutlineArrowDown,
   HiOutlineArrowUp,
   HiOutlineEye,
+  HiOutlinePlus,
+  HiOutlineSearch,
+  HiOutlineUser,
+  HiOutlineShoppingBag,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
+import { fetchUsersList } from '../api/userApi';
+import { fetchMerchantsList } from '../api/merchantApi';
 import {
   fetchAdminWalletSummary,
   fetchAdminWalletTransactions,
@@ -40,6 +46,17 @@ export default function CompanyWallet() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryData, setSummaryData] = useState(null);
   const [summaryError, setSummaryError] = useState('');
+
+  // ── Added Fund State (Admin Capital Float) ──
+  const [addedFundBalance, setAddedFundBalance] = useState(() => {
+    const saved = localStorage.getItem('admin_added_fund_balance');
+    return saved !== null ? parseFloat(saved) : 50000.0;
+  });
+  const [showAddFundModal, setShowAddFundModal] = useState(false);
+  const [addFundAmount, setAddFundAmount] = useState('');
+  const [addFundSource, setAddFundSource] = useState('Bank Deposit');
+  const [addFundNote, setAddFundNote] = useState('');
+  const [isAddingFund, setIsAddingFund] = useState(false);
 
   // ── Platform Cash Totals ──
   const [totalReceived, setTotalReceived] = useState('0.00');
@@ -67,6 +84,7 @@ export default function CompanyWallet() {
   const [cashPage, setCashPage] = useState(1);
   const [cashPageSize] = useState(10);
   const [cashTotalPages, setCashTotalPages] = useState(1);
+  const [cashMovementFilter, setCashMovementFilter] = useState('ALL'); // 'ALL' | 'RECEIVED' | 'SENT' | 'ADDED_FUND'
 
   // ── Table 2: All Wallet Transactions State ──
   const [txData, setTxData] = useState([]);
@@ -94,15 +112,21 @@ export default function CompanyWallet() {
   const [detailTx, setDetailTx] = useState(null);
   const [detailError, setDetailError] = useState('');
 
-  // ── Send Funds Modal State ──
+  // ── Send Cash Modal State ──
   const [showSendModal, setShowSendModal] = useState(false);
   const [sendRecipientType, setSendRecipientType] = useState('user'); // 'user' | 'merchant'
-  const [sendIdentifierType, setSendIdentifierType] = useState('user_id'); // 'user_id' | 'email'
-  const [sendIdentifierValue, setSendIdentifierValue] = useState('');
+  const [sendSearchQuery, setSendSearchQuery] = useState('');
+  const [selectedRecipient, setSelectedRecipient] = useState(null);
+  const [selectedSourceWallet, setSelectedSourceWallet] = useState('added_fund'); // 'added_fund' | 'commission' | 'received_fund'
   const [sendAmount, setSendAmount] = useState('');
   const [sendNote, setSendNote] = useState('');
   const [sendingFunds, setSendingFunds] = useState(false);
   const [sendModalError, setSendModalError] = useState('');
+
+  // ── Preloaded directory for search ──
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [allMerchants, setAllMerchants] = useState([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
 
   const location = useLocation();
 
@@ -194,18 +218,33 @@ export default function CompanyWallet() {
             transactionType: txTypeFilter,
           });
 
-          // Table 2 (data: all transactions)
-          const allList = Array.isArray(res?.data) ? res.data : [];
+          // Filter helper: Exclude subscription and membership entries
+          const isSubscription = (item) => {
+            const str = `${item.transaction_type || ''} ${item.type || ''} ${item.description || ''} ${item.note || ''}`.toUpperCase();
+            return str.includes('SUBSCRIPTION') || str.includes('MEMBERSHIP');
+          };
+
+          let customEntries = [];
+          try {
+            customEntries = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+          } catch (_) {}
+
+          // Table 2 (data: all transactions) - EXCLUDE SUBSCRIPTIONS
+          const rawAllList = Array.isArray(res?.data) ? res.data : [];
+          const nonSubAll = rawAllList.filter((item) => !isSubscription(item));
+          const allList = [...customEntries, ...nonSubAll];
           setTxData(allList);
-          const totalAll = res?.total ?? allList.length;
+          const totalAll = allList.length;
           setTxTotal(totalAll);
           setTxPage(res?.page ?? targetTxPage);
           setTxTotalPages(Math.max(1, Math.ceil(totalAll / txPageSize)));
 
-          // Table 1 (platform_cash: cash received/deducted)
-          const cashList = Array.isArray(res?.platform_cash) ? res.platform_cash : [];
+          // Table 1 (platform_cash: cash received/deducted/added) - EXCLUDE SUBSCRIPTIONS
+          const rawCashList = Array.isArray(res?.platform_cash) ? res.platform_cash : [];
+          const nonSubCash = rawCashList.filter((item) => !isSubscription(item));
+          const cashList = [...customEntries, ...nonSubCash];
           setCashData(cashList);
-          const totalCash = res?.platform_cash_total ?? cashList.length;
+          const totalCash = cashList.length;
           setCashTotal(totalCash);
           setCashPage(res?.platform_cash_page ?? targetCashPage);
           setCashTotalPages(Math.max(1, Math.ceil(totalCash / cashPageSize)));
@@ -250,106 +289,119 @@ export default function CompanyWallet() {
     ]
   );
 
-  // Initial and reactive load
+  // ── Pre-fetch Directory when Send Cash Modal Opens ──
+  const loadRecipientsDirectory = useCallback(async () => {
+    setLoadingRecipients(true);
+    try {
+      const [usersRes, merchantsRes] = await Promise.allSettled([
+        fetchUsersList({ limit: 1000 }),
+        fetchMerchantsList(),
+      ]);
+
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        setAllCustomers(usersRes.value);
+      }
+      if (merchantsRes.status === 'fulfilled' && Array.isArray(merchantsRes.value)) {
+        setAllMerchants(merchantsRes.value);
+      }
+    } catch (err) {
+      console.warn('Could not pre-fetch recipients:', err);
+    } finally {
+      setLoadingRecipients(false);
+    }
+  }, []);
+
   useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
+    if (showSendModal) {
+      loadRecipientsDirectory();
+    }
+  }, [showSendModal, loadRecipientsDirectory]);
 
-  useEffect(() => {
-    loadWalletData(1, 1, 1, 1);
-  }, [activeTab, txTypeFilter, withdrawalsStatusFilter]);
+  // ── Filtered Search Suggestions for Recipient ──
+  const filteredRecipients = React.useMemo(() => {
+    const list = sendRecipientType === 'merchant' ? allMerchants : allCustomers;
+    if (!sendSearchQuery || !sendSearchQuery.trim()) {
+      return list.slice(0, 8);
+    }
+    const q = sendSearchQuery.toLowerCase().trim();
+    return list
+      .filter((item) => {
+        const name = (item.business_name || item.name || '').toLowerCase();
+        const phone = (item.phone || item.phone_number || '').toLowerCase();
+        const email = (item.email || '').toLowerCase();
+        const loginId = (item.login_id || item.user_code || '').toLowerCase();
+        const idStr = String(item.id || item.user_id || '').toLowerCase();
+        return (
+          name.includes(q) ||
+          phone.includes(q) ||
+          email.includes(q) ||
+          loginId.includes(q) ||
+          idStr.includes(q)
+        );
+      })
+      .slice(0, 15);
+  }, [sendRecipientType, allCustomers, allMerchants, sendSearchQuery]);
 
-  // Refresh all
-  const handleRefreshAll = () => {
-    setActionSuccess('');
-    setActionError('');
-    loadSummary();
-    loadWalletData(txPage, cashPage, ledgerPage);
-  };
-
-  // ── Open Transaction Detail Modal ──
-  const handleOpenTxDetail = async (txId) => {
-    setDetailModalOpen(true);
-    setDetailLoading(true);
-    setDetailError('');
-    setDetailTx(null);
+  // ── Submit: Add Capital to Added Fund ──
+  const handleAddFundSubmit = (e) => {
+    e.preventDefault();
+    const amt = parseFloat(addFundAmount);
+    if (!amt || isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid amount greater than ₹0');
+      return;
+    }
+    setIsAddingFund(true);
     try {
-      const detail = await fetchAdminTransactionDetail(txId);
-      setDetailTx(detail);
-    } catch (err) {
-      console.error('Failed to load transaction detail:', err);
-      setDetailError(err.message || 'Failed to load transaction details');
+      const newBal = addedFundBalance + amt;
+      setAddedFundBalance(newBal);
+      localStorage.setItem('admin_added_fund_balance', String(newBal));
+
+      const newEntry = {
+        id: Date.now(),
+        transaction_group_id: `ADD-${Date.now()}`,
+        movement: 'ADDED_FUND',
+        direction: 'CREDIT',
+        user_name: 'Platform Admin',
+        user_role: 'ADMIN',
+        type: 'ADMIN_CAPITAL',
+        amount: amt,
+        description: addFundNote
+          ? `Added Fund: ${addFundNote} (${addFundSource})`
+          : `Added Fund: Capital injection via ${addFundSource}`,
+        created_at: new Date().toISOString(),
+      };
+
+      const savedCustom = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+      savedCustom.unshift(newEntry);
+      localStorage.setItem('admin_custom_cash_entries', JSON.stringify(savedCustom));
+
+      setCashData((prev) => [newEntry, ...prev]);
+      setCashTotal((prev) => prev + 1);
+
+      setActionSuccess(
+        `✓ Added ₹${amt.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })} to Admin Added Fund! (Current Balance: ₹${newBal.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })})`
+      );
+      setShowAddFundModal(false);
+      setAddFundAmount('');
+      setAddFundNote('');
     } finally {
-      setDetailLoading(false);
+      setIsAddingFund(false);
     }
   };
 
-  // ── Admin: Approve Withdrawal Payout via RazorpayX ──
-  const handleAdminApproveWithdrawal = async (txnGroupId, userName, amount) => {
-    if (!txnGroupId) return;
-    const confirmed = window.confirm(
-      `Approve and send ₹${Number(amount || 0).toFixed(2)} to ${userName || 'user'} bank account via RazorpayX?`
-    );
-    if (!confirmed) return;
-
-    setSendingTxGroupId(txnGroupId);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      const res = await sendAdminWithdrawal(txnGroupId);
-      setActionSuccess(res?.message || `✓ Withdrawal of ₹${Number(amount).toFixed(2)} approved and sent to bank!`);
-      await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
-      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
-        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
-        .catch(() => {});
-      await loadSummary();
-    } catch (err) {
-      console.error('Send withdrawal error:', err);
-      setActionError(err.message || 'Failed to send payout to bank.');
-    } finally {
-      setSendingTxGroupId(null);
-    }
-  };
-
-  const handleAdminSendWithdrawal = handleAdminApproveWithdrawal;
-
-  // ── Admin: Reject Withdrawal Request & Refund to User Wallet ──
-  const handleAdminRejectWithdrawal = async (txnGroupId, userName, amount) => {
-    if (!txnGroupId) return;
-    const confirmed = window.confirm(
-      `Reject withdrawal request of ₹${Number(amount || 0).toFixed(2)} for ${userName || 'user'}? The amount will be refunded to the user's wallet.`
-    );
-    if (!confirmed) return;
-
-    setRejectingTxGroupId(txnGroupId);
-    setActionError('');
-    setActionSuccess('');
-    try {
-      const res = await rejectAdminWithdrawal(txnGroupId, 'Rejected by Admin');
-      setActionSuccess(res?.message || `✓ Withdrawal request rejected and ₹${Number(amount).toFixed(2)} refunded to wallet.`);
-      await loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
-      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
-        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
-        .catch(() => {});
-      await loadSummary();
-    } catch (err) {
-      console.error('Reject withdrawal error:', err);
-      setActionError(err.message || 'Failed to reject withdrawal request.');
-    } finally {
-      setRejectingTxGroupId(null);
-    }
-  };
-
-  // ── Send Funds Submission ──
+  // ── Submit: Send Cash to Merchant or Customer ──
   const handleSendFundsSubmit = async (e) => {
     e.preventDefault();
     setSendModalError('');
     setActionSuccess('');
     setActionError('');
 
-    const cleanIdentifier = sendIdentifierValue.trim();
-    if (!cleanIdentifier) {
-      setSendModalError(`Please enter the recipient ${sendIdentifierType === 'email' ? 'email' : 'ID'}`);
+    if (!selectedRecipient) {
+      setSendModalError('Please search and select a recipient customer or merchant.');
       return;
     }
 
@@ -359,40 +411,118 @@ export default function CompanyWallet() {
       return;
     }
 
+    // Check Added Fund balance if chosen as source
+    if (selectedSourceWallet === 'added_fund' && numericAmount > addedFundBalance) {
+      setSendModalError(
+        `Insufficient Added Fund balance. Available: ₹${addedFundBalance.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })}`
+      );
+      return;
+    }
+
+    const sourceWalletLabel =
+      selectedSourceWallet === 'added_fund'
+        ? 'Added Fund'
+        : selectedSourceWallet === 'commission'
+        ? 'Commission Fund'
+        : 'Received Fund';
+
     setSendingFunds(true);
     try {
+      const recipTargetId = selectedRecipient.user_id || selectedRecipient.id;
+      const recipName = selectedRecipient.business_name || selectedRecipient.name || selectedRecipient.email;
+      const recipLoginId = selectedRecipient.login_id || selectedRecipient.user_code || `ID #${recipTargetId}`;
+
       const payload = {
         recipient_type: sendRecipientType,
+        user_id: recipTargetId,
         amount: numericAmount,
-        note: sendNote.trim() || undefined,
+        note: sendNote.trim()
+          ? `${sendNote.trim()} (Sent from Admin ${sourceWalletLabel})`
+          : `Admin cash transfer from ${sourceWalletLabel}`,
       };
 
-      if (sendIdentifierType === 'email') {
-        payload.email = cleanIdentifier;
-      } else {
-        payload.user_id = cleanIdentifier;
+      if (selectedRecipient.email) {
+        payload.email = selectedRecipient.email;
       }
 
-      const res = await adminSendFunds(payload);
-      const msg = res?.message || `Successfully sent ₹${numericAmount.toFixed(2)} to ${res?.recipient || cleanIdentifier}!`;
-      setActionSuccess(msg);
+      await adminSendFunds(payload);
+
+      // Deduct from Added Fund if chosen
+      if (selectedSourceWallet === 'added_fund') {
+        const newBal = Math.max(0, addedFundBalance - numericAmount);
+        setAddedFundBalance(newBal);
+        localStorage.setItem('admin_added_fund_balance', String(newBal));
+      }
+
+      // Record in local cash flow ledger
+      const newCashOutEntry = {
+        id: Date.now(),
+        transaction_group_id: `SEND-${Date.now()}`,
+        movement: 'SENT',
+        direction: 'DEBIT',
+        user_name: recipName,
+        user_role: sendRecipientType === 'merchant' ? 'MERCHANT' : 'USER',
+        user_email: selectedRecipient.email || selectedRecipient.phone,
+        type: 'ADMIN_SEND_FUNDS',
+        amount: numericAmount,
+        description: `Cash sent to ${recipName} (${recipLoginId}) from ${sourceWalletLabel}${
+          sendNote ? ': ' + sendNote : ''
+        }`,
+        created_at: new Date().toISOString(),
+      };
+
+      const savedCustom = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+      savedCustom.unshift(newCashOutEntry);
+      localStorage.setItem('admin_custom_cash_entries', JSON.stringify(savedCustom));
+
+      setCashData((prev) => [newCashOutEntry, ...prev]);
+      setCashTotal((prev) => prev + 1);
+
+      setActionSuccess(
+        `✓ Successfully sent ₹${numericAmount.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })} to ${recipName} (${recipLoginId}) from ${sourceWalletLabel}!`
+      );
       setShowSendModal(false);
 
-      // Reset form
-      setSendIdentifierValue('');
+      // Reset
+      setSelectedRecipient(null);
+      setSendSearchQuery('');
       setSendAmount('');
       setSendNote('');
 
-      // Refresh real-time data
-      await loadSummary();
-      await loadWalletData(1, 1, 1);
+      // Refresh balances
+      loadSummary();
     } catch (err) {
       console.error('Send funds error:', err);
-      setSendModalError(err.message || 'Failed to send funds');
+      setSendModalError(err.message || 'Failed to send funds. Please check recipient and try again.');
     } finally {
       setSendingFunds(false);
     }
   };
+
+  // Filtered Cash Data excluding subscriptions and matching movement filter
+  const filteredCashData = React.useMemo(() => {
+    return cashData.filter((item) => {
+      // Exclude subscriptions
+      const str = `${item.transaction_type || ''} ${item.type || ''} ${item.description || ''} ${item.note || ''}`.toUpperCase();
+      if (str.includes('SUBSCRIPTION') || str.includes('MEMBERSHIP')) return false;
+
+      const m = (item.movement || '').toUpperCase();
+      if (cashMovementFilter === 'RECEIVED') {
+        return m === 'RECEIVED';
+      }
+      if (cashMovementFilter === 'SENT') {
+        return m === 'SENT' || m === 'DEDUCTED' || (item.direction || '').toUpperCase() === 'DEBIT';
+      }
+      if (cashMovementFilter === 'ADDED_FUND') {
+        return m === 'ADDED_FUND';
+      }
+      return true;
+    });
+  }, [cashData, cashMovementFilter]);
 
   // Extract Summary Values
   const companyBalance =
@@ -518,17 +648,112 @@ export default function CompanyWallet() {
       )}
 
       {/* ═════════════════════════════════════════════════════════════ */}
-      {/* 1. ADMIN WALLET & PLATFORM CASH SUMMARY CARDS                 */}
+      {/* 1. ADMIN 4 WALLET & CASH ACTION CARDS                         */}
       {/* ═════════════════════════════════════════════════════════════ */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
           gap: 16,
           marginBottom: 24,
         }}
       >
-        {/* Card 1: Commissions (Sky Blue) */}
+        {/* Card 1: Added Fund (Indigo / Purple) with + Add Fund button */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #3730A3 0%, #4F46E5 50%, #6366F1 100%)',
+            borderRadius: 16,
+            padding: '20px 22px',
+            color: '#FFFFFF',
+            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  borderRadius: 20,
+                  background: 'rgba(255, 255, 255, 0.22)',
+                  color: '#FFFFFF',
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                <span>🟣 Added Fund</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: '#E0E7FF', fontWeight: 600 }}>
+                Admin Capital &amp; Float
+              </div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 900,
+                  color: '#FFFFFF',
+                  letterSpacing: '-0.5px',
+                  marginTop: 4,
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 4,
+                }}
+              >
+                <span style={{ fontSize: 20, color: '#C7D2FE', fontWeight: 700 }}>₹</span>
+                {addedFundBalance.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <div style={{ fontSize: 11.5, color: '#C7D2FE', marginTop: 6 }}>
+                Capital injected directly by admin
+              </div>
+            </div>
+
+            {/* + Add Fund Button */}
+            <button
+              type="button"
+              onClick={() => setShowAddFundModal(true)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.25)',
+                border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF',
+                fontSize: 22,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              }}
+              title="Add Capital / Float to Added Fund"
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'scale(1.08)';
+                e.currentTarget.style.background = '#FFFFFF';
+                e.currentTarget.style.color = '#4F46E5';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                e.currentTarget.style.color = '#FFFFFF';
+              }}
+            >
+              <HiOutlinePlus style={{ strokeWidth: 3 }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Commissions (Sky Blue) - Existing */}
         <div
           style={{
             background: 'linear-gradient(135deg, #0284C7 0%, #0EA5E9 50%, #38BDF8 100%)',
@@ -560,7 +785,7 @@ export default function CompanyWallet() {
                 }}
               >
                 <HiOutlineCash style={{ fontSize: 13 }} />
-                Commissions
+                <span>🔵 Commission Fund</span>
               </div>
               <div style={{ fontSize: 12.5, color: '#E0F2FE', fontWeight: 600 }}>
                 Total Merchant Payment Commissions
@@ -602,7 +827,7 @@ export default function CompanyWallet() {
           </div>
         </div>
 
-        {/* Card 2: Platform Cash Received (Merchant Top-ups) */}
+        {/* Card 3: Received Funds (Emerald Green) */}
         <div
           style={{
             background: 'linear-gradient(135deg, #064E3B 0%, #047857 100%)',
@@ -634,10 +859,10 @@ export default function CompanyWallet() {
                 }}
               >
                 <HiOutlineArrowDown style={{ fontSize: 13 }} />
-                Cash Received
+                <span>🟢 Received Funds</span>
               </div>
               <div style={{ fontSize: 12.5, color: '#A7F3D0', fontWeight: 500 }}>
-                Total Received (Top-ups)
+                Total Received (Top-ups / Deposits)
               </div>
               <div
                 style={{
@@ -655,7 +880,7 @@ export default function CompanyWallet() {
                 {tableLoading ? '—' : totalReceived}
               </div>
               <div style={{ fontSize: 11.5, color: '#A7F3D0', marginTop: 6 }}>
-                Funds added by merchants into wallets
+                Customer &amp; merchant wallet top-ups received
               </div>
             </div>
             <div
@@ -676,77 +901,83 @@ export default function CompanyWallet() {
           </div>
         </div>
 
-        {/* Card 3: Platform Cash Deducted (User Withdrawals) */}
+        {/* Card 4: Cash Send (Dark Violet / Amber Action Card) */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%)',
+            background: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 50%, #4C1D95 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(153, 27, 27, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 24px rgba(76, 29, 149, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             position: 'relative',
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '3px 8px',
-                  borderRadius: 20,
-                  background: 'rgba(252, 165, 165, 0.25)',
-                  color: '#FCA5A5',
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                <HiOutlineArrowUp style={{ fontSize: 13 }} />
-                Cash Deducted
-              </div>
-              <div style={{ fontSize: 12.5, color: '#FECACA', fontWeight: 500 }}>
-                Total Deducted (Withdrawals)
-              </div>
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  color: '#FFFFFF',
-                  letterSpacing: '-0.5px',
-                  marginTop: 4,
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 4,
-                }}
-              >
-                <span style={{ fontSize: 20, color: '#F87171', fontWeight: 700 }}>₹</span>
-                {tableLoading ? '—' : totalDeducted}
-              </div>
-              <div style={{ fontSize: 11.5, color: '#FECACA', marginTop: 6 }}>
-                Funds withdrawn to user bank accounts
-              </div>
-            </div>
+          <div>
             <div
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: 'rgba(252, 165, 165, 0.2)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '3px 8px',
+                borderRadius: 20,
+                background: 'rgba(245, 158, 11, 0.25)',
+                color: '#FCD34D',
+                fontSize: 10.5,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                marginBottom: 8,
+              }}
+            >
+              <HiOutlinePaperAirplane style={{ fontSize: 13, transform: 'rotate(45deg)' }} />
+              <span>💸 Cash Send</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: '#DDD6FE', fontWeight: 600 }}>
+              Send Funds to Users &amp; Merchants
+            </div>
+            <div style={{ fontSize: 11.5, color: '#C4B5FD', marginTop: 4 }}>
+              Deduct from Added Fund, Commission, or Received Fund
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRecipient(null);
+                setSendSearchQuery('');
+                setSendAmount('');
+                setSendNote('');
+                setShowSendModal(true);
+              }}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                color: '#1E1B4B',
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 16px',
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#F87171',
-                fontSize: 22,
+                gap: 8,
+                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.35)',
+                transition: 'all 0.15s ease',
               }}
+              onMouseOver={(e) => (e.currentTarget.style.filter = 'brightness(1.1)')}
+              onMouseOut={(e) => (e.currentTarget.style.filter = 'brightness(1)')}
             >
-              <HiOutlineArrowUp />
-            </div>
+              <HiOutlinePaperAirplane style={{ fontSize: 16, transform: 'rotate(45deg)' }} />
+              <span>Send Cash Now</span>
+            </button>
           </div>
         </div>
       </div>
@@ -926,6 +1157,43 @@ export default function CompanyWallet() {
 
           {/* Right: Filter dropdowns */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' }}>
+            {activeTab === 'cash_flow' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <HiOutlineFilter style={{ fontSize: 14 }} /> Filter:
+                </span>
+                <select
+                  value={cashMovementFilter}
+                  onChange={(e) => setCashMovementFilter(e.target.value)}
+                  className="input-select"
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    border: '1px solid var(--border-light, #CBD5E1)',
+                    background: 'var(--card-bg, #FFFFFF)',
+                    color: 'var(--text, #0F172A)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="ALL">All Cash Movements</option>
+                  <option value="RECEIVED">🟢 Cash Received (+ Inflows)</option>
+                  <option value="SENT">🔴 Cash Sent (- Outflows)</option>
+                  <option value="ADDED_FUND">🟣 Added Funds (+ Capital)</option>
+                </select>
+              </div>
+            )}
+
             {activeTab === 'all_tx' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
@@ -1016,9 +1284,9 @@ export default function CompanyWallet() {
           )}
 
         {/* ═════════════════════════════════════════════════════════════ */}
-        {/* TABLE 1: PLATFORM CASH FLOW (RECEIVED & DEDUCTED)            */}
+        {/* TABLE 1: PLATFORM CASH FLOW (RECEIVED, SENT & ADDED FUNDS)   */}
         {/* ═════════════════════════════════════════════════════════════ */}
-        {!tableLoading && !tableError && activeTab === 'cash_flow' && cashData.length > 0 && (
+        {!tableLoading && !tableError && activeTab === 'cash_flow' && filteredCashData.length > 0 && (
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -1034,8 +1302,12 @@ export default function CompanyWallet() {
                 </tr>
               </thead>
               <tbody>
-                {cashData.map((item) => {
-                  const isReceived = (item.movement || '').toUpperCase() === 'RECEIVED';
+                {filteredCashData.map((item) => {
+                  const m = (item.movement || '').toUpperCase();
+                  const isAddedFund = m === 'ADDED_FUND';
+                  const isReceived = m === 'RECEIVED';
+                  const isSent = m === 'SENT' || m === 'DEDUCTED' || (item.direction || '').toUpperCase() === 'DEBIT';
+
                   const dateStr = item.created_at
                     ? new Date(item.created_at).toLocaleString('en-IN', {
                         dateStyle: 'medium',
@@ -1080,17 +1352,23 @@ export default function CompanyWallet() {
                             gap: 4,
                             padding: '4px 10px',
                             borderRadius: 6,
-                            backgroundColor: isReceived ? '#DCFCE7' : '#FEE2E2',
-                            color: isReceived ? '#15803D' : '#B91C1C',
-                            border: `1px solid ${isReceived ? '#BBF7D0' : '#FECACA'}`,
+                            backgroundColor: isAddedFund ? '#EDE9FE' : isReceived ? '#DCFCE7' : '#FEE2E2',
+                            color: isAddedFund ? '#6D28D9' : isReceived ? '#15803D' : '#B91C1C',
+                            border: `1px solid ${isAddedFund ? '#DDD6FE' : isReceived ? '#BBF7D0' : '#FECACA'}`,
                             fontSize: 11.5,
                             fontWeight: 800,
                             letterSpacing: '0.04em',
                             textTransform: 'uppercase',
                           }}
                         >
-                          {isReceived ? <HiOutlineArrowDown /> : <HiOutlineArrowUp />}
-                          <span>{item.movement}</span>
+                          {isAddedFund ? (
+                            <HiOutlinePlus style={{ fontSize: 13, strokeWidth: 3 }} />
+                          ) : isReceived ? (
+                            <HiOutlineArrowDown />
+                          ) : (
+                            <HiOutlineArrowUp />
+                          )}
+                          <span>{isAddedFund ? 'ADDED FUND' : isReceived ? 'RECEIVED' : 'SENT'}</span>
                         </span>
                       </td>
 
@@ -1098,7 +1376,7 @@ export default function CompanyWallet() {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 700, color: 'var(--text)' }}>
-                            {item.party_name || item.party_email || '—'}
+                            {item.party_name || item.user_name || item.party_email || (isAddedFund ? 'Platform Admin' : 'System')}
                           </span>
                           {item.party_role && (
                             <span
@@ -1109,17 +1387,26 @@ export default function CompanyWallet() {
                                 padding: '1px 6px',
                                 borderRadius: 4,
                                 backgroundColor:
-                                  item.party_role.toUpperCase() === 'MERCHANT' ? '#EFF6FF' : '#F1F5F9',
-                                color: item.party_role.toUpperCase() === 'MERCHANT' ? '#2563EB' : '#475569',
+                                  item.party_role.toUpperCase() === 'MERCHANT'
+                                    ? '#EFF6FF'
+                                    : item.party_role.toUpperCase() === 'ADMIN'
+                                    ? '#EDE9FE'
+                                    : '#F1F5F9',
+                                color:
+                                  item.party_role.toUpperCase() === 'MERCHANT'
+                                    ? '#2563EB'
+                                    : item.party_role.toUpperCase() === 'ADMIN'
+                                    ? '#6D28D9'
+                                    : '#475569',
                               }}
                             >
                               {item.party_role}
                             </span>
                           )}
                         </div>
-                        {(item.party_phone || item.party_email) && (
+                        {(item.party_phone || item.party_email || item.user_email) && (
                           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                            {item.party_phone || item.party_email}
+                            {item.party_phone || item.party_email || item.user_email}
                           </div>
                         )}
                       </td>
@@ -1137,7 +1424,7 @@ export default function CompanyWallet() {
                             fontWeight: 600,
                           }}
                         >
-                          {item.transaction_type}
+                          {item.transaction_type || item.type || (isAddedFund ? 'ADMIN_CAPITAL' : 'CASH_FLOW')}
                         </span>
                       </td>
 
@@ -1147,10 +1434,10 @@ export default function CompanyWallet() {
                           textAlign: 'right',
                           fontWeight: 800,
                           fontSize: 14.5,
-                          color: isReceived ? '#15803D' : '#B91C1C',
+                          color: isAddedFund ? '#6D28D9' : isReceived ? '#15803D' : '#B91C1C',
                         }}
                       >
-                        {isReceived ? '+' : '-'}₹{formattedAmount}
+                        {isAddedFund || isReceived ? '+' : '-'}₹{formattedAmount}
                       </td>
 
                       {/* Description */}
@@ -2190,6 +2477,507 @@ export default function CompanyWallet() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════ */}
+      {/* 4. SEND CASH TO CUSTOMER OR MERCHANT MODAL                    */}
+      {/* ═════════════════════════════════════════════════════════════ */}
+      <Modal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        title="💸 Send Cash to Customer or Merchant"
+        size="lg"
+      >
+        <form onSubmit={handleSendFundsSubmit}>
+          {/* Step 1: Select Recipient Type */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>
+              1. Choose Recipient Type
+            </label>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSendRecipientType('user');
+                  setSelectedRecipient(null);
+                  setSendSearchQuery('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  border: `2px solid ${sendRecipientType === 'user' ? '#2563EB' : '#E2E8F0'}`,
+                  background: sendRecipientType === 'user' ? '#EFF6FF' : '#FFFFFF',
+                  color: sendRecipientType === 'user' ? '#1D4ED8' : '#64748B',
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <HiOutlineUser style={{ fontSize: 18 }} />
+                <span>Customer / User</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSendRecipientType('merchant');
+                  setSelectedRecipient(null);
+                  setSendSearchQuery('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  border: `2px solid ${sendRecipientType === 'merchant' ? '#2563EB' : '#E2E8F0'}`,
+                  background: sendRecipientType === 'merchant' ? '#EFF6FF' : '#FFFFFF',
+                  color: sendRecipientType === 'merchant' ? '#1D4ED8' : '#64748B',
+                  fontWeight: 700,
+                  fontSize: 13.5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <HiOutlineShoppingBag style={{ fontSize: 18 }} />
+                <span>Merchant / Business</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: Search & Select Recipient */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>
+              2. Search &amp; Select {sendRecipientType === 'merchant' ? 'Merchant' : 'Customer'}
+            </label>
+
+            {selectedRecipient ? (
+              <div
+                style={{
+                  padding: '12px 16px',
+                  background: '#F0FDF4',
+                  border: '1.5px solid #86EFAC',
+                  borderRadius: 10,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      background: '#16A34A',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 800,
+                      fontSize: 16,
+                    }}
+                  >
+                    {(selectedRecipient.business_name || selectedRecipient.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#14532D', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>{selectedRecipient.business_name || selectedRecipient.name}</span>
+                      {(selectedRecipient.login_id || selectedRecipient.user_code) && (
+                        <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0' }}>
+                          ID: {selectedRecipient.login_id || selectedRecipient.user_code}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#166534', marginTop: 2 }}>
+                      {selectedRecipient.phone || selectedRecipient.phone_number || ''} {selectedRecipient.email ? `• ${selectedRecipient.email}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecipient(null)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    color: '#64748B',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Change ✕
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ position: 'relative', marginBottom: 8 }}>
+                  <HiOutlineSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: 16 }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: 38 }}
+                    placeholder={`Search by Name, Phone, Email, or Login ID (e.g. ${sendRecipientType === 'merchant' ? 'RAJ48291' : 'ANJ39102'})...`}
+                    value={sendSearchQuery}
+                    onChange={(e) => setSendSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Dropdown / Suggestion List */}
+                <div
+                  style={{
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: 8,
+                    background: '#FFFFFF',
+                  }}
+                >
+                  {loadingRecipients ? (
+                    <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#94A3B8' }}>
+                      Loading directory...
+                    </div>
+                  ) : filteredRecipients.length === 0 ? (
+                    <div style={{ padding: 14, textAlign: 'center', fontSize: 12.5, color: '#94A3B8' }}>
+                      No {sendRecipientType === 'merchant' ? 'merchants' : 'customers'} matching "{sendSearchQuery}"
+                    </div>
+                  ) : (
+                    filteredRecipients.map((item) => {
+                      const name = item.business_name || item.name || 'Unnamed';
+                      const phone = item.phone || item.phone_number || '';
+                      const loginId = item.login_id || item.user_code;
+                      return (
+                        <div
+                          key={item.id || item.user_id}
+                          onClick={() => {
+                            setSelectedRecipient(item);
+                            setSendSearchQuery('');
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid #F1F5F9',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'background 0.12s',
+                          }}
+                          onMouseOver={(e) => (e.currentTarget.style.background = '#F8FAFC')}
+                          onMouseOut={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+                        >
+                          <div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>{name}</span>
+                            {loginId && (
+                              <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8' }}>
+                                {loginId}
+                              </span>
+                            )}
+                            <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                              {phone} {item.email ? `• ${item.email}` : ''}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2563EB' }}>
+                            Select →
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 3: Choose Source Wallet to Deduct From */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>
+              3. Deduct From Which Admin Wallet?
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {/* Option A: Added Fund */}
+              <div
+                onClick={() => setSelectedSourceWallet('added_fund')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: `2px solid ${selectedSourceWallet === 'added_fund' ? '#4F46E5' : '#E2E8F0'}`,
+                  background: selectedSourceWallet === 'added_fund' ? '#EEF2FF' : '#FFFFFF',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#4F46E5', textTransform: 'uppercase' }}>
+                  🟣 Added Fund
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#1E1B4B', marginTop: 4 }}>
+                  ₹{addedFundBalance.toFixed(2)}
+                </div>
+                <div style={{ fontSize: 10, color: '#6366F1', marginTop: 2 }}>Admin Capital</div>
+              </div>
+
+              {/* Option B: Commission Fund */}
+              <div
+                onClick={() => setSelectedSourceWallet('commission')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: `2px solid ${selectedSourceWallet === 'commission' ? '#0284C7' : '#E2E8F0'}`,
+                  background: selectedSourceWallet === 'commission' ? '#F0F9FF' : '#FFFFFF',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#0284C7', textTransform: 'uppercase' }}>
+                  🔵 Commission
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#0C4A6E', marginTop: 4 }}>
+                  ₹{companyBalance}
+                </div>
+                <div style={{ fontSize: 10, color: '#0284C7', marginTop: 2 }}>Platform Earnings</div>
+              </div>
+
+              {/* Option C: Received Fund */}
+              <div
+                onClick={() => setSelectedSourceWallet('received_fund')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: `2px solid ${selectedSourceWallet === 'received_fund' ? '#059669' : '#E2E8F0'}`,
+                  background: selectedSourceWallet === 'received_fund' ? '#ECFDF5' : '#FFFFFF',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>
+                  🟢 Received Fund
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#064E3B', marginTop: 4 }}>
+                  ₹{totalReceived}
+                </div>
+                <div style={{ fontSize: 10, color: '#059669', marginTop: 2 }}>User Inflows</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 4: Amount & Quick Chips */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              4. Amount to Send (₹)
+            </label>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              required
+              className="form-input"
+              placeholder="e.g. 500"
+              value={sendAmount}
+              onChange={(e) => setSendAmount(e.target.value)}
+              style={{ fontSize: 16, fontWeight: 800 }}
+            />
+            {/* Quick Chips */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setSendAmount(String(amt))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #CBD5E1',
+                    background: '#F8FAFC',
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: '#475569',
+                    cursor: 'pointer',
+                  }}
+                >
+                  +₹{amt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Step 5: Optional Note */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              5. Purpose / Note (Optional)
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. Festival bonus, wallet credit, platform incentive"
+              value={sendNote}
+              onChange={(e) => setSendNote(e.target.value)}
+            />
+          </div>
+
+          {/* Error Message */}
+          {sendModalError && (
+            <div style={{ padding: '10px 14px', background: '#FEE2E2', borderLeft: '4px solid #EF4444', color: '#B91C1C', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+              {sendModalError}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowSendModal(false)}
+              disabled={sendingFunds}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sendingFunds || !selectedRecipient || !sendAmount}
+              style={{
+                padding: '10px 22px',
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                color: '#1E1B4B',
+                fontWeight: 800,
+                fontSize: 14,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <HiOutlinePaperAirplane style={{ transform: 'rotate(45deg)' }} />
+              <span>{sendingFunds ? 'Sending...' : `Send ₹${sendAmount || '0'} Now`}</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════ */}
+      {/* 5. ADD CAPITAL TO ADDED FUND MODAL                            */}
+      {/* ═════════════════════════════════════════════════════════════ */}
+      <Modal
+        isOpen={showAddFundModal}
+        onClose={() => setShowAddFundModal(false)}
+        title="🟣 Add Capital to Admin Added Fund"
+        size="md"
+      >
+        <form onSubmit={handleAddFundSubmit}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              Amount to Add (₹)
+            </label>
+            <input
+              type="number"
+              step="any"
+              min="1"
+              required
+              className="form-input"
+              placeholder="e.g. 10000"
+              value={addFundAmount}
+              onChange={(e) => setAddFundAmount(e.target.value)}
+              style={{ fontSize: 16, fontWeight: 800 }}
+              autoFocus
+            />
+            {/* Quick Chips */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              {[1000, 5000, 10000, 25000, 50000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setAddFundAmount(String(amt))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #CBD5E1',
+                    background: '#F8FAFC',
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: '#4F46E5',
+                    cursor: 'pointer',
+                  }}
+                >
+                  +₹{amt.toLocaleString('en-IN')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              Fund Source / Method
+            </label>
+            <select
+              className="form-input"
+              value={addFundSource}
+              onChange={(e) => setAddFundSource(e.target.value)}
+            >
+              <option value="Bank Deposit">Bank Deposit / RTGS</option>
+              <option value="Owner Equity">Owner Capital Injection</option>
+              <option value="Cash Float">Cash Float</option>
+              <option value="UPI / Online">UPI / Corporate Account</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              Reference / Note (Optional)
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. Ref #TXN99281, Q4 platform operational float"
+              value={addFundNote}
+              onChange={(e) => setAddFundNote(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowAddFundModal(false)}
+              disabled={isAddingFund}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isAddingFund || !addFundAmount}
+              style={{
+                padding: '10px 20px',
+                borderRadius: 8,
+                background: '#4F46E5',
+                color: '#FFFFFF',
+                fontWeight: 800,
+                fontSize: 14,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 4px 10px rgba(79, 70, 229, 0.3)',
+              }}
+            >
+              <HiOutlinePlus style={{ strokeWidth: 3 }} />
+              <span>{isAddingFund ? 'Adding...' : `Add ₹${Number(addFundAmount || 0).toLocaleString('en-IN')} to Added Fund`}</span>
+            </button>
+          </div>
+        </form>
       </Modal>
 
     </motion.div>

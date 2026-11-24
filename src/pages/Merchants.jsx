@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   HiOutlineEye,
+  HiOutlineEyeOff,
   HiOutlineBan,
   HiOutlineCheckCircle,
   HiOutlineStar,
@@ -103,6 +104,7 @@ export default function Merchants() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMerchant, setNewMerchant] = useState(initialMerchantState);
   const [addModalError, setAddModalError] = useState('');
+  const [showAddPassword, setShowAddPassword] = useState(false);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
@@ -111,6 +113,7 @@ export default function Merchants() {
   const [editingMerchant, setEditingMerchant] = useState(null);
   const [editFormData, setEditFormData] = useState(initialMerchantState);
   const [editModalError, setEditModalError] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditVideoUploading, setIsEditVideoUploading] = useState(false);
   const [editVideoUploadProgress, setEditVideoUploadProgress] = useState(0);
@@ -1171,14 +1174,37 @@ export default function Merchants() {
               <label className="form-label">
                 Login Password (Optional - auto-generated if left blank)
               </label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Enter password (e.g. MerchantPass123)"
-                value={newMerchant.password || ''}
-                onChange={(e) => setNewMerchant((prev) => ({ ...prev, password: e.target.value }))}
-                autoComplete="new-password"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showAddPassword ? "text" : "password"}
+                  className="form-input"
+                  style={{ paddingRight: 40 }}
+                  placeholder="Enter password (e.g. MerchantPass123)"
+                  value={newMerchant.password || ''}
+                  onChange={(e) => setNewMerchant((prev) => ({ ...prev, password: e.target.value }))}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddPassword((prev) => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 4,
+                  }}
+                  title={showAddPassword ? "Hide password" : "Show password"}
+                >
+                  {showAddPassword ? <HiOutlineEyeOff style={{ fontSize: 18 }} /> : <HiOutlineEye style={{ fontSize: 18 }} />}
+                </button>
+              </div>
               <span style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'block' }}>
                 When set, merchant can sign in immediately using their email or unique Login ID.
               </span>
@@ -1948,14 +1974,37 @@ export default function Merchants() {
               <label className="form-label">
                 Update Login Password (Optional - leave blank to keep existing password)
               </label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Enter new password (e.g. MerchantPass123)"
-                value={editFormData.password || ''}
-                onChange={(e) => setEditFormData((prev) => ({ ...prev, password: e.target.value }))}
-                autoComplete="new-password"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showEditPassword ? "text" : "password"}
+                  className="form-input"
+                  style={{ paddingRight: 40 }}
+                  placeholder="Enter new password (e.g. MerchantPass123)"
+                  value={editFormData.password || ''}
+                  onChange={(e) => setEditFormData((prev) => ({ ...prev, password: e.target.value }))}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword((prev) => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 4,
+                  }}
+                  title={showEditPassword ? "Hide password" : "Show password"}
+                >
+                  {showEditPassword ? <HiOutlineEyeOff style={{ fontSize: 18 }} /> : <HiOutlineEye style={{ fontSize: 18 }} />}
+                </button>
+              </div>
               <span style={{ fontSize: 11, color: '#64748B', marginTop: 4, display: 'block' }}>
                 When set, merchant can sign in immediately using their email or unique Login ID.
               </span>
