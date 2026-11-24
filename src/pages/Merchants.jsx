@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   HiOutlineEye,
   HiOutlineEyeOff,
@@ -107,6 +107,7 @@ const initialMerchantState = {
 export default function Merchants() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('all');
   const [data, setData] = useState([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
@@ -134,14 +135,20 @@ export default function Merchants() {
 
   // --- Merchant Wallet Modal State ---
   const [merchantWalletModal, setMerchantWalletModal] = useState(null); // { merchant }
+  const [selectedSourceWallet, setSelectedSourceWallet] = useState('added_fund'); // 'added_fund' | 'commission' | 'received_fund'
+  const [addedFundBalance, setAddedFundBalance] = useState(() => {
+    const saved = localStorage.getItem('admin_added_fund_balance');
+    return saved !== null ? parseFloat(saved) : 50000.0;
+  });
   const [walletOp, setWalletOp] = useState({ operation: 'credit', amount: '', note: '' });
   const [walletOpLoading, setWalletOpLoading] = useState(false);
   const [walletOpMsg, setWalletOpMsg] = useState({ type: '', text: '' });
 
   const handleMerchantWalletOp = async (e) => {
     e.preventDefault();
-    if (!walletOp.amount || Number(walletOp.amount) <= 0) {
-      setWalletOpMsg({ type: 'error', text: 'Please enter a valid amount.' });
+    const numericAmount = Number(walletOp.amount);
+    if (!walletOp.amount || isNaN(numericAmount) || numericAmount <= 0) {
+      setWalletOpMsg({ type: 'error', text: 'Please enter a valid amount in ₹.' });
       return;
     }
     const targetUserId = merchantWalletModal?.merchant?.user_id ?? merchantWalletModal?.merchant?.raw?.user_id;
@@ -150,23 +157,78 @@ export default function Merchants() {
       setWalletOpMsg({ type: 'error', text: 'Merchant ID or user ID not found.' });
       return;
     }
+
+    // Check Added Fund balance if chosen as source
+    if (selectedSourceWallet === 'added_fund' && numericAmount > addedFundBalance) {
+      setWalletOpMsg({
+        type: 'error',
+        text: `Insufficient Added Fund balance. Available: ₹${addedFundBalance.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })}`,
+      });
+      return;
+    }
+
+    const sourceWalletLabel =
+      selectedSourceWallet === 'added_fund'
+        ? 'Added Fund'
+        : selectedSourceWallet === 'commission'
+        ? 'Commission Fund'
+        : 'Received Fund';
+
     setWalletOpLoading(true);
     setWalletOpMsg({ type: '', text: '' });
     try {
+      const merchantName = merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name || 'Merchant';
+      const merchantCode = merchantWalletModal.merchant.login_id || merchantWalletModal.merchant.user_code || `ID #${targetMerchantId}`;
+
       await adminAdjustWallet({
         user_id: targetUserId ? Number(targetUserId) : undefined,
         merchant_id: targetMerchantId ? Number(targetMerchantId) : undefined,
-        operation: walletOp.operation,
-        amount: Number(walletOp.amount),
+        operation: 'credit',
+        amount: numericAmount,
         claim_mode: true, // Sits in Redeem section until merchant redeems it
-        note: walletOp.note || `Admin ${walletOp.operation} for merchant ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}`,
+        note: walletOp.note.trim()
+          ? `${walletOp.note.trim()} (Sent from Admin ${sourceWalletLabel})`
+          : `Admin cash sent from ${sourceWalletLabel}`,
       });
-      const opLabel = walletOp.operation === 'credit' ? 'sent to Redeem section for' : 'deducted from';
+
+      // Deduct from Added Fund if chosen
+      if (selectedSourceWallet === 'added_fund') {
+        const newBal = Math.max(0, addedFundBalance - numericAmount);
+        setAddedFundBalance(newBal);
+        localStorage.setItem('admin_added_fund_balance', String(newBal));
+      }
+
+      // Record in local cash ledger
+      const newCashOutEntry = {
+        id: Date.now(),
+        transaction_group_id: `SEND-${Date.now()}`,
+        movement: 'SENT',
+        direction: 'DEBIT',
+        user_name: merchantName,
+        user_role: 'MERCHANT',
+        user_email: merchantWalletModal.merchant.email || merchantWalletModal.merchant.phone,
+        type: 'ADMIN_SEND_FUNDS',
+        amount: numericAmount,
+        description: `Cash sent to ${merchantName} (${merchantCode}) from ${sourceWalletLabel}${
+          walletOp.note ? ': ' + walletOp.note : ''
+        }`,
+        created_at: new Date().toISOString(),
+      };
+      const savedCustom = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+      savedCustom.unshift(newCashOutEntry);
+      localStorage.setItem('admin_custom_cash_entries', JSON.stringify(savedCustom));
+
       setWalletOpMsg({
         type: 'success',
-        text: `✅ ₹${walletOp.amount} ${opLabel} ${merchantWalletModal.merchant.business_name || merchantWalletModal.merchant.name}! (Merchant can claim in Redeem section)`,
+        text: `✅ ₹${numericAmount} sent to Redeem section for ${merchantName} from ${sourceWalletLabel}!`,
       });
       setWalletOp({ operation: 'credit', amount: '', note: '' });
+      setTimeout(() => {
+        setMerchantWalletModal(null);
+        setWalletOpMsg({ type: '', text: '' });
+      }, 1500);
     } catch (err) {
       setWalletOpMsg({ type: 'error', text: err.message || 'Wallet operation failed.' });
     } finally {
@@ -662,6 +724,32 @@ export default function Merchants() {
     };
   }, [user]);
 
+  // Handle ?edit=<id> query parameter or state.editMerchant from MerchantDetail
+  useEffect(() => {
+    try {
+      const stateMerchant = location.state?.editMerchant;
+      if (stateMerchant) {
+        handleOpenEditModal(stateMerchant);
+        window.history.replaceState({}, '', '/merchants');
+        return;
+      }
+      const params = new URLSearchParams(location.search);
+      const editId = params.get('edit');
+      if (editId && data && data.length > 0) {
+        const found = data.find(
+          (m) =>
+            String(m.id) === String(editId) ||
+            String(m.login_id) === String(editId) ||
+            String(m.merchant_id) === String(editId)
+        );
+        if (found) {
+          handleOpenEditModal(found);
+          window.history.replaceState({}, '', '/merchants');
+        }
+      }
+    } catch (_) {}
+  }, [location.search, location.state, data]);
+
   const filteredData =
     activeTab === 'all'
       ? data
@@ -673,11 +761,39 @@ export default function Merchants() {
         });
 
   const columns = [
-    { key: 'id', label: 'ID' },
+    {
+      key: 'id',
+      label: 'ID',
+      render: (_val, row) => {
+        const displayId =
+          row?.login_id ||
+          row?.user_code ||
+          (row?.name ? `${row.name.substring(0, 3).toUpperCase()}${String(row.id).padStart(5, '0')}` : `#${row?.id}`);
+        return (
+          <span
+            style={{
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              fontSize: 12,
+              color: '#1D4ED8',
+              background: '#EFF6FF',
+              padding: '2px 8px',
+              borderRadius: 5,
+              border: '1px solid #BFDBFE',
+              letterSpacing: '0.03em',
+              display: 'inline-block',
+            }}
+            title={`Merchant ID: ${displayId}`}
+          >
+            {displayId}
+          </span>
+        );
+      },
+    },
     {
       key: 'name',
       label: 'Merchant Name',
-      render: (val, row) => (
+      render: (val) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
@@ -697,11 +813,6 @@ export default function Merchants() {
             {val?.charAt(0)}
           </div>
           <span style={{ fontWeight: 600 }}>{val}</span>
-          {row?.login_id && (
-            <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }} title="Merchant Login ID">
-              {row.login_id}
-            </span>
-          )}
         </div>
       ),
     },
@@ -911,7 +1022,7 @@ export default function Merchants() {
         <div className="card-body" style={{ padding: 0 }}>
           {loadingMerchants && (
             <div style={{ padding: '16px 24px', fontSize: 13, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #F3F4F6' }}>
-              <span>🔄 Loading live merchants from API...</span>
+              <span>🔄 Loading live merchants...</span>
             </div>
           )}
           <DataTable
@@ -2521,53 +2632,87 @@ export default function Merchants() {
               </div>
             )}
 
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Action Type</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setWalletOp({ ...walletOp, operation: 'credit' })}
+            {/* Step: Choose Source Admin Wallet */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>
+                Deduct From Which Admin Wallet?
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {/* Option A: Added Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('added_fund')}
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    border: '1.5px solid',
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'added_fund' ? '#4F46E5' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'added_fund' ? '#EEF2FF' : '#FFFFFF',
                     cursor: 'pointer',
-                    background: walletOp.operation === 'credit' ? '#ECFDF5' : '#ffffff',
-                    borderColor: walletOp.operation === 'credit' ? '#10B981' : '#CBD5E1',
-                    color: walletOp.operation === 'credit' ? '#047857' : '#64748B',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ➕ Send / Credit Cash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWalletOp({ ...walletOp, operation: 'debit' })}
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#4F46E5', textTransform: 'uppercase' }}>
+                    🟣 Added Fund
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1E1B4B', marginTop: 4 }}>
+                    ₹{Number(addedFundBalance || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#6366F1', marginTop: 2 }}>Admin Capital</div>
+                </div>
+
+                {/* Option B: Commission Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('commission')}
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    border: '1.5px solid',
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'commission' ? '#0284C7' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'commission' ? '#F0F9FF' : '#FFFFFF',
                     cursor: 'pointer',
-                    background: walletOp.operation === 'debit' ? '#FEF2F2' : '#ffffff',
-                    borderColor: walletOp.operation === 'debit' ? '#EF4444' : '#CBD5E1',
-                    color: walletOp.operation === 'debit' ? '#B91C1C' : '#64748B',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ➖ Deduct / Return Cash
-                </button>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#0284C7', textTransform: 'uppercase' }}>
+                    🔵 Commission
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#0C4A6E', marginTop: 4 }}>
+                    Platform Fee
+                  </div>
+                  <div style={{ fontSize: 10, color: '#0284C7', marginTop: 2 }}>Earnings</div>
+                </div>
+
+                {/* Option C: Received Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('received_fund')}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'received_fund' ? '#059669' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'received_fund' ? '#ECFDF5' : '#FFFFFF',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>
+                    🟢 Received Fund
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#064E3B', marginTop: 4 }}>
+                    User Inflows
+                  </div>
+                  <div style={{ fontSize: 10, color: '#059669', marginTop: 2 }}>Payout Reserve</div>
+                </div>
               </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>
-                Amount (₹) *
+                Amount to Send (₹) *
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="any"
                 min="1"
                 placeholder="e.g. 500"
                 className="form-input"
@@ -2576,6 +2721,27 @@ export default function Merchants() {
                 onChange={(e) => setWalletOp({ ...walletOp, amount: e.target.value })}
                 required
               />
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setWalletOp({ ...walletOp, amount: String(amt) })}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      background: Number(walletOp.amount) === amt ? '#EEF2FF' : '#F1F5F9',
+                      border: `1px solid ${Number(walletOp.amount) === amt ? '#6366F1' : '#E2E8F0'}`,
+                      color: Number(walletOp.amount) === amt ? '#4F46E5' : '#475569',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +₹{amt.toLocaleString('en-IN')}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: 20 }}>
@@ -2604,15 +2770,13 @@ export default function Merchants() {
                 className="btn btn-primary"
                 disabled={walletOpLoading}
                 style={{
-                  background: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
-                  borderColor: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
+                  background: '#059669',
+                  borderColor: '#059669',
                 }}
               >
                 {walletOpLoading
                   ? 'Processing...'
-                  : walletOp.operation === 'credit'
-                  ? `Send ₹${walletOp.amount || '0'} to Merchant`
-                  : `Deduct ₹${walletOp.amount || '0'} from Merchant`}
+                  : `Send ₹${walletOp.amount || '0'} to Merchant`}
               </button>
             </div>
           </form>

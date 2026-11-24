@@ -62,19 +62,19 @@ export default function CompanyWallet() {
   const [totalReceived, setTotalReceived] = useState('0.00');
   const [totalDeducted, setTotalDeducted] = useState('0.00');
 
-  // ── Tabs: 'cash_flow' | 'all_tx' | 'withdrawals' | 'ledger' ──
-  const [activeTab, setActiveTab] = useState('cash_flow');
+  // ── Tabs: 'added_fund' | 'commission' | 'received' ──
+  const [activeTab, setActiveTab] = useState('added_fund');
   const [tableLoading, setTableLoading] = useState(true);
   const [tableError, setTableError] = useState('');
 
-  // ── Table 4: Withdrawals State (2-Step Admin Approval) ──
+  // ── Table 3: Withdrawals State (Customer & Merchant Withdrawal Requests) ──
   const [withdrawalsData, setWithdrawalsData] = useState([]);
   const [withdrawalsTotal, setWithdrawalsTotal] = useState(0);
   const [withdrawalsPendingCount, setWithdrawalsPendingCount] = useState(0);
   const [withdrawalsPage, setWithdrawalsPage] = useState(1);
   const [withdrawalsPageSize] = useState(15);
   const [withdrawalsTotalPages, setWithdrawalsTotalPages] = useState(1);
-  const [withdrawalsStatusFilter, setWithdrawalsStatusFilter] = useState('PENDING');
+  const [withdrawalsStatusFilter, setWithdrawalsStatusFilter] = useState('ALL');
   const [sendingTxGroupId, setSendingTxGroupId] = useState(null);
   const [rejectingTxGroupId, setRejectingTxGroupId] = useState(null);
 
@@ -95,7 +95,7 @@ export default function CompanyWallet() {
   const [txTypeFilter, setTxTypeFilter] = useState('ALL');
   const [expandedTxId, setExpandedTxId] = useState(null);
 
-  // ── Table 3: Platform Commission Ledger State ──
+  // ── Table: Platform Commission Ledger State ──
   const [ledgerData, setLedgerData] = useState([]);
   const [ledgerTotal, setLedgerTotal] = useState(0);
   const [ledgerPage, setLedgerPage] = useState(1);
@@ -139,17 +139,17 @@ export default function CompanyWallet() {
     } catch (_) {}
   }, []);
 
-  // ── Sync activeTab with URL (/wallet?tab=all_tx) ──
+  // ── Sync activeTab with URL ──
   useEffect(() => {
     try {
       const params = new URLSearchParams(location.search);
       const tabParam = params.get('tab');
-      if (tabParam === 'all_tx') {
-        setActiveTab('all_tx');
-      } else if (tabParam === 'ledger') {
-        setActiveTab('ledger');
+      if (tabParam === 'commission' || tabParam === 'ledger') {
+        setActiveTab('commission');
+      } else if (tabParam === 'received' || tabParam === 'withdrawals') {
+        setActiveTab('received');
       } else {
-        setActiveTab('cash_flow');
+        setActiveTab('added_fund');
       }
     } catch (_) {}
   }, [location.pathname, location.search]);
@@ -161,9 +161,19 @@ export default function CompanyWallet() {
     try {
       const res = await fetchAdminWalletSummary();
       setSummaryData(res);
-      // Also fetch pending withdrawals count for notification badge
-      fetchAdminWithdrawals({ status: 'PENDING', page: 1, pageSize: 1 })
-        .then((wRes) => updatePendingWithdrawalsCount(wRes?.total ?? 0))
+      // Also fetch pending withdrawals count for notification badge and total
+      fetchAdminWithdrawals({ status: 'ALL', page: 1, pageSize: 100 })
+        .then((wRes) => {
+          const list = Array.isArray(wRes?.data) ? wRes.data : Array.isArray(wRes?.withdrawals) ? wRes.withdrawals : [];
+          const pCount = list.filter((w) => String(w.status || '').toUpperCase() === 'PENDING').length;
+          updatePendingWithdrawalsCount(pCount);
+          if (list.length > 0) {
+            const sum = list.reduce((acc, curr) => acc + (Number(curr.amount || curr.requested_amount) || 0), 0);
+            if (sum > 0) {
+              setTotalReceived(sum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+          }
+        })
         .catch(() => {});
     } catch (err) {
       console.error('Wallet summary load error:', err);
@@ -171,7 +181,7 @@ export default function CompanyWallet() {
     } finally {
       setSummaryLoading(false);
     }
-  }, []);
+  }, [updatePendingWithdrawalsCount]);
 
   // ── Load Transactions, Cash Flow, and Withdrawals ──
   const loadWalletData = useCallback(
@@ -184,9 +194,9 @@ export default function CompanyWallet() {
       setTableLoading(true);
       setTableError('');
       try {
-        if (activeTab === 'withdrawals') {
+        if (activeTab === 'received') {
           const res = await fetchAdminWithdrawals({
-            status: withdrawalsStatusFilter,
+            status: withdrawalsStatusFilter === 'ALL' ? undefined : withdrawalsStatusFilter,
             page: targetWithdrawalsPage,
             pageSize: withdrawalsPageSize,
           });
@@ -198,10 +208,9 @@ export default function CompanyWallet() {
           setWithdrawalsTotal(totalCount);
           setWithdrawalsPage(res?.page ?? targetWithdrawalsPage);
           setWithdrawalsTotalPages(Math.max(1, Math.ceil(totalCount / withdrawalsPageSize)));
-          if (withdrawalsStatusFilter === 'PENDING') {
-            updatePendingWithdrawalsCount(totalCount);
-          }
-        } else if (activeTab === 'ledger') {
+          const pCount = list.filter((w) => String(w.status || '').toUpperCase() === 'PENDING').length;
+          updatePendingWithdrawalsCount(pCount);
+        } else if (activeTab === 'commission') {
           const res = await fetchPlatformLedgerTransactions(targetLedgerPage, ledgerPageSize);
           const list = Array.isArray(res?.data) ? res.data : [];
           setLedgerData(list);
@@ -210,6 +219,7 @@ export default function CompanyWallet() {
           setLedgerPage(targetLedgerPage);
           setLedgerTotalPages(Math.max(1, Math.ceil(totalCount / ledgerPageSize)));
         } else {
+          // activeTab === 'added_fund'
           const res = await fetchAdminWalletTransactions({
             page: targetTxPage,
             pageSize: txPageSize,
@@ -249,8 +259,7 @@ export default function CompanyWallet() {
           setCashPage(res?.platform_cash_page ?? targetCashPage);
           setCashTotalPages(Math.max(1, Math.ceil(totalCash / cashPageSize)));
 
-          // Cash Totals
-          if (res?.total_received !== undefined) {
+          if (res?.total_received !== undefined && !totalReceived) {
             setTotalReceived(
               Number(res.total_received).toLocaleString('en-IN', {
                 minimumFractionDigits: 2,
@@ -287,8 +296,49 @@ export default function CompanyWallet() {
       txTypeFilter,
       withdrawalsStatusFilter,
       updatePendingWithdrawalsCount,
+      totalReceived,
     ]
   );
+
+  // ── Approve and Reject Withdrawal Handlers ──
+  const handleApproveWithdrawal = async (txnGroupId, amount) => {
+    if (!txnGroupId) return;
+    setSendingTxGroupId(txnGroupId);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await sendAdminWithdrawal(txnGroupId);
+      setActionSuccess(res?.message || `✓ Withdrawal of ₹${Number(amount || 0).toFixed(2)} approved successfully!`);
+      loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+    } catch (err) {
+      console.error('Approve withdrawal error:', err);
+      setActionError(err.message || 'Failed to approve withdrawal.');
+    } finally {
+      setSendingTxGroupId(null);
+    }
+  };
+
+  const handleRejectWithdrawal = async (txnGroupId, amount) => {
+    if (!txnGroupId) return;
+    const reason = window.prompt(
+      `Please enter reason for rejecting this ₹${Number(amount || 0).toFixed(2)} withdrawal request:`,
+      'Bank details mismatch'
+    );
+    if (reason === null) return;
+    setRejectingTxGroupId(txnGroupId);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await rejectAdminWithdrawal(txnGroupId, reason.trim() || 'Rejected by admin');
+      setActionSuccess(res?.message || `✓ Withdrawal request rejected and ₹${Number(amount || 0).toFixed(2)} refunded to wallet.`);
+      loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage);
+    } catch (err) {
+      console.error('Reject withdrawal error:', err);
+      setActionError(err.message || 'Failed to reject withdrawal request.');
+    } finally {
+      setRejectingTxGroupId(null);
+    }
+  };
 
   // ── Initial and reactive load ──
   useEffect(() => {
@@ -540,6 +590,62 @@ export default function CompanyWallet() {
     }
   };
 
+  // Added Fund Entries (Admin Capital Added + Cash Sent from Added Fund)
+  const addedFundEntries = React.useMemo(() => {
+    let customEntries = [];
+    try {
+      customEntries = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+    } catch (_) {}
+
+    const allEntries = [...customEntries, ...(Array.isArray(cashData) ? cashData : [])];
+    const seen = new Set();
+    const result = [];
+    for (const item of allEntries) {
+      if (!item || typeof item !== 'object') continue;
+      const key = item.id || item.transaction_group_id || JSON.stringify(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const m = String(item.movement || '').toUpperCase();
+      const t = String(item.type || item.transaction_type || '').toUpperCase();
+      const desc = String(item.description || item.note || '').toUpperCase();
+
+      if (desc.includes('SUBSCRIPTION') || desc.includes('MEMBERSHIP')) continue;
+
+      if (
+        m === 'ADDED_FUND' ||
+        t === 'ADMIN_CAPITAL' ||
+        desc.includes('ADDED FUND') ||
+        (m === 'SENT' && desc.includes('ADDED FUND')) ||
+        (m === 'SENT' && desc.includes('ADMIN ADDED'))
+      ) {
+        result.push(item);
+      }
+    }
+    // If no explicit added fund tag found, fallback to any ADDED_FUND or non-sub cash entries
+    if (result.length === 0 && Array.isArray(cashData)) {
+      return cashData.filter((item) => {
+        const desc = String(item?.description || item?.note || '').toUpperCase();
+        return !desc.includes('SUBSCRIPTION') && !desc.includes('MEMBERSHIP');
+      });
+    }
+    return result;
+  }, [cashData]);
+
+  // Total Received for Withdrawal Payouts
+  const totalReceivedForWithdrawals = React.useMemo(() => {
+    if (Array.isArray(withdrawalsData) && withdrawalsData.length > 0) {
+      const sum = withdrawalsData.reduce(
+        (acc, curr) => acc + (Number(curr.amount || curr.requested_amount) || 0),
+        0
+      );
+      if (sum > 0) {
+        return sum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+    }
+    return totalReceived || '0.00';
+  }, [withdrawalsData, totalReceived]);
+
   // Filtered Cash Data excluding subscriptions and matching movement filter
   const filteredCashData = React.useMemo(() => {
     if (!Array.isArray(cashData)) return [];
@@ -699,15 +805,22 @@ export default function CompanyWallet() {
       >
         {/* Card 1: Added Fund (Indigo / Purple) with + Add Fund button */}
         <div
+          onClick={() => setActiveTab('added_fund')}
           style={{
             background: 'linear-gradient(135deg, #3730A3 0%, #4F46E5 50%, #6366F1 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.18)',
+            boxShadow:
+              activeTab === 'added_fund'
+                ? '0 0 0 3px #FFFFFF, 0 10px 28px rgba(79, 70, 229, 0.5)'
+                : '0 8px 24px rgba(79, 70, 229, 0.25)',
+            border: activeTab === 'added_fund' ? '2px solid #C7D2FE' : '1px solid rgba(255, 255, 255, 0.18)',
             position: 'relative',
             overflow: 'hidden',
+            cursor: 'pointer',
+            transform: activeTab === 'added_fund' ? 'translateY(-2px)' : 'none',
+            transition: 'all 0.2s ease',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -729,6 +842,20 @@ export default function CompanyWallet() {
                 }}
               >
                 <span>🟣 Added Fund</span>
+                {activeTab === 'added_fund' && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: '#FFFFFF',
+                      color: '#4F46E5',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    Viewing History ↓
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 12.5, color: '#E0E7FF', fontWeight: 600 }}>
                 Admin Capital &amp; Float
@@ -759,7 +886,10 @@ export default function CompanyWallet() {
             {/* + Add Fund Button */}
             <button
               type="button"
-              onClick={() => setShowAddFundModal(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAddFundModal(true);
+              }}
               style={{
                 width: 44,
                 height: 44,
@@ -794,15 +924,22 @@ export default function CompanyWallet() {
 
         {/* Card 2: Commissions (Sky Blue) - Existing */}
         <div
+          onClick={() => setActiveTab('commission')}
           style={{
             background: 'linear-gradient(135deg, #0284C7 0%, #0EA5E9 50%, #38BDF8 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(14, 165, 233, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow:
+              activeTab === 'commission'
+                ? '0 0 0 3px #FFFFFF, 0 10px 28px rgba(14, 165, 233, 0.5)'
+                : '0 8px 24px rgba(14, 165, 233, 0.25)',
+            border: activeTab === 'commission' ? '2px solid #BAE6FD' : '1px solid rgba(255, 255, 255, 0.2)',
             position: 'relative',
             overflow: 'hidden',
+            cursor: 'pointer',
+            transform: activeTab === 'commission' ? 'translateY(-2px)' : 'none',
+            transition: 'all 0.2s ease',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -825,6 +962,20 @@ export default function CompanyWallet() {
               >
                 <HiOutlineCash style={{ fontSize: 13 }} />
                 <span>🔵 Commission Fund</span>
+                {activeTab === 'commission' && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: '#FFFFFF',
+                      color: '#0284C7',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    Viewing History ↓
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 12.5, color: '#E0F2FE', fontWeight: 600 }}>
                 Total Merchant Payment Commissions
@@ -868,15 +1019,22 @@ export default function CompanyWallet() {
 
         {/* Card 3: Received Funds (Emerald Green) */}
         <div
+          onClick={() => setActiveTab('received')}
           style={{
             background: 'linear-gradient(135deg, #064E3B 0%, #047857 100%)',
             borderRadius: 16,
             padding: '20px 22px',
             color: '#FFFFFF',
-            boxShadow: '0 8px 24px rgba(4, 120, 87, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow:
+              activeTab === 'received'
+                ? '0 0 0 3px #FFFFFF, 0 10px 28px rgba(4, 120, 87, 0.5)'
+                : '0 8px 24px rgba(4, 120, 87, 0.15)',
+            border: activeTab === 'received' ? '2px solid #6EE7B7' : '1px solid rgba(255, 255, 255, 0.08)',
             position: 'relative',
             overflow: 'hidden',
+            cursor: 'pointer',
+            transform: activeTab === 'received' ? 'translateY(-2px)' : 'none',
+            transition: 'all 0.2s ease',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -899,9 +1057,23 @@ export default function CompanyWallet() {
               >
                 <HiOutlineArrowDown style={{ fontSize: 13 }} />
                 <span>🟢 Received Funds</span>
+                {activeTab === 'received' && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: '#34D399',
+                      color: '#064E3B',
+                      padding: '1px 7px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    Viewing History ↓
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 12.5, color: '#A7F3D0', fontWeight: 500 }}>
-                Total Received (Top-ups / Deposits)
+                Withdrawal Requests (For Payout)
               </div>
               <div
                 style={{
@@ -916,10 +1088,10 @@ export default function CompanyWallet() {
                 }}
               >
                 <span style={{ fontSize: 20, color: '#34D399', fontWeight: 700 }}>₹</span>
-                {tableLoading ? '—' : totalReceived}
+                {tableLoading ? '—' : totalReceivedForWithdrawals}
               </div>
               <div style={{ fontSize: 11.5, color: '#A7F3D0', marginTop: 6 }}>
-                Customer &amp; merchant wallet top-ups received
+                Customer &amp; merchant funds received for withdrawal payout
               </div>
             </div>
             <div
@@ -1070,7 +1242,7 @@ export default function CompanyWallet() {
       )}
 
       {/* ═════════════════════════════════════════════════════════════ */}
-      {/* 2. ADMIN WALLET TABLES (Table 1, Table 2 & Ledger)            */}
+      {/* 2. ADMIN WALLET TABLES (Driven by Selected Top Card)          */}
       {/* ═════════════════════════════════════════════════════════════ */}
       <div className="card" style={{ marginTop: 16 }}>
         <div
@@ -1085,118 +1257,92 @@ export default function CompanyWallet() {
             gap: 16,
           }}
         >
-          {/* Left: Total Badge */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span
-              className="badge badge-info"
-              style={{
-                fontSize: 12.5,
-                fontWeight: 700,
-                padding: '6px 14px',
-                borderRadius: 8,
-                background: '#EFF6FF',
-                color: '#2563EB',
-                border: '1px solid #DBEAFE',
-              }}
-            >
-              Total:{' '}
-              {activeTab === 'cash_flow'
-                ? `${cashTotal} Cash Entries`
-                : activeTab === 'all_tx'
-                ? `${txTotal} Transactions`
-                : `${ledgerTotal} Ledger Entries`}
-            </span>
+          {/* Left: Dynamic Header Badge & Subtitle */}
+          <div>
+            {activeTab === 'added_fund' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    background: '#EEF2FF',
+                    color: '#4F46E5',
+                    border: '1px solid #C7D2FE',
+                  }}
+                >
+                  🟣 Admin Added Fund Ledger ({addedFundEntries.length} entries)
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)' }}>
+                  Capital float injections &amp; cash sent from Admin Added Fund
+                </span>
+              </div>
+            )}
+            {activeTab === 'commission' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    background: '#F0F9FF',
+                    color: '#0284C7',
+                    border: '1px solid #BAE6FD',
+                  }}
+                >
+                  🔵 Platform Commission Ledger ({ledgerTotal} entries)
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)' }}>
+                  Platform fees earned from customer merchant transactions
+                </span>
+              </div>
+            )}
+            {activeTab === 'received' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    background: '#ECFDF5',
+                    color: '#059669',
+                    border: '1px solid #A7F3D0',
+                  }}
+                >
+                  🟢 Received for Withdrawal Payout ({withdrawalsTotal} requests)
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary, #64748B)' }}>
+                  Withdrawal requests sent by customers &amp; merchants to admin for payout
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Center: Navigation Tabs */}
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: 4,
-              background: 'var(--bg-light, #F1F5F9)',
-              borderRadius: 12,
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
-            }}
-          >
-            {/* Tab 1: Platform Cash Flow */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('cash_flow')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'all 0.15s ease',
-                backgroundColor: activeTab === 'cash_flow' ? '#FFFFFF' : 'transparent',
-                color: activeTab === 'cash_flow' ? '#059669' : 'var(--text-secondary, #64748B)',
-                boxShadow: activeTab === 'cash_flow' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              <HiOutlineCash style={{ fontSize: 16 }} />
-              <span>Platform Cash Flow</span>
-              <span
+          {/* Right: Actions / Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {activeTab === 'added_fund' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowAddFundModal(true)}
                 style={{
-                  marginLeft: 2,
-                  fontSize: 11,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  background: activeTab === 'cash_flow' ? '#DCFCE7' : '#E2E8F0',
-                  color: activeTab === 'cash_flow' ? '#15803D' : '#64748B',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  fontSize: 13,
                   fontWeight: 700,
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
                 }}
               >
-                {cashTotal}
-              </span>
-            </button>
+                <HiOutlinePlus style={{ strokeWidth: 3 }} /> Add Capital
+              </button>
+            )}
 
-            {/* Tab 2: All Wallet Transactions */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('all_tx')}
-              style={{
-                padding: '8px 18px',
-                borderRadius: 9,
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'all 0.15s ease',
-                backgroundColor: activeTab === 'all_tx' ? '#FFFFFF' : 'transparent',
-                color: activeTab === 'all_tx' ? '#2563EB' : 'var(--text-secondary, #64748B)',
-                boxShadow: activeTab === 'all_tx' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              <HiOutlineCollection style={{ fontSize: 16 }} />
-              <span>All Transactions</span>
-              <span
-                style={{
-                  marginLeft: 2,
-                  fontSize: 11,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  background: activeTab === 'all_tx' ? '#DBEAFE' : '#E2E8F0',
-                  color: activeTab === 'all_tx' ? '#1D4ED8' : '#64748B',
-                  fontWeight: 700,
-                }}
-              >
-                {txTotal}
-              </span>
-            </button>
-
-          </div>
-
-          {/* Right: Filter dropdowns */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' }}>
-            {activeTab === 'cash_flow' && (
+            {activeTab === 'received' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
                   style={{
@@ -1208,11 +1354,11 @@ export default function CompanyWallet() {
                     gap: 4,
                   }}
                 >
-                  <HiOutlineFilter style={{ fontSize: 14 }} /> Filter:
+                  <HiOutlineFilter style={{ fontSize: 14 }} /> Status:
                 </span>
                 <select
-                  value={cashMovementFilter}
-                  onChange={(e) => setCashMovementFilter(e.target.value)}
+                  value={withdrawalsStatusFilter}
+                  onChange={(e) => setWithdrawalsStatusFilter(e.target.value)}
                   className="input-select"
                   style={{
                     padding: '6px 12px',
@@ -1225,53 +1371,13 @@ export default function CompanyWallet() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="ALL">All Cash Movements</option>
-                  <option value="RECEIVED">🟢 Cash Received (+ Inflows)</option>
-                  <option value="SENT">🔴 Cash Sent (- Outflows)</option>
-                  <option value="ADDED_FUND">🟣 Added Funds (+ Capital)</option>
+                  <option value="ALL">All Withdrawals</option>
+                  <option value="PENDING">Pending Payout</option>
+                  <option value="SENT">Completed / Sent</option>
+                  <option value="REJECTED">Rejected</option>
                 </select>
               </div>
             )}
-
-            {activeTab === 'all_tx' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-secondary)',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                >
-                  <HiOutlineFilter style={{ fontSize: 14 }} /> Type:
-                </span>
-                <select
-                  value={txTypeFilter}
-                  onChange={(e) => setTxTypeFilter(e.target.value)}
-                  className="input-select"
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    border: '1px solid var(--border-light, #CBD5E1)',
-                    background: 'var(--card-bg, #FFFFFF)',
-                    color: 'var(--text, #0F172A)',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="ALL">All Types</option>
-                  <option value="CASHBACK_REDEMPTION">Cashback Redemption</option>
-                  <option value="P2P_TRANSFER">P2P Transfer</option>
-                  <option value="ADMIN_CREDIT">Admin Credit</option>
-                  <option value="WALLET_TOPUP">Wallet Top-up</option>
-                  <option value="WITHDRAWAL">Bank Withdrawal</option>
-                </select>
-              </div>
-            )}
-
           </div>
         </div>
 
@@ -1280,7 +1386,7 @@ export default function CompanyWallet() {
           <div style={{ padding: '24px', textAlign: 'center' }}>
             <div style={{ color: '#DC2626', fontWeight: 600, marginBottom: 12 }}>{tableError}</div>
             <button
-              onClick={() => loadWalletData(txPage, cashPage, ledgerPage)}
+              onClick={() => loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage)}
               className="btn btn-outline"
               style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}
             >
@@ -1297,35 +1403,33 @@ export default function CompanyWallet() {
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty States */}
         {!tableLoading &&
           !tableError &&
-          ((activeTab === 'cash_flow' && cashData.length === 0) ||
-            (activeTab === 'all_tx' && txData.length === 0) ||
-            (activeTab === 'ledger' && ledgerData.length === 0)) && (
+          ((activeTab === 'added_fund' && addedFundEntries.length === 0) ||
+            (activeTab === 'commission' && ledgerData.length === 0) ||
+            (activeTab === 'received' && withdrawalsData.length === 0)) && (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
               <HiOutlineCash style={{ fontSize: 44, color: '#CBD5E1', marginBottom: 12 }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                {activeTab === 'cash_flow'
-                  ? 'No platform cash flow recorded yet.'
-                  : activeTab === 'all_tx'
-                  ? 'No transactions found.'
-                  : 'No platform commission transactions found.'}
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text, #0F172A)' }}>
+                {activeTab === 'added_fund'
+                  ? 'No Added Fund transactions recorded yet.'
+                  : activeTab === 'commission'
+                  ? 'No platform commission entries recorded yet.'
+                  : 'No withdrawal requests found for this filter.'}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-light)', marginTop: 4 }}>
-                {activeTab === 'cash_flow'
-                  ? 'When merchants add funds or users withdraw to banks, platform cash movement will appear here.'
-                  : activeTab === 'all_tx'
-                  ? 'Transactions performed across the platform will appear here.'
-                  : 'Incoming 2% platform fees will appear here when cashback is redeemed.'}
+              <div style={{ fontSize: 13, color: 'var(--text-light, #64748B)', marginTop: 4 }}>
+                {activeTab === 'added_fund'
+                  ? 'Click "+ Add Capital" above to inject funds or send money from Added Fund.'
+                  : activeTab === 'commission'
+                  ? 'Platform fees will appear here when cashback transactions occur.'
+                  : 'Customer and merchant withdrawal requests for admin payout will appear here.'}
               </div>
             </div>
           )}
 
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {/* TABLE 1: PLATFORM CASH FLOW (RECEIVED, SENT & ADDED FUNDS)   */}
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {!tableLoading && !tableError && activeTab === 'cash_flow' && filteredCashData.length > 0 && (
+        {/* ── TABLE 1: ADDED FUND LEDGER ── */}
+        {!tableLoading && !tableError && activeTab === 'added_fund' && addedFundEntries.length > 0 && (
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -1335,17 +1439,15 @@ export default function CompanyWallet() {
                   <th>Party / Initiator</th>
                   <th>Type</th>
                   <th style={{ textAlign: 'right' }}>Amount</th>
-                  <th>Description</th>
-                  <th>Date & Time</th>
+                  <th>Description / Note</th>
+                  <th>Date &amp; Time</th>
                   <th style={{ textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCashData.map((item) => {
+                {addedFundEntries.map((item) => {
                   const m = (item.movement || '').toUpperCase();
                   const isAddedFund = m === 'ADDED_FUND';
-                  const isReceived = m === 'RECEIVED';
-                  const isSent = m === 'SENT' || m === 'DEDUCTED' || (item.direction || '').toUpperCase() === 'DEBIT';
 
                   const dateStr = item.created_at
                     ? new Date(item.created_at).toLocaleString('en-IN', {
@@ -1359,8 +1461,7 @@ export default function CompanyWallet() {
                   });
 
                   return (
-                    <tr key={item.id}>
-                      {/* Ref ID */}
+                    <tr key={item.id || item.transaction_group_id}>
                       <td style={{ fontWeight: 600, color: 'var(--text)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span style={{ fontSize: 13, fontWeight: 700 }}>#{item.id}</span>
@@ -1382,7 +1483,6 @@ export default function CompanyWallet() {
                         </div>
                       </td>
 
-                      {/* Movement */}
                       <td>
                         <span
                           style={{
@@ -1391,9 +1491,9 @@ export default function CompanyWallet() {
                             gap: 4,
                             padding: '4px 10px',
                             borderRadius: 6,
-                            backgroundColor: isAddedFund ? '#EDE9FE' : isReceived ? '#DCFCE7' : '#FEE2E2',
-                            color: isAddedFund ? '#6D28D9' : isReceived ? '#15803D' : '#B91C1C',
-                            border: `1px solid ${isAddedFund ? '#DDD6FE' : isReceived ? '#BBF7D0' : '#FECACA'}`,
+                            backgroundColor: isAddedFund ? '#EDE9FE' : '#FEE2E2',
+                            color: isAddedFund ? '#6D28D9' : '#B91C1C',
+                            border: `1px solid ${isAddedFund ? '#DDD6FE' : '#FECACA'}`,
                             fontSize: 11.5,
                             fontWeight: 800,
                             letterSpacing: '0.04em',
@@ -1402,22 +1502,19 @@ export default function CompanyWallet() {
                         >
                           {isAddedFund ? (
                             <HiOutlinePlus style={{ fontSize: 13, strokeWidth: 3 }} />
-                          ) : isReceived ? (
-                            <HiOutlineArrowDown />
                           ) : (
                             <HiOutlineArrowUp />
                           )}
-                          <span>{isAddedFund ? 'ADDED FUND' : isReceived ? 'RECEIVED' : 'SENT'}</span>
+                          <span>{isAddedFund ? 'ADDED FUND' : 'CASH SENT'}</span>
                         </span>
                       </td>
 
-                      {/* Party / Initiator */}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 700, color: 'var(--text)' }}>
-                            {item.party_name || item.user_name || item.party_email || (isAddedFund ? 'Platform Admin' : 'System')}
+                            {item.party_name || item.user_name || (isAddedFund ? 'Platform Admin' : 'Recipient')}
                           </span>
-                          {item.party_role && (
+                          {item.user_role && (
                             <span
                               style={{
                                 fontSize: 10,
@@ -1426,31 +1523,22 @@ export default function CompanyWallet() {
                                 padding: '1px 6px',
                                 borderRadius: 4,
                                 backgroundColor:
-                                  String(item.party_role || '').toUpperCase() === 'MERCHANT'
-                                    ? '#EFF6FF'
-                                    : String(item.party_role || '').toUpperCase() === 'ADMIN'
-                                    ? '#EDE9FE'
-                                    : '#F1F5F9',
+                                  String(item.user_role).toUpperCase() === 'MERCHANT' ? '#EFF6FF' : '#EDE9FE',
                                 color:
-                                  String(item.party_role || '').toUpperCase() === 'MERCHANT'
-                                    ? '#2563EB'
-                                    : String(item.party_role || '').toUpperCase() === 'ADMIN'
-                                    ? '#6D28D9'
-                                    : '#475569',
+                                  String(item.user_role).toUpperCase() === 'MERCHANT' ? '#2563EB' : '#6D28D9',
                               }}
                             >
-                              {String(item.party_role)}
+                              {String(item.user_role)}
                             </span>
                           )}
                         </div>
-                        {(item.party_phone || item.party_email || item.user_email) && (
+                        {(item.party_email || item.user_email) && (
                           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                            {item.party_phone || item.party_email || item.user_email}
+                            {item.party_email || item.user_email}
                           </div>
                         )}
                       </td>
 
-                      {/* Type */}
                       <td>
                         <span
                           style={{
@@ -1463,33 +1551,29 @@ export default function CompanyWallet() {
                             fontWeight: 600,
                           }}
                         >
-                          {item.transaction_type || item.type || (isAddedFund ? 'ADMIN_CAPITAL' : 'CASH_FLOW')}
+                          {item.transaction_type || item.type || (isAddedFund ? 'ADMIN_CAPITAL' : 'ADMIN_SEND_FUNDS')}
                         </span>
                       </td>
 
-                      {/* Amount */}
                       <td
                         style={{
                           textAlign: 'right',
                           fontWeight: 800,
                           fontSize: 14.5,
-                          color: isAddedFund ? '#6D28D9' : isReceived ? '#15803D' : '#B91C1C',
+                          color: isAddedFund ? '#6D28D9' : '#B91C1C',
                         }}
                       >
-                        {isAddedFund || isReceived ? '+' : '-'}₹{formattedAmount}
+                        {isAddedFund ? '+' : '-'}₹{formattedAmount}
                       </td>
 
-                      {/* Description */}
-                      <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 220 }}>
+                      <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 260 }}>
                         {item.description || '—'}
                       </td>
 
-                      {/* Date */}
                       <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {dateStr}
                       </td>
 
-                      {/* Action */}
                       <td style={{ textAlign: 'center' }}>
                         <button
                           type="button"
@@ -1516,293 +1600,8 @@ export default function CompanyWallet() {
           </div>
         )}
 
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {/* TABLE 2: ALL WALLET TRANSACTIONS                              */}
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {!tableLoading && !tableError && activeTab === 'all_tx' && txData.length > 0 && (
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Ref ID</th>
-                  <th>Initiated By</th>
-                  <th>Type</th>
-                  <th style={{ textAlign: 'right' }}>Total Amount</th>
-                  <th>Ledger Summary</th>
-                  <th>Description</th>
-                  <th>Date</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {txData.map((t) => {
-                  const badge = getTxTypeBadge(t.transaction_type);
-                  const isExpanded = expandedTxId === t.id;
-                  const dateStr = t.created_at
-                    ? new Date(t.created_at).toLocaleString('en-IN', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })
-                    : '—';
-                  const formattedAmount = Number(t.amount || 0).toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
-
-                  return (
-                    <React.Fragment key={t.id}>
-                      <tr style={{ background: isExpanded ? 'rgba(59, 130, 246, 0.03)' : undefined }}>
-                        {/* Ref ID */}
-                        <td style={{ fontWeight: 600, color: 'var(--text)' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700 }}>#{t.id}</span>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontFamily: 'monospace',
-                                color: 'var(--text-secondary)',
-                                marginTop: 2,
-                                maxWidth: 130,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                              title={t.transaction_group_id}
-                            >
-                              {t.transaction_group_id}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Initiated By */}
-                        <td>
-                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>
-                            {t.user_name || t.initiated_by_name || (t.user_email ? t.user_email.split('@')[0] : 'System')}
-                          </div>
-                          {(t.user_email || t.initiated_by_email) && (
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                              {t.user_email || t.initiated_by_email}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Type Badge */}
-                        <td>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              backgroundColor: badge.bg,
-                              color: badge.text,
-                              border: `1px solid ${badge.border}`,
-                              fontSize: 11.5,
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.03em',
-                            }}
-                          >
-                            {badge.label}
-                          </span>
-                        </td>
-
-                        {/* Amount */}
-                        <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>
-                          ₹{formattedAmount}
-                        </td>
-
-                        {/* Ledger Summary */}
-                        <td style={{ fontSize: 12 }}>
-                          {Array.isArray(t.ledger_entries) && t.ledger_entries.length > 0 ? (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {t.ledger_entries.map((entry, idx) => {
-                                const isCredit = (entry.direction || '').toUpperCase() === 'CREDIT';
-                                const roleLabel =
-                                  entry.wallet_type === 'MERCHANT'
-                                    ? (entry.user_name ? `MERCHANT: ${entry.user_name}` : 'MERCHANT')
-                                    : entry.wallet_type === 'COMPANY'
-                                    ? 'COMPANY'
-                                    : (entry.user_name ? `USER: ${entry.user_name}` : 'USER');
-                                return (
-                                  <span
-                                    key={idx}
-                                    style={{
-                                      fontSize: 11,
-                                      padding: '2px 6px',
-                                      borderRadius: 4,
-                                      fontWeight: 600,
-                                      backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2',
-                                      color: isCredit ? '#15803D' : '#B91C1C',
-                                    }}
-                                  >
-                                    {isCredit ? '+' : '-'}₹{Number(entry.amount).toFixed(2)} ({roleLabel})
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>—</span>
-                          )}
-                        </td>
-
-                        {/* Description */}
-                        <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 220 }}>
-                          {t.description || '—'}
-                        </td>
-
-                        {/* Date */}
-                        <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                          {dateStr}
-                        </td>
-
-                        {/* Action Buttons: Details Modal & Collapse Lines */}
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenTxDetail(t.id)}
-                              className="btn btn-outline"
-                              style={{
-                                padding: '4px 8px',
-                                fontSize: 11.5,
-                                borderRadius: 6,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              <HiOutlineEye />
-                              <span>Details</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedTxId(isExpanded ? null : t.id)}
-                              className="btn btn-outline"
-                              style={{
-                                padding: '4px 8px',
-                                fontSize: 11,
-                                borderRadius: 6,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 2,
-                              }}
-                              title="Toggle inline ledger rows"
-                            >
-                              {isExpanded ? <HiOutlineChevronUp /> : <HiOutlineChevronDown />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expanded Ledger Entries Row */}
-                      {isExpanded && (
-                        <tr style={{ background: '#F8FAFC' }}>
-                          <td colSpan={8} style={{ padding: '16px 24px' }}>
-                            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#334155' }}>
-                              Ledger Breakdown for Transaction #{t.id} ({t.transaction_group_id}):
-                            </div>
-                            {Array.isArray(t.ledger_entries) && t.ledger_entries.length > 0 ? (
-                              <div
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                                  gap: 10,
-                                }}
-                              >
-                                {t.ledger_entries.map((entry) => {
-                                  const isCred = (entry.direction || '').toUpperCase() === 'CREDIT';
-                                  return (
-                                    <div
-                                      key={entry.id}
-                                      style={{
-                                        background: '#FFFFFF',
-                                        border: `1px solid ${isCred ? '#BBF7D0' : '#FECACA'}`,
-                                        borderRadius: 8,
-                                        padding: '10px 14px',
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          marginBottom: 4,
-                                        }}
-                                      >
-                                        <span style={{ fontWeight: 700, color: isCred ? '#15803D' : '#B91C1C' }}>
-                                          {entry.direction} (₹{Number(entry.amount).toFixed(2)})
-                                        </span>
-                                        <span
-                                          style={{
-                                            fontSize: 10,
-                                            background: '#F1F5F9',
-                                            padding: '2px 6px',
-                                            borderRadius: 4,
-                                            fontWeight: 700,
-                                          }}
-                                        >
-                                          {entry.wallet_type} WALLET
-                                        </span>
-                                      </div>
-                                      <div style={{ color: '#475569' }}>
-                                        <strong>Account:</strong>{' '}
-                                        {entry.user_name || entry.user_email || `Wallet #${entry.wallet_id}`}
-                                      </div>
-                                      <div style={{ color: '#475569', marginTop: 2 }}>
-                                        <strong>Balance After:</strong> ₹{Number(entry.balance_after || 0).toFixed(2)}
-                                      </div>
-                                      {entry.counterparty_name && (
-                                        <div style={{ color: '#64748B', marginTop: 2 }}>
-                                          <strong>Counterparty:</strong> {entry.counterparty_name}
-                                        </div>
-                                      )}
-                                      {entry.note && (
-                                        <div style={{ color: '#64748B', marginTop: 2, fontStyle: 'italic' }}>
-                                          "{entry.note}"
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div style={{ color: '#94A3B8', fontSize: 12 }}>
-                                No ledger lines recorded for this transaction.
-                              </div>
-                            )}
-
-                            {/* Bank details if withdrawal */}
-                            {(t.bank_account_holder_name || t.bank_account_last4) && (
-                              <div
-                                style={{
-                                  marginTop: 10,
-                                  padding: '8px 12px',
-                                  background: '#EFF6FF',
-                                  borderRadius: 6,
-                                  fontSize: 12,
-                                  color: '#1E40AF',
-                                }}
-                              >
-                                <strong>Bank Details:</strong> {t.bank_account_holder_name || '—'} | Account Last 4:{' '}
-                                {t.bank_account_last4 || '—'} | IFSC: {t.bank_ifsc || '—'}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {/* TABLE 3: PLATFORM COMMISSION LEDGER                           */}
-        {/* ═════════════════════════════════════════════════════════════ */}
-        {!tableLoading && !tableError && activeTab === 'ledger' && ledgerData.length > 0 && (
+        {/* ── TABLE 2: PLATFORM COMMISSION LEDGER ── */}
+        {!tableLoading && !tableError && activeTab === 'commission' && ledgerData.length > 0 && (
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -1840,33 +1639,11 @@ export default function CompanyWallet() {
 
                   return (
                     <tr key={t.id}>
-                      {/* Customer Details */}
                       <td style={{ fontWeight: 600, color: 'var(--text)' }}>
                         {customerDisplay ? (
                           <div>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                color: 'var(--text)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                              }}
-                            >
-                              <span>{t.customer_name || customerDisplay}</span>
-                              <span
-                                style={{
-                                  fontSize: 9.5,
-                                  fontWeight: 800,
-                                  textTransform: 'uppercase',
-                                  padding: '1px 5px',
-                                  borderRadius: 4,
-                                  backgroundColor: '#F1F5F9',
-                                  color: '#475569',
-                                }}
-                              >
-                                User
-                              </span>
+                            <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                              {t.customer_name || customerDisplay}
                             </div>
                             {(t.customer_phone || t.customer_email) && (
                               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -1879,33 +1656,11 @@ export default function CompanyWallet() {
                         )}
                       </td>
 
-                      {/* Merchant Details */}
                       <td style={{ fontWeight: 600, color: 'var(--text)' }}>
                         {merchantDisplay ? (
                           <div>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                color: 'var(--text)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                              }}
-                            >
-                              <span>{t.merchant_name || merchantDisplay}</span>
-                              <span
-                                style={{
-                                  fontSize: 9.5,
-                                  fontWeight: 800,
-                                  textTransform: 'uppercase',
-                                  padding: '1px 5px',
-                                  borderRadius: 4,
-                                  backgroundColor: '#EFF6FF',
-                                  color: '#2563EB',
-                                }}
-                              >
-                                Merchant
-                              </span>
+                            <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                              {t.merchant_name || merchantDisplay}
                             </div>
                             {t.merchant_city && (
                               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -1918,7 +1673,6 @@ export default function CompanyWallet() {
                         )}
                       </td>
 
-                      {/* Transaction Type */}
                       <td style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
                         <span
                           style={{
@@ -1930,21 +1684,19 @@ export default function CompanyWallet() {
                             fontFamily: 'monospace',
                             fontWeight: 700,
                             fontSize: 11,
-                            textTransform: 'uppercase',
                           }}
                         >
                           {t.transaction_type || 'PLATFORM_FEE'}
                         </span>
                       </td>
 
-                      {/* Direction */}
                       <td style={{ textAlign: 'center' }}>
                         <span
-                          className={`badge ${isCredit ? 'badge-active' : 'badge-inactive'}`}
                           style={{
                             fontSize: 11,
                             fontWeight: 800,
                             padding: '3px 8px',
+                            borderRadius: 6,
                             backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2',
                             color: isCredit ? '#15803D' : '#B91C1C',
                           }}
@@ -1953,7 +1705,6 @@ export default function CompanyWallet() {
                         </span>
                       </td>
 
-                      {/* Commission Received (Amount) */}
                       <td
                         style={{
                           textAlign: 'right',
@@ -1965,7 +1716,6 @@ export default function CompanyWallet() {
                         {isCredit ? '+' : '-'}₹{formattedAmount}
                       </td>
 
-                      {/* Balance After */}
                       <td
                         style={{
                           textAlign: 'right',
@@ -1978,12 +1728,10 @@ export default function CompanyWallet() {
                         ₹{formattedBalanceAfter}
                       </td>
 
-                      {/* Note */}
                       <td style={{ fontSize: 12.5, color: 'var(--text-secondary)', maxWidth: 240 }}>
                         {t.note || '—'}
                       </td>
 
-                      {/* Date */}
                       <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {dateStr}
                       </td>
@@ -1995,7 +1743,173 @@ export default function CompanyWallet() {
           </div>
         )}
 
+        {/* ── TABLE 3: RECEIVED WITHDRAWAL PAYOUT REQUESTS ── */}
+        {!tableLoading && !tableError && activeTab === 'received' && withdrawalsData.length > 0 && (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Beneficiary User / Merchant</th>
+                  <th style={{ textAlign: 'right' }}>Requested Amount</th>
+                  <th>Bank / Payment Details</th>
+                  <th>Mode</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th>Requested Date</th>
+                  <th style={{ textAlign: 'center' }}>Admin Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawalsData.map((w) => {
+                  const statusUpper = (w.status || '').toUpperCase();
+                  const isPending = statusUpper === 'PENDING';
+                  const isCompleted = statusUpper === 'COMPLETED' || statusUpper === 'SENT';
+                  const isRejected = statusUpper === 'REJECTED' || statusUpper === 'FAILED';
+                  const isSendingThis = sendingTxGroupId === (w.transaction_group_id || w.id);
+                  const isRejectingThis = rejectingTxGroupId === (w.transaction_group_id || w.id);
 
+                  const dateStr = w.created_at
+                    ? new Date(w.created_at).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '—';
+
+                  return (
+                    <tr key={w.id || w.transaction_group_id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text, #0F172A)' }}>
+                            {w.account_holder_name || w.user_name || w.name || 'User'}
+                          </span>
+                          {w.role && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                backgroundColor: String(w.role).toUpperCase() === 'MERCHANT' ? '#EFF6FF' : '#F1F5F9',
+                                color: String(w.role).toUpperCase() === 'MERCHANT' ? '#2563EB' : '#475569',
+                              }}
+                            >
+                              {String(w.role)}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748B)', marginTop: 2 }}>
+                          {w.user_phone ? `📞 ${w.user_phone}` : ''}
+                          {w.user_email ? ` • ${w.user_email}` : ''}
+                        </div>
+                      </td>
+
+                      <td style={{ textAlign: 'right' }}>
+                        <span style={{ fontWeight: 800, fontSize: 14.5, color: '#059669' }}>
+                          ₹{Number(w.amount || w.requested_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+
+                      <td>
+                        {w.upi_id ? (
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
+                            UPI: <span style={{ fontFamily: 'monospace', color: '#1D4ED8' }}>{w.upi_id}</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0F172A' }}>
+                              A/C: <span style={{ fontFamily: 'monospace', color: '#1E293B', background: '#F8FAFC', padding: '1px 6px', borderRadius: 4, border: '1px solid #E2E8F0' }}>{w.account_number || w.account_number_masked || '—'}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748B', marginTop: 3 }}>
+                              Bank: <strong>{w.bank_name || 'Bank'}</strong> | IFSC: <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#334155' }}>{w.ifsc || w.ifsc_code || '—'}</span>
+                            </div>
+                          </>
+                        )}
+                      </td>
+
+                      <td>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            background: '#F1F5F9',
+                            color: '#334155',
+                          }}
+                        >
+                          {w.payout_mode || 'IMPS'}
+                        </span>
+                      </td>
+
+                      <td style={{ textAlign: 'center' }}>
+                        <span
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 800,
+                            padding: '4px 12px',
+                            borderRadius: 12,
+                            display: 'inline-block',
+                            backgroundColor: isCompleted ? '#DCFCE7' : isPending ? '#FEF3C7' : '#FEE2E2',
+                            color: isCompleted ? '#15803D' : isPending ? '#B45309' : '#B91C1C',
+                          }}
+                        >
+                          {isCompleted ? '✓ SENT' : isPending ? '⏳ PENDING' : '✕ REJECTED'}
+                        </span>
+                      </td>
+
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                        {dateStr}
+                      </td>
+
+                      <td style={{ textAlign: 'center' }}>
+                        {isPending ? (
+                          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveWithdrawal(w.transaction_group_id || w.id, w.amount)}
+                              disabled={isSendingThis || isRejectingThis}
+                              className="btn btn-primary"
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                background: '#059669',
+                                borderColor: '#059669',
+                              }}
+                            >
+                              {isSendingThis ? 'Sending...' : 'Approve & Pay'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectWithdrawal(w.transaction_group_id || w.id, w.amount)}
+                              disabled={isSendingThis || isRejectingThis}
+                              className="btn btn-outline"
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: 11.5,
+                                color: '#DC2626',
+                                borderColor: '#FCA5A5',
+                              }}
+                            >
+                              {isRejectingThis ? 'Rejecting...' : 'Reject'}
+                            </button>
+                          </div>
+                        ) : isCompleted ? (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>Paid ✓</span>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C' }}>Rejected</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* ── Dynamic Pagination Controls ── */}
         {!tableLoading && !tableError && (
@@ -2010,137 +1924,23 @@ export default function CompanyWallet() {
               gap: 12,
             }}
           >
-            {activeTab === 'cash_flow' && cashTotal > 0 && (
-              <>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Showing {Math.min((cashPage - 1) * cashPageSize + 1, cashTotal)} to{' '}
-                  {Math.min(cashPage * cashPageSize, cashTotal)} of {cashTotal} cash entries
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => loadWalletData(txPage, cashPage - 1, ledgerPage)}
-                    disabled={cashPage <= 1 || tableLoading}
-                    className="btn btn-outline"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '6px 12px',
-                      fontSize: 13,
-                      opacity: cashPage <= 1 ? 0.5 : 1,
-                      cursor: cashPage <= 1 ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <HiOutlineChevronLeft />
-                    <span>Previous</span>
-                  </button>
-
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--text)',
-                      padding: '0 8px',
-                    }}
-                  >
-                    Cash Page {cashPage} of {cashTotalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => loadWalletData(txPage, cashPage + 1, ledgerPage)}
-                    disabled={cashPage >= cashTotalPages || tableLoading}
-                    className="btn btn-outline"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '6px 12px',
-                      fontSize: 13,
-                      opacity: cashPage >= cashTotalPages ? 0.5 : 1,
-                      cursor: cashPage >= cashTotalPages ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <span>Next</span>
-                    <HiOutlineChevronRight />
-                  </button>
-                </div>
-              </>
+            {activeTab === 'added_fund' && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Showing all {addedFundEntries.length} Added Fund entries
+              </div>
             )}
 
-            {activeTab === 'all_tx' && txTotal > 0 && (
-              <>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Showing {Math.min((txPage - 1) * txPageSize + 1, txTotal)} to{' '}
-                  {Math.min(txPage * txPageSize, txTotal)} of {txTotal} transactions
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => loadWalletData(txPage - 1, cashPage, ledgerPage)}
-                    disabled={txPage <= 1 || tableLoading}
-                    className="btn btn-outline"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '6px 12px',
-                      fontSize: 13,
-                      opacity: txPage <= 1 ? 0.5 : 1,
-                      cursor: txPage <= 1 ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <HiOutlineChevronLeft />
-                    <span>Previous</span>
-                  </button>
-
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--text)',
-                      padding: '0 8px',
-                    }}
-                  >
-                    Page {txPage} of {txTotalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => loadWalletData(txPage + 1, cashPage, ledgerPage)}
-                    disabled={txPage >= txTotalPages || tableLoading}
-                    className="btn btn-outline"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '6px 12px',
-                      fontSize: 13,
-                      opacity: txPage >= txTotalPages ? 0.5 : 1,
-                      cursor: txPage >= txTotalPages ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <span>Next</span>
-                    <HiOutlineChevronRight />
-                  </button>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'ledger' && ledgerTotal > 0 && (
+            {activeTab === 'commission' && ledgerTotal > 0 && (
               <>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                   Showing {Math.min((ledgerPage - 1) * ledgerPageSize + 1, ledgerTotal)} to{' '}
-                  {Math.min(ledgerPage * ledgerPageSize, ledgerTotal)} of {ledgerTotal} ledger entries
+                  {Math.min(ledgerPage * ledgerPageSize, ledgerTotal)} of {ledgerTotal} commission entries
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage - 1)}
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage - 1, withdrawalsPage)}
                     disabled={ledgerPage <= 1 || tableLoading}
                     className="btn btn-outline"
                     style={{
@@ -2165,12 +1965,12 @@ export default function CompanyWallet() {
                       padding: '0 8px',
                     }}
                   >
-                    Ledger Page {ledgerPage} of {ledgerTotalPages}
+                    Page {ledgerPage} of {ledgerTotalPages}
                   </span>
 
                   <button
                     type="button"
-                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage + 1)}
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage + 1, withdrawalsPage)}
                     disabled={ledgerPage >= ledgerTotalPages || tableLoading}
                     className="btn btn-outline"
                     style={{
@@ -2190,7 +1990,65 @@ export default function CompanyWallet() {
               </>
             )}
 
+            {activeTab === 'received' && withdrawalsTotal > 0 && (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Showing {Math.min((withdrawalsPage - 1) * withdrawalsPageSize + 1, withdrawalsTotal)} to{' '}
+                  {Math.min(withdrawalsPage * withdrawalsPageSize, withdrawalsTotal)} of {withdrawalsTotal} requests
+                </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage - 1)}
+                    disabled={withdrawalsPage <= 1 || tableLoading}
+                    className="btn btn-outline"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '6px 12px',
+                      fontSize: 13,
+                      opacity: withdrawalsPage <= 1 ? 0.5 : 1,
+                      cursor: withdrawalsPage <= 1 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <HiOutlineChevronLeft />
+                    <span>Previous</span>
+                  </button>
+
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'var(--text)',
+                      padding: '0 8px',
+                    }}
+                  >
+                    Page {withdrawalsPage} of {withdrawalsTotalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => loadWalletData(txPage, cashPage, ledgerPage, withdrawalsPage + 1)}
+                    disabled={withdrawalsPage >= withdrawalsTotalPages || tableLoading}
+                    className="btn btn-outline"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '6px 12px',
+                      fontSize: 13,
+                      opacity: withdrawalsPage >= withdrawalsTotalPages ? 0.5 : 1,
+                      cursor: withdrawalsPage >= withdrawalsTotalPages ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <span>Next</span>
+                    <HiOutlineChevronRight />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

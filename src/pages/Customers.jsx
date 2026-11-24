@@ -71,6 +71,11 @@ export default function Customers() {
 
   // Wallet modal state
   const [walletModalCustomer, setWalletModalCustomer] = useState(null);
+  const [selectedSourceWallet, setSelectedSourceWallet] = useState('added_fund'); // 'added_fund' | 'commission' | 'received_fund'
+  const [addedFundBalance, setAddedFundBalance] = useState(() => {
+    const saved = localStorage.getItem('admin_added_fund_balance');
+    return saved !== null ? parseFloat(saved) : 50000.0;
+  });
   const [walletOp, setWalletOp] = useState({ operation: 'credit', amount: '', note: '' });
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletMsg, setWalletMsg] = useState({ type: '', text: '' });
@@ -190,7 +195,8 @@ export default function Customers() {
 
   const handleWalletSubmit = async (e) => {
     e.preventDefault();
-    if (!walletOp.amount || Number(walletOp.amount) <= 0) {
+    const numericAmount = Number(walletOp.amount);
+    if (!walletOp.amount || isNaN(numericAmount) || numericAmount <= 0) {
       setWalletMsg({ type: 'error', text: 'Please enter a valid amount in ₹' });
       return;
     }
@@ -198,6 +204,25 @@ export default function Customers() {
       setWalletMsg({ type: 'error', text: 'Customer ID not found' });
       return;
     }
+
+    // Check Added Fund balance if chosen as source
+    if (selectedSourceWallet === 'added_fund' && numericAmount > addedFundBalance) {
+      setWalletMsg({
+        type: 'error',
+        text: `Insufficient Added Fund balance. Available: ₹${addedFundBalance.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+        })}`,
+      });
+      return;
+    }
+
+    const sourceWalletLabel =
+      selectedSourceWallet === 'added_fund'
+        ? 'Added Fund'
+        : selectedSourceWallet === 'commission'
+        ? 'Commission Fund'
+        : 'Received Fund';
+
     setWalletLoading(true);
     setWalletMsg({ type: '', text: '' });
     try {
@@ -221,17 +246,48 @@ export default function Customers() {
         return;
       }
 
+      const custCode = walletModalCustomer.user_code || `USR_${walletModalCustomer.id}`;
+
       await adminAdjustWallet({
         user_id: targetUserId,
-        operation: walletOp.operation,
-        amount: Number(walletOp.amount),
+        operation: 'credit',
+        amount: numericAmount,
         claim_mode: true,
-        note: walletOp.note || `Admin ${walletOp.operation} for customer ${walletModalCustomer.name}`,
+        note: walletOp.note.trim()
+          ? `${walletOp.note.trim()} (Sent from Admin ${sourceWalletLabel})`
+          : `Admin cash sent from ${sourceWalletLabel}`,
       });
-      const opLabel = walletOp.operation === 'credit' ? 'sent to Redeem section for' : 'debited from';
+
+      // Deduct from Added Fund if chosen
+      if (selectedSourceWallet === 'added_fund') {
+        const newBal = Math.max(0, addedFundBalance - numericAmount);
+        setAddedFundBalance(newBal);
+        localStorage.setItem('admin_added_fund_balance', String(newBal));
+      }
+
+      // Record in local cash ledger
+      const newCashOutEntry = {
+        id: Date.now(),
+        transaction_group_id: `SEND-${Date.now()}`,
+        movement: 'SENT',
+        direction: 'DEBIT',
+        user_name: walletModalCustomer.name,
+        user_role: 'USER',
+        user_email: walletModalCustomer.email || walletModalCustomer.phone,
+        type: 'ADMIN_SEND_FUNDS',
+        amount: numericAmount,
+        description: `Cash sent to ${walletModalCustomer.name} (${custCode}) from ${sourceWalletLabel}${
+          walletOp.note ? ': ' + walletOp.note : ''
+        }`,
+        created_at: new Date().toISOString(),
+      };
+      const savedCustom = JSON.parse(localStorage.getItem('admin_custom_cash_entries') || '[]');
+      savedCustom.unshift(newCashOutEntry);
+      localStorage.setItem('admin_custom_cash_entries', JSON.stringify(savedCustom));
+
       setWalletMsg({
         type: 'success',
-        text: `✅ ₹${walletOp.amount} ${opLabel} ${walletModalCustomer.name}! (Claimable in Redeem section)`,
+        text: `✅ ₹${numericAmount} sent to Redeem section for ${walletModalCustomer.name} from ${sourceWalletLabel}!`,
       });
       setWalletOp({ operation: 'credit', amount: '', note: '' });
       setTimeout(() => {
@@ -699,51 +755,85 @@ export default function Customers() {
               </div>
             )}
 
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Action Type</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setWalletOp({ ...walletOp, operation: 'credit' })}
+            {/* Step: Choose Source Admin Wallet */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>
+                Deduct From Which Admin Wallet?
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {/* Option A: Added Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('added_fund')}
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    border: '1.5px solid',
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'added_fund' ? '#4F46E5' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'added_fund' ? '#EEF2FF' : '#FFFFFF',
                     cursor: 'pointer',
-                    background: walletOp.operation === 'credit' ? '#ECFDF5' : '#ffffff',
-                    borderColor: walletOp.operation === 'credit' ? '#10B981' : '#CBD5E1',
-                    color: walletOp.operation === 'credit' ? '#047857' : '#64748B',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ➕ Credit / Send Cash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWalletOp({ ...walletOp, operation: 'debit' })}
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#4F46E5', textTransform: 'uppercase' }}>
+                    🟣 Added Fund
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#1E1B4B', marginTop: 4 }}>
+                    ₹{Number(addedFundBalance || 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#6366F1', marginTop: 2 }}>Admin Capital</div>
+                </div>
+
+                {/* Option B: Commission Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('commission')}
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    border: '1.5px solid',
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'commission' ? '#0284C7' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'commission' ? '#F0F9FF' : '#FFFFFF',
                     cursor: 'pointer',
-                    background: walletOp.operation === 'debit' ? '#FEF2F2' : '#ffffff',
-                    borderColor: walletOp.operation === 'debit' ? '#EF4444' : '#CBD5E1',
-                    color: walletOp.operation === 'debit' ? '#B91C1C' : '#64748B',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ➖ Deduct Cash
-                </button>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#0284C7', textTransform: 'uppercase' }}>
+                    🔵 Commission
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#0C4A6E', marginTop: 4 }}>
+                    Platform Fee
+                  </div>
+                  <div style={{ fontSize: 10, color: '#0284C7', marginTop: 2 }}>Earnings</div>
+                </div>
+
+                {/* Option C: Received Fund */}
+                <div
+                  onClick={() => setSelectedSourceWallet('received_fund')}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: 10,
+                    border: `2px solid ${selectedSourceWallet === 'received_fund' ? '#059669' : '#E2E8F0'}`,
+                    background: selectedSourceWallet === 'received_fund' ? '#ECFDF5' : '#FFFFFF',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>
+                    🟢 Received Fund
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#064E3B', marginTop: 4 }}>
+                    User Inflows
+                  </div>
+                  <div style={{ fontSize: 10, color: '#059669', marginTop: 2 }}>Payout Reserve</div>
+                </div>
               </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Amount (₹) *</label>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: 13 }}>Amount to Send (₹) *</label>
               <input
                 type="number"
-                step="0.01"
+                step="any"
                 min="1"
                 placeholder="e.g. 100"
                 className="form-input"
@@ -752,6 +842,27 @@ export default function Customers() {
                 onChange={(e) => setWalletOp({ ...walletOp, amount: e.target.value })}
                 required
               />
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setWalletOp({ ...walletOp, amount: String(amt) })}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      background: Number(walletOp.amount) === amt ? '#EEF2FF' : '#F1F5F9',
+                      border: `1px solid ${Number(walletOp.amount) === amt ? '#6366F1' : '#E2E8F0'}`,
+                      color: Number(walletOp.amount) === amt ? '#4F46E5' : '#475569',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +₹{amt.toLocaleString('en-IN')}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: 20 }}>
@@ -778,15 +889,13 @@ export default function Customers() {
                 className="btn btn-primary"
                 disabled={walletLoading}
                 style={{
-                  background: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
-                  borderColor: walletOp.operation === 'credit' ? '#059669' : '#DC2626',
+                  background: '#059669',
+                  borderColor: '#059669',
                 }}
               >
                 {walletLoading
                   ? 'Processing...'
-                  : walletOp.operation === 'credit'
-                  ? `Send ₹${walletOp.amount || '0'} to Customer`
-                  : `Deduct ₹${walletOp.amount || '0'} from Customer`}
+                  : `Send ₹${walletOp.amount || '0'} to Customer`}
               </button>
             </div>
           </form>

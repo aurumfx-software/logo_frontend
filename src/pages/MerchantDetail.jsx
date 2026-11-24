@@ -415,7 +415,11 @@ export default function MerchantDetail({ isPublic = false }) {
 
             {isAuthenticated && (
               <button
-                onClick={() => navigate(`/merchants?edit=${merchant.id}`)}
+                onClick={() =>
+                  navigate(`/merchants?edit=${merchant.id || merchant.merchant_id}`, {
+                    state: { editMerchant: merchant },
+                  })
+                }
                 style={{
                   display: 'flex',
                   alignItems: 'center',
