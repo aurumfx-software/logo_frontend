@@ -81,10 +81,26 @@ export async function fetchAdminAllTransactions(page = 1, pageSize = 20, transac
  * GET /api/v1/wallet/admin/transactions/platform-ledger?page=1&page_size=20
  */
 export async function fetchPlatformLedgerTransactions(page = 1, pageSize = 20) {
-  const response = await apiFetch(`/api/v1/wallet/admin/transactions/platform-ledger?page=${page}&page_size=${pageSize}`);
+  let response = await apiFetch(`/api/v1/wallet/admin/platform-ledger?page=${page}&page_size=${pageSize}`);
+  if (!response || !response.ok) {
+    response = await apiFetch(`/api/v1/wallet/admin/transactions/platform-ledger?page=${page}&page_size=${pageSize}`);
+  }
+  if (!response || !response.ok) {
+    response = await apiFetch(`/api/v1/wallet/platform?page=${page}&page_size=${pageSize}`);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.detail || data.message || 'Failed to fetch platform ledger transactions');
+  }
+  // Normalization: if fallback /platform was used, map transactions to data
+  if (Array.isArray(data?.transactions) && !data?.data) {
+    return {
+      success: true,
+      data: data.transactions,
+      total: data.total ?? data.transactions.length,
+      page: data.page ?? page,
+      page_size: data.page_size ?? pageSize,
+    };
   }
   return data;
 }

@@ -212,7 +212,9 @@ export default function CompanyWallet() {
           updatePendingWithdrawalsCount(pCount);
         } else if (activeTab === 'commission') {
           const res = await fetchPlatformLedgerTransactions(targetLedgerPage, ledgerPageSize);
-          const list = Array.isArray(res?.data) ? res.data : [];
+          const list = Array.isArray(res?.data)
+            ? res.data
+            : (Array.isArray(res?.transactions) ? res.transactions : []);
           setLedgerData(list);
           const totalCount = res?.meta?.total_items ?? res?.total ?? list.length;
           setLedgerTotal(totalCount);
