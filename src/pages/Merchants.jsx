@@ -241,8 +241,16 @@ export default function Merchants() {
       const currentUserCode = user?.user_code || user?.userCode || localStorage.getItem('user_code') || 'FLS_1';
       const validPhotos = (newMerchant.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
 
-      let cb = newMerchant.cashback_percent !== '' && newMerchant.cashback_percent !== undefined ? parseFloat(newMerchant.cashback_percent) : 3.0;
-      let cf = newMerchant.company_fee_percent !== '' && newMerchant.company_fee_percent !== undefined ? parseFloat(newMerchant.company_fee_percent) : 2.0;
+      let cb = newMerchant.cashback_percent !== '' && newMerchant.cashback_percent !== undefined && newMerchant.cashback_percent !== null
+        ? parseFloat(newMerchant.cashback_percent)
+        : 3.0;
+      let cf = newMerchant.company_fee_percent !== '' && newMerchant.company_fee_percent !== undefined && newMerchant.company_fee_percent !== null
+        ? parseFloat(newMerchant.company_fee_percent)
+        : 2.0;
+
+      if (isNaN(cb)) cb = 3.0;
+      if (isNaN(cf)) cf = 2.0;
+
       if (cb === 0 || cf === 0) {
         cb = 0;
         cf = 0;
@@ -437,8 +445,20 @@ export default function Merchants() {
       const validPhotos = (editFormData.photos || []).filter((p) => p && typeof p === 'string' && p.trim() !== '');
       const statusValue = editFormData.status ? editFormData.status.toLowerCase() : 'active';
 
-      const cleanCb = parseFloat(editFormData.cashback_percent) || 3.0;
-      const cleanCf = parseFloat(editFormData.company_fee_percent) || 2.0;
+      let cleanCb = editFormData.cashback_percent !== '' && editFormData.cashback_percent !== undefined && editFormData.cashback_percent !== null
+        ? parseFloat(editFormData.cashback_percent)
+        : 3.0;
+      let cleanCf = editFormData.company_fee_percent !== '' && editFormData.company_fee_percent !== undefined && editFormData.company_fee_percent !== null
+        ? parseFloat(editFormData.company_fee_percent)
+        : 2.0;
+
+      if (isNaN(cleanCb)) cleanCb = 3.0;
+      if (isNaN(cleanCf)) cleanCf = 2.0;
+
+      if (cleanCb === 0 || cleanCf === 0) {
+        cleanCb = 0;
+        cleanCf = 0;
+      }
       const cleanTot = Number((cleanCb + cleanCf).toFixed(2));
 
       await updateMerchant(editFormData.id, {
@@ -694,6 +714,24 @@ export default function Merchants() {
         const cb = row?.cashback_percent !== undefined && row?.cashback_percent !== null ? Number(row.cashback_percent) : 3;
         const cf = row?.company_fee_percent !== undefined && row?.company_fee_percent !== null ? Number(row.company_fee_percent) : 2;
         const tot = Number((cb + cf).toFixed(2));
+        if (tot === 0) {
+          return (
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: 4,
+                background: '#FEF2F2',
+                color: '#991B1B',
+                fontWeight: 700,
+                fontSize: 11,
+                border: '1px solid #FECACA',
+              }}
+            >
+              0% (Zero Fee)
+            </span>
+          );
+        }
         return (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
             <span style={{ padding: '2px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', fontWeight: 700 }}>
@@ -1225,21 +1263,23 @@ export default function Merchants() {
                 <label className="form-label" style={{ fontSize: 11.5 }}>Customer Cashback %</label>
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   min="0"
-                  max="50"
+                  max="100"
                   className="form-input"
                   value={newMerchant.cashback_percent ?? 3.0}
                   onChange={(e) => {
                     const cbVal = e.target.value;
-                    const cb = parseFloat(cbVal) || 0;
-                    const cf = parseFloat(newMerchant.company_fee_percent) || 0;
+                    const cb = cbVal === '' ? '' : parseFloat(cbVal);
+                    const cf = newMerchant.company_fee_percent === '' ? 0 : (parseFloat(newMerchant.company_fee_percent) || 0);
+                    const isZero = cb === 0 || cf === 0;
                     setNewMerchant((prev) => ({
                       ...prev,
                       cashback_percent: cbVal,
-                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
                     }));
                   }}
+                  placeholder="0"
                 />
               </div>
 
@@ -1247,21 +1287,23 @@ export default function Merchants() {
                 <label className="form-label" style={{ fontSize: 11.5 }}>Company Fee %</label>
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   min="0"
-                  max="50"
+                  max="100"
                   className="form-input"
                   value={newMerchant.company_fee_percent ?? 2.0}
                   onChange={(e) => {
                     const cfVal = e.target.value;
-                    const cf = parseFloat(cfVal) || 0;
-                    const cb = parseFloat(newMerchant.cashback_percent) || 0;
+                    const cf = cfVal === '' ? '' : parseFloat(cfVal);
+                    const cb = newMerchant.cashback_percent === '' ? 0 : (parseFloat(newMerchant.cashback_percent) || 0);
+                    const isZero = cb === 0 || cf === 0;
                     setNewMerchant((prev) => ({
                       ...prev,
                       company_fee_percent: cfVal,
-                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
                     }));
                   }}
+                  placeholder="0"
                 />
               </div>
 
@@ -1272,8 +1314,12 @@ export default function Merchants() {
                   className="form-input"
                   readOnly
                   style={{ background: '#E2E8F0', color: '#1E293B', fontWeight: 700 }}
-                  value={`${Number(((parseFloat(newMerchant.cashback_percent) || 0) + (parseFloat(newMerchant.company_fee_percent) || 0)).toFixed(2))}%`}
-                  title="Automatically calculated as Customer Cashback % + Company Fee %"
+                  value={
+                    (parseFloat(newMerchant.cashback_percent) === 0 || parseFloat(newMerchant.company_fee_percent) === 0)
+                      ? '0% (Zero Fee)'
+                      : `${Number(((parseFloat(newMerchant.cashback_percent) || 0) + (parseFloat(newMerchant.company_fee_percent) || 0)).toFixed(2))}%`
+                  }
+                  title="Automatically calculated as Customer Cashback % + Company Fee % (If either is 0%, both are saved as 0%)"
                 />
               </div>
             </div>
@@ -1847,18 +1893,19 @@ export default function Merchants() {
                   max="100"
                   className="form-input"
                   style={{ background: '#FFFFFF', fontWeight: 600 }}
-                  value={editFormData.cashback_percent ?? 3.0}
+                  value={editFormData.cashback_percent !== undefined && editFormData.cashback_percent !== null ? editFormData.cashback_percent : 3.0}
                   onChange={(e) => {
                     const cbVal = e.target.value;
-                    const cb = parseFloat(cbVal) || 0;
-                    const cf = parseFloat(editFormData.company_fee_percent) || 0;
+                    const cb = cbVal === '' ? '' : parseFloat(cbVal);
+                    const cf = editFormData.company_fee_percent === '' ? 0 : (parseFloat(editFormData.company_fee_percent) || 0);
+                    const isZero = cb === 0 || cf === 0;
                     setEditFormData((prev) => ({
                       ...prev,
                       cashback_percent: cbVal,
-                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
                     }));
                   }}
-                  placeholder="3.0"
+                  placeholder="0"
                 />
               </div>
 
@@ -1873,18 +1920,19 @@ export default function Merchants() {
                   max="100"
                   className="form-input"
                   style={{ background: '#FFFFFF', fontWeight: 600 }}
-                  value={editFormData.company_fee_percent ?? 2.0}
+                  value={editFormData.company_fee_percent !== undefined && editFormData.company_fee_percent !== null ? editFormData.company_fee_percent : 2.0}
                   onChange={(e) => {
                     const cfVal = e.target.value;
-                    const cf = parseFloat(cfVal) || 0;
-                    const cb = parseFloat(editFormData.cashback_percent) || 0;
+                    const cf = cfVal === '' ? '' : parseFloat(cfVal);
+                    const cb = editFormData.cashback_percent === '' ? 0 : (parseFloat(editFormData.cashback_percent) || 0);
+                    const isZero = cb === 0 || cf === 0;
                     setEditFormData((prev) => ({
                       ...prev,
                       company_fee_percent: cfVal,
-                      total_deduction_percent: Number((cb + cf).toFixed(2)),
+                      total_deduction_percent: isZero ? 0 : Number(((isNaN(cb) ? 0 : cb) + (isNaN(cf) ? 0 : cf)).toFixed(2)),
                     }));
                   }}
-                  placeholder="2.0"
+                  placeholder="0"
                 />
               </div>
 
@@ -1897,8 +1945,12 @@ export default function Merchants() {
                   readOnly
                   className="form-input"
                   style={{ background: '#DBEAFE', color: '#1D4ED8', fontWeight: 800, cursor: 'not-allowed' }}
-                  value={`${Number(((parseFloat(editFormData.cashback_percent) || 0) + (parseFloat(editFormData.company_fee_percent) || 0)).toFixed(2))}%`}
-                  title="Automatically calculated as Customer Cashback % + Company Fee %"
+                  value={
+                    (parseFloat(editFormData.cashback_percent) === 0 || parseFloat(editFormData.company_fee_percent) === 0)
+                      ? '0% (Zero Fee)'
+                      : `${Number(((parseFloat(editFormData.cashback_percent) || 0) + (parseFloat(editFormData.company_fee_percent) || 0)).toFixed(2))}%`
+                  }
+                  title="Automatically calculated as Customer Cashback % + Company Fee % (If either is 0%, both are saved as 0%)"
                 />
               </div>
             </div>
