@@ -9,29 +9,19 @@ import {
   HiLocationMarker,
   HiCheckCircle,
   HiOutlineTruck,
-  HiOutlineClock,
   HiOutlineChevronRight,
   HiExclamationCircle,
-  HiExternalLink,
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import {
   getMarketCart,
   updateMarketCartQty,
   removeFromMarketCart,
-  clearMarketCart,
   getSavedDeliveryAddress,
   getBuyerOrders,
   cancelBuyerOrder,
 } from '../../api/productApi';
-
-const ORDER_STEPS = [
-  { key: 'PLACED', label: 'Order Placed', desc: 'Received by seller' },
-  { key: 'CONFIRMED', label: 'Confirmed', desc: 'Verified & packed' },
-  { key: 'SHIPPED', label: 'Shipped', desc: 'In transit with courier' },
-  { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', desc: 'Arriving soon' },
-  { key: 'DELIVERED', label: 'Delivered', desc: 'Package handed over' },
-];
+import './market-web.css';
 
 export default function MarketCartDrawer({
   isOpen,
@@ -74,7 +64,6 @@ export default function MarketCartDrawer({
     }
   }, [isOpen, initialTab]);
 
-  // Real-time synchronization event listeners
   useEffect(() => {
     const handleCartChanged = (e) => {
       if (e?.detail) setCartItems(e.detail);
@@ -129,7 +118,6 @@ export default function MarketCartDrawer({
   const handleProceedToCheckout = () => {
     if (cartItems.length === 0) return;
 
-    // Minimum order check
     for (const item of cartItems) {
       const itemPrice = Number(item.product?.price || 0);
       const itemQty = Number(item.quantity || 1);
@@ -150,7 +138,6 @@ export default function MarketCartDrawer({
     }
 
     onClose();
-    // Pass the first cart item's checkout or multi-item checkout params
     const firstItem = cartItems[0];
     navigate(
       `/checkout?product_id=${firstItem.product.id}&selected_size=${encodeURIComponent(
@@ -177,366 +164,322 @@ export default function MarketCartDrawer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden animate-fadeIn">
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-      />
-
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
-          {/* Header */}
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-            <div className="flex items-center gap-2">
-              <HiOutlineShoppingBag className="w-5 h-5 text-blue-600" />
-              <h2 className="text-base font-bold text-slate-800">Kerala Marketplace</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              <HiX className="w-5 h-5" />
-            </button>
+    <div className="mkt-drawer-backdrop" onClick={onClose}>
+      <div className="mkt-drawer-panel" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="mkt-drawer-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HiOutlineShoppingBag size={20} color="#2563eb" />
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>Kerala Marketplace</h3>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mkt-nav-back-btn"
+            style={{ width: '32px', height: '32px' }}
+          >
+            <HiX size={18} />
+          </button>
+        </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-100 px-5 pt-2 gap-4 bg-white">
-            <button
-              onClick={() => setActiveTab('cart')}
-              className={`pb-3 text-xs font-bold transition-all relative ${
-                activeTab === 'cart'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Shopping Cart ({totalItemsCount})
-            </button>
-            <button
-              onClick={() => setActiveTab('track')}
-              className={`pb-3 text-xs font-bold transition-all relative ${
-                activeTab === 'track'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Track Orders ({buyerOrders.length})
-            </button>
+        {/* Navigation Tabs */}
+        <div className="mkt-drawer-tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('cart')}
+            className={`mkt-drawer-tab-btn ${activeTab === 'cart' ? 'is-active' : ''}`}
+          >
+            Shopping Cart ({totalItemsCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('track')}
+            className={`mkt-drawer-tab-btn ${activeTab === 'track' ? 'is-active' : ''}`}
+          >
+            Track Orders ({buyerOrders.length})
+          </button>
+        </div>
+
+        {/* Error Banner */}
+        {errorMsg && (
+          <div style={{ margin: '12px 20px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', fontSize: '12px', fontWeight: 700, color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HiExclamationCircle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+            <span>{errorMsg}</span>
           </div>
+        )}
 
-          {/* Error Banner */}
-          {errorMsg && (
-            <div className="mx-4 mt-3 p-3 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2">
-              <HiExclamationCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Body Content */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {activeTab === 'cart' ? (
-              cartItems.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center">
-                    <HiOutlineShoppingBag className="w-8 h-8" />
+        {/* Drawer Body Content */}
+        <div className="mkt-drawer-body">
+          {activeTab === 'cart' ? (
+            cartItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 10px', margin: 'auto 0' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <HiOutlineShoppingBag size={28} />
+                </div>
+                <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>Your Cart is Empty</h4>
+                <p style={{ margin: '0 0 16px', fontSize: '12.5px', color: '#64748b' }}>
+                  Explore Kasavu Sarees, Malabar Spices, and authentic goods from local Kerala merchants!
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{ padding: '8px 20px', fontSize: '12.5px', fontWeight: 800, color: '#fff', background: '#2563eb', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  Start Shopping
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Delivery Address Pill */}
+                <div style={{ padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <HiLocationMarker size={16} color="#2563eb" style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                        Deliver To: {deliveryAddress?.name || 'Customer'}
+                      </div>
+                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                        {deliveryAddress?.address
+                          ? `${deliveryAddress.address}, ${deliveryAddress.city || deliveryAddress.district}, Kerala - ${deliveryAddress.pincode}`
+                          : 'No delivery address saved yet.'}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-base font-bold text-slate-800">Your Cart is Empty</h3>
-                  <p className="text-xs text-slate-500 max-w-xs">
-                    Explore Kasavu Sarees, Malabar Spices, Traditional Sweets, and Authentic Kerala Goods!
-                  </p>
                   <button
-                    onClick={onClose}
-                    className="mt-2 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all"
+                    type="button"
+                    onClick={() => onOpenAddressModal && onOpenAddressModal()}
+                    style={{ fontSize: '11.5px', fontWeight: 800, color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer' }}
                   >
-                    Start Shopping
+                    {deliveryAddress?.address ? 'Change' : '+ Add'}
                   </button>
                 </div>
-              ) : (
-                <>
-                  {/* Delivery Address Pill */}
-                  <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <HiLocationMarker className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800">Deliver To</span>
-                          {deliveryAddress?.name && (
-                            <span className="text-xs font-semibold text-slate-600">
-                              • {deliveryAddress.name}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                          {deliveryAddress?.address
-                            ? `${deliveryAddress.address}, ${deliveryAddress.city || deliveryAddress.district}, Kerala - ${deliveryAddress.pincode}`
-                            : 'No delivery address saved yet.'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => onOpenAddressModal && onOpenAddressModal()}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-700 shrink-0 px-2 py-1 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      {deliveryAddress?.address ? 'Change' : 'Add'}
-                    </button>
-                  </div>
 
-                  {/* Free Delivery Banner */}
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200/60 rounded-xl flex items-center gap-2 text-emerald-800 text-xs font-semibold">
-                    <HiCheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Free Delivery across Kerala on all marketplace orders!</span>
-                  </div>
+                {/* Free Delivery Banner */}
+                <div style={{ padding: '8px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <HiCheckCircle size={15} color="#059669" />
+                  <span>Free Delivery Across Kerala on All Orders</span>
+                </div>
 
-                  {/* Cart Items List */}
-                  <div className="space-y-3">
-                    {cartItems.map((item, idx) => {
-                      const itemPrice = Number(item.product?.price || 0);
-                      const originalPrice = Number(item.product?.originalPrice || item.product?.original_price || 0);
-                      const qty = Number(item.quantity || 1);
-                      const minRequiredQty =
-                        itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
-                      const isBelowMin = itemPrice * qty < 150;
-
-                      return (
-                        <div
-                          key={`${item.product?.id}-${item.size}-${idx}`}
-                          className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex gap-3 relative group"
-                        >
-                          <img
-                            src={
-                              item.product?.image ||
-                              'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'
-                            }
-                            alt={item.product?.name}
-                            className="w-16 h-16 rounded-lg object-cover bg-slate-100 shrink-0 border border-slate-100"
-                          />
-
-                          <div className="flex-1 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-xs font-bold text-slate-800 line-clamp-1">
-                                  {item.product?.name}
-                                </h4>
-                                <button
-                                  onClick={() => handleRemove(item.product?.id, item.size)}
-                                  className="text-slate-400 hover:text-rose-500 transition-colors p-0.5"
-                                  title="Remove"
-                                >
-                                  <HiTrash className="w-4 h-4" />
-                                </button>
-                              </div>
-                              <span className="inline-block text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5">
-                                Size: {item.size || 'Standard'}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-50">
-                              <div className="flex items-baseline gap-1.5">
-                                <span className="text-sm font-black text-slate-900">
-                                  ₹{(itemPrice * qty).toLocaleString('en-IN')}
-                                </span>
-                                {originalPrice > itemPrice && (
-                                  <span className="text-[10px] text-slate-400 line-through">
-                                    ₹{(originalPrice * qty).toLocaleString('en-IN')}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Quantity Controls */}
-                              <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50">
-                                <button
-                                  onClick={() =>
-                                    handleQtyChange(item.product?.id, item.size, qty - 1)
-                                  }
-                                  className="p-1 hover:bg-slate-200 text-slate-600 rounded-l transition-colors"
-                                >
-                                  <HiMinus className="w-3 h-3" />
-                                </button>
-                                <span className="px-2 text-xs font-bold text-slate-800 font-mono">
-                                  {qty}
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    handleQtyChange(item.product?.id, item.size, qty + 1)
-                                  }
-                                  className="p-1 hover:bg-slate-200 text-slate-600 rounded-r transition-colors"
-                                >
-                                  <HiPlus className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Min order reminder pill */}
-                            {itemPrice < 150 && (
-                              <div className="mt-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-                                Min. ₹150 order required (Min. {minRequiredQty} items)
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )
-            ) : (
-              /* Track Orders Tab */
-              <div className="space-y-3">
-                {buyerOrders.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400">
-                    <HiOutlineTruck className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                    <p className="text-sm font-bold text-slate-600">No orders placed yet</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Your placed orders will show up here with live delivery status.
-                    </p>
-                  </div>
-                ) : (
-                  buyerOrders.map((ord, idx) => {
-                    const status = (ord.delivery_status || ord.status || 'ORDERED').toUpperCase();
-                    const isCancelled = ord.is_cancelled || status === 'CANCELLED';
-                    const isDelivered = status === 'DELIVERED';
+                {/* Cart Items List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {cartItems.map((item, idx) => {
+                    const itemPrice = Number(item.product?.price || 0);
+                    const origPrice = Number(item.product?.originalPrice || item.product?.original_price || 0);
+                    const qty = Number(item.quantity || 1);
+                    const minRequiredQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
 
                     return (
-                      <div
-                        key={ord.id || ord.order_code || idx}
-                        className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3"
-                      >
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div key={`${item.product?.id}-${item.size}-${idx}`} className="mkt-cart-item">
+                        <img
+                          src={item.product?.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'}
+                          alt={item.product?.name}
+                          className="mkt-cart-item-img"
+                        />
+                        <div className="mkt-cart-item-details">
                           <div>
-                            <span className="text-xs font-black text-slate-800">
-                              #{ord.order_code || ord.id}
-                            </span>
-                            <p className="text-[10px] text-slate-400">
-                              {ord.placed_at ? new Date(ord.placed_at).toLocaleDateString() : 'Recent'}
-                            </p>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider ${
-                              isCancelled
-                                ? 'bg-rose-100 text-rose-700'
-                                : isDelivered
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}
-                          >
-                            {status}
-                          </span>
-                        </div>
-
-                        {/* Item Details */}
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={
-                              ord.product_image ||
-                              'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'
-                            }
-                            alt={ord.product_name}
-                            className="w-12 h-12 rounded-lg object-cover bg-slate-100 shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-slate-800 truncate">
-                              {ord.product_name || 'Marketplace Item'}
-                            </h4>
-                            <p className="text-[11px] text-slate-500">
-                              Size: {ord.selected_size || 'Standard'} • Qty: {ord.quantity || 1}
-                            </p>
-                            <span className="text-xs font-black text-blue-600">
-                              ₹{(Number(ord.total_amount) || Number(ord.price) || 0).toLocaleString('en-IN')}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Cancelled Banner */}
-                        {isCancelled && (
-                          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-[11px]">
-                            <span className="font-bold">Cancellation Reason:</span>{' '}
-                            {ord.cancellation_reason || 'Buyer requested cancellation'}
-                          </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
-                          <button
-                            onClick={() => {
-                              onClose();
-                              navigate(`/order/${ord.id || ord.order_code}`);
-                            }}
-                            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          >
-                            <span>Live Tracking</span>
-                            <HiOutlineChevronRight className="w-3.5 h-3.5" />
-                          </button>
-
-                          <div className="flex items-center gap-2">
-                            {(ord.seller_phone || ord.seller_whatsapp) && (
-                              <a
-                                href={`https://wa.me/91${String(
-                                  ord.seller_whatsapp || ord.seller_phone
-                                ).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                                  `Inquiring regarding my order #${ord.order_code || ord.id}`
-                                )}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
-                                title="Contact Seller on WhatsApp"
-                              >
-                                <FaWhatsapp className="w-4 h-4" />
-                              </a>
-                            )}
-
-                            {!isCancelled && !isDelivered && (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                              <h5 style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>
+                                {item.product?.name}
+                              </h5>
                               <button
-                                onClick={() => handleCancelOrder(ord.id || ord.order_code)}
-                                disabled={cancellingId === (ord.id || ord.order_code)}
-                                className="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
+                                type="button"
+                                onClick={() => handleRemove(item.product?.id, item.size)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                                title="Remove"
                               >
-                                {cancellingId === (ord.id || ord.order_code)
-                                  ? 'Cancelling...'
-                                  : 'Cancel'}
+                                <HiTrash size={15} />
                               </button>
-                            )}
+                            </div>
+                            <span style={{ display: 'inline-block', fontSize: '10.5px', fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginTop: '3px' }}>
+                              Size: {item.size || 'Standard'}
+                            </span>
                           </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
+                                ₹{(itemPrice * qty).toLocaleString('en-IN')}
+                              </span>
+                              {origPrice > itemPrice && (
+                                <span style={{ fontSize: '11px', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                  ₹{(origPrice * qty).toLocaleString('en-IN')}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Quantity Controls */}
+                            <div className="mkt-qty-selector" style={{ height: '30px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleQtyChange(item.product?.id, item.size, qty - 1)}
+                                className="mkt-qty-btn"
+                                style={{ padding: '4px 8px' }}
+                              >
+                                <HiMinus size={11} />
+                              </button>
+                              <span className="mkt-qty-val" style={{ padding: '0 8px', fontSize: '12.5px' }}>{qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleQtyChange(item.product?.id, item.size, qty + 1)}
+                                className="mkt-qty-btn"
+                                style={{ padding: '4px 8px' }}
+                              >
+                                <HiPlus size={11} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {itemPrice < 150 && (
+                            <div style={{ marginTop: '4px', fontSize: '10.5px', color: '#92400e', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
+                              Min. ₹150 order required (Min. {minRequiredQty} items)
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
-                  })
-                )}
-              </div>
-            )}
-          </div>
+                  })}
+                </div>
+              </>
+            )
+          ) : (
+            /* Track Orders Tab */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {buyerOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 10px', color: '#64748b' }}>
+                  <HiOutlineTruck size={42} color="#cbd5e1" style={{ margin: '0 auto 10px' }} />
+                  <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>No orders placed yet</h4>
+                  <p style={{ margin: 0, fontSize: '12px' }}>Your placed orders will show up here with live tracking.</p>
+                </div>
+              ) : (
+                buyerOrders.map((ord, idx) => {
+                  const status = (ord.delivery_status || ord.status || 'ORDERED').toUpperCase();
+                  const isCancelled = ord.is_cancelled || status === 'CANCELLED';
+                  const isDelivered = status === 'DELIVERED';
 
-          {/* Footer (Checkout Button) */}
-          {activeTab === 'cart' && cartItems.length > 0 && (
-            <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-3">
-              <div className="space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between">
-                  <span>Items Total</span>
-                  <span className="font-semibold text-slate-800">
-                    ₹{totalAmount.toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery Fee</span>
-                  <span className="font-bold text-emerald-600">FREE</span>
-                </div>
-                <div className="flex justify-between text-sm font-black text-slate-900 pt-1.5 border-t border-slate-200">
-                  <span>Total Payable</span>
-                  <span className="text-base text-blue-600">
-                    ₹{totalAmount.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
+                  return (
+                    <div key={ord.id || ord.order_code || idx} className="mkt-cart-item" style={{ flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px', marginBottom: '8px' }}>
+                        <div>
+                          <strong style={{ fontSize: '12px', color: '#0f172a' }}>#{ord.order_code || ord.id}</strong>
+                          <span style={{ fontSize: '10.5px', color: '#94a3b8', marginLeft: '6px' }}>
+                            {ord.placed_at ? new Date(ord.placed_at).toLocaleDateString() : 'Recent'}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 800,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            textTransform: 'uppercase',
+                            background: isCancelled ? '#fee2e2' : isDelivered ? '#d1fae5' : '#dbeafe',
+                            color: isCancelled ? '#dc2626' : isDelivered ? '#059669' : '#2563eb',
+                          }}
+                        >
+                          {status}
+                        </span>
+                      </div>
 
-              <button
-                onClick={handleProceedToCheckout}
-                className="w-full py-3 px-4 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all"
-              >
-                <span>Proceed to Checkout</span>
-                <HiOutlineChevronRight className="w-4 h-4" />
-              </button>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <img
+                          src={ord.product_image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'}
+                          alt={ord.product_name}
+                          style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', background: '#f1f5f9' }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h6 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ord.product_name}
+                          </h6>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            Size: {ord.selected_size || 'Standard'} • Qty: {ord.quantity || 1}
+                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: 800, color: '#2563eb' }}>
+                            ₹{(Number(ord.total_amount) || Number(ord.price) || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isCancelled && (
+                        <div style={{ marginTop: '8px', padding: '6px 8px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '11px', color: '#991b1b' }}>
+                          <strong>Cancelled:</strong> {ord.cancellation_reason || 'Buyer requested cancellation'}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            navigate(`/order/${ord.id || ord.order_code}`);
+                          }}
+                          style={{ fontSize: '11.5px', fontWeight: 800, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                        >
+                          <span>Live Tracking</span>
+                          <HiOutlineChevronRight size={14} />
+                        </button>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {(ord.seller_phone || ord.seller_whatsapp) && (
+                            <a
+                              href={`https://wa.me/91${String(ord.seller_whatsapp || ord.seller_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Inquiring regarding order #${ord.order_code || ord.id}`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ padding: '4px 8px', background: '#ecfdf5', color: '#059669', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, textDecoration: 'none' }}
+                            >
+                              <FaWhatsapp size={13} />
+                              <span>WhatsApp</span>
+                            </a>
+                          )}
+
+                          {!isCancelled && !isDelivered && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelOrder(ord.id || ord.order_code)}
+                              disabled={cancellingId === (ord.id || ord.order_code)}
+                              style={{ padding: '4px 8px', background: '#fff', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              {cancellingId === (ord.id || ord.order_code) ? 'Cancelling...' : 'Cancel'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
         </div>
+
+        {/* Footer (Checkout CTA) */}
+        {activeTab === 'cart' && cartItems.length > 0 && (
+          <div className="mkt-drawer-footer">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Items Total</span>
+                <span style={{ fontWeight: 700, color: '#0f172a' }}>₹{totalAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Delivery</span>
+                <strong style={{ color: '#059669' }}>FREE</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '6px', fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
+                <span>Total Payable</span>
+                <span style={{ color: '#2563eb' }}>₹{totalAmount.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleProceedToCheckout}
+              className="mkt-btn-buy-now"
+              style={{ width: '100%', flex: 'unset', padding: '12px 16px' }}
+            >
+              <span>Proceed to Checkout</span>
+              <HiOutlineChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

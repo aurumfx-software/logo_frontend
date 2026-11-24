@@ -5,7 +5,6 @@ import {
   HiOutlineTruck,
   HiLocationMarker,
   HiShare,
-  HiOutlineShoppingBag,
   HiChevronRight,
   HiX,
 } from 'react-icons/hi';
@@ -16,6 +15,7 @@ import {
   getBuyerOrderById,
 } from '../api/productApi';
 import ProductCard from '../components/market/ProductCard';
+import '../components/market/market-web.css';
 
 export default function OrderConfirmedPage() {
   const [searchParams] = useSearchParams();
@@ -34,7 +34,6 @@ export default function OrderConfirmedPage() {
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Delivery date: 4 days from today
   const getDeliveryDate = () => {
     const d = new Date();
     d.setDate(d.getDate() + 4);
@@ -84,9 +83,9 @@ export default function OrderConfirmedPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
-        <div className="w-12 h-12 border-4 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-slate-600">Loading order receipt...</p>
+      <div className="mkt-page-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={{ width: '44px', height: '44px', border: '3px solid rgba(5, 150, 105, 0.2)', borderTopColor: '#059669', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '14px' }} />
+        <p style={{ fontSize: '14px', fontWeight: 700, color: '#64748b' }}>Loading order receipt...</p>
       </div>
     );
   }
@@ -104,87 +103,90 @@ export default function OrderConfirmedPage() {
       : 'Kerala, India';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-16">
+    <div className="mkt-page-wrapper">
       {/* ── Top Header ── */}
-      <header className="bg-white border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-              <HiCheckCircle className="w-5 h-5" />
+      <header className="mkt-navbar">
+        <div className="mkt-container">
+          <div className="mkt-navbar-inner" style={{ maxWidth: '840px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <HiCheckCircle size={18} />
+              </div>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#047857' }}>
+                Order Confirmed
+              </h1>
             </div>
-            <h1 className="text-base sm:text-lg font-black text-emerald-700 tracking-tight">
-              Order Confirmed
-            </h1>
-          </div>
 
-          <button
-            onClick={() => navigate('/market')}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Continue Shopping"
-          >
-            <HiX className="w-5 h-5" />
-          </button>
+            <button
+              type="button"
+              onClick={() => navigate('/market')}
+              className="mkt-nav-back-btn"
+              title="Continue Shopping"
+            >
+              <HiX size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
       {/* ── Main Container ── */}
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-        {/* Deliver To Destination Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wider">
-            <HiLocationMarker className="w-4 h-4 text-blue-600" />
-            <span>Delivery Destination</span>
+      <main className="mkt-checkout-wrap">
+        {/* Delivery Destination Card */}
+        <div className="mkt-checkout-card">
+          <div className="mkt-checkout-card-header">
+            <h3 className="mkt-checkout-card-title">
+              <HiLocationMarker size={18} color="#2563eb" />
+              <span>Delivery Destination</span>
+            </h3>
           </div>
-          <div className="text-xs space-y-1">
-            <p className="font-bold text-slate-900 text-sm">
-              {customerName} <span className="text-slate-500 font-normal">({customerPhone})</span>
+          <div style={{ fontSize: '13px' }}>
+            <p style={{ margin: '0 0 2px', fontWeight: 800, color: '#0f172a' }}>
+              {customerName} <span style={{ color: '#64748b', fontWeight: 500 }}>({customerPhone})</span>
             </p>
-            <p className="text-slate-600 leading-relaxed">{fullAddress}</p>
+            <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>{fullAddress}</p>
           </div>
         </div>
 
         {/* Product Details Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
-              1 Item in Order
-            </span>
+        <div className="mkt-checkout-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>1 Item Ordered</span>
             <button
+              type="button"
               onClick={() => navigate(`/order/${orderId}`)}
-              className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+              style={{ fontSize: '12px', fontWeight: 800, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
             >
               <span>Track Order</span>
-              <HiChevronRight className="w-3.5 h-3.5" />
+              <HiChevronRight size={14} />
             </button>
           </div>
 
-          {/* Delivery estimate banner */}
-          <div className="bg-blue-50/70 border-b border-blue-100 px-5 py-2.5 flex items-center gap-2 text-xs font-bold text-blue-900">
-            <HiOutlineTruck className="w-4 h-4 text-blue-600 shrink-0" />
+          <div style={{ background: '#eff6ff', borderBottom: '1px solid #dbeafe', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#1e40af' }}>
+            <HiOutlineTruck size={16} color="#2563eb" />
             <span>Estimated Delivery: {getDeliveryDate()}</span>
           </div>
 
-          <div className="p-5 flex gap-4 items-center">
+          <div style={{ padding: '18px', display: 'flex', gap: '16px', alignItems: 'center' }}>
             <img
               src={prodImg}
               alt={prodTitle}
-              className="w-20 h-20 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-100"
+              style={{ width: '72px', height: '72px', borderRadius: '10px', objectFit: 'cover', background: '#f1f5f9', border: '1px solid #e2e8f0', flexShrink: 0 }}
             />
-            <div className="flex-1 space-y-1">
-              <h3 className="text-sm font-bold text-slate-900 leading-snug">{prodTitle}</h3>
-              <p className="text-xs text-slate-500">
-                Size: <span className="font-semibold text-slate-700">{size}</span> • Qty:{' '}
-                <span className="font-semibold text-slate-700">{quantity}</span>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{prodTitle}</h3>
+              <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#64748b' }}>
+                Size: <strong style={{ color: '#0f172a' }}>{size}</strong> • Qty: <strong style={{ color: '#0f172a' }}>{quantity}</strong>
               </p>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-base font-black text-slate-900">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
                   ₹{totalAmount.toLocaleString('en-IN')}
                 </span>
                 <button
+                  type="button"
                   onClick={handleShare}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
-                  <HiShare className="w-3.5 h-3.5" />
+                  <HiShare size={14} />
                   <span>Share</span>
                 </button>
               </div>
@@ -193,29 +195,33 @@ export default function OrderConfirmedPage() {
         </div>
 
         {/* Payment Mode Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex items-center justify-between text-xs">
+        <div className="mkt-checkout-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px' }}>
           <div>
-            <span className="text-slate-500 font-semibold">Payment Mode</span>
-            <p className="font-bold text-slate-900 text-sm mt-0.5">
+            <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Payment Mode</span>
+            <p style={{ margin: '2px 0 0', fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
               {paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'Paid Online (UPI / Card)'}
             </p>
           </div>
-          <span className="text-base font-black text-slate-900">
+          <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
             ₹{totalAmount.toLocaleString('en-IN')}
           </span>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
           <button
+            type="button"
             onClick={() => navigate(`/order/${orderId}`)}
-            className="flex-1 py-3.5 px-6 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-lg shadow-blue-600/25 transition-all text-center"
+            className="mkt-btn-buy-now"
+            style={{ width: '100%', flex: 'unset', padding: '13px 20px', fontSize: '14px', textAlign: 'center' }}
           >
             Live Tracking & Delivery Status
           </button>
           <button
+            type="button"
             onClick={() => navigate('/market')}
-            className="flex-1 py-3.5 px-6 text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all text-center"
+            className="mkt-btn-secondary"
+            style={{ width: '100%', padding: '13px 20px', fontSize: '14px', display: 'flex', justifyContent: 'center' }}
           >
             Continue Shopping
           </button>
@@ -223,9 +229,11 @@ export default function OrderConfirmedPage() {
 
         {/* Recommended Products */}
         {recommendedProducts.length > 0 && (
-          <div className="pt-6 space-y-4">
-            <h3 className="text-base font-black text-slate-900">You Might Also Like</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          <div style={{ marginTop: '40px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 900, margin: '0 0 14px', color: '#0f172a' }}>
+              You Might Also Like
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
               {recommendedProducts.slice(0, 3).map((prod) => (
                 <ProductCard key={prod.id} product={prod} />
               ))}

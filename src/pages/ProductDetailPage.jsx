@@ -33,6 +33,7 @@ import {
 import ProductCard from '../components/market/ProductCard';
 import MarketCartDrawer from '../components/market/MarketCartDrawer';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
+import '../components/market/market-web.css';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -48,13 +49,12 @@ export default function ProductDetailPage() {
   const [deliveryAddress, setDeliveryAddress] = useState(null);
   const [reviewsData, setReviewsData] = useState({ reviews: [], rating_average: 4.8, rating_count: 24 });
 
-  // Reviews submission state
+  // Reviews submission
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   // Cart & Drawers
   const [cartCount, setCartCount] = useState(0);
@@ -84,7 +84,6 @@ export default function ProductDetailPage() {
         if (prodRes.sizes && prodRes.sizes.length > 0) {
           setSelectedSize(prodRes.sizes[0]);
         }
-        // Check minimum quantity rule
         const itemPrice = Number(prodRes.price || 0);
         if (itemPrice > 0 && itemPrice < 150) {
           setQuantity(Math.ceil(150 / itemPrice));
@@ -92,7 +91,6 @@ export default function ProductDetailPage() {
           setQuantity(1);
         }
 
-        // Fetch similar products in category
         if (prodRes.category) {
           fetchPublicProducts({ category: prodRes.category, limit: 8 })
             .then((sim) => {
@@ -120,7 +118,6 @@ export default function ProductDetailPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [id]);
 
-  // Real-time cart listener
   useEffect(() => {
     const handleCartChanged = (e) => {
       const items = e?.detail || [];
@@ -176,7 +173,6 @@ export default function ProductDetailPage() {
     const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
     const finalQty = Math.max(quantity, minQty);
 
-    // Direct checkout navigation matching mobile
     navigate(
       `/checkout?product_id=${product.id}&selected_size=${encodeURIComponent(
         selectedSize
@@ -190,13 +186,11 @@ export default function ProductDetailPage() {
 
     setSubmittingReview(true);
     try {
-      // Create review on backend
       await submitOrderReview(id, {
         rating: reviewRating,
         title: reviewTitle,
         comment: reviewComment,
       });
-      setReviewSubmitted(true);
       showToast('Thank you! Your review has been submitted.');
       setShowReviewForm(false);
     } catch (err) {
@@ -208,24 +202,25 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
-        <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-slate-600">Loading product details...</p>
+      <div className="mkt-page-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={{ width: '44px', height: '44px', border: '3px solid rgba(37, 99, 235, 0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '14px' }} />
+        <p style={{ fontSize: '14px', fontWeight: 700, color: '#64748b' }}>Loading product details...</p>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <HiExclamationCircle className="w-16 h-16 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-800">Product Not Found</h2>
-        <p className="text-xs text-slate-500 max-w-sm">
+      <div className="mkt-page-wrapper" style={{ textAlign: 'center', padding: '100px 20px' }}>
+        <HiExclamationCircle size={56} color="#ef4444" style={{ margin: '0 auto 16px' }} />
+        <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 8px', color: '#0f172a' }}>Product Not Found</h2>
+        <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '360px', margin: '0 auto 20px' }}>
           The requested product may have been unlisted or removed by the seller.
         </p>
         <button
+          type="button"
           onClick={() => navigate('/market')}
-          className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-600/20"
+          style={{ padding: '10px 24px', fontSize: '13px', fontWeight: 800, color: '#fff', background: '#2563eb', border: 'none', borderRadius: '10px', cursor: 'pointer' }}
         >
           Return to Marketplace
         </button>
@@ -251,231 +246,188 @@ export default function ProductDetailPage() {
   const minRequiredQty = price > 0 && price < 150 ? Math.ceil(150 / price) : 1;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 lg:pb-12">
+    <div className="mkt-page-wrapper" style={{ paddingBottom: '90px' }}>
       {/* ── Top Header ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
-            <div className="flex items-center gap-3">
+      <header className="mkt-navbar">
+        <div className="mkt-container">
+          <div className="mkt-navbar-inner">
+            <div className="mkt-nav-left">
               <button
+                type="button"
                 onClick={() => navigate(-1)}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                className="mkt-nav-back-btn"
                 title="Back"
               >
-                <HiChevronLeft className="w-5 h-5" />
+                <HiChevronLeft size={20} />
               </button>
-              <nav className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                <Link to="/" className="hover:text-blue-600">Home</Link>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
+                <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>Home</Link>
                 <span>/</span>
-                <Link to="/market" className="hover:text-blue-600">Market</Link>
+                <Link to="/market" style={{ color: 'inherit', textDecoration: 'none' }}>Market</Link>
                 <span>/</span>
-                <span className="text-slate-800 font-bold truncate max-w-xs">{product.category}</span>
-              </nav>
+                <span style={{ color: '#0f172a', fontWeight: 700 }}>{product.category}</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleShare}
-                className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
-                title="Share Product"
-              >
-                <HiShare className="w-5 h-5" />
+            <div className="mkt-nav-actions">
+              <button type="button" onClick={handleShare} className="mkt-nav-back-btn" title="Share">
+                <HiShare size={18} />
+              </button>
+              <button type="button" onClick={handleToggleWishlist} className="mkt-nav-back-btn" title="Wishlist">
+                {isWishlisted ? <HiHeart size={20} color="#ef4444" /> : <HiOutlineHeart size={20} />}
               </button>
               <button
-                onClick={handleToggleWishlist}
-                className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
-                title="Wishlist"
-              >
-                {isWishlisted ? (
-                  <HiHeart className="w-5 h-5 text-rose-500" />
-                ) : (
-                  <HiOutlineHeart className="w-5 h-5" />
-                )}
-              </button>
-              <button
+                type="button"
                 onClick={() => {
                   setCartTab('cart');
                   setIsCartOpen(true);
                 }}
-                className="relative p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-600/20 active:scale-95 transition-all"
+                className="mkt-cart-trigger"
                 title="Cart"
               >
-                <HiShoppingBag className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white text-[11px] font-black rounded-full flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
+                <HiShoppingBag size={20} />
+                {cartCount > 0 && <span className="mkt-cart-badge">{cartCount}</span>}
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* ── Main Details Container ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* ── Left Column: Image Gallery (5 cols) ── */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="relative aspect-square w-full bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden group">
+      {/* ── Main Details Grid (Desktop 2-Col, Mobile Stacked) ── */}
+      <main className="mkt-container">
+        <div className="mkt-detail-grid">
+          {/* ── Left Column: Image Gallery & Trust Guarantees ── */}
+          <div className="mkt-gallery-wrap">
+            <div className="mkt-gallery-main">
               <img
                 src={images[activeImageIdx] || images[0]}
                 alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
-
-              {/* Badges */}
               {isOutOfStock ? (
-                <span className="absolute top-4 left-4 px-3 py-1 text-xs font-black tracking-wider text-white bg-rose-600 rounded-lg shadow-md">
-                  OUT OF STOCK
-                </span>
+                <span className="mkt-badge-stockout">OUT OF STOCK</span>
               ) : discount > 0 ? (
-                <span className="absolute top-4 left-4 px-3 py-1 text-xs font-black tracking-wide text-white bg-emerald-600 rounded-lg shadow-md">
-                  {discount}% OFF
-                </span>
+                <span className="mkt-badge-discount">{discount}% OFF</span>
               ) : (
-                <span className="absolute top-4 left-4 px-3 py-1 text-xs font-black tracking-wide text-white bg-blue-600 rounded-lg shadow-md">
-                  SPECIAL DEAL
-                </span>
+                <span className="mkt-badge-deal">SPECIAL DEAL</span>
               )}
             </div>
 
             {/* Thumbnail Strip */}
             {images.length > 1 && (
-              <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+              <div className="mkt-gallery-thumbs">
                 {images.map((img, idx) => (
                   <button
                     key={idx}
+                    type="button"
                     onClick={() => setActiveImageIdx(idx)}
-                    className={`w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                      activeImageIdx === idx
-                        ? 'border-blue-600 shadow-md ring-2 ring-blue-600/20'
-                        : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100'
-                    }`}
+                    className={`mkt-gallery-thumb-btn ${activeImageIdx === idx ? 'is-active' : ''}`}
                   >
-                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`Thumb ${idx}`} />
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Kerala Trust Guarantees */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                Kerala Trust & Quality Assurance
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <HiOutlineShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span className="font-semibold">100% Authentic Kerala</span>
+            {/* Kerala Trust Guarantees Card */}
+            <div className="mkt-trust-card">
+              <h4 className="mkt-trust-title">Kerala Trust & Quality Assurance</h4>
+              <div className="mkt-trust-grid">
+                <div className="mkt-trust-item">
+                  <HiOutlineShieldCheck size={18} color="#059669" />
+                  <span>100% Authentic Kerala</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <HiOutlineTruck className="w-5 h-5 text-blue-600 shrink-0" />
-                  <span className="font-semibold">Free Delivery Across Kerala</span>
+                <div className="mkt-trust-item">
+                  <HiOutlineTruck size={18} color="#2563eb" />
+                  <span>Free Delivery Across Kerala</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <HiOutlineRefresh className="w-5 h-5 text-indigo-600 shrink-0" />
-                  <span className="font-semibold">7 Days Easy Return</span>
+                <div className="mkt-trust-item">
+                  <HiOutlineRefresh size={18} color="#4f46e5" />
+                  <span>7 Days Easy Return</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <HiCheckCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span className="font-semibold">Cash on Delivery Available</span>
+                <div className="mkt-trust-item">
+                  <HiCheckCircle size={18} color="#d97706" />
+                  <span>Cash on Delivery Available</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Right Column: Product Info & Buy Box (7 cols) ── */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* Title & Brand */}
+          {/* ── Right Column: Info, Pricing, Size, CTA ── */}
+          <div className="mkt-detail-info">
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold text-blue-600 mb-1">
-                <span className="bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                  {product.category}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span className="mkt-detail-category-tag">{product.category}</span>
                 {product.district && (
-                  <span className="flex items-center gap-1 text-slate-500">
-                    <HiLocationMarker className="w-3.5 h-3.5 text-slate-400" />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '12px', color: '#64748b' }}>
+                    <HiLocationMarker size={14} color="#64748b" />
                     {product.district}, Kerala
                   </span>
                 )}
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                {product.name}
-              </h1>
+              <h1 className="mkt-detail-heading">{product.name}</h1>
 
-              {/* Rating & Review summary */}
-              <div className="flex items-center gap-3 mt-2.5">
-                <div className="flex items-center gap-1 bg-emerald-600 text-white px-2 py-0.5 rounded-md font-black text-xs">
+              <div className="mkt-detail-rating-row" style={{ marginTop: '8px' }}>
+                <span className="mkt-card-rating-pill" style={{ padding: '3px 8px', fontSize: '11px' }}>
                   <span>{reviewsData.rating_average || product.rating || 4.8}</span>
-                  <HiStar className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs font-semibold text-slate-500">
+                  <HiStar size={12} />
+                </span>
+                <span style={{ color: '#64748b', fontSize: '12px' }}>
                   {reviewsData.rating_count || product.reviewsCount || 24} Ratings & Reviews
                 </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                <span style={{ color: '#cbd5e1' }}>•</span>
+                <span style={{ color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', fontSize: '11.5px', fontWeight: 700 }}>
                   Verified Local Merchant
                 </span>
               </div>
             </div>
 
             {/* Price Box */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-black text-slate-900">
-                  ₹{price.toLocaleString('en-IN')}
-                </span>
+            <div className="mkt-price-card">
+              <div className="mkt-price-card-main">
+                <span className="mkt-price-card-value">₹{price.toLocaleString('en-IN')}</span>
                 {originalPrice > price && (
                   <>
-                    <span className="text-base text-slate-400 line-through font-semibold">
-                      ₹{originalPrice.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-sm font-black text-emerald-600">
+                    <span className="mkt-price-card-orig">₹{originalPrice.toLocaleString('en-IN')}</span>
+                    <span className="mkt-price-card-discount">
                       {discount}% OFF (Save ₹{(originalPrice - price).toLocaleString('en-IN')})
                     </span>
                   </>
                 )}
               </div>
-              <p className="text-xs font-semibold text-slate-500">
-                Inclusive of all taxes • <span className="text-emerald-700 font-bold">Free Delivery</span>
-              </p>
+              <div className="mkt-price-card-sub">
+                Inclusive of all taxes • <strong style={{ color: '#047857' }}>Free Delivery</strong> across all Kerala districts
+              </div>
             </div>
 
             {/* Stock Alerts */}
             {isOutOfStock ? (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2">
-                <HiExclamationCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <div className="mkt-stock-alert is-out-stock">
+                <HiExclamationCircle size={18} />
                 <span>Currently Out of Stock. Check back soon or contact seller.</span>
               </div>
             ) : isLowStock ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-bold flex items-center gap-2">
-                <HiOutlineClock className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="mkt-stock-alert is-low-stock">
+                <HiOutlineClock size={18} />
                 <span>Hurry! Only {product.stockQuantity} items left in stock.</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-                <HiCheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>In Stock & Ready for Dispatch</span>
+              <div className="mkt-stock-alert is-in-stock">
+                <HiCheckCircle size={18} />
+                <span>In Stock & Ready for Immediate Dispatch</span>
               </div>
             )}
 
             {/* Size Selector */}
             {product.sizes && product.sizes.length > 0 && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Select Size / Variant
-                </label>
-                <div className="flex flex-wrap gap-2.5">
+                <h4 className="mkt-size-section-title">Select Size / Variant</h4>
+                <div className="mkt-size-chips-row">
                   {product.sizes.map((sz) => (
                     <button
                       key={sz}
+                      type="button"
                       onClick={() => setSelectedSize(sz)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        selectedSize === sz
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-600/20'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:border-slate-300'
-                      }`}
+                      className={`mkt-size-chip ${selectedSize === sz ? 'is-active' : ''}`}
                     >
                       {sz}
                     </button>
@@ -487,31 +439,29 @@ export default function ProductDetailPage() {
             {/* Quantity Selector */}
             {!isOutOfStock && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Quantity
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center border border-slate-200 rounded-xl bg-white shadow-sm">
+                <h4 className="mkt-size-section-title">Quantity</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="mkt-qty-selector">
                     <button
+                      type="button"
                       onClick={() => setQuantity(Math.max(minRequiredQty, quantity - 1))}
                       disabled={quantity <= minRequiredQty}
-                      className="p-2 hover:bg-slate-100 disabled:opacity-40 text-slate-600 transition-colors"
+                      className="mkt-qty-btn"
                     >
-                      <HiMinus className="w-4 h-4" />
+                      <HiMinus size={14} />
                     </button>
-                    <span className="px-4 text-sm font-black text-slate-900 font-mono">
-                      {quantity}
-                    </span>
+                    <span className="mkt-qty-val">{quantity}</span>
                     <button
+                      type="button"
                       onClick={() => setQuantity(quantity + 1)}
-                      className="p-2 hover:bg-slate-100 text-slate-600 transition-colors"
+                      className="mkt-qty-btn"
                     >
-                      <HiPlus className="w-4 h-4" />
+                      <HiPlus size={14} />
                     </button>
                   </div>
 
                   {price < 150 && (
-                    <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                    <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#92400e', background: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>
                       Min. ₹150 order required (Min. {minRequiredQty} items)
                     </span>
                   )}
@@ -519,214 +469,168 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Desktop Action Buttons */}
-            <div className="hidden sm:flex items-center gap-4 pt-2">
+            {/* Action Buttons (Desktop / Tablet) */}
+            <div className="mkt-detail-cta-row" style={{ display: 'flex' }}>
               <button
+                type="button"
                 onClick={handleAddToCart}
                 disabled={isOutOfStock}
-                className="flex-1 py-3.5 px-6 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border-2 border-blue-600 rounded-xl transition-all disabled:opacity-50 active:scale-98 flex items-center justify-center gap-2"
+                className="mkt-btn-add-cart"
               >
-                <HiShoppingBag className="w-5 h-5" />
+                <HiShoppingBag size={18} />
                 <span>Add to Cart</span>
               </button>
               <button
+                type="button"
                 onClick={handleBuyNow}
                 disabled={isOutOfStock}
-                className="flex-1.2 py-3.5 px-8 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 active:scale-98 flex items-center justify-center gap-2"
+                className="mkt-btn-buy-now"
               >
                 <span>Buy Now</span>
               </button>
             </div>
 
             {/* Delivery Estimator Card */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <HiLocationMarker className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="mkt-trust-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <HiLocationMarker size={18} color="#2563eb" style={{ marginTop: '2px', flexShrink: 0 }} />
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800">
-                    Deliver To: {deliveryAddress?.city || deliveryAddress?.district || 'Kerala'} -{' '}
-                    {deliveryAddress?.pincode || '695121'}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Estimated Delivery by{' '}
-                    <span className="font-bold text-slate-800">
-                      {new Date(Date.now() + 4 * 86400000).toLocaleDateString('en-IN', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
+                  <h5 style={{ margin: '0 0 2px', fontSize: '12.5px', fontWeight: 800, color: '#0f172a' }}>
+                    Deliver To: {deliveryAddress?.city || deliveryAddress?.district || 'Kerala'} - {deliveryAddress?.pincode || '695121'}
+                  </h5>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
+                    Estimated Delivery by <strong style={{ color: '#0f172a' }}>{new Date(Date.now() + 4 * 86400000).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}</strong>
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddressModalOpen(true)}
-                className="text-xs font-bold text-blue-600 hover:underline shrink-0"
+                style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 Change
               </button>
             </div>
 
             {/* Seller Contact Card */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between gap-3">
+            <div className="mkt-seller-card">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Sold By
-                </span>
-                <h4 className="text-sm font-black text-slate-900">{product.sellerName}</h4>
-                <p className="text-xs text-slate-500">
-                  {product.district || 'Kerala'} • Registered Merchant
-                </p>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Sold By</span>
+                <h4 style={{ margin: '2px 0', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{product.sellerName}</h4>
+                <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>{product.district || 'Kerala'} • Verified Local Seller</p>
               </div>
 
               {(product.sellerPhone || product.sellerWhatsapp) && (
                 <a
-                  href={`https://wa.me/91${String(
-                    product.sellerWhatsapp || product.sellerPhone
-                  ).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                    `Hello! Inquiring regarding "${product.name}" listed on Logo Marketplace.`
-                  )}`}
+                  href={`https://wa.me/91${String(product.sellerWhatsapp || product.sellerPhone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! Inquiring regarding "${product.name}" on Logo Marketplace.`)}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
+                  className="mkt-whatsapp-btn"
                 >
-                  <FaWhatsapp className="w-4 h-4" />
+                  <FaWhatsapp size={16} />
                   <span>Chat with Seller</span>
                 </a>
               )}
             </div>
 
-            {/* Description */}
-            <div className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Product Description
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                {product.description ||
-                  'Authentic, handcrafted, and carefully sourced product from trusted local sellers across Kerala.'}
+            {/* Description Card */}
+            <div className="mkt-trust-card">
+              <h4 className="mkt-trust-title">Product Description</h4>
+              <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.6, color: '#334155', whiteSpace: 'pre-line' }}>
+                {product.description || 'Authentic, handcrafted, and sourced from trusted local producers across Kerala.'}
               </p>
             </div>
 
             {/* Customer Reviews Section */}
-            <div className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="mkt-trust-card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Customer Ratings & Reviews
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Verified buyer feedback from across Kerala
-                  </p>
+                  <h4 className="mkt-trust-title" style={{ margin: 0 }}>Customer Ratings & Reviews</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>Verified buyer feedback</p>
                 </div>
                 {!showReviewForm && (
                   <button
+                    type="button"
                     onClick={() => setShowReviewForm(true)}
-                    className="px-3.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors"
+                    className="mkt-btn-secondary"
+                    style={{ display: 'inline-flex', padding: '6px 12px' }}
                   >
                     Rate & Review
                   </button>
                 )}
               </div>
 
-              {/* Review Form */}
               {showReviewForm && (
-                <form
-                  onSubmit={handleSubmitReview}
-                  className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 animate-fadeIn"
-                >
-                  <h4 className="text-xs font-bold text-slate-800">Write Your Review</h4>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Your Rating
-                    </label>
-                    <div className="flex items-center gap-1 text-amber-400">
+                <form onSubmit={handleSubmitReview} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+                  <div className="mkt-form-group">
+                    <label className="mkt-form-label">Your Rating</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           type="button"
                           onClick={() => setReviewRating(star)}
-                          className="p-1 hover:scale-110 transition-transform"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
                         >
-                          <HiStar
-                            className={`w-5 h-5 ${
-                              star <= reviewRating ? 'text-amber-400' : 'text-slate-300'
-                            }`}
-                          />
+                          <HiStar size={22} color={star <= reviewRating ? '#f59e0b' : '#cbd5e1'} />
                         </button>
                       ))}
-                      <span className="text-xs font-bold text-slate-700 ml-2">
-                        {reviewRating} out of 5
-                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', marginLeft: '8px' }}>{reviewRating} out of 5</span>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Title</label>
+                  <div className="mkt-form-group">
+                    <label className="mkt-form-label">Review Title</label>
                     <input
                       type="text"
-                      placeholder="e.g. Great quality Kasavu saree!"
+                      placeholder="e.g. Excellent quality & fast delivery!"
                       value={reviewTitle}
                       onChange={(e) => setReviewTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-blue-600"
+                      className="mkt-form-input"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Detailed Review
-                    </label>
+                  <div className="mkt-form-group">
+                    <label className="mkt-form-label">Your Experience</label>
                     <textarea
                       rows={2}
-                      placeholder="Share your experience with this item..."
+                      placeholder="Share your detailed feedback..."
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-blue-600 resize-none"
+                      className="mkt-form-textarea"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowReviewForm(false)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg"
-                    >
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button type="button" onClick={() => setShowReviewForm(false)} className="mkt-btn-secondary" style={{ display: 'inline-flex' }}>
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={submittingReview}
-                      className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow disabled:opacity-50"
-                    >
+                    <button type="submit" disabled={submittingReview} className="mkt-btn-buy-now" style={{ flex: 'unset', padding: '8px 18px', fontSize: '12px' }}>
                       {submittingReview ? 'Submitting...' : 'Submit Review'}
                     </button>
                   </div>
                 </form>
               )}
 
-              {/* Reviews List */}
-              <div className="space-y-3 pt-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {reviewsData.reviews && reviewsData.reviews.length > 0 ? (
                   reviewsData.reviews.map((rev, i) => (
-                    <div key={i} className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">
-                          {rev.user_name || rev.author || 'Verified Buyer'}
-                        </span>
-                        <div className="flex items-center gap-0.5 text-amber-500">
+                    <div key={i} style={{ padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <strong style={{ fontSize: '12px', color: '#0f172a' }}>{rev.user_name || rev.author || 'Verified Buyer'}</strong>
+                        <div style={{ display: 'flex', gap: '1px' }}>
                           {[...Array(Number(rev.rating || 5))].map((_, idx) => (
-                            <HiStar key={idx} className="w-3.5 h-3.5 fill-current" />
+                            <HiStar key={idx} size={13} color="#f59e0b" />
                           ))}
                         </div>
                       </div>
-                      {rev.title && (
-                        <h5 className="text-xs font-bold text-slate-700 mt-1">{rev.title}</h5>
-                      )}
-                      <p className="text-xs text-slate-600 mt-0.5">{rev.comment}</p>
+                      {rev.title && <h5 style={{ margin: '2px 0', fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{rev.title}</h5>}
+                      <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>{rev.comment}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500 italic">
-                    Be the first customer to review this authentic Kerala product!
+                  <p style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic', margin: 0 }}>
+                    Be the first customer to review this authentic Kerala item!
                   </p>
                 )}
               </div>
@@ -736,11 +640,11 @@ export default function ProductDetailPage() {
 
         {/* ── Similar Products Row ── */}
         {similarProducts.length > 0 && (
-          <div className="mt-12 space-y-4">
-            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+          <div style={{ marginTop: '40px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 900, margin: '0 0 16px', color: '#0f172a' }}>
               More in {product.category}
             </h3>
-            <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-2">
+            <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', scrollbarWidth: 'none', padding: '4px 0' }}>
               {similarProducts.map((p) => (
                 <ProductCard
                   key={p.id}
@@ -755,30 +659,45 @@ export default function ProductDetailPage() {
       </main>
 
       {/* ── Mobile Sticky Bottom Action Bar ── */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/90 p-3 flex items-center gap-3 shadow-2xl">
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#ffffff',
+          borderTop: '1px solid #e2e8f0',
+          padding: '12px 16px',
+          display: 'flex',
+          gap: '10px',
+          boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.08)',
+          zIndex: 40,
+        }}
+        className="mobile-sticky-bar"
+      >
         <button
+          type="button"
           onClick={handleAddToCart}
           disabled={isOutOfStock}
-          className="flex-1 py-3 px-4 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-600 rounded-xl disabled:opacity-50 flex items-center justify-center gap-1.5"
+          className="mkt-btn-add-cart"
+          style={{ flex: 1, padding: '11px 14px', fontSize: '13px' }}
         >
-          <HiShoppingBag className="w-4 h-4" />
+          <HiShoppingBag size={16} />
           <span>Add to Cart</span>
         </button>
         <button
+          type="button"
           onClick={handleBuyNow}
           disabled={isOutOfStock}
-          className="flex-1.2 py-3 px-6 text-xs font-bold text-white bg-blue-600 rounded-xl shadow-lg shadow-blue-600/30 disabled:opacity-50 flex items-center justify-center"
+          className="mkt-btn-buy-now"
+          style={{ flex: 1.2, padding: '11px 18px', fontSize: '13px' }}
         >
           <span>Buy Now</span>
         </button>
       </div>
 
       {/* ── Toast Notification ── */}
-      {toastMessage && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-slate-900/95 text-white text-xs font-bold shadow-2xl backdrop-blur-sm animate-bounce">
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage && <div className="mkt-toast">{toastMessage}</div>}
 
       {/* ── Slide-Out Cart Drawer ── */}
       <MarketCartDrawer

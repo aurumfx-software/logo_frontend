@@ -5,11 +5,9 @@ import {
   HiCheckCircle,
   HiOutlineTruck,
   HiLocationMarker,
-  HiPhone,
   HiStar,
   HiExclamationCircle,
   HiExternalLink,
-  HiX,
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import {
@@ -20,6 +18,7 @@ import {
   submitOrderReview,
 } from '../api/productApi';
 import ProductCard from '../components/market/ProductCard';
+import '../components/market/market-web.css';
 
 const TRACKING_STEPS = [
   { key: 'ORDERED', label: 'Ordered', offsetDays: 0 },
@@ -120,24 +119,24 @@ export default function OrderTrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
-        <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-slate-600">Loading live tracking details...</p>
+      <div className="mkt-page-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={{ width: '44px', height: '44px', border: '3px solid rgba(37, 99, 235, 0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '14px' }} />
+        <p style={{ fontSize: '14px', fontWeight: 700, color: '#64748b' }}>Loading live tracking details...</p>
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <HiExclamationCircle className="w-16 h-16 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-800">Order Not Found</h2>
-        <p className="text-xs text-slate-500 max-w-sm">
+      <div className="mkt-page-wrapper" style={{ textAlign: 'center', padding: '100px 20px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 8px', color: '#0f172a' }}>Order Not Found</h2>
+        <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '360px', margin: '0 auto 20px' }}>
           We could not find order details for #{id}.
         </p>
         <button
+          type="button"
           onClick={() => navigate('/market')}
-          className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl"
+          style={{ padding: '10px 24px', fontSize: '13px', fontWeight: 800, color: '#fff', background: '#2563eb', border: 'none', borderRadius: '10px', cursor: 'pointer' }}
         >
           Back to Marketplace
         </button>
@@ -162,116 +161,116 @@ export default function OrderTrackingPage() {
     : 'Recent';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-16">
+    <div className="mkt-page-wrapper">
       {/* ── Top Header ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-            >
-              <HiChevronLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                Order #{order.order_code || id}
-              </h1>
-              <p className="text-[11px] text-slate-500">Placed on {placedDateStr}</p>
+      <header className="mkt-navbar">
+        <div className="mkt-container">
+          <div className="mkt-navbar-inner" style={{ maxWidth: '840px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="mkt-nav-back-btn"
+                title="Back"
+              >
+                <span style={{ fontSize: '18px', fontWeight: 800 }}>←</span>
+              </button>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+                  Order #{order.order_code || id}
+                </h1>
+                <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Placed on {placedDateStr}</p>
+              </div>
             </div>
-          </div>
 
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-              isCancelled
-                ? 'bg-rose-100 text-rose-700'
-                : isDelivered
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-blue-100 text-blue-700'
-            }`}
-          >
-            {status}
-          </span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 900,
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                textTransform: 'uppercase',
+                background: isCancelled ? '#fee2e2' : isDelivered ? '#d1fae5' : '#dbeafe',
+                color: isCancelled ? '#dc2626' : isDelivered ? '#059669' : '#2563eb',
+              }}
+            >
+              {status}
+            </span>
+          </div>
         </div>
       </header>
 
       {/* ── Main Tracking Body ── */}
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      <main className="mkt-checkout-wrap">
         {/* If Cancelled Alert */}
         {isCancelled && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
-            <div className="flex items-center gap-2 text-rose-700 font-black text-xs uppercase tracking-wider">
-              <HiExclamationCircle className="w-4 h-4" />
-              <span>Order Cancelled</span>
+          <div style={{ padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', marginBottom: '18px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 900, color: '#dc2626', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Order Cancelled
             </div>
-            <p className="text-xs text-rose-800">
+            <p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#991b1b' }}>
               Reason: {order.cancellation_reason || 'Cancelled by buyer'}
             </p>
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-              <HiCheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>
-                If paid online, refund is processed directly to your source account within 24–48
-                hours.
-              </span>
+            <div style={{ padding: '10px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', fontSize: '12px', color: '#065f46', fontWeight: 600 }}>
+              If paid online, refund is processed directly to your source account within 24–48 hours.
             </div>
           </div>
         )}
 
         {/* Live Tracking Timeline Stepper */}
         {!isCancelled && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <HiOutlineTruck className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Live Delivery Tracking
-                </h3>
-              </div>
-              <span className="text-xs font-bold text-slate-500">
-                Est. Delivery:{' '}
-                <span className="text-blue-600">
-                  {formatDateWithOffset(order.placed_at, 4)}
-                </span>
+          <div className="mkt-checkout-card">
+            <div className="mkt-checkout-card-header">
+              <h3 className="mkt-checkout-card-title">Live Delivery Tracking</h3>
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                Est. Delivery: <strong style={{ color: '#2563eb' }}>{formatDateWithOffset(order.placed_at, 4)}</strong>
               </span>
             </div>
 
-            {/* Stepper */}
-            <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+            {/* Stepper Steps */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '12px 0 12px 24px', position: 'relative' }}>
               {TRACKING_STEPS.map((st, idx) => {
                 const isPassed = currentStepIdx >= idx;
                 const isCurrent = currentStepIdx === idx;
 
                 return (
-                  <div key={st.key} className="relative flex items-start gap-4">
-                    {/* Dot */}
+                  <div key={st.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', position: 'relative' }}>
+                    {/* Circle Indicator */}
                     <div
-                      className={`absolute -left-6 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                        isPassed
-                          ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                          : 'bg-slate-200 text-slate-500'
-                      }`}
+                      style={{
+                        position: 'absolute',
+                        left: '-24px',
+                        top: '0',
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        background: isPassed ? '#2563eb' : '#e2e8f0',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '11px',
+                        fontWeight: 900,
+                        boxShadow: isCurrent ? '0 0 0 4px #dbeafe' : 'none',
+                      }}
                     >
-                      {isPassed ? <HiCheckCircle className="w-3.5 h-3.5" /> : idx + 1}
+                      {isPassed ? '✓' : idx + 1}
                     </div>
 
                     <div>
-                      <div className="flex items-baseline gap-2">
-                        <h4
-                          className={`text-xs font-black ${
-                            isCurrent ? 'text-blue-600' : isPassed ? 'text-slate-900' : 'text-slate-400'
-                          }`}
-                        >
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: isCurrent ? '#2563eb' : isPassed ? '#0f172a' : '#94a3b8' }}>
                           {st.label}
                         </h4>
-                        <span className="text-[11px] text-slate-400">
+                        <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>
                           {formatDateWithOffset(order.placed_at, st.offsetDays)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {idx === 0 && 'Order confirmed by local Kerala merchant'}
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                        {idx === 0 && 'Order placed & confirmed with local merchant'}
                         {idx === 1 && 'Package packed & dispatched with courier partner'}
                         {idx === 2 && 'Package arrived at local delivery hub'}
-                        {idx === 3 && 'Courier partner delivering to your doorstep'}
+                        {idx === 3 && 'Package handed over to customer'}
                       </p>
                     </div>
                   </div>
@@ -281,20 +280,13 @@ export default function OrderTrackingPage() {
           </div>
         )}
 
-        {/* Courier Partner Card (If available) */}
+        {/* Courier Dispatch Card */}
         {order.courier_partner && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex items-center justify-between text-xs">
+          <div className="mkt-checkout-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                Courier Dispatch
-              </span>
-              <h4 className="font-bold text-slate-900 text-sm mt-0.5">
-                {order.courier_partner}{' '}
-                {order.tracking_number && (
-                  <span className="text-slate-500 font-normal">
-                    (Tracking #{order.tracking_number})
-                  </span>
-                )}
+              <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Courier Partner</span>
+              <h4 style={{ margin: '2px 0 0', fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                {order.courier_partner} {order.tracking_number && `(#${order.tracking_number})`}
               </h4>
             </div>
 
@@ -303,57 +295,45 @@ export default function OrderTrackingPage() {
                 href={order.tracking_url}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold flex items-center gap-1 transition-colors"
+                style={{ padding: '6px 14px', background: '#eff6ff', color: '#2563eb', borderRadius: '8px', fontSize: '12px', fontWeight: 800, textDecoration: 'none' }}
               >
-                <span>Track on Carrier</span>
-                <HiExternalLink className="w-3.5 h-3.5" />
+                Track on Carrier →
               </a>
             )}
           </div>
         )}
 
         {/* Ordered Item Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex gap-4 items-center">
+        <div className="mkt-checkout-card" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <img
-            src={
-              order.product_image ||
-              'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'
-            }
+            src={order.product_image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'}
             alt={order.product_name}
-            className="w-20 h-20 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-100"
+            style={{ width: '74px', height: '74px', borderRadius: '10px', objectFit: 'cover', background: '#f1f5f9', border: '1px solid #e2e8f0', flexShrink: 0 }}
           />
-          <div className="flex-1 space-y-1">
-            <h3 className="text-sm font-bold text-slate-900 leading-snug">
+          <div style={{ flex: 1 }}>
+            <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
               {order.product_name || 'Marketplace Item'}
-            </h3>
-            <p className="text-xs text-slate-500">
-              Size: {order.selected_size || 'Standard'} • Qty: {order.quantity || 1}
-            </p>
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-base font-black text-slate-900">
-                ₹{(Number(order.total_amount) || Number(order.price) || 0).toLocaleString('en-IN')}
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Paid Online'}
-              </span>
+            </h4>
+            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+              Size: <strong style={{ color: '#0f172a' }}>{order.selected_size || 'Standard'}</strong> • Qty: <strong style={{ color: '#0f172a' }}>{order.quantity || 1}</strong>
             </div>
+            <span style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+              ₹{(Number(order.total_amount) || Number(order.price) || 0).toLocaleString('en-IN')}
+            </span>
           </div>
         </div>
 
-        {/* Deliver To Details */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wider">
-            <HiLocationMarker className="w-4 h-4 text-blue-600" />
-            <span>Shipping Address</span>
+        {/* Shipping Address */}
+        <div className="mkt-checkout-card">
+          <div className="mkt-checkout-card-header">
+            <h3 className="mkt-checkout-card-title">Shipping Address</h3>
           </div>
-          <div className="text-xs space-y-1">
-            <p className="font-bold text-slate-900">
+          <div style={{ fontSize: '13px' }}>
+            <p style={{ margin: '0 0 2px', fontWeight: 800, color: '#0f172a' }}>
               {order.buyer_name || deliveryAddress?.name || 'Customer'}{' '}
-              <span className="text-slate-500 font-normal">
-                ({order.buyer_phone || deliveryAddress?.phone})
-              </span>
+              <span style={{ color: '#64748b', fontWeight: 500 }}>({order.buyer_phone || deliveryAddress?.phone})</span>
             </p>
-            <p className="text-slate-600 leading-relaxed">
+            <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
               {order.buyer_address || deliveryAddress?.address},{' '}
               {order.buyer_city || order.buyer_district || deliveryAddress?.district}, Kerala -{' '}
               {order.buyer_pincode || deliveryAddress?.pincode}
@@ -362,39 +342,34 @@ export default function OrderTrackingPage() {
         </div>
 
         {/* Seller Info & Actions */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mkt-checkout-card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Seller
-            </span>
-            <h4 className="text-sm font-bold text-slate-900">
-              {order.seller_name || 'Subscribed Kerala Seller'}
+            <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Seller</span>
+            <h4 style={{ margin: '2px 0', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+              {order.seller_name || 'Verified Kerala Merchant'}
             </h4>
-            <p className="text-xs text-slate-500">Ready to assist with your delivery questions</p>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Assisting with your order and dispatch</p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div style={{ display: 'flex', gap: '10px' }}>
             {(order.seller_phone || order.seller_whatsapp) && (
               <a
-                href={`https://wa.me/91${String(
-                  order.seller_whatsapp || order.seller_phone
-                ).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `Inquiring regarding my order #${order.order_code || id} for "${order.product_name}".`
-                )}`}
+                href={`https://wa.me/91${String(order.seller_whatsapp || order.seller_phone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Inquiring regarding order #${order.order_code || id} for "${order.product_name}".`)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
+                className="mkt-whatsapp-btn"
               >
-                <FaWhatsapp className="w-4 h-4" />
+                <FaWhatsapp size={16} />
                 <span>WhatsApp Seller</span>
               </a>
             )}
 
             {!isCancelled && !isDelivered && (
               <button
+                type="button"
                 onClick={handleCancelOrder}
                 disabled={cancelling}
-                className="flex-1 sm:flex-initial px-4 py-2 border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition-colors"
+                style={{ padding: '8px 14px', background: '#fff', border: '1.5px solid #fecaca', color: '#dc2626', borderRadius: '8px', fontSize: '12px', fontWeight: 800, cursor: 'pointer' }}
               >
                 {cancelling ? 'Cancelling...' : 'Cancel Order'}
               </button>
@@ -402,59 +377,63 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
-        {/* Rate & Review Card (If delivered or received) */}
+        {/* Review Submission Card */}
         {!isCancelled && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+          <div className="mkt-checkout-card">
+            <h3 className="mkt-checkout-card-title" style={{ paddingBottom: '10px', borderBottom: '1px solid #f1f5f9', marginBottom: '14px' }}>
               Rate Your Experience
             </h3>
+
             {reviewSubmitted ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2">
-                <HiCheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>Your review has been submitted! Thank you.</span>
+              <div style={{ padding: '12px 14px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', color: '#065f46', fontSize: '12.5px', fontWeight: 700 }}>
+                ✓ Thank you! Your review has been submitted.
               </div>
             ) : (
-              <form onSubmit={handleSubmitReview} className="space-y-3">
-                <div className="flex items-center gap-1 text-amber-400">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setReviewRating(star)}
-                      className="p-1 hover:scale-110 transition-transform"
-                    >
-                      <HiStar
-                        className={`w-6 h-6 ${
-                          star <= reviewRating ? 'text-amber-400' : 'text-slate-300'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  <span className="text-xs font-bold text-slate-700 ml-2">
-                    {reviewRating} out of 5 stars
-                  </span>
+              <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label className="mkt-form-label">Your Rating</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewRating(star)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', fontSize: '22px', color: star <= reviewRating ? '#f59e0b' : '#cbd5e1' }}
+                      >
+                        ★
+                      </button>
+                    ))}
+                    <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#334155', marginLeft: '6px' }}>{reviewRating} out of 5 stars</span>
+                  </div>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Review Title (e.g. Excellent packaging & swift delivery)"
-                  value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600"
-                />
+                <div className="mkt-form-group" style={{ margin: 0 }}>
+                  <label className="mkt-form-label">Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Authentic quality and swift packaging"
+                    value={reviewTitle}
+                    onChange={(e) => setReviewTitle(e.target.value)}
+                    className="mkt-form-input"
+                  />
+                </div>
 
-                <textarea
-                  rows={2}
-                  placeholder="Share details about the quality and packaging..."
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-600 resize-none"
-                />
+                <div className="mkt-form-group" style={{ margin: 0 }}>
+                  <label className="mkt-form-label">Review Details</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Share your experience with this item..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    className="mkt-form-textarea"
+                  />
+                </div>
 
                 <button
                   type="submit"
                   disabled={submittingReview}
-                  className="py-2 px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md disabled:opacity-50"
+                  className="mkt-btn-buy-now"
+                  style={{ alignSelf: 'flex-start', flex: 'unset', padding: '10px 20px', fontSize: '13px' }}
                 >
                   {submittingReview ? 'Submitting...' : 'Submit Review'}
                 </button>
@@ -465,9 +444,11 @@ export default function OrderTrackingPage() {
 
         {/* Recommended Products */}
         {recommendedProducts.length > 0 && (
-          <div className="pt-6 space-y-4">
-            <h3 className="text-base font-black text-slate-900">Explore More Products</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          <div style={{ marginTop: '36px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 900, margin: '0 0 14px', color: '#0f172a' }}>
+              Explore More Products
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
               {recommendedProducts.slice(0, 3).map((prod) => (
                 <ProductCard key={prod.id} product={prod} />
               ))}

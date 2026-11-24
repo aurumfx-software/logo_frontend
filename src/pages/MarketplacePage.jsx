@@ -8,9 +8,7 @@ import {
   HiChevronLeft,
   HiSparkles,
   HiOutlineAdjustments,
-  HiOutlineHeart,
   HiOutlineTruck,
-  HiCheck,
   HiPlus,
 } from 'react-icons/hi';
 import {
@@ -21,13 +19,13 @@ import {
   getMarketplaceWishlist,
   addToMarketplaceWishlist,
   removeFromMarketplaceWishlist,
-  getSavedDeliveryAddress,
 } from '../api/productApi';
 import ProductCard from '../components/market/ProductCard';
 import MarketCartDrawer from '../components/market/MarketCartDrawer';
 import DeliveryAddressModal, { KERALA_DISTRICTS } from '../components/market/DeliveryAddressModal';
 import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
 import { useAuth } from '../context/AuthContext';
+import '../components/market/market-web.css';
 
 const CATEGORY_ICONS = {
   'Kerala Kasavu Sarees': '✨',
@@ -59,7 +57,7 @@ const PRICE_RANGES = [
 
 export default function MarketplacePage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   const [products, setProducts] = useState([]);
@@ -74,7 +72,6 @@ export default function MarketplacePage() {
   const [sortBy, setSortBy] = useState('newest');
 
   // Cart & Wishlist
-  const [cartItems, setCartItems] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistIds, setWishlistIds] = useState(new Set());
 
@@ -103,7 +100,6 @@ export default function MarketplacePage() {
 
       setCategoriesList(cats || []);
       setProducts(prods || []);
-      setCartItems(cart || []);
       setCartCount((cart || []).reduce((sum, it) => sum + Number(it.quantity || 1), 0));
 
       if (wish?.items && Array.isArray(wish.items)) {
@@ -120,14 +116,12 @@ export default function MarketplacePage() {
     loadData();
   }, []);
 
-  // Real-time synchronization event listeners
+  // Real-time synchronization
   useEffect(() => {
     const handleCartChanged = (e) => {
       const items = e?.detail || [];
-      setCartItems(items);
       setCartCount(items.reduce((sum, it) => sum + Number(it.quantity || 1), 0));
     };
-
     const handleRefresh = () => loadData();
 
     window.addEventListener('logo-cart-changed', handleCartChanged);
@@ -168,7 +162,6 @@ export default function MarketplacePage() {
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -181,27 +174,23 @@ export default function MarketplacePage() {
       );
     }
 
-    // Category
     if (selectedCategory && selectedCategory !== 'all') {
       const catLower = selectedCategory.toLowerCase();
       list = list.filter((p) => (p.category || '').toLowerCase().includes(catLower));
     }
 
-    // District
     if (selectedDistrict && selectedDistrict !== 'All Kerala') {
       list = list.filter(
         (p) => (p.district || '').toLowerCase() === selectedDistrict.toLowerCase()
       );
     }
 
-    // Price range
     const activeRange = PRICE_RANGES.find((r) => r.id === selectedPriceRange);
     if (activeRange) {
       if (activeRange.min !== null) list = list.filter((p) => Number(p.price || 0) >= activeRange.min);
       if (activeRange.max !== null) list = list.filter((p) => Number(p.price || 0) <= activeRange.max);
     }
 
-    // Sort
     if (sortBy === 'price_asc') {
       list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     } else if (sortBy === 'price_desc') {
@@ -209,7 +198,6 @@ export default function MarketplacePage() {
     } else if (sortBy === 'discount') {
       list.sort((a, b) => Number(b.discountPercent || 0) - Number(a.discountPercent || 0));
     } else {
-      // Newest
       list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
     }
 
@@ -232,109 +220,103 @@ export default function MarketplacePage() {
     sortBy !== 'newest';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      {/* ── Top Navigation Bar ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+    <div className="mkt-page-wrapper">
+      {/* ── Top Navbar ── */}
+      <header className="mkt-navbar">
+        <div className="mkt-container">
+          <div className="mkt-navbar-inner">
             {/* Left: Back & Title */}
-            <div className="flex items-center gap-3">
+            <div className="mkt-nav-left">
               <button
+                type="button"
                 onClick={() => navigate('/')}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                className="mkt-nav-back-btn"
                 title="Back to Home"
               >
-                <HiChevronLeft className="w-5 h-5" />
+                <HiChevronLeft size={20} />
               </button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
-                    Kerala Marketplace
-                  </h1>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
-                    <HiSparkles className="w-3 h-3 text-blue-600" />
+              <div className="mkt-nav-title-group">
+                <div className="mkt-nav-title-row">
+                  <h1 className="mkt-nav-title">Kerala Marketplace</h1>
+                  <span className="mkt-nav-verified-badge">
+                    <HiSparkles size={12} />
                     Verified Local Sellers
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 hidden sm:block">
-                  Kasavu Sarees, Malabar Spices, Organic Produce & Authentic Kerala Crafts
+                <p className="mkt-nav-subtitle">
+                  Kasavu Sarees, Malabar Spices, Organic Produce & Authentic Crafts
                 </p>
               </div>
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* My Orders Button */}
+            <div className="mkt-nav-actions">
               <button
+                type="button"
                 onClick={() => {
                   setCartTab('track');
                   setIsCartOpen(true);
                 }}
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                className="mkt-btn-secondary"
               >
-                <HiOutlineTruck className="w-4 h-4 text-slate-600" />
+                <HiOutlineTruck size={16} />
                 <span>My Orders</span>
               </button>
 
-              {/* Sell on Logo */}
               <button
+                type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="hidden md:flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors"
+                className="mkt-btn-sell"
               >
-                <HiPlus className="w-4 h-4" />
+                <HiPlus size={16} />
                 <span>Sell Product</span>
               </button>
 
-              {/* Cart Drawer Trigger */}
               <button
+                type="button"
                 onClick={() => {
                   setCartTab('cart');
                   setIsCartOpen(true);
                 }}
-                className="relative p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center"
+                className="mkt-cart-trigger"
                 title="View Shopping Cart"
               >
-                <HiShoppingBag className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-md animate-pulse">
-                    {cartCount}
-                  </span>
-                )}
+                <HiShoppingBag size={20} />
+                {cartCount > 0 && <span className="mkt-cart-badge">{cartCount}</span>}
               </button>
             </div>
           </div>
 
           {/* Search & Location Bar */}
-          <div className="pb-3 flex flex-col sm:flex-row items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 w-full">
-              <HiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
+          <div className="mkt-search-bar-row">
+            <div className="mkt-search-input-wrap">
+              <HiSearch className="mkt-search-icon" />
               <input
                 type="text"
                 placeholder="Search Sarees, Spices, Handicrafts, Jewellery, Gadgets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all"
+                className="mkt-search-input"
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                  className="mkt-search-clear-btn"
                 >
-                  <HiX className="w-4 h-4" />
+                  <HiX size={16} />
                 </button>
               )}
             </div>
 
-            {/* Kerala District Selector */}
-            <div className="relative w-full sm:w-56 shrink-0">
-              <HiLocationMarker className="absolute left-3 top-2.5 text-blue-600 w-4 h-4 pointer-events-none" />
+            <div className="mkt-district-select-wrap">
+              <HiLocationMarker className="mkt-pin-icon" />
               <select
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
-                className="w-full pl-9 pr-8 py-2.5 text-xs sm:text-sm font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all cursor-pointer text-slate-800"
+                className="mkt-district-select"
               >
-                <option value="All Kerala">📍 All Kerala (14 Districts)</option>
+                <option value="All Kerala">All Kerala (14 Districts)</option>
                 {KERALA_DISTRICTS.map((dist) => (
                   <option key={dist} value={dist}>
                     {dist}
@@ -345,17 +327,14 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* ── Horizontal Scrollable Categories ── */}
-        <div className="border-t border-slate-100 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        {/* Categories Pills Row */}
+        <div className="mkt-categories-nav">
+          <div className="mkt-container">
+            <div className="mkt-categories-scroll">
               <button
+                type="button"
                 onClick={() => setSelectedCategory('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
-                  selectedCategory === 'all'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
+                className={`mkt-cat-pill ${selectedCategory === 'all' ? 'is-active' : ''}`}
               >
                 <span>✨</span>
                 <span>All Products</span>
@@ -367,12 +346,9 @@ export default function MarketplacePage() {
                 return (
                   <button
                     key={cat}
+                    type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                    }`}
+                    className={`mkt-cat-pill ${isSelected ? 'is-active' : ''}`}
                   >
                     <span>{icon}</span>
                     <span>{cat}</span>
@@ -385,41 +361,34 @@ export default function MarketplacePage() {
       </header>
 
       {/* ── Secondary Filter Bar: Price Range & Sorting ── */}
-      <div className="bg-slate-50 border-b border-slate-200/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Price Range Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1">
-                Price:
-              </span>
+      <div className="mkt-subfilter-bar">
+        <div className="mkt-container">
+          <div className="mkt-subfilter-inner">
+            <div className="mkt-price-chips">
+              <span className="mkt-filter-label">Price:</span>
               {PRICE_RANGES.map((r) => (
                 <button
                   key={r.id}
+                  type="button"
                   onClick={() => setSelectedPriceRange(r.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
-                    selectedPriceRange === r.id
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`mkt-price-chip ${selectedPriceRange === r.id ? 'is-active' : ''}`}
                 >
                   {r.label}
                 </button>
               ))}
             </div>
 
-            {/* Sort & Stats */}
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-semibold text-slate-500">
-                <span className="font-bold text-slate-900">{filteredProducts.length}</span> items
+            <div className="mkt-sort-controls">
+              <span className="mkt-product-count">
+                <strong>{filteredProducts.length}</strong> items
               </span>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-500">Sort:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Sort:</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 outline-none focus:border-blue-600 cursor-pointer shadow-sm"
+                  className="mkt-sort-select"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.id} value={opt.id}>
@@ -430,10 +399,7 @@ export default function MarketplacePage() {
               </div>
 
               {hasActiveFilters && (
-                <button
-                  onClick={resetFilters}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 underline decoration-blue-300"
-                >
+                <button type="button" onClick={resetFilters} className="mkt-reset-btn">
                   Reset
                 </button>
               )}
@@ -442,36 +408,94 @@ export default function MarketplacePage() {
         </div>
       </div>
 
-      {/* ── Main Products Grid Content ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* ── Main Responsive Product Grid ── */}
+      <main className="mkt-container">
         {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6 animate-pulse">
+          <div className="mkt-product-grid">
             {[...Array(10)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-slate-200 p-3 space-y-3">
-                <div className="w-full aspect-square bg-slate-200 rounded-xl" />
-                <div className="h-4 bg-slate-200 rounded w-3/4" />
-                <div className="h-4 bg-slate-200 rounded w-1/2" />
+              <div
+                key={i}
+                className="mkt-card"
+                style={{ padding: '12px', animation: 'pulse 1.5s infinite' }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    background: '#e2e8f0',
+                    borderRadius: '10px',
+                    marginBottom: '10px',
+                  }}
+                />
+                <div
+                  style={{
+                    height: '14px',
+                    background: '#e2e8f0',
+                    borderRadius: '4px',
+                    width: '80%',
+                    marginBottom: '6px',
+                  }}
+                />
+                <div
+                  style={{
+                    height: '14px',
+                    background: '#e2e8f0',
+                    borderRadius: '4px',
+                    width: '45%',
+                  }}
+                />
               </div>
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="py-20 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
-              <HiOutlineAdjustments className="w-8 h-8" />
+          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '16px',
+                background: '#eff6ff',
+                color: '#2563eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}
+            >
+              <HiOutlineAdjustments size={32} />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">No products found</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a' }}>
+              No products found
+            </h3>
+            <p
+              style={{
+                fontSize: '13px',
+                color: '#64748b',
+                maxWidth: '360px',
+                margin: '0 auto 16px',
+              }}
+            >
               We couldn't find any items matching your selected filters or search query.
             </p>
             <button
+              type="button"
               onClick={resetFilters}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all"
+              style={{
+                padding: '10px 20px',
+                fontSize: '13px',
+                fontWeight: 800,
+                color: '#ffffff',
+                background: '#2563eb',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
             >
               Reset All Filters
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-5">
+          <div className="mkt-product-grid">
             {filteredProducts.map((prod) => (
               <ProductCard
                 key={prod.id}
@@ -486,11 +510,7 @@ export default function MarketplacePage() {
       </main>
 
       {/* ── Toast Notification ── */}
-      {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-slate-900/95 text-white text-xs font-bold shadow-2xl backdrop-blur-sm animate-bounce flex items-center gap-2">
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {toastMessage && <div className="mkt-toast">{toastMessage}</div>}
 
       {/* ── Slide-Out Cart Drawer ── */}
       <MarketCartDrawer

@@ -21,6 +21,7 @@ import {
 } from '../api/productApi';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
 import { useAuth } from '../context/AuthContext';
+import '../components/market/market-web.css';
 
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
@@ -50,7 +51,6 @@ export default function CheckoutPage() {
 
   // Payment Selection
   const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' | 'cod'
-  const [paymentSubMethod, setPaymentSubMethod] = useState('upi'); // 'upi' | 'card' | 'netbanking'
   const [isOrdering, setIsOrdering] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -58,7 +58,6 @@ export default function CheckoutPage() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [placedOrderCode, setPlacedOrderCode] = useState('');
 
-  // Estimated delivery date (4 days ahead)
   const getDeliveryDate = () => {
     const d = new Date();
     d.setDate(d.getDate() + 4);
@@ -97,10 +96,9 @@ export default function CheckoutPage() {
     load();
   }, [productId]);
 
-  // Price calculations
   const unitPrice = Number(product?.price || 0);
   const itemsTotal = unitPrice * quantity;
-  const isFreeDelivery = itemsTotal >= (checkoutRules.free_delivery_above || 499) || true; // Free across Kerala
+  const isFreeDelivery = itemsTotal >= (checkoutRules.free_delivery_above || 499) || true;
   const deliveryFee = isFreeDelivery ? 0 : Number(checkoutRules.delivery_fee || 40);
   const codFee =
     paymentMethod === 'cod' && itemsTotal < (checkoutRules.free_cod_above || 500)
@@ -159,7 +157,6 @@ export default function CheckoutPage() {
       setPlacedOrderCode(orderCode);
       setShowCelebration(true);
 
-      // Auto redirect after celebration
       setTimeout(() => {
         navigate(
           `/order/confirmed?order_id=${finalOrderId}&product_id=${product.id}&quantity=${quantity}&size=${encodeURIComponent(
@@ -175,24 +172,25 @@ export default function CheckoutPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
-        <div className="w-12 h-12 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-slate-600">Preparing secure checkout...</p>
+      <div className="mkt-page-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={{ width: '44px', height: '44px', border: '3px solid rgba(37, 99, 235, 0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '14px' }} />
+        <p style={{ fontSize: '14px', fontWeight: 700, color: '#64748b' }}>Preparing secure checkout...</p>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <HiExclamationCircle className="w-16 h-16 text-rose-500 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-800">No Product Selected</h2>
-        <p className="text-xs text-slate-500 max-w-sm">
+      <div className="mkt-page-wrapper" style={{ textAlign: 'center', padding: '100px 20px' }}>
+        <HiExclamationCircle size={56} color="#ef4444" style={{ margin: '0 auto 16px' }} />
+        <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 8px', color: '#0f172a' }}>No Product Selected</h2>
+        <p style={{ fontSize: '13px', color: '#64748b', maxWidth: '360px', margin: '0 auto 20px' }}>
           Please select an item from the Kerala Marketplace to checkout.
         </p>
         <button
+          type="button"
           onClick={() => navigate('/market')}
-          className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-600/20"
+          style={{ padding: '10px 24px', fontSize: '13px', fontWeight: 800, color: '#fff', background: '#2563eb', border: 'none', borderRadius: '10px', cursor: 'pointer' }}
         >
           Go to Marketplace
         </button>
@@ -201,91 +199,101 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-20">
+    <div className="mkt-page-wrapper">
       {/* ── Top Header ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <button
-            onClick={() => {
-              if (step === 2) setStep(1);
-              else navigate(-1);
-            }}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1 text-xs font-bold"
-          >
-            <HiChevronLeft className="w-5 h-5" />
-            <span>{step === 2 ? 'Back to Order Review' : 'Back'}</span>
-          </button>
+      <header className="mkt-navbar">
+        <div className="mkt-container">
+          <div className="mkt-navbar-inner" style={{ maxWidth: '840px', margin: '0 auto' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (step === 2) setStep(1);
+                else navigate(-1);
+              }}
+              className="mkt-nav-back-btn"
+              style={{ width: 'auto', padding: '0 10px', gap: '4px', fontSize: '12.5px', fontWeight: 700 }}
+            >
+              <HiChevronLeft size={18} />
+              <span>{step === 2 ? 'Order Review' : 'Back'}</span>
+            </button>
 
-          {/* Stepper indicator */}
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <span
-              className={`px-3 py-1 rounded-full ${
-                step === 1 ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-700'
-              }`}
-            >
-              1. Review Order
-            </span>
-            <span className="text-slate-300">→</span>
-            <span
-              className={`px-3 py-1 rounded-full ${
-                step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
-              }`}
-            >
-              2. Payment
-            </span>
+            {/* Step indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 800 }}>
+              <span
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '9999px',
+                  background: step === 1 ? '#2563eb' : '#d1fae5',
+                  color: step === 1 ? '#ffffff' : '#065f46',
+                }}
+              >
+                1. Review Order
+              </span>
+              <span style={{ color: '#cbd5e1' }}>→</span>
+              <span
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '9999px',
+                  background: step === 2 ? '#2563eb' : '#f1f5f9',
+                  color: step === 2 ? '#ffffff' : '#94a3b8',
+                }}
+              >
+                2. Payment
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* ── Checkout Container ── */}
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Error Notification */}
+      {/* ── Checkout Content Container ── */}
+      <main className="mkt-checkout-wrap">
         {errorMsg && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold flex items-center gap-2">
-            <HiExclamationCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', fontSize: '12.5px', fontWeight: 700, color: '#991b1b', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HiExclamationCircle size={18} color="#dc2626" style={{ flexShrink: 0 }} />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {/* ── STEP 1: REVIEW YOUR ORDER ── */}
         {step === 1 && (
-          <div className="space-y-6">
+          <div>
             {/* Delivery Address Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <HiLocationMarker className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Deliver To
-                  </h3>
-                </div>
+            <div className="mkt-checkout-card">
+              <div className="mkt-checkout-card-header">
+                <h3 className="mkt-checkout-card-title">
+                  <HiLocationMarker size={18} color="#2563eb" />
+                  <span>Deliver To</span>
+                </h3>
                 <button
+                  type="button"
                   onClick={() => setIsAddressModalOpen(true)}
-                  className="text-xs font-bold text-blue-600 hover:underline"
+                  style={{ fontSize: '12px', fontWeight: 800, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                 >
                   {deliveryAddress?.address ? 'Change Address' : '+ Add Address'}
                 </button>
               </div>
 
               {deliveryAddress?.address ? (
-                <div className="space-y-1 text-xs">
-                  <div className="font-bold text-slate-900 text-sm">
+                <div style={{ fontSize: '13px' }}>
+                  <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '3px' }}>
                     {deliveryAddress.name}{' '}
-                    <span className="text-slate-500 font-medium">({deliveryAddress.phone})</span>
+                    <span style={{ color: '#64748b', fontWeight: 500 }}>({deliveryAddress.phone})</span>
                   </div>
-                  <p className="text-slate-600 leading-relaxed">
+                  <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
                     {deliveryAddress.address}
                     {deliveryAddress.landmark ? `, ${deliveryAddress.landmark}` : ''},{' '}
                     {deliveryAddress.city || deliveryAddress.district}, Kerala -{' '}
-                    <span className="font-mono font-bold text-slate-800">{deliveryAddress.pincode}</span>
+                    <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{deliveryAddress.pincode}</strong>
                   </p>
                 </div>
               ) : (
-                <div className="py-2 text-center text-slate-500 text-xs">
-                  <p>No delivery address found. Please enter your shipping details.</p>
+                <div style={{ textAlign: 'center', padding: '16px 0', color: '#64748b', fontSize: '13px' }}>
+                  <p style={{ margin: '0 0 10px' }}>No shipping address found. Please enter your delivery address.</p>
                   <button
+                    type="button"
                     onClick={() => setIsAddressModalOpen(true)}
-                    className="mt-2 px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl"
+                    className="mkt-btn-buy-now"
+                    style={{ flex: 'unset', display: 'inline-flex', padding: '8px 18px', fontSize: '12.5px' }}
                   >
                     Enter Address
                   </button>
@@ -294,55 +302,51 @@ export default function CheckoutPage() {
             </div>
 
             {/* Product Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="bg-blue-50/70 border-b border-blue-100 px-5 py-2.5 flex items-center justify-between text-xs font-bold text-blue-900">
-                <div className="flex items-center gap-1.5">
-                  <HiOutlineTruck className="w-4 h-4 text-blue-600" />
-                  <span>Estimated Delivery by {getDeliveryDate()}</span>
+            <div className="mkt-checkout-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ background: '#eff6ff', borderBottom: '1px solid #dbeafe', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 800, color: '#1e40af' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <HiOutlineTruck size={16} />
+                  <span>Estimated Delivery: {getDeliveryDate()}</span>
                 </div>
-                <span className="text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">
+                <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '4px' }}>
                   Free Delivery
                 </span>
               </div>
 
-              <div className="p-5 flex gap-4 items-start">
+              <div style={{ padding: '18px', display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
                 <img
                   src={product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200'}
                   alt={product.name}
-                  className="w-20 h-20 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-100"
+                  style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover', background: '#f1f5f9', border: '1px solid #e2e8f0', flexShrink: 0 }}
                 />
-                <div className="flex-1 space-y-2">
-                  <h4 className="text-sm font-bold text-slate-900 leading-snug">{product.name}</h4>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                    <span className="font-semibold bg-slate-100 px-2 py-0.5 rounded">
-                      Size: {selectedSize}
-                    </span>
-                    <span className="text-slate-400">•</span>
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{product.name}</h4>
+                  <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>
+                    <span style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>Size: {selectedSize}</span>
                     <span>Sold by: {product.sellerName}</span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-base font-black text-slate-900">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a' }}>
                       ₹{itemsTotal.toLocaleString('en-IN')}
                     </span>
 
-                    {/* Quantity Selector */}
-                    <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50">
+                    <div className="mkt-qty-selector">
                       <button
+                        type="button"
                         onClick={() => setQuantity(Math.max(minRequiredQty, quantity - 1))}
                         disabled={quantity <= minRequiredQty}
-                        className="p-1.5 hover:bg-slate-200 disabled:opacity-40 text-slate-600 transition-colors"
+                        className="mkt-qty-btn"
                       >
-                        <HiMinus className="w-3.5 h-3.5" />
+                        <HiMinus size={13} />
                       </button>
-                      <span className="px-3 text-xs font-black text-slate-900 font-mono">
-                        {quantity}
-                      </span>
+                      <span className="mkt-qty-val">{quantity}</span>
                       <button
+                        type="button"
                         onClick={() => setQuantity(quantity + 1)}
-                        className="p-1.5 hover:bg-slate-200 text-slate-600 transition-colors"
+                        className="mkt-qty-btn"
                       >
-                        <HiPlus className="w-3.5 h-3.5" />
+                        <HiPlus size={13} />
                       </button>
                     </div>
                   </div>
@@ -351,34 +355,34 @@ export default function CheckoutPage() {
             </div>
 
             {/* Price Details Breakdown */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-3">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">
+            <div className="mkt-checkout-card">
+              <h3 className="mkt-checkout-card-title" style={{ paddingBottom: '10px', borderBottom: '1px solid #f1f5f9', marginBottom: '12px' }}>
                 Order Price Details
               </h3>
-              <div className="space-y-2 text-xs text-slate-600">
-                <div className="flex justify-between">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#475569' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Price ({quantity} item{quantity > 1 ? 's' : ''})</span>
-                  <span className="font-semibold text-slate-800">
-                    ₹{itemsTotal.toLocaleString('en-IN')}
-                  </span>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>₹{itemsTotal.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between">
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Delivery Charges</span>
-                  <span className="font-bold text-emerald-600">FREE</span>
+                  <strong style={{ color: '#059669' }}>FREE</strong>
                 </div>
-                <div className="flex justify-between text-base font-black text-slate-900 pt-3 border-t border-slate-100">
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '10px', fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
                   <span>Order Total</span>
-                  <span className="text-blue-600">₹{finalTotal.toLocaleString('en-IN')}</span>
+                  <span style={{ color: '#2563eb' }}>₹{finalTotal.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
-              <div className="pt-3">
+              <div style={{ marginTop: '16px' }}>
                 <button
+                  type="button"
                   onClick={handleProceedToPayment}
-                  className="w-full py-3.5 px-6 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
+                  className="mkt-btn-buy-now"
+                  style={{ width: '100%', flex: 'unset', padding: '14px 20px', fontSize: '14.5px' }}
                 >
                   <span>Continue to Payment Method</span>
-                  <span className="text-blue-200 font-mono">→</span>
+                  <span>→</span>
                 </button>
               </div>
             </div>
@@ -387,114 +391,128 @@ export default function CheckoutPage() {
 
         {/* ── STEP 2: PAYMENT METHOD ── */}
         {step === 2 && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">
+          <div>
+            <div className="mkt-checkout-card">
+              <h3 className="mkt-checkout-card-title" style={{ paddingBottom: '12px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
                 Select Payment Option
               </h3>
 
-              {/* Online Payment (UPI / Cards / Netbanking) */}
+              {/* Online Payment */}
               <div
                 onClick={() => setPaymentMethod('online')}
-                className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                  paymentMethod === 'online'
-                    ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-600/10'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: paymentMethod === 'online' ? '2px solid #2563eb' : '1.5px solid #e2e8f0',
+                  background: paymentMethod === 'online' ? '#eff6ff' : '#ffffff',
+                  marginBottom: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'online'
-                          ? 'border-blue-600 bg-blue-600'
-                          : 'border-slate-300'
-                      }`}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        border: paymentMethod === 'online' ? '2px solid #2563eb' : '2px solid #cbd5e1',
+                        background: paymentMethod === 'online' ? '#2563eb' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                     >
-                      {paymentMethod === 'online' && <HiCheck className="w-3.5 h-3.5 text-white" />}
+                      {paymentMethod === 'online' && <HiCheck size={14} color="#fff" />}
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-slate-900">
+                      <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
                         Online Payment (Fast & Recommended)
                       </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Google Pay, PhonePe, Paytm, UPI, Credit/Debit Cards & Netbanking
+                      <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                        Google Pay, PhonePe, Paytm, UPI, Cards & Netbanking
                       </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                  <span style={{ fontSize: '10.5px', fontWeight: 900, color: '#047857', background: '#d1fae5', padding: '2px 8px', borderRadius: '4px' }}>
                     100% SECURE
                   </span>
                 </div>
 
                 {paymentMethod === 'online' && (
-                  <div className="mt-3 pt-3 border-t border-blue-100 flex flex-wrap gap-2 text-xs">
-                    <span className="px-2.5 py-1 bg-white border border-blue-200 rounded-lg font-bold text-slate-700">
+                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #dbeafe', display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '12px' }}>
+                    <span style={{ padding: '4px 10px', background: '#fff', border: '1px solid #bfdbfe', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
                       ⚡ Google Pay / PhonePe
                     </span>
-                    <span className="px-2.5 py-1 bg-white border border-blue-200 rounded-lg font-bold text-slate-700">
+                    <span style={{ padding: '4px 10px', background: '#fff', border: '1px solid #bfdbfe', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
                       💳 Visa / Mastercard / RuPay
                     </span>
-                    <span className="px-2.5 py-1 bg-white border border-blue-200 rounded-lg font-bold text-slate-700">
+                    <span style={{ padding: '4px 10px', background: '#fff', border: '1px solid #bfdbfe', borderRadius: '6px', fontWeight: 700, color: '#334155' }}>
                       🏦 Net Banking
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Cash on Delivery (COD) */}
+              {/* Cash on Delivery */}
               <div
                 onClick={() => setPaymentMethod('cod')}
-                className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                  paymentMethod === 'cod'
-                    ? 'border-blue-600 bg-blue-50/40 ring-2 ring-blue-600/10'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: paymentMethod === 'cod' ? '2px solid #2563eb' : '1.5px solid #e2e8f0',
+                  background: paymentMethod === 'cod' ? '#eff6ff' : '#ffffff',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'cod'
-                          ? 'border-blue-600 bg-blue-600'
-                          : 'border-slate-300'
-                      }`}
-                    >
-                      {paymentMethod === 'cod' && <HiCheck className="w-3.5 h-3.5 text-white" />}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900">
-                        Cash on Delivery (Pay upon delivery)
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Hand over cash to delivery partner when package arrives
-                      </p>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '50%',
+                      border: paymentMethod === 'cod' ? '2px solid #2563eb' : '2px solid #cbd5e1',
+                      background: paymentMethod === 'cod' ? '#2563eb' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {paymentMethod === 'cod' && <HiCheck size={14} color="#fff" />}
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                      Cash on Delivery (Pay upon delivery)
+                    </h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                      Hand over cash to delivery courier when package arrives
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Total & Place Order Button */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-              <div className="flex items-center justify-between text-base font-black text-slate-900 border-b border-slate-100 pb-3">
-                <span>Total Amount Payable</span>
-                <span className="text-xl text-blue-600">₹{finalTotal.toLocaleString('en-IN')}</span>
+            {/* Total and Place Order Button */}
+            <div className="mkt-checkout-card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#475569' }}>Total Amount Payable</span>
+                <span style={{ fontSize: '22px', fontWeight: 900, color: '#2563eb' }}>₹{finalTotal.toLocaleString('en-IN')}</span>
               </div>
 
               <button
+                type="button"
                 onClick={handlePlaceOrder}
                 disabled={isOrdering}
-                className="w-full py-4 px-6 text-sm font-black text-white bg-blue-600 hover:bg-blue-700 active:scale-98 rounded-xl shadow-xl shadow-blue-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                className="mkt-btn-buy-now"
+                style={{ width: '100%', flex: 'unset', padding: '14px 20px', fontSize: '15px' }}
               >
                 {isOrdering ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Placing Your Order...</span>
-                  </>
+                  <span>Placing Your Order...</span>
                 ) : (
                   <>
-                    <HiShieldCheck className="w-5 h-5" />
+                    <HiShieldCheck size={20} />
                     <span>Place Order (₹{finalTotal.toLocaleString('en-IN')})</span>
                   </>
                 )}
@@ -506,19 +524,19 @@ export default function CheckoutPage() {
 
       {/* ── Celebration Overlay (Popping Confetti + Check Circle) ── */}
       {showCelebration && (
-        <div className="fixed inset-0 z-50 bg-[#1E3A8A] flex flex-col items-center justify-center text-white p-6 animate-fadeIn">
-          <div className="w-24 h-24 rounded-full bg-white text-emerald-600 flex items-center justify-center mb-6 shadow-2xl animate-bounce">
-            <HiCheckCircle className="w-16 h-16" />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: '#1e3a8a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', padding: '24px', animation: 'mktFadeIn 0.3s ease' }}>
+          <div style={{ width: '84px', height: '84px', borderRadius: '50%', background: '#fff', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)' }}>
+            <HiCheckCircle size={56} />
           </div>
-          <div className="flex items-center gap-2 mb-2">
-            <HiSparkles className="w-6 h-6 text-amber-300" />
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Order Placed!</h2>
-            <HiSparkles className="w-6 h-6 text-amber-300" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <HiSparkles size={24} color="#fde047" />
+            <h2 style={{ fontSize: '26px', fontWeight: 900, margin: 0 }}>Order Placed Successfully!</h2>
+            <HiSparkles size={24} color="#fde047" />
           </div>
-          <p className="text-blue-100 text-sm text-center max-w-sm mb-4">
-            Thank you for ordering with Logo Kerala Marketplace. Your package is being processed by the seller.
+          <p style={{ color: '#dbeafe', fontSize: '13.5px', textAlign: 'center', maxWidth: '380px', margin: '0 0 16px', lineHeight: 1.5 }}>
+            Thank you for shopping on Logo Kerala Marketplace! The local merchant has received your order and is packing it for dispatch.
           </p>
-          <div className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/30 text-xs font-mono font-bold tracking-wider">
+          <div style={{ padding: '6px 18px', background: 'rgba(255, 255, 255, 0.2)', borderRadius: '9999px', border: '1px solid rgba(255, 255, 255, 0.4)', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}>
             Order #{placedOrderCode}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiStar, HiHeart, HiOutlineHeart, HiOutlineShoppingBag } from 'react-icons/hi';
+import './market-web.css';
 
 export default function ProductCard({
   product,
@@ -58,67 +59,62 @@ export default function ProductCard({
     return (
       <div
         onClick={handleCardClick}
-        className="group relative flex flex-col w-48 sm:w-52 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer overflow-hidden"
+        className="mkt-card mkt-card-horiz"
+        style={{ width: '210px', flexShrink: 0 }}
       >
-        <div className="relative w-full h-36 bg-slate-100 overflow-hidden">
+        <div className="mkt-card-img-wrap" style={{ height: '145px', aspectRatio: 'unset' }}>
           <img
             src={product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400'}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="mkt-card-img"
             loading="lazy"
           />
 
-          {/* Badges */}
           {isOutOfStock ? (
-            <span className="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white bg-rose-600/90 rounded-md backdrop-blur-sm">
-              OUT OF STOCK
-            </span>
+            <span className="mkt-badge-stockout">OUT OF STOCK</span>
           ) : discount > 0 ? (
-            <span className="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-extrabold text-white bg-emerald-600 rounded-md shadow-sm">
-              {discount}% OFF
-            </span>
+            <span className="mkt-badge-discount">{discount}% OFF</span>
           ) : (
-            <span className="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-extrabold text-white bg-blue-600 rounded-md shadow-sm">
-              DEAL
-            </span>
+            <span className="mkt-badge-deal">DEAL</span>
           )}
 
-          {/* Wishlist Button */}
           <button
+            type="button"
             onClick={handleWishlistClick}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-rose-500 hover:bg-white active:scale-90 transition-all"
+            className="mkt-card-heart-btn"
+            title="Wishlist"
           >
             {isWishlisted ? (
-              <HiHeart className="w-4 h-4 text-rose-500" />
+              <HiHeart size={16} color="#ef4444" />
             ) : (
-              <HiOutlineHeart className="w-4 h-4" />
+              <HiOutlineHeart size={16} />
             )}
           </button>
         </div>
 
-        <div className="p-3 flex flex-col flex-1 justify-between">
+        <div className="mkt-card-content">
           <div>
-            <h4 className="text-xs font-semibold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-colors">
+            <h4 className="mkt-card-title" style={{ minHeight: 'unset', marginBottom: '4px' }}>
               {product.name}
             </h4>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-sm font-black text-slate-900">
-                ₹{price.toLocaleString('en-IN')}
-              </span>
+            <div className="mkt-card-price-row">
+              <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
               {originalPrice > price && (
-                <span className="text-[11px] text-slate-400 line-through">
+                <span className="mkt-card-original-price">
                   ₹{originalPrice.toLocaleString('en-IN')}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[10px]">
-            <div className="flex items-center gap-1 bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">
-              <span>{rating}</span>
-              <HiStar className="w-2.5 h-2.5" />
+          <div className="mkt-card-footer">
+            <div className="mkt-card-rating-wrap">
+              <span className="mkt-card-rating-pill">
+                <span>{rating}</span>
+                <HiStar size={10} />
+              </span>
             </div>
-            <span className="text-slate-500 font-semibold">Free Delivery</span>
+            <span className="mkt-card-delivery-tag">Free Delivery</span>
           </div>
         </div>
       </div>
@@ -127,77 +123,63 @@ export default function ProductCard({
 
   // ── Standard Grid Variant (Market Screen) ──
   return (
-    <div
-      onClick={handleCardClick}
-      className="group relative flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-xl hover:border-blue-400 hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden"
-    >
-      {/* Product Image Box */}
-      <div className="relative w-full aspect-square bg-slate-100 overflow-hidden">
+    <div onClick={handleCardClick} className="mkt-card">
+      {/* Product Image Container */}
+      <div className="mkt-card-img-wrap">
         <img
           src={product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+          className="mkt-card-img"
           loading="lazy"
         />
 
         {/* Badges */}
         {isOutOfStock ? (
-          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-[10px] font-black tracking-wider text-white bg-rose-600 rounded-lg shadow-md">
-            OUT OF STOCK
-          </span>
+          <span className="mkt-badge-stockout">OUT OF STOCK</span>
         ) : discount > 0 ? (
-          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 text-[11px] font-black tracking-wide text-white bg-emerald-600 rounded-lg shadow-md">
-            {discount}% OFF
-          </span>
+          <span className="mkt-badge-discount">{discount}% OFF</span>
         ) : (
-          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 text-[11px] font-black tracking-wide text-white bg-blue-600 rounded-lg shadow-md">
-            SPECIAL DEAL
-          </span>
+          <span className="mkt-badge-deal">SPECIAL DEAL</span>
         )}
 
         {/* Wishlist Button */}
         <button
+          type="button"
           onClick={handleWishlistClick}
           aria-label="Wishlist"
-          className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/95 backdrop-blur-sm shadow-md flex items-center justify-center text-slate-700 hover:text-rose-500 hover:bg-white active:scale-90 transition-all z-10"
+          className="mkt-card-heart-btn"
         >
           {isWishlisted ? (
-            <HiHeart className="w-4 h-4 text-rose-500 animate-pulse" />
+            <HiHeart size={16} color="#ef4444" />
           ) : (
-            <HiOutlineHeart className="w-4 h-4" />
+            <HiOutlineHeart size={16} />
           )}
         </button>
 
         {/* Store Pill */}
-        <div className="absolute bottom-2 left-2 right-2 px-2 py-1 bg-slate-900/75 backdrop-blur-md rounded-lg text-white text-[11px] font-medium truncate flex items-center justify-between">
-          <span className="truncate">{merchantName}</span>
+        <div className="mkt-card-store-pill">
+          <span>{merchantName}</span>
           {product.district && (
-            <span className="text-[10px] text-blue-200 shrink-0 ml-1 font-normal">
-              {product.district}
-            </span>
+            <span className="mkt-card-district">{product.district}</span>
           )}
         </div>
       </div>
 
       {/* Product Content Details */}
-      <div className="p-3.5 flex flex-col flex-1 justify-between bg-white">
+      <div className="mkt-card-content">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-600 transition-colors min-h-[38px]">
-            {product.name}
-          </h3>
+          <h3 className="mkt-card-title">{product.name}</h3>
 
           {/* Pricing Row */}
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className="text-base sm:text-lg font-black text-slate-900">
-              ₹{price.toLocaleString('en-IN')}
-            </span>
+          <div className="mkt-card-price-row">
+            <span className="mkt-card-price">₹{price.toLocaleString('en-IN')}</span>
             {originalPrice > price && (
-              <span className="text-xs text-slate-400 line-through font-semibold">
+              <span className="mkt-card-original-price">
                 ₹{originalPrice.toLocaleString('en-IN')}
               </span>
             )}
             {discount > 0 && (
-              <span className="text-xs font-extrabold text-emerald-600 hidden sm:inline">
+              <span className="mkt-card-save-text">
                 Save ₹{(originalPrice - price).toLocaleString('en-IN')}
               </span>
             )}
@@ -205,24 +187,45 @@ export default function ProductCard({
         </div>
 
         {/* Rating & Delivery Row */}
-        <div className="flex items-center justify-between gap-1 mt-3 pt-2.5 border-t border-slate-100 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1 bg-emerald-600 text-white px-1.5 py-0.5 rounded-md font-extrabold text-[11px]">
+        <div className="mkt-card-footer">
+          <div className="mkt-card-rating-wrap">
+            <span className="mkt-card-rating-pill">
               <span>{rating}</span>
-              <HiStar className="w-3 h-3" />
-            </div>
-            <span className="text-slate-400 text-[11px] font-medium">({reviewsCount})</span>
+              <HiStar size={11} />
+            </span>
+            <span className="mkt-card-reviews-count">({reviewsCount})</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-600 font-bold text-[11px]">Free Delivery</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="mkt-card-delivery-tag">Free Delivery</span>
             {onQuickAddToCart && !isOutOfStock && (
               <button
+                type="button"
                 onClick={handleQuickAdd}
                 title="Add to Cart"
-                className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-colors active:scale-95"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#2563eb';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#eff6ff';
+                  e.currentTarget.style.color = '#2563eb';
+                }}
               >
-                <HiOutlineShoppingBag className="w-3.5 h-3.5" />
+                <HiOutlineShoppingBag size={14} />
               </button>
             )}
           </div>
