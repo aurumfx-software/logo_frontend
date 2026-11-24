@@ -655,7 +655,7 @@ export default function Merchants() {
     {
       key: 'name',
       label: 'Merchant Name',
-      render: (val) => (
+      render: (val, row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
@@ -675,7 +675,7 @@ export default function Merchants() {
             {val?.charAt(0)}
           </div>
           <span style={{ fontWeight: 600 }}>{val}</span>
-          {row.login_id && (
+          {row?.login_id && (
             <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }} title="Merchant Login ID">
               {row.login_id}
             </span>
@@ -688,8 +688,8 @@ export default function Merchants() {
       key: 'cashback_rates',
       label: 'Cashback Split',
       render: (_, row) => {
-        const cb = row.cashback_percent !== undefined && row.cashback_percent !== null ? Number(row.cashback_percent) : 3;
-        const cf = row.company_fee_percent !== undefined && row.company_fee_percent !== null ? Number(row.company_fee_percent) : 2;
+        const cb = row?.cashback_percent !== undefined && row?.cashback_percent !== null ? Number(row.cashback_percent) : 3;
+        const cf = row?.company_fee_percent !== undefined && row?.company_fee_percent !== null ? Number(row.company_fee_percent) : 2;
         const tot = Number((cb + cf).toFixed(2));
         return (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
@@ -712,11 +712,6 @@ export default function Merchants() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <HiOutlineStar style={{ color: '#FFB946', fontSize: 14 }} />
           <span style={{ fontWeight: 600 }}>{val}</span>
-          {row.login_id && (
-            <span style={{ fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }} title="Merchant Login ID">
-              {row.login_id}
-            </span>
-          )}
         </div>
       ),
     },

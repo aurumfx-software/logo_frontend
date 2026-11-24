@@ -244,6 +244,7 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       cashback_percent: m.cashback_percent !== undefined && m.cashback_percent !== null ? Number(m.cashback_percent) : 3.0,
       company_fee_percent: m.company_fee_percent !== undefined && m.company_fee_percent !== null ? Number(m.company_fee_percent) : 2.0,
       total_deduction_percent: m.total_deduction_percent !== undefined && m.total_deduction_percent !== null ? Number(m.total_deduction_percent) : 5.0,
+      login_id: m.login_id || m.linked_user?.login_id || m.user?.login_id || m.raw?.login_id || null,
     };
   });
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ErrorBoundary from '../UI/ErrorBoundary';
 
 const pageTitles = {
   '/': 'Dashboard',
@@ -56,7 +57,9 @@ export default function AdminLayout() {
           onToggleSidebar={toggleSidebar}
         />
         <div className="page-content">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
     </div>
