@@ -22,7 +22,12 @@ function _getOptionalCustomerHeaders() {
 export const formatMediaUrl = (url) => {
   if (!url || typeof url !== 'string') return '';
   const cleanUrl = url.trim();
-  if (/^(https?:|data:|\/\/)/.test(cleanUrl)) return cleanUrl;
+  if (/^(https?:|data:|\/\/)/.test(cleanUrl)) {
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:') {
+      return cleanUrl.replace(/^http:\/\/168\.144\.18\.149:8000/i, 'https://168.144.18.149.sslip.io');
+    }
+    return cleanUrl;
+  }
   const baseUrl = (window.__LOGO_API_BASE__ || '').replace(/\/$/, '');
   return `${baseUrl}${cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`}`;
 };

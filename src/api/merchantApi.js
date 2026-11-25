@@ -919,7 +919,40 @@ const MERCHANT_TOKEN_KEY = 'logo_merchant_token';
 const MERCHANT_USER_KEY = 'logo_merchant_user';
 
 export function getMerchantToken() {
-  return localStorage.getItem(MERCHANT_TOKEN_KEY) || '';
+  return localStorage.getItem(MERCHANT_TOKEN_KEY) || localStorage.getItem('logo_admin_token') || '';
+}
+
+export function getMerchantAuthHeaders(extra = {}) {
+  const tok = getMerchantToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(tok ? { Authorization: tok.startsWith('Bearer ') ? tok : `Bearer ${tok}` } : {}),
+    ...extra,
+  };
+}
+
+export async function getMyMerchants() {
+  const res = await apiFetch('/api/v1/merchants/my-merchants', {
+    method: 'GET',
+    headers: getMerchantAuthHeaders(),
+  });
+  if (!res.ok) return [];
+  const json = await res.json().catch(() => ({}));
+  return Array.isArray(json) ? json : json?.merchants || json?.data || [];
+}
+
+export async function getMerchantProfile() {
+  const res = await apiFetch('/api/v1/merchants/me', {
+    method: 'GET',
+    headers: getMerchantAuthHeaders(),
+  });
+  if (res.ok) {
+    const json = await res.json().catch(() => ({}));
+    return json?.merchant || json?.data?.merchant || json?.data || json;
+  }
+  const list = await getMyMerchants().catch(() => []);
+  if (Array.isArray(list) && list.length > 0) return list[0];
+  return getStoredMerchantUser();
 }
 
 export function getStoredMerchantUser() {

@@ -5,11 +5,18 @@ import { getMerchantToken } from './merchantApi';
 function _getSubscriberHeaders(audience = 'USER') {
   const mToken = getMerchantToken();
   const cToken = getCustomerToken();
-  if (audience === 'MERCHANT' && mToken) {
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${mToken}` };
+  const adminToken = typeof window !== 'undefined' ? localStorage.getItem('logo_admin_token') || '' : '';
+  if (audience === 'MERCHANT') {
+    const tok = mToken || adminToken || cToken;
+    return tok
+      ? { 'Content-Type': 'application/json', Authorization: tok.startsWith('Bearer ') ? tok : `Bearer ${tok}` }
+      : { 'Content-Type': 'application/json' };
   }
   if (cToken) {
     return getCustomerHeaders();
+  }
+  if (adminToken) {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` };
   }
   return { 'Content-Type': 'application/json' };
 }
@@ -98,8 +105,8 @@ export async function assignAdminSubscription(payload) {
 /**
  * Customer/Merchant: Fetch current user's active subscriptions
  */
-export async function fetchMyActiveSubscriptions() {
-  const headers = _getSubscriberHeaders('USER');
+export async function fetchMyActiveSubscriptions(audience = 'USER') {
+  const headers = _getSubscriberHeaders(audience);
   if (!headers.Authorization && !getCustomerToken() && !getMerchantToken()) {
     return null;
   }
@@ -138,7 +145,9 @@ export async function subscribeToPackage({
         : data.message || 'Failed to activate subscription'
     );
   }
-  await fetchCustomerProfile().catch(() => null);
+  if (audience !== 'MERCHANT') {
+    await fetchCustomerProfile().catch(() => null);
+  }
   return data?.data || data;
 }
 
@@ -154,7 +163,9 @@ export async function cancelMySubscription(subscriptionId, audience = 'USER') {
   if (!response.ok) {
     throw new Error(data.detail || data.message || 'Failed to cancel subscription');
   }
-  await fetchCustomerProfile().catch(() => null);
+  if (audience !== 'MERCHANT') {
+    await fetchCustomerProfile().catch(() => null);
+  }
   return data?.data || data;
 }
 

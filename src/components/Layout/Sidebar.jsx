@@ -21,11 +21,14 @@ import {
   HiOutlineCube,
   HiOutlineSparkles,
   HiOutlineQuestionMarkCircle,
+  HiOutlinePhone,
+  HiOutlineChatAlt2,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
 import { fetchAdminWithdrawals } from '../../api/walletApi';
 import { logoutCustomerSession } from '../../api/customerApi';
+import { logoutMerchantSession } from '../../api/merchantApi';
 
 const ALL_NAV_ITEMS = [
   {
@@ -135,7 +138,10 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
 
   const handleLogout = async () => {
     if (onCloseMobile) onCloseMobile();
-    await logoutCustomerSession().catch(() => {});
+    await Promise.all([
+      logoutCustomerSession().catch(() => {}),
+      logoutMerchantSession().catch(() => {}),
+    ]);
     logout();
     navigate('/login', { replace: true });
   };
@@ -176,10 +182,20 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     : isMerchantUser
     ? [
         {
-          title: 'Merchant & Seller Portal',
+          title: 'MERCHANT & BUSINESS WORKSPACE',
           items: [
-            { key: 'merchant_portal', path: '/merchant', icon: HiOutlineOfficeBuilding, label: 'Logo Merchant' },
-            { key: 'products', path: '/products', icon: HiOutlineShoppingBag, label: 'Products & Orders' },
+            { key: 'merch_edit', path: '/merchant?tab=edit', icon: HiOutlineOfficeBuilding, label: 'Manage & Edit Store', pill: 'STORE' },
+            { key: 'merch_promo', path: '/merchant?tab=promotions', icon: HiOutlineSpeakerphone, label: 'Promotions & Ad Banners', pill: 'NEW PROMO' },
+            { key: 'merch_subs', path: '/merchant?tab=subscriptions', icon: HiOutlineSparkles, label: 'Growth & Promo Subscriptions', pill: 'NEW' },
+            { key: 'merch_complaints', path: '/merchant?tab=complaints', icon: HiOutlineChatAlt2, label: 'Store Complaints & Support' },
+            { key: 'merch_helpline', path: '/merchant?tab=helpline', icon: HiOutlinePhone, label: 'Merchant Helpline: 93727 02692' },
+          ],
+        },
+        {
+          title: 'SUPPORT & GRIEVANCE',
+          items: [
+            { key: 'merch_grievance', path: '/merchant?tab=grievance', icon: HiOutlineExclamationCircle, label: 'Report an Issue / Grievance' },
+            { key: 'merch_help', path: '/merchant?tab=help', icon: HiOutlineQuestionMarkCircle, label: 'Help & Customer Support' },
           ],
         },
       ]
@@ -242,7 +258,9 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 className={({ isActive }) => {
                   const fullCur = `${location.pathname}${location.search || ''}`;
                   const isMatch = item.path.includes('?tab=')
-                    ? fullCur === item.path || (item.path === '/dashboard?tab=profile' && location.pathname === '/dashboard' && !location.search)
+                    ? fullCur === item.path ||
+                      (item.path === '/dashboard?tab=profile' && location.pathname === '/dashboard' && !location.search) ||
+                      (item.path === '/merchant?tab=edit' && (location.pathname === '/merchant' || location.pathname === '/merchant/dashboard' || location.pathname === '/merchant-portal') && !location.search)
                     : isActive && location.pathname === item.path;
                   return `sidebar-link ${isMatch ? 'active' : ''}`;
                 }}
