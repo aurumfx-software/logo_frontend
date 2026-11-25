@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { HiX, HiPhotograph, HiPlus, HiCheckCircle, HiLockClosed, HiCreditCard } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createCustomerProduct } from '../../api/productApi';
-import { isCustomerAuthenticated, fetchCustomerProfile } from '../../api/customerApi';
+import { isCustomerAuthenticated, fetchCustomerProfile, getCustomerToken } from '../../api/customerApi';
+import { apiFetch } from '../../api/apiClient';
 import {
   fetchAdminSubscriptionPackages,
   hasActiveSellerSubscription,
@@ -42,8 +43,35 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploadingPhotos(true);
+    setErrorMsg('');
+    try {
+      const fd = new FormData();
+      files.slice(0, 4).forEach((f) => fd.append('files', f, f.name));
+      const tok = getCustomerToken();
+      const res = await apiFetch('/api/v1/customer/products/upload-images', {
+        method: 'POST',
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.message || 'Image upload failed');
+      const urls = data.urls || data.images || data.uploaded_urls || [];
+      setUploadedPhotos((prev) => [...prev, ...urls].slice(0, 6));
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to upload product photo');
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,9 +104,10 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const imagesArr = formData.image_url.trim()
-      ? [formData.image_url.trim()]
-      : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80'];
+    const imagesArr = [
+      ...uploadedPhotos,
+      ...(formData.image_url.trim() ? [formData.image_url.trim()] : []),
+    ];
 
     setIsSubmitting(true);
     try {
@@ -125,16 +154,16 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
         alert('Please sign in first to subscribe to the ₹500 Seller Plan.');
         return;
       }
-      const pkgs = await fetchAdminSubscriptionPackages({ audience: 'USER', include_inactive: false });
+      const pkgs = await fetchAdminSubscriptionPackages({ audience: 'USER', activeOnly: true });
       const userPkg =
-        (Array.isArray(pkgs) ? pkgs : []).find((p) => Number(p.amount) === 500) ||
+        (Array.isArray(pkgs) ? pkgs : []).find((p) => Number(p.price ?? p.amount) === 500) ||
         (Array.isArray(pkgs) ? pkgs[0] : null) || {
           code: 'USER_SELLER_500',
           name: '₹500 Seller Plan',
-          amount: 500,
+          price: 500,
         };
 
-      await startCustomerRazorpaySubscription({ packageObj: userPkg, customerUser });
+      await startCustomerRazorpaySubscription({ packageItem: userPkg, customerUser });
       await fetchCustomerProfile().catch(() => null);
       alert('🎉 ₹500 Seller Plan activated successfully! You can now create products.');
     } catch (err) {
@@ -493,11 +522,23 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
-                Product Image URL (e.g. Unsplash or Cloud link)
+                Upload Product Photos or Paste Image URL
               </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <HiPhotograph size={15} />
+                  <span>{uploadingPhotos ? 'Uploading...' : 'Upload from Device'}</span>
+                  <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                </label>
+                {uploadedPhotos.map((u, idx) => (
+                  <span key={idx} style={{ fontSize: 11, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '3px 8px', borderRadius: 6, fontWeight: 700 }}>
+                    Photo {idx + 1} ✓
+                  </span>
+                ))}
+              </div>
               <input
                 type="url"
-                placeholder="https://... (or leave empty for default placeholder)"
+                placeholder="https://... (optional image link)"
                 value={formData.image_url}
                 onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                 style={{

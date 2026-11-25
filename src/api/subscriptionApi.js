@@ -185,6 +185,7 @@ export function hasActiveSellerSubscription(customerUser, activeSubData = null) 
  */
 export async function startCustomerRazorpaySubscription({
   packageItem,
+  packageObj,
   customerUser,
   audience = 'USER',
   merchantProfileId = null,
@@ -192,15 +193,32 @@ export async function startCustomerRazorpaySubscription({
   onError,
   onDismiss,
 }) {
+  const pkg = packageItem || packageObj;
   if (!customerUser) {
     throw new Error('Please sign in first to purchase a subscription plan.');
   }
-  const pkgPrice = Number(packageItem?.price || 500);
+  if (!pkg) {
+    throw new Error('Subscription package details missing.');
+  }
+  const pkgPrice = Number(pkg.price ?? pkg.amount ?? 500);
   const headers = _getSubscriberHeaders(audience);
+
+  let targetPackageId = pkg.id;
+  if (!targetPackageId || String(targetPackageId).startsWith('default')) {
+    const serverPkgs = await fetchAdminSubscriptionPackages({ audience, activeOnly: true }).catch(() => []);
+    const matched = Array.isArray(serverPkgs)
+      ? serverPkgs.find((p) => Number(p.price ?? p.amount) === pkgPrice || p.code === pkg.code) || serverPkgs[0]
+      : null;
+    if (matched?.id) {
+      targetPackageId = matched.id;
+    } else {
+      throw new Error('No active subscription package found on server.');
+    }
+  }
 
   if (pkgPrice <= 0) {
     const subRes = await subscribeToPackage({
-      package_id: packageItem.id,
+      package_id: targetPackageId,
       merchant_profile_id: merchantProfileId,
       audience,
     });
@@ -245,7 +263,7 @@ export async function startCustomerRazorpaySubscription({
     }).catch(() => null);
 
     const subRes = await subscribeToPackage({
-      package_id: packageItem.id,
+      package_id: targetPackageId,
       merchant_profile_id: merchantProfileId,
       payment_reference: `pay_dev_sub_${Date.now()}`,
       audience,
@@ -260,7 +278,7 @@ export async function startCustomerRazorpaySubscription({
       amount: orderData.amount_paise || Math.round(pkgPrice * 100),
       currency: orderData.currency || 'INR',
       name: 'Logo Kerala Marketplace',
-      description: `${packageItem?.name || 'Seller Plan'} (₹${pkgPrice})`,
+      description: `${pkg?.name || 'Seller Plan'} (₹${pkgPrice})`,
       order_id: orderData.razorpay_order_id,
       prefill: {
         name: customerUser?.name || '',
@@ -280,7 +298,7 @@ export async function startCustomerRazorpaySubscription({
             }),
           });
           const subRes = await subscribeToPackage({
-            package_id: packageItem.id,
+            package_id: targetPackageId,
             merchant_profile_id: merchantProfileId,
             payment_reference: response.razorpay_payment_id || response.razorpay_order_id,
             audience,

@@ -76,7 +76,7 @@ export default function Header({ title, onToggleSidebar }) {
             }}
           >
             <div className="header-avatar" title={user?.name || 'Admin User'}>
-              {user?.initials || 'A'}
+              {user?.initials || (user?.name ? user.name.charAt(0).toUpperCase() : 'A')}
             </div>
             <HiOutlineChevronDown
               size={14}
@@ -136,7 +136,7 @@ export default function Header({ title, onToggleSidebar }) {
                         boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
                       }}
                     >
-                      {user?.initials || 'A'}
+                      {user?.initials || (user?.name ? user.name.charAt(0).toUpperCase() : 'A')}
                     </div>
                     <div style={{ overflow: 'hidden' }}>
                       <div

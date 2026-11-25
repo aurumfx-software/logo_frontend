@@ -354,18 +354,79 @@ export async function updateCustomerLocation(locationData) {
   try {
     const token = getCustomerToken();
     if (!token) return null;
-    const res = await apiFetch('/api/v1/customer/location', {
-      method: 'POST',
+    let res = await apiFetch('/api/v1/customer/location', {
+      method: 'PUT',
       headers: getCustomerHeaders(),
       body: JSON.stringify(locationData),
     });
+    if (!res.ok && (res.status === 405 || res.status === 404)) {
+      res = await apiFetch('/api/v1/customer/location', {
+        method: 'POST',
+        headers: getCustomerHeaders(),
+        body: JSON.stringify(locationData),
+      });
+    }
     if (!res.ok) return null;
     const updated = await res.json();
     const existing = getStoredCustomerUser() || {};
-    localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify({ ...existing, ...updated }));
+    const merged = { ...existing, ...updated, ...locationData };
+    localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(merged));
     dispatchCustomerSessionChanged();
-    return updated;
+    return merged;
   } catch (err) {
     return null;
   }
+}
+
+export async function updateCustomerProfile({ name, phone, email, address, profile_picture }) {
+  const token = getCustomerToken();
+  if (!token) throw new Error('Please sign in to update profile.');
+  const payload = {};
+  if (name !== undefined) payload.name = String(name).trim();
+  if (phone !== undefined) payload.phone = String(phone).trim();
+  if (email !== undefined && String(email).trim()) payload.email = String(email).trim();
+  if (address !== undefined) payload.address = String(address).trim();
+  if (profile_picture !== undefined) payload.profile_picture = profile_picture;
+
+  const res = await apiFetch('/api/v1/auth/profile', {
+    method: 'PUT',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Failed to update customer profile'
+    );
+  }
+  const existing = getStoredCustomerUser() || {};
+  const merged = { ...existing, ...(data?.user || data), ...payload };
+  localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(merged));
+  dispatchCustomerSessionChanged();
+  return merged;
+}
+
+export async function uploadCustomerAvatar(file) {
+  const token = getCustomerToken();
+  if (!token) throw new Error('Please sign in to upload photo.');
+  const formData = new FormData();
+  formData.append('file', file, file.name || 'avatar.jpg');
+
+  const res = await apiFetch('/api/v1/auth/upload-avatar', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token.trim()}` },
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Failed to upload profile photo'
+    );
+  }
+  const fullUrl = data.profile_picture_url || data.url || data.profile_picture || '';
+  const existing = getStoredCustomerUser() || {};
+  const merged = { ...existing, profile_picture: fullUrl, avatar: fullUrl };
+  localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(merged));
+  dispatchCustomerSessionChanged();
+  return { ...data, profile_picture_url: fullUrl };
 }

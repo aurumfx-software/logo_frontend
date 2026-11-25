@@ -16,6 +16,11 @@ import {
   HiOutlineCreditCard,
   HiOutlineTag,
   HiOutlineUserGroup,
+  HiOutlineUser,
+  HiOutlineTruck,
+  HiOutlineCube,
+  HiOutlineSparkles,
+  HiOutlineQuestionMarkCircle,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -135,17 +140,28 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     navigate('/login', { replace: true });
   };
 
-  // If Customer (FIELD_STAFF) user: Exact mobile app customer links only.
+  // If Customer (FIELD_STAFF) user: Exact Mobile App Customer Account menu in Sidebar.
   // If Merchant user: ONLY Logo Merchant section is shown.
   // If Admin: Full admin modules.
   const navSections = isCustomerUser
     ? [
         {
-          title: 'Customer Account',
+          title: 'CUSTOMER ACCOUNT',
           items: [
-            { key: 'dashboard', path: '/dashboard', icon: HiOutlineUserGroup, label: 'My Account' },
-            { key: 'marketplace', path: '/marketplace', icon: HiOutlineShoppingBag, label: 'Marketplace' },
-            { key: 'home', path: '/', icon: HiOutlineGlobe, label: 'Directory Home' },
+            { key: 'cust_profile', path: '/dashboard?tab=profile', icon: HiOutlineUser, label: 'Customer Profile' },
+            { key: 'cust_wallet', path: '/dashboard?tab=wallet', icon: HiOutlineCreditCard, label: 'My Wallet' },
+            { key: 'cust_orders', path: '/dashboard?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
+            { key: 'cust_dispatched', path: '/dashboard?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
+            { key: 'cust_products', path: '/dashboard?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
+            { key: 'cust_sell', path: '/dashboard?tab=sell-ad', icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: '₹500 PLAN' },
+            { key: 'cust_subs', path: '/dashboard?tab=subscriptions', icon: HiOutlineSparkles, label: 'Seller Plan & Subscriptions', pill: (user?.can_sell_products || user?.is_subscriber) ? 'ACTIVE' : 'UPGRADE' },
+          ],
+        },
+        {
+          title: 'SUPPORT & GRIEVANCE',
+          items: [
+            { key: 'cust_grievance', path: '/dashboard?tab=grievance', icon: HiOutlineExclamationCircle, label: 'Report an Issue / Grievance' },
+            { key: 'cust_help', path: '/dashboard?tab=help', icon: HiOutlineQuestionMarkCircle, label: 'Help & Customer Support' },
           ],
         },
       ]
@@ -225,7 +241,10 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                   if (onCloseMobile) onCloseMobile();
                 }}
                 className={({ isActive }) => {
-                  const isMatch = isActive && location.pathname === item.path;
+                  const fullCur = `${location.pathname}${location.search || ''}`;
+                  const isMatch = item.path.includes('?tab=')
+                    ? fullCur === item.path || (item.path === '/dashboard?tab=profile' && location.pathname === '/dashboard' && !location.search)
+                    : isActive && location.pathname === item.path;
                   return `sidebar-link ${isMatch ? 'active' : ''}`;
                 }}
                 end={item.path === '/'}
@@ -236,7 +255,22 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 </span>
                 {(!collapsed || mobileOpen) && (
                   <>
-                    <span>{item.label}</span>
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    {item.pill && (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 800,
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          background: item.pill === 'UPGRADE' ? 'rgba(168,85,247,0.22)' : 'rgba(56,189,248,0.18)',
+                          color: item.pill === 'UPGRADE' ? '#d8b4fe' : '#7dd3fc',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {item.pill}
+                      </span>
+                    )}
                     {Number(item.badge) > 0 && (
                       <span className="sidebar-link-badge">{item.badge}</span>
                     )}
