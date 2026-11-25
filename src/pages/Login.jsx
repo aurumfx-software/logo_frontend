@@ -42,9 +42,9 @@ export default function Login() {
     }
 
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
-    const isLoginId = /^[a-zA-Z0-9_-]{3,25}$/.test(cleanEmail);
+    const isLoginId = /^[a-zA-Z0-9_\s-]{3,30}$/.test(cleanEmail);
     if (!isEmail && !isLoginId) {
-      setError('Please enter a valid email address or Login ID (e.g. RAJ48291)');
+      setError('Please enter a valid email address or Merchant/User ID (e.g. ASH4906)');
       return;
     }
 

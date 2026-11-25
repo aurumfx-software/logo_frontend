@@ -503,18 +503,23 @@ export default function MobileAccountModal({
   const handleMerchantPasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const target = merchEmail.trim().toLowerCase();
-    if (!target || !target.includes('@')) return setError('Please enter your registered merchant email');
+    const rawTarget = merchEmail.trim();
+    const isEmail = rawTarget.includes('@');
+    const target = isEmail ? rawTarget.toLowerCase() : rawTarget.toUpperCase();
+    if (!target) return setError('Please enter your Merchant Email or ID (e.g. ASH4906)');
+    if (!isEmail && !/^[A-Z0-9_\s-]{3,30}$/.test(target)) {
+      return setError('Please enter a valid Merchant Email or ID (e.g. ASH4906)');
+    }
     if (!merchPassword.trim()) return setError('Please enter your password');
     setLoading(true);
     try {
-      const res = await merchantEmailLogin({ email: target, password: merchPassword.trim() });
-      completeMerchantSignIn(res, target);
+      const res = await merchantEmailLogin({ identifier: target, email: target, password: merchPassword.trim() });
+      completeMerchantSignIn(res, res?.user?.email || target);
     } catch (err) {
       if (err.passwordSetupRequired || err.code === 'MERCHANT_PASSWORD_NOT_SET') {
-        setMerchForgotEmail(target);
+        setMerchForgotEmail(isEmail ? target : '');
         setMerchantTab('forgot');
-        setError('Password setup required. Enter your email to receive an OTP and set your password.');
+        setError('Password setup required. Enter your registered email to receive an OTP and set your password.');
         return;
       }
       setError(err.message || 'Invalid merchant credentials.');
@@ -1536,11 +1541,11 @@ export default function MobileAccountModal({
               {merchantTab === 'login' && (
                 <form onSubmit={handleMerchantPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <label style={labelStyle}>Registered Merchant Email *</label>
+                    <label style={labelStyle}>Merchant Email or ID *</label>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      placeholder="merchant@business.com"
+                      placeholder="merchant@business.com or ASH4906"
                       value={merchEmail}
                       onChange={(e) => setMerchEmail(e.target.value)}
                       style={inputStyle}

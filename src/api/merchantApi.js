@@ -954,8 +954,12 @@ export function clearMerchantSession() {
 }
 
 export async function merchantEmailLogin({ email, identifier, password }) {
-  const loginIdentifier = String(identifier || email || '').trim().toLowerCase();
-  let res = await apiFetch('/api/v1/merchants/login', {
+  const rawIdentifier = String(identifier || email || '').trim();
+  const isEmail = rawIdentifier.includes('@');
+  const loginIdentifier = isEmail ? rawIdentifier.toLowerCase() : rawIdentifier.toUpperCase();
+
+  const endpoint = isEmail ? '/api/v1/merchants/login' : '/api/v1/auth/login';
+  let res = await apiFetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: loginIdentifier, password }),
@@ -980,7 +984,7 @@ export async function merchantEmailLogin({ email, identifier, password }) {
       throw setupErr;
     }
 
-    if (res.status === 404) {
+    if (isEmail && (res.status === 404 || res.status === 422)) {
       res = await apiFetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
