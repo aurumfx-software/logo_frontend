@@ -35,7 +35,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
     address: '',
     landmark: '',
     city: '',
-    district: 'Kannur',
+    district: '',
     pincode: '',
   });
 
@@ -51,7 +51,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
           address: initialAddress.address || initialAddress.address_line1 || '',
           landmark: initialAddress.landmark || initialAddress.address_line2 || '',
           city: initialAddress.city || '',
-          district: initialAddress.district || 'Kannur',
+          district: initialAddress.district || '',
           pincode: initialAddress.pincode || '',
         });
       } else {
@@ -63,8 +63,18 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             address: saved.address || '',
             landmark: saved.landmark || '',
             city: saved.city || '',
-            district: saved.district || 'Kannur',
+            district: saved.district || '',
             pincode: saved.pincode || '',
+          });
+        } else {
+          setFormData({
+            name: '',
+            phone: '',
+            address: '',
+            landmark: '',
+            city: '',
+            district: '',
+            pincode: '',
           });
         }
       }
@@ -89,6 +99,11 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
 
     if (!formData.address.trim()) {
       setErrorMsg('Please enter your complete house/building street address');
+      return;
+    }
+
+    if (!formData.district) {
+      setErrorMsg('Please select your Kerala district');
       return;
     }
 
@@ -221,10 +236,12 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             <div className="mkt-form-group">
               <label className="mkt-form-label">Kerala District *</label>
               <select
+                required
                 value={formData.district}
                 onChange={(e) => setFormData({ ...formData, district: e.target.value })}
                 className="mkt-form-select"
               >
+                <option value="">-- Select District --</option>
                 {KERALA_DISTRICTS.map((dist) => (
                   <option key={dist} value={dist}>
                     {dist}

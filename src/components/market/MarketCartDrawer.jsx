@@ -24,6 +24,7 @@ import {
   getMarketplaceWishlist,
   removeFromMarketplaceWishlist,
 } from '../../api/productApi';
+import { isCustomerAuthenticated } from '../../api/customerApi';
 import './market-web.css';
 
 export default function MarketCartDrawer({
@@ -31,6 +32,7 @@ export default function MarketCartDrawer({
   onClose,
   initialTab = 'cart',
   onOpenAddressModal,
+  onRequireAuth,
 }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -123,6 +125,15 @@ export default function MarketCartDrawer({
 
   const handleProceedToCheckout = () => {
     if (cartItems.length === 0) return;
+
+    if (!isCustomerAuthenticated()) {
+      setErrorMsg('Please sign in first to proceed to purchase.');
+      if (onRequireAuth) {
+        onClose();
+        onRequireAuth('Please sign in to proceed with checkout and payment.');
+      }
+      return;
+    }
 
     for (const item of cartItems) {
       const itemPrice = Number(item.product?.price || 0);
@@ -337,7 +348,7 @@ export default function MarketCartDrawer({
                     <HiLocationMarker size={16} color="#2563eb" style={{ marginTop: '2px', flexShrink: 0 }} />
                     <div>
                       <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
-                        Deliver To: {deliveryAddress?.name || 'Customer'}
+                        {deliveryAddress?.address ? `Deliver To: ${deliveryAddress.name}` : 'Delivery Address'}
                       </div>
                       <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
                         {deliveryAddress?.address
@@ -348,7 +359,14 @@ export default function MarketCartDrawer({
                   </div>
                   <button
                     type="button"
-                    onClick={() => onOpenAddressModal && onOpenAddressModal()}
+                    onClick={() => {
+                      if (!isCustomerAuthenticated()) {
+                        onClose();
+                        if (onRequireAuth) onRequireAuth('Please sign in to save a delivery address.');
+                        return;
+                      }
+                      onOpenAddressModal && onOpenAddressModal();
+                    }}
                     style={{ fontSize: '11.5px', fontWeight: 800, color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer' }}
                   >
                     {deliveryAddress?.address ? 'Change' : '+ Add'}

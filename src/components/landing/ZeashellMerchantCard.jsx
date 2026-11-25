@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   HiStar,
   HiLocationMarker,
   HiPhone,
   HiCheckCircle,
   HiClock,
+  HiChevronLeft,
+  HiChevronRight,
+  HiPlay,
 } from 'react-icons/hi';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { extractMerchantMedia } from '../../api/merchantApi';
 
 export default function ZeashellMerchantCard({
   merchant,
@@ -34,25 +38,33 @@ export default function ZeashellMerchantCard({
   const ratingValue = merchant.rating ? Number(merchant.rating).toFixed(1) : '4.8';
   const reviewCount = merchant.reviews_count || merchant.reviews || 42;
 
-  const [hasImgError, setHasImgError] = React.useState(false);
+  const [hasImgError, setHasImgError] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const touchStartX = useRef(null);
 
-  // Check if image is a placeholder bag image or invalid
-  const isBagOrInvalidPhoto = (url) => {
-    if (!url || typeof url !== 'string') return true;
-    return url.includes('1553062407-98eeb64c6a62') || url.includes('f183f22512ae4d35990bbef9cbb018fe');
-  };
-
-  // Cover image: photo_1 or first merchant_photo or image (never fallback to bag image)
-  const rawCandidate =
-    merchant.photo_1 ||
-    (merchant.merchant_photos && merchant.merchant_photos[0]) ||
-    (merchant.photos && merchant.photos[0]) ||
-    merchant.image ||
-    merchant.profile_picture ||
-    '';
-
-  const coverImage = isBagOrInvalidPhoto(rawCandidate) ? '' : rawCandidate;
+  const media = extractMerchantMedia(merchant);
+  const cardPhotos = media.photos;
+  const hasVideo = Boolean(media.videoUrl);
+  const coverImage = cardPhotos[activeSlide] || cardPhotos[0] || '';
   const hasValidImage = Boolean(coverImage && !hasImgError);
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches?.[0]?.clientX ?? null;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null || cardPhotos.length <= 1) return;
+    const endX = e.changedTouches?.[0]?.clientX ?? touchStartX.current;
+    const diff = touchStartX.current - endX;
+    if (Math.abs(diff) > 30) {
+      e.stopPropagation();
+      if (diff > 0) {
+        setActiveSlide((prev) => (prev + 1) % cardPhotos.length);
+      } else {
+        setActiveSlide((prev) => (prev - 1 + cardPhotos.length) % cardPhotos.length);
+      }
+    }
+    touchStartX.current = null;
+  };
 
   // Distance calculation via Haversine formula
   const distanceText = React.useMemo(() => {
@@ -87,8 +99,12 @@ export default function ZeashellMerchantCard({
       tabIndex={0}
       aria-label={`View ${shopName}`}
     >
-      {/* 16:10 Aspect Ratio Image Container */}
-      <div className="zeas-blue-merchant-card-image">
+      {/* 16:10 Aspect Ratio Swipeable Image Container */}
+      <div
+        className="zeas-blue-merchant-card-image"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {hasValidImage ? (
           <img
             src={coverImage}
@@ -121,6 +137,122 @@ export default function ZeashellMerchantCard({
               <span className="zeas-merchant-empty-title">STOREFRONT</span>
               <span className="zeas-merchant-empty-sub">{categoryName}</span>
             </div>
+          </div>
+        )}
+
+        {/* Swipe arrows + Dots when multiple photos exist */}
+        {cardPhotos.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveSlide((prev) => (prev - 1 + cardPhotos.length) % cardPhotos.length);
+              }}
+              aria-label="Previous photo"
+              style={{
+                position: 'absolute',
+                left: 6,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'rgba(15, 23, 42, 0.55)',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 3,
+              }}
+            >
+              <HiChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveSlide((prev) => (prev + 1) % cardPhotos.length);
+              }}
+              aria-label="Next photo"
+              style={{
+                position: 'absolute',
+                right: 6,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'rgba(15, 23, 42, 0.55)',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 3,
+              }}
+            >
+              <HiChevronRight size={16} />
+            </button>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: 5,
+                padding: '3px 8px',
+                borderRadius: 12,
+                background: 'rgba(15, 23, 42, 0.45)',
+                zIndex: 3,
+              }}
+            >
+              {cardPhotos.slice(0, 4).map((_, i) => (
+                <span
+                  key={i}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveSlide(i);
+                  }}
+                  style={{
+                    width: activeSlide === i ? 14 : 6,
+                    height: 6,
+                    borderRadius: 3,
+                    background: activeSlide === i ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Promo Video Indicator Badge */}
+        {hasVideo && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              background: 'rgba(37, 99, 235, 0.9)',
+              color: '#FFFFFF',
+              padding: '3px 8px',
+              borderRadius: 9999,
+              fontSize: 10.5,
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              zIndex: 3,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+            }}
+          >
+            <HiPlay size={12} /> Video
           </div>
         )}
 

@@ -25,7 +25,16 @@ import ProductCard from '../components/market/ProductCard';
 import MarketCartDrawer from '../components/market/MarketCartDrawer';
 import DeliveryAddressModal, { KERALA_DISTRICTS } from '../components/market/DeliveryAddressModal';
 import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
-import { useAuth } from '../context/AuthContext';
+import MobileAccountModal from '../components/MobileAccountModal';
+import {
+  isCustomerAuthenticated,
+  getStoredCustomerUser,
+  fetchCustomerProfile,
+} from '../api/customerApi';
+import {
+  fetchMyActiveSubscriptions,
+  hasActiveSellerSubscription,
+} from '../api/subscriptionApi';
 import '../components/market/market-web.css';
 
 const CATEGORY_ICONS = {
@@ -59,7 +68,14 @@ const PRICE_RANGES = [
 export default function MarketplacePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+
+  const [customerUser, setCustomerUser] = useState(() =>
+    isCustomerAuthenticated() ? getStoredCustomerUser() : null
+  );
+  const [activeSubData, setActiveSubData] = useState(null);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalSection, setAccountModalSection] = useState('hub');
+  const [accountPrompt, setAccountPrompt] = useState('');
 
   const [products, setProducts] = useState([]);
   const [categoriesList, setCategoriesList] = useState([]);
@@ -88,6 +104,43 @@ export default function MarketplacePage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
   };
+
+  const openCustomerAuth = (section = 'customer-login', prompt = '') => {
+    setAccountModalSection(section);
+    setAccountPrompt(prompt);
+    setAccountModalOpen(true);
+  };
+
+  const syncCustomerAccount = async () => {
+    if (!isCustomerAuthenticated()) {
+      setCustomerUser(null);
+      setActiveSubData(null);
+      setWishlistIds(new Set());
+      setShowLikedOnly(false);
+      return;
+    }
+    const stored = getStoredCustomerUser();
+    if (stored) setCustomerUser(stored);
+    const [profile, subs] = await Promise.all([
+      fetchCustomerProfile().catch(() => null),
+      fetchMyActiveSubscriptions().catch(() => null),
+    ]);
+    if (profile) setCustomerUser(profile);
+    if (subs) setActiveSubData(subs);
+  };
+
+  useEffect(() => {
+    syncCustomerAccount();
+    window.addEventListener('customer-session-changed', syncCustomerAccount);
+    window.addEventListener('storage', syncCustomerAccount);
+    return () => {
+      window.removeEventListener('customer-session-changed', syncCustomerAccount);
+      window.removeEventListener('storage', syncCustomerAccount);
+    };
+  }, []);
+
+  const canCreateProduct =
+    isCustomerAuthenticated() && hasActiveSellerSubscription(customerUser, activeSubData);
 
   // Load Categories & Products
   const loadData = async () => {
@@ -137,6 +190,10 @@ export default function MarketplacePage() {
 
   // Wishlist Toggle
   const handleToggleWishlist = async (productId) => {
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('customer-login', 'Please sign in to save products to your Wishlist.');
+      return;
+    }
     const pId = String(productId);
     const newSet = new Set(wishlistIds);
     if (newSet.has(pId)) {
@@ -154,6 +211,10 @@ export default function MarketplacePage() {
 
   // Quick Add to Cart
   const handleQuickAdd = async (product) => {
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('customer-login', 'Sign in required: please sign in to add products and purchase.');
+      return;
+    }
     const itemPrice = Number(product.price || 0);
     const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
     await addToMarketCart(product, minQty, product.sizes?.[0] || 'Standard');
@@ -262,7 +323,22 @@ export default function MarketplacePage() {
             <div className="mkt-nav-actions">
               <button
                 type="button"
-                onClick={() => setShowLikedOnly(!showLikedOnly)}
+                onClick={() => openCustomerAuth(customerUser ? 'hub' : 'customer-login')}
+                className="mkt-btn-secondary"
+                title={customerUser ? 'Customer Account & Subscriptions' : 'Sign In / Register'}
+              >
+                <span>{customerUser ? customerUser.name || 'Account' : 'Sign In'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isCustomerAuthenticated()) {
+                    openCustomerAuth('customer-login', 'Please sign in to view your liked items.');
+                    return;
+                  }
+                  setShowLikedOnly(!showLikedOnly);
+                }}
                 className={`mkt-btn-secondary ${showLikedOnly ? 'is-active' : ''}`}
                 style={{
                   display: 'flex',
@@ -281,6 +357,10 @@ export default function MarketplacePage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (!isCustomerAuthenticated()) {
+                    openCustomerAuth('customer-login', 'Please sign in to view your orders.');
+                    return;
+                  }
                   setCartTab('track');
                   setIsCartOpen(true);
                 }}
@@ -290,14 +370,32 @@ export default function MarketplacePage() {
                 <span>My Orders</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(true)}
-                className="mkt-btn-sell"
-              >
-                <HiPlus size={16} />
-                <span>Sell Product</span>
-              </button>
+              {canCreateProduct ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="mkt-btn-sell"
+                >
+                  <HiPlus size={16} />
+                  <span>Create Product</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isCustomerAuthenticated()) {
+                      openCustomerAuth('customer-login', 'Sign in first. Only customers with a ₹500 Subscription can create products.');
+                    } else {
+                      openCustomerAuth('subscriptions', 'Only customers with the ₹500 Seller Plan can create products.');
+                    }
+                  }}
+                  className="mkt-btn-sell"
+                  title="₹500 Seller Plan Required to Create Products"
+                >
+                  <HiPlus size={16} />
+                  <span>₹500 Seller Plan</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -605,7 +703,14 @@ export default function MarketplacePage() {
         isOpen={isCartOpen}
         initialTab={cartTab}
         onClose={() => setIsCartOpen(false)}
-        onOpenAddressModal={() => setIsAddressModalOpen(true)}
+        onOpenAddressModal={() => {
+          if (!isCustomerAuthenticated()) {
+            openCustomerAuth('customer-login', 'Please sign in first to add a delivery address.');
+            return;
+          }
+          setIsAddressModalOpen(true);
+        }}
+        onRequireAuth={(msg) => openCustomerAuth('customer-login', msg || 'Please sign in to proceed to checkout.')}
       />
 
       {/* ── Delivery Address Modal ── */}
@@ -617,14 +722,37 @@ export default function MarketplacePage() {
         }}
       />
 
-      {/* ── Add Product Modal (Seller) ── */}
+      {/* ── Add Product Modal (₹500 Subscriber Seller Only) ── */}
       <CustomerAddProductModal
-        isOpen={isAddModalOpen}
+        isOpen={isAddModalOpen && canCreateProduct}
         onClose={() => setIsAddModalOpen(false)}
-        customerUser={user}
+        customerUser={customerUser}
         onProductCreated={() => {
           showToast('Product published successfully!');
           loadData();
+        }}
+      />
+
+      {/* ── Mobile App Account / Auth / Subscriptions Modal ── */}
+      <MobileAccountModal
+        isOpen={accountModalOpen}
+        onClose={() => {
+          setAccountModalOpen(false);
+          setAccountPrompt('');
+        }}
+        initialSection={accountModalSection}
+        promptMessage={accountPrompt}
+        onAuthSuccess={() => {
+          syncCustomerAccount();
+          showToast('Account synced!');
+        }}
+        onOpenCreateProduct={() => {
+          setAccountModalOpen(false);
+          setIsAddModalOpen(true);
+        }}
+        onOpenWishlist={() => {
+          setAccountModalOpen(false);
+          setShowLikedOnly(true);
         }}
       />
     </div>

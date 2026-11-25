@@ -18,6 +18,7 @@ import {
 } from 'react-icons/hi';
 import { FaCrosshairs } from 'react-icons/fa';
 import { contentApi } from '../../api/operationsApi';
+import { getMerchantToken } from '../../api/merchantApi';
 
 export const KERALA_POPULAR_TOWNS = [
   { name: 'Kochi', district: 'Ernakulam' },
@@ -78,6 +79,7 @@ export default function ZeashellNavbar({
   isWishlistActive = false,
   customerUser = null,
   onOpenCustomerLogin,
+  onOpenMerchantLogin,
   onCustomerLogout,
 }) {
   const navigate = useNavigate();
@@ -838,17 +840,23 @@ export default function ZeashellNavbar({
               </span>
             </button>
 
-            {/* Customer Sign In / Sign Out */}
+            {/* Customer Sign In / Account Hub */}
             {customerUser ? (
               <div className="zeas-blue-user-menu">
-                <div className="zeas-blue-user-badge" title={`Signed in as ${customerUser.name || 'Customer'}`}>
+                <button
+                  type="button"
+                  className="zeas-blue-user-badge"
+                  onClick={onOpenCustomerLogin}
+                  title={`Account (${customerUser.name || 'Customer'})`}
+                  style={{ border: 'none', cursor: 'pointer' }}
+                >
                   <span className="zeas-blue-user-avatar">
                     {(customerUser.name || 'C').charAt(0).toUpperCase()}
                   </span>
                   <span className="zeas-blue-user-name desktop-only">
-                    {customerUser.name || customerUser.phone || 'Customer'}
+                    {customerUser.name || customerUser.phone || 'Account'}
                   </span>
-                </div>
+                </button>
                 <button
                   type="button"
                   className="zeas-blue-btn-signout"
@@ -864,7 +872,7 @@ export default function ZeashellNavbar({
                 type="button"
                 className="zeas-blue-btn-signin"
                 onClick={onOpenCustomerLogin}
-                title="Customer Sign In / Login"
+                title="Account / Sign In"
               >
                 <HiUser size={18} />
                 <span>Sign In</span>
@@ -872,10 +880,19 @@ export default function ZeashellNavbar({
             )}
 
             {/* Logo Merchant Portal Button */}
-            <Link
-              to="/merchant"
+            <button
+              type="button"
+              onClick={() => {
+                if (getMerchantToken()) {
+                  navigate('/merchant');
+                } else if (onOpenMerchantLogin) {
+                  onOpenMerchantLogin();
+                } else {
+                  navigate('/merchant');
+                }
+              }}
               className="zeas-blue-btn-merchant-portal"
-              title="Logo Merchant Portal"
+              title="Merchant Sign In / Register & Portal"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -887,13 +904,13 @@ export default function ZeashellNavbar({
                 backgroundColor: '#eff6ff',
                 border: '1px solid #bfdbfe',
                 borderRadius: '8px',
-                textDecoration: 'none',
+                cursor: 'pointer',
                 transition: 'all 0.2s ease',
               }}
             >
               <HiOutlineShoppingBag size={15} />
               <span>Merchant</span>
-            </Link>
+            </button>
 
             {/* Subscriber Seller Hub Button */}
             <Link

@@ -24,10 +24,16 @@ import {
   createCustomerProduct,
 } from '../api/productApi';
 import {
-  customerPhoneLogin,
-  clearCustomerSession,
-  getCustomerToken,
+  isCustomerAuthenticated,
+  getStoredCustomerUser,
+  fetchCustomerProfile,
+  logoutCustomerSession,
 } from '../api/customerApi';
+import {
+  fetchMyActiveSubscriptions,
+  hasActiveSellerSubscription,
+} from '../api/subscriptionApi';
+import MobileAccountModal from '../components/MobileAccountModal';
 import { apiFetch } from '../api/apiClient';
 
 const PRODUCT_CATEGORIES = [
@@ -42,19 +48,15 @@ const PRODUCT_CATEGORIES = [
 ];
 
 export default function SellerPortal() {
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('logo_customer_user') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(() =>
+    isCustomerAuthenticated() ? getStoredCustomerUser() : null
+  );
+  const [activeSubData, setActiveSubData] = useState(null);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalSection, setAccountModalSection] = useState('customer-login');
+  const [accountPrompt, setAccountPrompt] = useState('');
 
   const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders'
-  const [phoneInput, setPhoneInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
 
   // Seller Data
   const [myProducts, setMyProducts] = useState([]);
@@ -76,17 +78,21 @@ export default function SellerPortal() {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  const isLoggedIn = Boolean(currentUser && (currentUser.phone || currentUser.id));
-  const isSellerAllowed = Boolean(currentUser?.can_sell_products || currentUser?.is_subscriber);
+  const isLoggedIn = isCustomerAuthenticated() && Boolean(currentUser);
+  const isSellerAllowed = hasActiveSellerSubscription(currentUser, activeSubData);
 
   const loadSellerData = async () => {
     if (!isLoggedIn) return;
     setLoadingData(true);
     try {
-      const [prods, ords] = await Promise.all([
+      const [profile, subSummary, prods, ords] = await Promise.all([
+        fetchCustomerProfile().catch(() => null),
+        fetchMyActiveSubscriptions().catch(() => null),
         fetchMyProducts().catch(() => []),
         fetchMyOrders().catch(() => []),
       ]);
+      if (profile) setCurrentUser(profile);
+      if (subSummary) setActiveSubData(subSummary);
       setMyProducts(prods || []);
       setMyOrders(ords || []);
     } catch (err) {
@@ -97,40 +103,33 @@ export default function SellerPortal() {
   };
 
   useEffect(() => {
+    const syncSession = () => {
+      const authed = isCustomerAuthenticated();
+      setCurrentUser(authed ? getStoredCustomerUser() : null);
+      if (!authed) {
+        setActiveSubData(null);
+        setMyProducts([]);
+        setMyOrders([]);
+      }
+    };
+    window.addEventListener('customer-session-changed', syncSession);
+    window.addEventListener('storage', syncSession);
+    return () => {
+      window.removeEventListener('customer-session-changed', syncSession);
+      window.removeEventListener('storage', syncSession);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isLoggedIn) {
       loadSellerData();
     }
   }, [isLoggedIn]);
 
-  // Handle Quick Mobile Phone Login
-  const handlePhoneLogin = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    const cleanPhone = phoneInput.trim().replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setAuthError('Please enter a valid 10-digit mobile number');
-      return;
-    }
-
-    setLoginLoading(true);
-    try {
-      const res = await customerPhoneLogin({
-        phone: cleanPhone,
-        name: nameInput.trim() || undefined,
-      });
-      setCurrentUser(res.customer);
-      setPhoneInput('');
-      setNameInput('');
-    } catch (err) {
-      setAuthError(err.message || 'Login failed. Please try again.');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    clearCustomerSession();
+  const handleLogout = async () => {
+    await logoutCustomerSession();
     setCurrentUser(null);
+    setActiveSubData(null);
     setMyProducts([]);
     setMyOrders([]);
   };
@@ -309,68 +308,32 @@ export default function SellerPortal() {
                 ₹500 Subscriber Seller Hub
               </h1>
               <p style={{ margin: 0, fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-                Enter your registered mobile number to manage your products, add items, and track orders received on WhatsApp.
+                Sign in with your Logo Kerala Customer Account to manage your products or subscribe to the ₹500 Seller Plan.
               </p>
             </div>
 
-            {authError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 16 }}>
-                {authError}
-              </div>
-            )}
-
-            <form onSubmit={handlePhoneLogin}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Your Mobile Number (ID)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '0 12px', height: 46 }}>
-                  <span style={{ color: '#64748b', fontSize: 14, fontWeight: 700, marginRight: 8 }}>+91</span>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    placeholder="e.g. 98471 23456"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 15, fontWeight: 600, color: '#0f172a' }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  Your Name (Optional for first time login)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Saranya / Boutique Name"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box', background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '12px', fontSize: 14, color: '#0f172a', outline: 'none' }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  borderRadius: 12,
-                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: 15,
-                  fontWeight: 800,
-                  cursor: loginLoading ? 'wait' : 'pointer',
-                  boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
-                  transition: 'transform 0.15s',
-                }}
-              >
-                {loginLoading ? 'Logging In...' : 'Enter Seller Dashboard →'}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => {
+                setAccountPrompt('Sign in with your Customer Account to access the Seller Hub.');
+                setAccountModalSection('customer-login');
+                setAccountModalOpen(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: 15,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+              }}
+            >
+              Sign In with Customer Account →
+            </button>
 
             <div style={{ marginTop: 24, padding: '16px', background: '#eff6ff', borderRadius: 12, border: '1px solid #bfdbfe' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#1d4ed8', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
@@ -378,7 +341,7 @@ export default function SellerPortal() {
                 <span>₹500 Seller Subscription Perks:</span>
               </div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#334155', lineHeight: 1.6 }}>
-                <li>Sell unlimited physical goods & home-made items</li>
+                <li>Only customers with an active ₹500 subscription can create & publish products</li>
                 <li>Instant WhatsApp order routing with customer address & pincode</li>
                 <li>Admin verified seller status on Logo Kerala</li>
               </ul>
@@ -937,6 +900,21 @@ export default function SellerPortal() {
           </div>
         </div>
       )}
+
+      <MobileAccountModal
+        isOpen={accountModalOpen}
+        onClose={() => {
+          setAccountModalOpen(false);
+          setAccountPrompt('');
+        }}
+        initialSection={accountModalSection}
+        promptMessage={accountPrompt}
+        onAuthSuccess={(u) => {
+          setCurrentUser(u || getStoredCustomerUser());
+          setAccountModalOpen(false);
+          setAccountPrompt('');
+        }}
+      />
     </div>
   );
 }

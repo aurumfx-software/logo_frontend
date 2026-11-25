@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { switchBackToAdminApi } from '../../api/userApi';
 import { setTokens } from '../../api/apiClient';
+import { clearCustomerSession } from '../../api/customerApi';
+import { clearMerchantSession } from '../../api/merchantApi';
 
 export default function ImpersonationBanner() {
   const { user, login } = useAuth();
@@ -45,6 +47,8 @@ export default function ImpersonationBanner() {
 
       localStorage.removeItem('is_impersonation');
       localStorage.removeItem('impersonated_user');
+      clearCustomerSession();
+      clearMerchantSession();
       const backupRaw = localStorage.getItem('admin_session_backup');
       localStorage.removeItem('admin_session_backup');
 

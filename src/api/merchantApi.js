@@ -12,7 +12,17 @@ export const EMPTY_MERCHANT_IMAGE =
  */
 export function sanitizeMerchantPhoto(url) {
   if (!url || typeof url !== 'string') return '';
-  if (url.includes('1553062407-98eeb64c6a62') || url.includes('f183f22512ae4d35990bbef9cbb018fe')) {
+  const blocked = [
+    '1553062407-98eeb64c6a62',
+    'f183f22512ae4d35990bbef9cbb018fe',
+    'photo-1517248135467-4c7edcad34c4',
+    'photo-1555396273-367ea4eb4db5',
+    'photo-1563379091339-03b21ab4a4f8',
+    'photo-1631515243349-e0cb75fb8d3a',
+    'photo-1590846406792-0adc7f938f1d',
+    'photo-1544025162-d76694265947',
+  ];
+  if (blocked.some((b) => url.includes(b))) {
     return '';
   }
   return url;
@@ -28,6 +38,53 @@ export function formatMediaUrl(url) {
   }
   const cleanPath = url.startsWith('/') ? url : `/${url}`;
   return `${STATIC_BASE_URL.replace(/\/static$/, '')}${cleanPath}`;
+}
+
+/**
+ * Unified helper to extract & deduplicate merchant photos (up to 4+) and videos across all backend shapes
+ */
+export function extractMerchantMedia(m = {}) {
+  const candidates = [
+    m.photo_1,
+    m.photo_2,
+    m.photo_3,
+    m.photo_4,
+    m.photo_5,
+    m.photo_6,
+    ...(Array.isArray(m.merchant_photos) ? m.merchant_photos : []),
+    ...(Array.isArray(m.photos) ? m.photos : []),
+    m.profile_picture,
+    m.image,
+  ];
+  const photos = Array.from(
+    new Set(
+      candidates
+        .filter((p) => p && typeof p === 'string' && p.trim() !== '')
+        .map((p) => sanitizeMerchantPhoto(formatMediaUrl(p.trim())))
+        .filter(Boolean)
+    )
+  );
+
+  const videoCandidates = [
+    ...(Array.isArray(m.merchant_videos) ? m.merchant_videos : []),
+    m.video_url,
+    m.videoUrl,
+  ];
+  const videos = Array.from(
+    new Set(
+      videoCandidates
+        .filter((v) => v && typeof v === 'string' && v.trim() !== '' && !v.startsWith('data:'))
+        .map((v) => formatMediaUrl(v.trim()))
+        .filter(Boolean)
+    )
+  );
+
+  return {
+    photos,
+    videos,
+    videoUrl: videos[0] || '',
+    coverImage: photos[0] || EMPTY_MERCHANT_IMAGE,
+  };
 }
 
 /**
@@ -176,15 +233,7 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
   }
 
   return rawItems.map((m, idx) => {
-    let rawPhotos = m.photos || m.merchant_photos || (m.profile_picture ? [m.profile_picture] : []);
-    if (!Array.isArray(rawPhotos) || rawPhotos.length === 0) {
-      const photosFromNumbered = [m.photo_1, m.photo_2, m.photo_3, m.photo_4, m.photo_5, m.photo_6].filter(Boolean);
-      if (photosFromNumbered.length > 0) {
-        rawPhotos = photosFromNumbered;
-      }
-    }
-    const formattedPhotos = Array.isArray(rawPhotos) ? rawPhotos.map(formatMediaUrl) : [];
-    const rawVideos = m.merchant_videos || (m.video_url || m.videoUrl ? [m.video_url || m.videoUrl] : []);
+    const media = extractMerchantMedia(m);
     const phoneVal = m.phone_number || m.phone || m.contact_number || m.contact_phone || m.mobile || '+91 98470 12345';
 
     return {
@@ -231,11 +280,16 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
         ? (m.created_at || m.createdAt || m.joined).toString().split('T')[0]
         : '2026-09-25',
       created_at: m.created_at || m.createdAt || null,
-      photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-      merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-      merchant_videos: rawVideos,
-      videoUrl: (rawVideos && rawVideos[0]) || '',
-      image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
+      photo_1: m.photo_1 ? formatMediaUrl(m.photo_1) : media.photos[0] || '',
+      photo_2: m.photo_2 ? formatMediaUrl(m.photo_2) : media.photos[1] || '',
+      photo_3: m.photo_3 ? formatMediaUrl(m.photo_3) : media.photos[2] || '',
+      photo_4: m.photo_4 ? formatMediaUrl(m.photo_4) : media.photos[3] || '',
+      photos: media.photos,
+      merchant_photos: media.photos,
+      merchant_videos: media.videos,
+      video_url: media.videoUrl,
+      videoUrl: media.videoUrl,
+      image: media.coverImage,
       location: m.city || m.location || m.district || 'Payyanur',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || '',
@@ -732,9 +786,7 @@ export async function searchMerchants(query, location) {
   }
 
   return rawItems.map((m, idx) => {
-    const rawPhotos = m.photos || m.merchant_photos || (m.profile_picture ? [m.profile_picture] : []);
-    const formattedPhotos = Array.isArray(rawPhotos) ? rawPhotos.map(formatMediaUrl) : [];
-    const rawVideos = m.merchant_videos || (m.video_url || m.videoUrl ? [m.video_url || m.videoUrl] : []);
+    const media = extractMerchantMedia(m);
 
     return {
       id: m.id || m.merchant_id || m._id || `MCH-${idx + 1}`,
@@ -769,11 +821,16 @@ export async function searchMerchants(query, location) {
       joined: (m.created_at || m.createdAt || m.joined)
         ? (m.created_at || m.createdAt || m.joined).toString().split('T')[0]
         : new Date().toISOString().split('T')[0],
-      photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-      merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-      merchant_videos: rawVideos,
-      videoUrl: (rawVideos && rawVideos[0]) || '',
-      image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
+      photo_1: m.photo_1 ? formatMediaUrl(m.photo_1) : media.photos[0] || '',
+      photo_2: m.photo_2 ? formatMediaUrl(m.photo_2) : media.photos[1] || '',
+      photo_3: m.photo_3 ? formatMediaUrl(m.photo_3) : media.photos[2] || '',
+      photo_4: m.photo_4 ? formatMediaUrl(m.photo_4) : media.photos[3] || '',
+      photos: media.photos,
+      merchant_photos: media.photos,
+      merchant_videos: media.videos,
+      video_url: media.videoUrl,
+      videoUrl: media.videoUrl,
+      image: media.coverImage,
       location: m.city || m.location || m.district || 'N/A',
       categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
       description: m.about || m.description || m.business_name || '',
@@ -805,10 +862,7 @@ export async function getMerchantById(merchantId) {
   }
 
   const m = resData.merchant || resData.data?.merchant || resData.data || resData;
-
-  const rawPhotos = m.photos || m.merchant_photos || (m.profile_picture ? [m.profile_picture] : []);
-  const formattedPhotos = Array.isArray(rawPhotos) ? rawPhotos.map(formatMediaUrl) : [];
-  const rawVideos = m.merchant_videos || (m.video_url || m.videoUrl ? [m.video_url || m.videoUrl] : []);
+  const media = extractMerchantMedia(m);
 
   return {
     id: m.id || m.merchant_id || m._id || merchantId,
@@ -839,11 +893,16 @@ export async function getMerchantById(merchantId) {
     key_highlights: Array.isArray(m.key_highlights) ? m.key_highlights : [],
     highlights: Array.isArray(m.key_highlights) ? m.key_highlights : Array.isArray(m.highlights) ? m.highlights : [],
     website: m.website || '',
-    photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-    merchant_photos: formattedPhotos.map(sanitizeMerchantPhoto).filter(Boolean),
-    merchant_videos: rawVideos,
-    videoUrl: (rawVideos && rawVideos[0]) || '',
-    image: sanitizeMerchantPhoto(formattedPhotos[0]) || sanitizeMerchantPhoto(m.image) || EMPTY_MERCHANT_IMAGE,
+    photo_1: m.photo_1 ? formatMediaUrl(m.photo_1) : media.photos[0] || '',
+    photo_2: m.photo_2 ? formatMediaUrl(m.photo_2) : media.photos[1] || '',
+    photo_3: m.photo_3 ? formatMediaUrl(m.photo_3) : media.photos[2] || '',
+    photo_4: m.photo_4 ? formatMediaUrl(m.photo_4) : media.photos[3] || '',
+    photos: media.photos,
+    merchant_photos: media.photos,
+    merchant_videos: media.videos,
+    video_url: media.videoUrl,
+    videoUrl: media.videoUrl,
+    image: media.coverImage,
     location: m.city || m.location || m.district || 'N/A',
     categoryKey: (m.category || '').toLowerCase().replace(/[^a-z0-9]/g, '_'),
     description: m.about || m.description || '',
@@ -851,4 +910,240 @@ export async function getMerchantById(merchantId) {
     promotion_access: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
   };
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MOBILE APP PARITY: MERCHANT AUTHENTICATION & PORTAL APIS
+// ═════════════════════════════════════════════════════════════════════════════
+
+const MERCHANT_TOKEN_KEY = 'logo_merchant_token';
+const MERCHANT_USER_KEY = 'logo_merchant_user';
+
+export function getMerchantToken() {
+  return localStorage.getItem(MERCHANT_TOKEN_KEY) || '';
+}
+
+export function getStoredMerchantUser() {
+  try {
+    const raw = localStorage.getItem(MERCHANT_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setMerchantSession(authData) {
+  const token = authData?.access_token || authData?.token || '';
+  if (token) {
+    localStorage.setItem(MERCHANT_TOKEN_KEY, token.trim());
+  }
+  const userObj = authData?.user || authData?.merchant || authData?.data;
+  if (userObj && typeof userObj === 'object') {
+    localStorage.setItem(MERCHANT_USER_KEY, JSON.stringify(userObj));
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('merchant-session-changed'));
+  }
+}
+
+export function clearMerchantSession() {
+  localStorage.removeItem(MERCHANT_TOKEN_KEY);
+  localStorage.removeItem(MERCHANT_USER_KEY);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('merchant-session-changed'));
+  }
+}
+
+export async function merchantEmailLogin({ email, identifier, password }) {
+  const loginIdentifier = String(identifier || email || '').trim().toLowerCase();
+  let res = await apiFetch('/api/v1/merchants/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: loginIdentifier, password }),
+  });
+  let data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const detail = data?.detail;
+    const isSetupRequired =
+      res.status === 403 &&
+      (detail?.password_setup_required === true ||
+        detail?.code === 'MERCHANT_PASSWORD_NOT_SET' ||
+        String(detail?.message || data?.message || '').toLowerCase().includes('password'));
+    if (isSetupRequired) {
+      const setupErr = new Error(
+        detail?.message ||
+          'Password setup is required for this merchant. Please verify with OTP to set your password.'
+      );
+      setupErr.status = 403;
+      setupErr.passwordSetupRequired = true;
+      setupErr.code = 'MERCHANT_PASSWORD_NOT_SET';
+      throw setupErr;
+    }
+
+    if (res.status === 404) {
+      res = await apiFetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginIdentifier, password }),
+      });
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === 'string'
+            ? data.detail
+            : data.detail?.message || data.message || 'Merchant login failed'
+        );
+      }
+    } else {
+      throw new Error(
+        typeof data.detail === 'string'
+          ? data.detail
+          : data.detail?.message || data.message || 'Invalid merchant credentials'
+      );
+    }
+  }
+
+  setMerchantSession(data);
+  return data;
+}
+
+export async function merchantSendOTP(email) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const res = await apiFetch('/api/v1/merchants/login/send-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Could not send merchant OTP'
+    );
+  }
+  return data;
+}
+
+export async function merchantVerifyOTP(email, otp) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const res = await apiFetch('/api/v1/merchants/login/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail, otp: String(otp || '').trim() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Invalid or expired OTP'
+    );
+  }
+  setMerchantSession(data);
+  return data;
+}
+
+export async function merchantForgotPassword(email) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const res = await apiFetch('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Could not send reset code'
+    );
+  }
+  return data;
+}
+
+export async function merchantResetPassword({ email, otp, new_password }) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const res = await apiFetch('/api/v1/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: cleanEmail,
+      otp: String(otp || '').trim(),
+      new_password: String(new_password || '').trim(),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.detail === 'string' ? data.detail : data.message || 'Failed to reset merchant password'
+    );
+  }
+  return data;
+}
+
+export async function logoutMerchantSession() {
+  const token = getMerchantToken();
+  if (token) {
+    try {
+      await apiFetch('/api/v1/merchants/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (_) {}
+  }
+  clearMerchantSession();
+}
+
+export async function onboardMerchant(merchantData = {}) {
+  const validPhotos = (Array.isArray(merchantData.photos) ? merchantData.photos : merchantData.merchant_photos || [])
+    .filter((p) => p && typeof p === 'string' && p.trim() !== '')
+    .map(formatMediaUrl);
+
+  const rawVideos = Array.isArray(merchantData.merchant_videos)
+    ? merchantData.merchant_videos
+    : merchantData.video_url
+    ? [merchantData.video_url]
+    : [];
+  const cleanVideos = rawVideos.filter((v) => v && typeof v === 'string' && v.trim() !== '').map(formatMediaUrl);
+
+  const payload = {
+    ...merchantData,
+    merchant_photos: validPhotos,
+    photos: validPhotos,
+    photo_1: validPhotos[0] || merchantData.photo_1 || null,
+    photo_2: validPhotos[1] || merchantData.photo_2 || null,
+    photo_3: validPhotos[2] || merchantData.photo_3 || null,
+    photo_4: validPhotos[3] || merchantData.photo_4 || null,
+    merchant_videos: cleanVideos,
+    video_url: cleanVideos[0] || merchantData.video_url || null,
+  };
+
+  let response = await apiFetch('/api/v1/merchants/onboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok && response.status === 404) {
+    response = await apiFetch('/api/v1/merchants/onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  const resData = await response.json().catch(() => ({}));
+  if (!response.ok || resData.success === false) {
+    let errorMsg = 'Failed to onboard merchant';
+    if (Array.isArray(resData.detail)) {
+      errorMsg = resData.detail.map((item) => (typeof item === 'object' ? item.msg || item.message : String(item))).join('\n');
+    } else if (typeof resData.detail === 'string') {
+      errorMsg = resData.detail;
+    } else if (Array.isArray(resData.errors)) {
+      errorMsg = resData.errors.join('\n');
+    } else if (resData.message) {
+      errorMsg = resData.message;
+    }
+    throw new Error(errorMsg);
+  }
+  return resData?.data || resData;
+}
+
 

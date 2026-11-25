@@ -24,13 +24,19 @@ import {
   startProductOrderRazorpayCheckout,
 } from '../api/productApi';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
-import { useAuth } from '../context/AuthContext';
+import MobileAccountModal from '../components/MobileAccountModal';
+import { isCustomerAuthenticated, getStoredCustomerUser } from '../api/customerApi';
 import '../components/market/market-web.css';
 
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+
+  const [customerUser, setCustomerUser] = useState(() =>
+    isCustomerAuthenticated() ? getStoredCustomerUser() : null
+  );
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountPrompt, setAccountPrompt] = useState('');
 
   const productId = searchParams.get('product_id');
   const initialSize = searchParams.get('selected_size') || 'Standard';
@@ -73,12 +79,27 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
+    const syncAuth = () => {
+      const authed = isCustomerAuthenticated();
+      setCustomerUser(authed ? getStoredCustomerUser() : null);
+      setDeliveryAddress(authed ? getSavedDeliveryAddress() : null);
+    };
+    window.addEventListener('customer-session-changed', syncAuth);
+    window.addEventListener('storage', syncAuth);
+    return () => {
+      window.removeEventListener('customer-session-changed', syncAuth);
+      window.removeEventListener('storage', syncAuth);
+    };
+  }, []);
+
+  useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
+        const authed = isCustomerAuthenticated();
         const [prod, addr, rules] = await Promise.all([
           productId ? fetchProductById(productId) : null,
-          getSavedDeliveryAddress(),
+          authed ? getSavedDeliveryAddress() : null,
           fetchCheckoutRules(),
         ]);
 
@@ -94,7 +115,7 @@ export default function CheckoutPage() {
           setQuantity((prev) => Math.max(prev, reqMin));
         }
 
-        if (addr) setDeliveryAddress(addr);
+        setDeliveryAddress(authed && addr?.address ? addr : null);
         if (rules) {
           setCheckoutRules(rules);
           if (rules.cod_available === false) {
@@ -132,7 +153,17 @@ export default function CheckoutPage() {
   // Final Payable
   const finalPayable = Math.max(0, subtotal + deliveryCharge + codFee);
 
+  const openCustomerAuth = (prompt = 'Sign in required: please sign in to purchase products, use COD, or pay online.') => {
+    setAccountPrompt(prompt);
+    setAccountModalOpen(true);
+  };
+
   const handleContinueToPayment = () => {
+    if (!isCustomerAuthenticated()) {
+      setErrorMsg('Please sign in with your Customer Account to purchase products.');
+      openCustomerAuth('Please sign in to proceed to payment and place orders.');
+      return;
+    }
     if (subtotal < minOrderValue) {
       setErrorMsg(
         `Minimum order total is ₹${minOrderValue}. Please increase quantity to at least ${minRequiredQty}.`
@@ -160,6 +191,11 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (!isCustomerAuthenticated()) {
+      setErrorMsg('Sign in required: please sign in before choosing Cash on Delivery or Online Payment.');
+      openCustomerAuth('Sign in is strictly required before Cash on Delivery or Online Payment can be used.');
+      return;
+    }
     if (subtotal < minOrderValue) {
       setErrorMsg(`Minimum order amount is ₹${minOrderValue}.`);
       return;
@@ -179,14 +215,14 @@ export default function CheckoutPage() {
         product_name: product?.name || 'Kerala Marketplace Item',
         product_image: product?.image || product?.images?.[0],
         seller_name: product?.seller_name || product?.merchant_name || 'Kerala Seller',
-        seller_phone: product?.seller_phone || product?.sellerPhone || '9876543210',
+        seller_phone: product?.seller_phone || product?.sellerPhone || '',
         seller_whatsapp: product?.seller_whatsapp || product?.sellerWhatsapp,
-        buyer_name: deliveryAddress.name || user?.name || 'Customer',
-        buyer_phone: deliveryAddress.phone || user?.phone || '0000000000',
+        buyer_name: deliveryAddress.name || customerUser?.name || '',
+        buyer_phone: deliveryAddress.phone || customerUser?.phone || '',
         buyer_address: deliveryAddress.address,
-        buyer_city: deliveryAddress.city || deliveryAddress.district || 'Kerala',
-        buyer_district: deliveryAddress.district || 'Kerala',
-        buyer_pincode: deliveryAddress.pincode || '682001',
+        buyer_city: deliveryAddress.city || deliveryAddress.district || '',
+        buyer_district: deliveryAddress.district || '',
+        buyer_pincode: deliveryAddress.pincode || '',
         selected_size: selectedSize || (product?.sizes && product.sizes[0]) || 'Standard',
         quantity: quantity,
         price: unitPrice,
@@ -330,6 +366,39 @@ export default function CheckoutPage() {
             {step === 1 ? (
               <>
                 {/* 1. Delivery Address Card */}
+                {!isCustomerAuthenticated() && (
+                  <div
+                    className="mkt-checkout-card"
+                    style={{
+                      background: 'linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%)',
+                      border: '1.5px solid #bfdbfe',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div>
+                      <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 900, color: '#1e3a8a' }}>
+                        Sign In Required to Complete Purchase
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: '#475569' }}>
+                        Please sign in with your Customer Account before adding a delivery address, choosing COD, or paying via Razorpay.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openCustomerAuth('Please sign in to continue your order.')}
+                      className="mkt-btn-buy-now"
+                      style={{ flex: 'unset', padding: '10px 20px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                    >
+                      Sign In Now →
+                    </button>
+                  </div>
+                )}
+
                 <div className="mkt-checkout-card">
                   <div className="mkt-checkout-card-header">
                     <h3 className="mkt-checkout-card-title">
@@ -338,7 +407,13 @@ export default function CheckoutPage() {
                     </h3>
                     <button
                       type="button"
-                      onClick={() => setIsAddressModalOpen(true)}
+                      onClick={() => {
+                        if (!isCustomerAuthenticated()) {
+                          openCustomerAuth('Please sign in first to add a delivery address.');
+                          return;
+                        }
+                        setIsAddressModalOpen(true);
+                      }}
                       style={{ fontSize: '12.5px', fontWeight: 800, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                     >
                       {deliveryAddress?.address ? 'Change Address' : '+ Add Address'}
@@ -360,14 +435,24 @@ export default function CheckoutPage() {
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '16px 0', color: '#64748b', fontSize: '13px' }}>
-                      <p style={{ margin: '0 0 10px' }}>No delivery address added yet.</p>
+                      <p style={{ margin: '0 0 10px' }}>
+                        {isCustomerAuthenticated()
+                          ? 'No delivery address added yet.'
+                          : 'Sign in to add your delivery address (no default address saved).'}
+                      </p>
                       <button
                         type="button"
-                        onClick={() => setIsAddressModalOpen(true)}
+                        onClick={() => {
+                          if (!isCustomerAuthenticated()) {
+                            openCustomerAuth('Please sign in first to add a delivery address.');
+                            return;
+                          }
+                          setIsAddressModalOpen(true);
+                        }}
                         className="mkt-btn-buy-now"
                         style={{ flex: 'unset', display: 'inline-flex', padding: '8px 20px', fontSize: '12.5px' }}
                       >
-                        + Add Delivery Address
+                        {isCustomerAuthenticated() ? '+ Add Delivery Address' : 'Sign In & Add Address'}
                       </button>
                     </div>
                   )}
@@ -468,7 +553,13 @@ export default function CheckoutPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {/* Option 1: Razorpay Online Payment */}
                     <label
-                      onClick={() => setPaymentMethod('online')}
+                      onClick={() => {
+                        if (!isCustomerAuthenticated()) {
+                          openCustomerAuth('Please sign in to pay online via Razorpay.');
+                          return;
+                        }
+                        setPaymentMethod('online');
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
@@ -477,7 +568,8 @@ export default function CheckoutPage() {
                         borderRadius: '12px',
                         border: `2px solid ${paymentMethod === 'online' ? '#2563eb' : '#e2e8f0'}`,
                         background: paymentMethod === 'online' ? '#eff6ff' : '#ffffff',
-                        cursor: 'pointer',
+                        cursor: isCustomerAuthenticated() ? 'pointer' : 'not-allowed',
+                        opacity: isCustomerAuthenticated() ? 1 : 0.6,
                         transition: 'all 0.2s ease',
                       }}
                     >
@@ -485,7 +577,14 @@ export default function CheckoutPage() {
                         type="radio"
                         name="payment_method"
                         checked={paymentMethod === 'online'}
-                        onChange={() => setPaymentMethod('online')}
+                        disabled={!isCustomerAuthenticated()}
+                        onChange={() => {
+                          if (!isCustomerAuthenticated()) {
+                            openCustomerAuth('Please sign in to pay online via Razorpay.');
+                            return;
+                          }
+                          setPaymentMethod('online');
+                        }}
                         style={{ marginTop: '4px', accentColor: '#2563eb' }}
                       />
                       <div style={{ flex: 1 }}>
@@ -511,7 +610,13 @@ export default function CheckoutPage() {
 
                     {/* Option 2: Cash on Delivery */}
                     <label
-                      onClick={() => setPaymentMethod('cod')}
+                      onClick={() => {
+                        if (!isCustomerAuthenticated()) {
+                          openCustomerAuth('Please sign in to use Cash on Delivery (COD).');
+                          return;
+                        }
+                        setPaymentMethod('cod');
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
@@ -520,7 +625,8 @@ export default function CheckoutPage() {
                         borderRadius: '12px',
                         border: `2px solid ${paymentMethod === 'cod' ? '#2563eb' : '#e2e8f0'}`,
                         background: paymentMethod === 'cod' ? '#eff6ff' : '#ffffff',
-                        cursor: 'pointer',
+                        cursor: isCustomerAuthenticated() ? 'pointer' : 'not-allowed',
+                        opacity: isCustomerAuthenticated() ? 1 : 0.6,
                         transition: 'all 0.2s ease',
                       }}
                     >
@@ -528,7 +634,14 @@ export default function CheckoutPage() {
                         type="radio"
                         name="payment_method"
                         checked={paymentMethod === 'cod'}
-                        onChange={() => setPaymentMethod('cod')}
+                        disabled={!isCustomerAuthenticated()}
+                        onChange={() => {
+                          if (!isCustomerAuthenticated()) {
+                            openCustomerAuth('Please sign in to use Cash on Delivery (COD).');
+                            return;
+                          }
+                          setPaymentMethod('cod');
+                        }}
                         style={{ marginTop: '4px', accentColor: '#2563eb' }}
                       />
                       <div style={{ flex: 1 }}>
@@ -650,7 +763,16 @@ export default function CheckoutPage() {
 
               {/* Action Button */}
               <div style={{ marginTop: '20px' }}>
-                {step === 1 ? (
+                {!isCustomerAuthenticated() ? (
+                  <button
+                    type="button"
+                    onClick={() => openCustomerAuth('Please sign in before placing an order or choosing payment.')}
+                    className="mkt-btn-buy-now"
+                    style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: '14.5px' }}
+                  >
+                    Sign In to Purchase →
+                  </button>
+                ) : step === 1 ? (
                   <button
                     type="button"
                     onClick={handleContinueToPayment}
@@ -702,6 +824,25 @@ export default function CheckoutPage() {
         initialAddress={deliveryAddress}
         onSaveAddress={(saved) => {
           setDeliveryAddress(saved);
+          setErrorMsg('');
+        }}
+      />
+
+      {/* ── Customer Sign In Modal ── */}
+      <MobileAccountModal
+        isOpen={accountModalOpen}
+        onClose={() => {
+          setAccountModalOpen(false);
+          setAccountPrompt('');
+        }}
+        initialSection="customer-login"
+        promptMessage={accountPrompt}
+        onAuthSuccess={(u) => {
+          setCustomerUser(u || getStoredCustomerUser());
+          const saved = getSavedDeliveryAddress();
+          setDeliveryAddress(saved?.address ? saved : null);
+          setAccountModalOpen(false);
+          setAccountPrompt('');
           setErrorMsg('');
         }}
       />

@@ -174,7 +174,7 @@ export async function apiFetch(endpoint, options = {}) {
     delete headers['Content-Type'];
   }
 
-  if (accessToken) {
+  if (accessToken && !headers['Authorization'] && !headers['authorization']) {
     const rawToken = accessToken.trim();
     const bearer = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
     headers['Authorization'] = bearer;

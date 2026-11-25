@@ -67,15 +67,19 @@ import ZeashellLocationPromptModal, {
   KERALA_TOWN_COORDINATES,
 } from '../components/landing/ZeashellLocationPromptModal';
 import {
-  customerPhoneLogin,
-  customerRegister,
   getCustomerFavorites,
   toggleCustomerFavorite,
   syncCustomerFavorites,
   clearCustomerFavoritesApi,
   clearCustomerSession,
+  logoutCustomerSession,
   getCustomerToken,
+  getStoredCustomerUser,
+  isCustomerAuthenticated,
+  fetchCustomerProfile,
 } from '../api/customerApi';
+import { hasActiveSellerSubscription } from '../api/subscriptionApi';
+import MobileAccountModal from '../components/MobileAccountModal';
 import '../components/landing/zeashell-landing.css';
 import LandingProductsSection from '../components/landing/LandingProductsSection';
 import ProductOrderModal from '../components/products/ProductOrderModal';
@@ -1056,137 +1060,66 @@ export default function LandingPage({ defaultTab = 'home' }) {
     }
   });
 
-  // Customer Authentication State (for customer sign in / sign out in navbar)
-  const [customerUser, setCustomerUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('logo_customer_user') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  // Customer Authentication State (synced strictly with Customer token session)
+  const [customerUser, setCustomerUser] = useState(() =>
+    isCustomerAuthenticated() ? getStoredCustomerUser() : null
+  );
   const [customerLoginModalOpen, setCustomerLoginModalOpen] = useState(false);
-  const [customerAuthTab, setCustomerAuthTab] = useState('login'); // 'login' | 'register'
-  const [customerLoginForm, setCustomerLoginForm] = useState({ phone: '' });
-  const [customerRegisterForm, setCustomerRegisterForm] = useState({
-    name: '',
-    phone: '',
-    district: 'Ernakulam',
-    city: '',
-  });
-  const [customerAuthMsg, setCustomerAuthMsg] = useState({ type: '', text: '' });
+  const [accountModalSection, setAccountModalSection] = useState('hub');
+  const [accountModalPrompt, setAccountModalPrompt] = useState('');
 
-  // Subscriber Products & Direct WhatsApp Orders State
+  // Keep LandingPage synced on any customer login/logout or subscription change
+  useEffect(() => {
+    const syncCust = () => {
+      setCustomerUser(isCustomerAuthenticated() ? getStoredCustomerUser() : null);
+    };
+    window.addEventListener('customer-session-changed', syncCust);
+    if (isCustomerAuthenticated()) {
+      fetchCustomerProfile().then((fresh) => {
+        if (fresh) setCustomerUser(fresh);
+      });
+    }
+    return () => window.removeEventListener('customer-session-changed', syncCust);
+  }, []);
+
+  // Subscriber Products & Direct Orders State
   const [selectedOrderProduct, setSelectedOrderProduct] = useState(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
 
+  const openAccountModal = (section = 'hub', prompt = '') => {
+    setAccountModalSection(section);
+    setAccountModalPrompt(prompt);
+    setCustomerLoginModalOpen(true);
+  };
+
   const handleOpenOrderModal = (product) => {
+    if (!isCustomerAuthenticated()) {
+      openAccountModal('customer-login', 'Please sign in to purchase products.');
+      return;
+    }
     setSelectedOrderProduct(product);
     setIsOrderModalOpen(true);
   };
 
   const handleOpenAddProductModal = () => {
+    if (!isCustomerAuthenticated()) {
+      openAccountModal('customer-login', 'Please sign in to create products.');
+      return;
+    }
+    if (!hasActiveSellerSubscription(customerUser)) {
+      openAccountModal(
+        'subscriptions',
+        'Only customers with an active ₹500 Seller Plan subscription can create products.'
+      );
+      return;
+    }
     setIsAddProductModalOpen(true);
   };
 
-  const handleCustomerLoginSubmit = async (e) => {
-    e.preventDefault();
-    const cleanPhone = customerLoginForm.phone.trim().replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setCustomerAuthMsg({ type: 'error', text: 'Please enter a valid 10-digit mobile number' });
-      return;
-    }
-    try {
-      setCustomerAuthMsg({ type: 'info', text: 'Signing in...' });
-      const res = await customerPhoneLogin({ phone: cleanPhone });
-      setCustomerUser(res.customer);
-      setCustomerLoginModalOpen(false);
-      setCustomerLoginForm({ phone: '' });
-      setCustomerAuthMsg({ type: '', text: '' });
-
-      // Automatically sync local wishlist to customer's account
-      const syncRes = await syncCustomerFavorites(userFavorites);
-      if (syncRes?.favorite_merchant_ids) {
-        setUserFavorites(syncRes.favorite_merchant_ids);
-        try {
-          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
-        } catch {}
-      }
-    } catch (err) {
-      setCustomerAuthMsg({ type: 'error', text: err.message || 'Login failed. Please try again.' });
-    }
-  };
-
-  const handleCustomerRegisterSubmit = async (e) => {
-    e.preventDefault();
-    const cleanName = customerRegisterForm.name.trim();
-    const cleanPhone = customerRegisterForm.phone.trim().replace(/[^0-9]/g, '');
-    const district = customerRegisterForm.district || 'Ernakulam';
-    const city = customerRegisterForm.city.trim() || district;
-
-    if (!cleanName) {
-      setCustomerAuthMsg({ type: 'error', text: 'Please enter your Full Name' });
-      return;
-    }
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setCustomerAuthMsg({ type: 'error', text: 'Please enter a valid 10-digit mobile number' });
-      return;
-    }
-
-    try {
-      setCustomerAuthMsg({ type: 'info', text: 'Creating your account...' });
-      const res = await customerPhoneLogin({
-        phone: cleanPhone,
-        name: cleanName,
-        district: district,
-        city: city,
-      });
-      setCustomerUser(res.customer);
-      setCustomerLoginModalOpen(false);
-      setCustomerRegisterForm({ name: '', phone: '', district: 'Ernakulam', city: '' });
-      setCustomerAuthMsg({ type: '', text: '' });
-
-      // Sync local wishlist
-      const syncRes = await syncCustomerFavorites(userFavorites);
-      if (syncRes?.favorite_merchant_ids) {
-        setUserFavorites(syncRes.favorite_merchant_ids);
-        try {
-          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
-        } catch {}
-      }
-    } catch (err) {
-      setCustomerAuthMsg({ type: 'error', text: err.message || 'Registration failed. Please try again.' });
-    }
-  };
-
-  const handleCustomerQuickLogin = async () => {
-    try {
-      setCustomerAuthMsg({ type: 'info', text: 'Signing in as Saranya Sudheer...' });
-      const res = await customerPhoneLogin({
-        phone: '9847123456',
-        name: 'Saranya Sudheer',
-        district: 'Kannur',
-        city: 'Payyanur',
-      });
-      setCustomerUser(res.customer);
-      setCustomerLoginModalOpen(false);
-      setCustomerAuthMsg({ type: '', text: '' });
-
-      const syncRes = await syncCustomerFavorites(userFavorites);
-      if (syncRes?.favorite_merchant_ids) {
-        setUserFavorites(syncRes.favorite_merchant_ids);
-        try {
-          localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
-        } catch {}
-      }
-    } catch (err) {
-      setCustomerAuthMsg({ type: 'error', text: err.message || 'Quick login failed. Please try again.' });
-    }
-  };
-
-  const handleCustomerLogout = () => {
+  const handleCustomerLogout = async () => {
+    await logoutCustomerSession();
     setCustomerUser(null);
-    clearCustomerSession();
   };
 
   // Sync customer's cloud wishlist on initial mount if authenticated
@@ -1794,7 +1727,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
         }}
         isWishlistActive={isWishlistPageOpen}
         customerUser={customerUser}
-        onOpenCustomerLogin={() => setCustomerLoginModalOpen(true)}
+        onOpenCustomerLogin={() => openAccountModal('hub')}
+        onOpenMerchantLogin={() => openAccountModal('merchant-login')}
         onCustomerLogout={handleCustomerLogout}
       />
 
@@ -2526,7 +2460,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
                 <button
                   type="button"
                   className="footer-link-btn"
-                  onClick={() => setCustomerLoginModalOpen(true)}
+                  onClick={() => openAccountModal('hub')}
                 >
                   👤 User Account / Sign In
                 </button>
@@ -2726,7 +2660,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
             scrollToSection('establishments-section');
           }}
           customerUser={customerUser}
-          onOpenCustomerLogin={() => setCustomerLoginModalOpen(true)}
+          onOpenCustomerLogin={() => openAccountModal('hub')}
+          onOpenMerchantLogin={() => openAccountModal('merchant-login')}
           onCustomerLogout={handleCustomerLogout}
           onOpenOnboardModal={() => setOnboardModalOpen(true)}
           favoritesCount={userFavorites.length}
@@ -3342,322 +3277,27 @@ export default function LandingPage({ defaultTab = 'home' }) {
         onExploreAll={() => scrollToSection('featured-offers-section')}
       />
 
-      {/* 13. Customer Sign In & Registration Modal (Centered Popup with Login & Register Tabs) */}
-      {customerLoginModalOpen && (
-        <div
-          className="modal-backdrop customer-auth-backdrop"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            zIndex: 999999,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-            overflowY: 'auto',
-          }}
-          onClick={() => setCustomerLoginModalOpen(false)}
-        >
-          <div
-            className="customer-auth-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            {/* Modal Header */}
-            <div className="customer-auth-header">
-              <div className="customer-auth-header-top">
-                <div className="customer-auth-brand">
-                  <span className="customer-auth-brand-logo" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    LOGO <HiLocationMarker size={16} color="#93c5fd" />
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      background: 'rgba(255, 255, 255, 0.25)',
-                      padding: '2px 8px',
-                      borderRadius: 20,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    CUSTOMER PORTAL
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="customer-auth-close-btn"
-                  onClick={() => setCustomerLoginModalOpen(false)}
-                  aria-label="Close"
-                >
-                  <HiX size={18} />
-                </button>
-              </div>
-
-              <h3 className="customer-auth-header-title">
-                {customerAuthTab === 'login' ? 'Welcome Back!' : 'Create Customer Account'}
-              </h3>
-              <p className="customer-auth-header-desc">
-                {customerAuthTab === 'login'
-                  ? 'Sign in to access your saved wishlist & call verified merchants'
-                  : 'Register to discover 1,000+ genuine shops across all 14 Kerala districts'}
-              </p>
-            </div>
-
-            {/* Mode Switcher Tabs: [Login] vs [Register] */}
-            <div className="customer-auth-tabs">
-              <button
-                type="button"
-                className={`customer-auth-tab-btn ${customerAuthTab === 'login' ? 'active' : ''}`}
-                onClick={() => {
-                  setCustomerAuthTab('login');
-                  setCustomerAuthMsg({ type: '', text: '' });
-                }}
-              >
-                <HiUser size={16} />
-                <span>Sign In / Login</span>
-              </button>
-              <button
-                type="button"
-                className={`customer-auth-tab-btn ${customerAuthTab === 'register' ? 'active' : ''}`}
-                onClick={() => {
-                  setCustomerAuthTab('register');
-                  setCustomerAuthMsg({ type: '', text: '' });
-                }}
-              >
-                <HiPlus size={16} />
-                <span>Register / Sign Up</span>
-              </button>
-            </div>
-
-            {/* Modal Form Body */}
-            <div className="customer-auth-body">
-              {customerAuthMsg.text && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: customerAuthMsg.type === 'error' ? '#fef2f2' : '#f0fdf4',
-                    color: customerAuthMsg.type === 'error' ? '#b91c1c' : '#15803d',
-                    borderLeft: `4px solid ${customerAuthMsg.type === 'error' ? '#ef4444' : '#22c55e'}`,
-                  }}
-                >
-                  <span>{customerAuthMsg.type === 'error' ? '⚠️' : '✅'}</span>
-                  <span>{customerAuthMsg.text}</span>
-                </div>
-              )}
-
-              {customerAuthTab === 'login' ? (
-                /* LOGIN FORM */
-                <form
-                  onSubmit={handleCustomerLoginSubmit}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-                >
-                  <div className="customer-auth-field">
-                    <label className="customer-auth-label">
-                      <span>Mobile / WhatsApp Number *</span>
-                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
-                        OTP-free 10-digit login
-                      </span>
-                    </label>
-                    <div className="customer-auth-phone-row">
-                      <div className="customer-auth-country-code">🇮🇳 +91</div>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        placeholder="e.g. 9847123456"
-                        value={customerLoginForm.phone}
-                        onChange={(e) =>
-                          setCustomerLoginForm({ phone: e.target.value.replace(/[^0-9]/g, '') })
-                        }
-                        className="customer-auth-input"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-
-                  <button type="submit" className="customer-auth-btn-primary">
-                    Sign In to Logo Kerala
-                  </button>
-
-                  <div style={{ textAlign: 'center', margin: '4px 0', color: '#94a3b8', fontSize: 12 }}>
-                    ── or quick 1-click login ──
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCustomerQuickLogin}
-                    style={{
-                      width: '100%',
-                      padding: '11px',
-                      background: '#f8fafc',
-                      border: '1.5px solid #e2e8f0',
-                      borderRadius: 12,
-                      color: '#1e293b',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f1f5f9';
-                      e.currentTarget.style.borderColor = '#cbd5e1';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#f8fafc';
-                      e.currentTarget.style.borderColor = '#e2e8f0';
-                    }}
-                  >
-                    <span>👤 Quick Login as Saranya Sudheer (Kannur)</span>
-                  </button>
-
-                  <div className="customer-auth-switch-prompt">
-                    Don't have an account?{' '}
-                    <button
-                      type="button"
-                      className="customer-auth-switch-link"
-                      onClick={() => {
-                        setCustomerAuthTab('register');
-                        setCustomerAuthMsg({ type: '', text: '' });
-                      }}
-                    >
-                      Register here
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                /* REGISTER FORM */
-                <form
-                  onSubmit={handleCustomerRegisterSubmit}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-                >
-                  <div className="customer-auth-field">
-                    <label className="customer-auth-label">
-                      <span>Full Name *</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Saranya Sudheer"
-                      value={customerRegisterForm.name}
-                      onChange={(e) =>
-                        setCustomerRegisterForm({ ...customerRegisterForm, name: e.target.value })
-                      }
-                      className="customer-auth-input"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="customer-auth-field">
-                    <label className="customer-auth-label">
-                      <span>Mobile / WhatsApp Number *</span>
-                    </label>
-                    <div className="customer-auth-phone-row">
-                      <div className="customer-auth-country-code">🇮🇳 +91</div>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        placeholder="e.g. 9847123456"
-                        value={customerRegisterForm.phone}
-                        onChange={(e) =>
-                          setCustomerRegisterForm({
-                            ...customerRegisterForm,
-                            phone: e.target.value.replace(/[^0-9]/g, ''),
-                          })
-                        }
-                        className="customer-auth-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="customer-auth-field">
-                    <label className="customer-auth-label">
-                      <span>Kerala District *</span>
-                      <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
-                        All 14 Districts
-                      </span>
-                    </label>
-                    <select
-                      value={customerRegisterForm.district}
-                      onChange={(e) =>
-                        setCustomerRegisterForm({
-                          ...customerRegisterForm,
-                          district: e.target.value,
-                        })
-                      }
-                      className="customer-auth-select"
-                    >
-                      {placesList.map((p) => (
-                        <option key={p.id} value={p.name}>
-                          {p.name} District
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="customer-auth-field">
-                    <label className="customer-auth-label">
-                      <span>City / Town (Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Kochi, Payyanur, Alappuzha, etc."
-                      value={customerRegisterForm.city}
-                      onChange={(e) =>
-                        setCustomerRegisterForm({ ...customerRegisterForm, city: e.target.value })
-                      }
-                      className="customer-auth-input"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="customer-auth-btn-primary"
-                    style={{ marginTop: 4 }}
-                  >
-                    Create Customer Account & Sign In
-                  </button>
-
-                  <div className="customer-auth-switch-prompt">
-                    Already have an account?{' '}
-                    <button
-                      type="button"
-                      className="customer-auth-switch-link"
-                      onClick={() => {
-                        setCustomerAuthTab('login');
-                        setCustomerAuthMsg({ type: '', text: '' });
-                      }}
-                    >
-                      Sign in here
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 13. Mobile App Parity Account & Auth Modal (Customer + Merchant Sign In / Register / Subscriptions) */}
+      <MobileAccountModal
+        isOpen={customerLoginModalOpen}
+        onClose={() => setCustomerLoginModalOpen(false)}
+        initialSection={accountModalSection}
+        promptMessage={accountModalPrompt}
+        onAuthSuccess={async (userObj, role) => {
+          if (role === 'CUSTOMER') {
+            setCustomerUser(userObj);
+            const syncRes = await syncCustomerFavorites(userFavorites).catch(() => null);
+            if (syncRes?.favorite_merchant_ids) {
+              setUserFavorites(syncRes.favorite_merchant_ids);
+              try {
+                localStorage.setItem('logo_user_favs', JSON.stringify(syncRes.favorite_merchant_ids));
+              } catch {}
+            }
+          }
+        }}
+        onOpenCreateProduct={() => setIsAddProductModalOpen(true)}
+        onOpenWishlist={() => setIsWishlistPageOpen(true)}
+      />
 
       {/* 14. Location Discovery Modal (Prompt on arrival or location click) */}
       <ZeashellLocationPromptModal

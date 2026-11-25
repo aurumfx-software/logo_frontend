@@ -30,6 +30,7 @@ import {
   impersonateMemberApi,
 } from '../api/userApi';
 import { getAccessToken, getRefreshToken } from '../api/apiClient';
+import { setCustomerSession } from '../api/customerApi';
 import { useAuth } from '../context/AuthContext';
 import { adminAdjustWallet } from '../api/walletApi';
 
@@ -93,6 +94,7 @@ export default function Customers() {
         }
       );
 
+      setCustomerSession(res);
       navigate('/marketplace');
     } catch (err) {
       alert(err.message || 'Failed to impersonate customer');

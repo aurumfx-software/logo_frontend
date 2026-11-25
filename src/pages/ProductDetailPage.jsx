@@ -30,9 +30,11 @@ import {
   addToMarketplaceWishlist,
   removeFromMarketplaceWishlist,
 } from '../api/productApi';
+import { isCustomerAuthenticated, getStoredCustomerUser } from '../api/customerApi';
 import ProductCard from '../components/market/ProductCard';
 import MarketCartDrawer from '../components/market/MarketCartDrawer';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
+import MobileAccountModal from '../components/MobileAccountModal';
 import '../components/market/market-web.css';
 
 export default function ProductDetailPage() {
@@ -48,6 +50,11 @@ export default function ProductDetailPage() {
   const [similarProducts, setSimilarProducts] = useState([]);
   const [deliveryAddress, setDeliveryAddress] = useState(null);
   const [reviewsData, setReviewsData] = useState({ reviews: [], rating_average: 4.8, rating_count: 24 });
+  const [customerUser, setCustomerUser] = useState(() =>
+    isCustomerAuthenticated() ? getStoredCustomerUser() : null
+  );
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountPromptMessage, setAccountPromptMessage] = useState('');
 
   // Reviews submission
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -127,8 +134,31 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('logo-cart-changed', handleCartChanged);
   }, []);
 
+  const openCustomerAuth = (prompt = 'Please sign in with your Logo Kerala account to continue.') => {
+    setAccountPromptMessage(prompt);
+    setAccountModalOpen(true);
+  };
+
+  useEffect(() => {
+    const handleSync = () => {
+      const authed = isCustomerAuthenticated();
+      setCustomerUser(authed ? getStoredCustomerUser() : null);
+      setDeliveryAddress(authed ? getSavedDeliveryAddress() : null);
+    };
+    window.addEventListener('customer-session-changed', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('customer-session-changed', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
   const handleToggleWishlist = async () => {
     if (!product) return;
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('Please sign in to save products to your Wishlist.');
+      return;
+    }
     try {
       if (isWishlisted) {
         setIsWishlisted(false);
@@ -159,6 +189,10 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = async () => {
     if (!product) return;
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('Please sign in to add products to your cart and purchase.');
+      return;
+    }
     const itemPrice = Number(product.price || 0);
     const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
     const finalQty = Math.max(quantity, minQty);
@@ -169,6 +203,10 @@ export default function ProductDetailPage() {
 
   const handleBuyNow = () => {
     if (!product) return;
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('Sign in required: please sign in to purchase products.');
+      return;
+    }
     const itemPrice = Number(product.price || 0);
     const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
     const finalQty = Math.max(quantity, minQty);
@@ -496,7 +534,11 @@ export default function ProductDetailPage() {
                 <HiLocationMarker size={18} color="#2563eb" style={{ marginTop: '2px', flexShrink: 0 }} />
                 <div>
                   <h5 style={{ margin: '0 0 2px', fontSize: '12.5px', fontWeight: 800, color: '#0f172a' }}>
-                    Deliver To: {deliveryAddress?.city || deliveryAddress?.district || 'Kerala'} - {deliveryAddress?.pincode || '695121'}
+                    {deliveryAddress?.address
+                      ? `Deliver To: ${deliveryAddress.city || deliveryAddress.district || ''} - ${deliveryAddress.pincode || ''}`
+                      : customerUser
+                      ? 'No delivery address added yet'
+                      : 'Sign in to add delivery address'}
                   </h5>
                   <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
                     Estimated Delivery by <strong style={{ color: '#0f172a' }}>{new Date(Date.now() + 4 * 86400000).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}</strong>
@@ -505,10 +547,16 @@ export default function ProductDetailPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsAddressModalOpen(true)}
+                onClick={() => {
+                  if (!isCustomerAuthenticated()) {
+                    openCustomerAuth('Please sign in to set a delivery address.');
+                    return;
+                  }
+                  setIsAddressModalOpen(true);
+                }}
                 style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
               >
-                Change
+                {deliveryAddress?.address ? 'Change' : 'Add Address'}
               </button>
             </div>
 
@@ -551,7 +599,13 @@ export default function ProductDetailPage() {
                 {!showReviewForm && (
                   <button
                     type="button"
-                    onClick={() => setShowReviewForm(true)}
+                    onClick={() => {
+                      if (!isCustomerAuthenticated()) {
+                        openCustomerAuth('Please sign in to submit a product review.');
+                        return;
+                      }
+                      setShowReviewForm(true);
+                    }}
                     className="mkt-btn-secondary"
                     style={{ display: 'inline-flex', padding: '6px 12px' }}
                   >
@@ -704,7 +758,14 @@ export default function ProductDetailPage() {
         isOpen={isCartOpen}
         initialTab={cartTab}
         onClose={() => setIsCartOpen(false)}
-        onOpenAddressModal={() => setIsAddressModalOpen(true)}
+        onOpenAddressModal={() => {
+          if (!isCustomerAuthenticated()) {
+            openCustomerAuth('Please sign in to set a delivery address.');
+            return;
+          }
+          setIsAddressModalOpen(true);
+        }}
+        onRequireAuth={(msg) => openCustomerAuth(msg || 'Please sign in to proceed to checkout.')}
       />
 
       {/* ── Delivery Address Modal ── */}
@@ -714,6 +775,24 @@ export default function ProductDetailPage() {
         onAddressSaved={(addr) => {
           setDeliveryAddress(addr);
           showToast('Delivery address updated!');
+        }}
+      />
+
+      {/* ── Customer Sign In / Account Modal ── */}
+      <MobileAccountModal
+        isOpen={accountModalOpen}
+        onClose={() => {
+          setAccountModalOpen(false);
+          setAccountPromptMessage('');
+        }}
+        initialSection="customer-login"
+        promptMessage={accountPromptMessage}
+        onAuthSuccess={(u) => {
+          setCustomerUser(u || getStoredCustomerUser());
+          setDeliveryAddress(getSavedDeliveryAddress());
+          setAccountModalOpen(false);
+          setAccountPromptMessage('');
+          showToast('Signed in successfully!');
         }}
       />
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -144,6 +144,7 @@ export default function MerchantDetail({ isPublic = false }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const [copied, setCopied] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const heroTouchStartX = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -451,25 +452,95 @@ export default function MerchantDetail({ isPublic = false }) {
 
         {/* ── MAIN CONTENT CANVAS ── */}
         <div style={{ padding: '24px 28px 32px', display: 'grid', gap: 28 }}>
-          {/* ── HERO BANNER IMAGE ── */}
-          <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
+          {/* ── SWIPEABLE HERO BANNER IMAGE ── */}
+          <div
+            style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}
+            onTouchStart={(e) => {
+              heroTouchStartX.current = e.touches?.[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              if (heroTouchStartX.current === null || photos.length <= 1) return;
+              const endX = e.changedTouches?.[0]?.clientX ?? heroTouchStartX.current;
+              const diff = heroTouchStartX.current - endX;
+              if (Math.abs(diff) > 35) {
+                setActivePhoto((prev) =>
+                  diff > 0 ? (prev + 1) % photos.length : (prev - 1 + photos.length) % photos.length
+                );
+              }
+              heroTouchStartX.current = null;
+            }}
+          >
             {photos.length > 0 ? (
-              <img
-                src={photos[activePhoto] || photos[0]}
-                alt={merchant.name}
-                style={{
-                  width: '100%',
-                  height: 'clamp(220px, 42vw, 380px)',
-                  objectFit: 'cover',
-                  display: 'block',
-                  imageRendering: '-webkit-optimize-contrast',
-                  filter: 'contrast(1.02) saturate(1.02)',
-                }}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.style.display = 'none';
-                }}
-              />
+              <>
+                <img
+                  src={photos[activePhoto] || photos[0]}
+                  alt={merchant.name}
+                  style={{
+                    width: '100%',
+                    height: 'clamp(220px, 42vw, 380px)',
+                    objectFit: 'cover',
+                    display: 'block',
+                    imageRendering: '-webkit-optimize-contrast',
+                    filter: 'contrast(1.02) saturate(1.02)',
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                  }}
+                />
+                {photos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActivePhoto((prev) => (prev - 1 + photos.length) % photos.length)}
+                      aria-label="Previous photo"
+                      style={{
+                        position: 'absolute',
+                        left: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: 'rgba(15, 23, 42, 0.58)',
+                        color: '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        zIndex: 4,
+                      }}
+                    >
+                      <HiChevronLeft size={22} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePhoto((prev) => (prev + 1) % photos.length)}
+                      aria-label="Next photo"
+                      style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: 'rgba(15, 23, 42, 0.58)',
+                        color: '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        zIndex: 4,
+                      }}
+                    >
+                      <HiChevronRight size={22} />
+                    </button>
+                  </>
+                )}
+              </>
             ) : (
               <div
                 style={{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   HiLocationMarker,
@@ -14,6 +14,9 @@ import {
   HiX,
   HiSearch,
   HiChevronLeft,
+  HiChevronRight,
+  HiVideoCamera,
+  HiPlay,
 } from 'react-icons/hi';
 import {
   FaWhatsapp,
@@ -26,7 +29,7 @@ import {
   FaRegHeart,
 } from 'react-icons/fa';
 import ZeashellNavbar from './ZeashellNavbar';
-import { EMPTY_MERCHANT_IMAGE } from '../../api/merchantApi';
+import { EMPTY_MERCHANT_IMAGE, extractMerchantMedia } from '../../api/merchantApi';
 
 export default function ZeashellShopModal({
   merchant,
@@ -44,6 +47,7 @@ export default function ZeashellShopModal({
   onSelectCategory,
   customerUser = null,
   onOpenCustomerLogin,
+  onOpenMerchantLogin,
   onCustomerLogout,
   onOpenOnboardModal,
   favoritesCount = 0,
@@ -52,6 +56,12 @@ export default function ZeashellShopModal({
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const touchStartX = useRef(null);
+  const promoVideoSectionRef = useRef(null);
+
+  useEffect(() => {
+    setActivePhotoIdx(0);
+  }, [merchant?.id]);
 
   // Lock background scroll when fullscreen modal is open
   useEffect(() => {
@@ -111,39 +121,30 @@ export default function ZeashellShopModal({
   const lng = merchant.longitude ? Number(merchant.longitude) : 76.2846;
   const coordString = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-  // Helper to upgrade low-resolution Unsplash and thumbnail URLs to high-definition 1600px crystal-clear quality
-  const getHighResPhoto = (url) => {
-    if (!url || typeof url !== 'string') return '';
-    let res = url.trim();
-    if (res.includes('images.unsplash.com')) {
-      res = res.replace(/w=\d+/, 'w=1600').replace(/q=\d+/, 'q=90');
-      if (!res.includes('w=1600')) {
-        res += (res.includes('?') ? '&' : '?') + 'w=1600&q=90&auto=format&fit=crop';
+  // Extract all up-to-4+ real photos and promo video via shared helper
+  const media = extractMerchantMedia(merchant);
+  const realPhotos = media.photos;
+  const photos = realPhotos.length > 0 ? realPhotos : [EMPTY_MERCHANT_IMAGE];
+  const hasRealPhotos = realPhotos.length > 0;
+  const currentCoverPhoto = photos[activePhotoIdx] || photos[0];
+  const promoVideoUrl = media.videoUrl;
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches?.[0]?.clientX ?? null;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null || realPhotos.length <= 1) return;
+    const endX = e.changedTouches?.[0]?.clientX ?? touchStartX.current;
+    const diff = touchStartX.current - endX;
+    if (Math.abs(diff) > 35) {
+      if (diff > 0) {
+        setActivePhotoIdx((prev) => (prev + 1) % realPhotos.length);
+      } else {
+        setActivePhotoIdx((prev) => (prev - 1 + realPhotos.length) % realPhotos.length);
       }
     }
-    return res;
+    touchStartX.current = null;
   };
-
-  // Gallery Photos (clean out any fallback bag image)
-  const isBag = (url) =>
-    typeof url === 'string' &&
-    (url.includes('1553062407-98eeb64c6a62') || url.includes('f183f22512ae4d35990bbef9cbb018fe'));
-
-  const candidateList = [
-    ...(Array.isArray(merchant.merchant_photos) ? merchant.merchant_photos : []),
-    ...(Array.isArray(merchant.photos) ? merchant.photos : []),
-    merchant.photo_1,
-    merchant.photo_2,
-    merchant.photo_3,
-    merchant.photo_4,
-    merchant.image,
-  ].filter((p) => p && typeof p === 'string' && !isBag(p));
-
-  const photos =
-    candidateList.length > 0
-      ? candidateList.map(getHighResPhoto)
-      : [EMPTY_MERCHANT_IMAGE];
-  const currentCoverPhoto = photos[activePhotoIdx] || photos[0];
 
   // Actions
   const handleDirections = () => {
@@ -277,6 +278,7 @@ export default function ZeashellShopModal({
         }}
         customerUser={customerUser}
         onOpenCustomerLogin={onOpenCustomerLogin}
+        onOpenMerchantLogin={onOpenMerchantLogin}
         onCustomerLogout={onCustomerLogout}
         onOpenWishlistPage={onOpenWishlistPage || handleCloseShop}
       />
@@ -338,9 +340,13 @@ export default function ZeashellShopModal({
         </div>
       </div>
 
-      {/* 3. CRYSTAL-CLEAR ULTRA-SHARP HERO COVER PHOTO (NO BLUR) */}
+      {/* 3. SWIPEABLE ULTRA-SHARP HERO COVER GALLERY (MOBILE APP PARITY) */}
       <div className="zeas-fs-hero-wrapper">
-        <div className="zeas-fs-hero-stage">
+        <div
+          className="zeas-fs-hero-stage"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <img
             src={currentCoverPhoto}
             alt={shopName}
@@ -354,17 +360,139 @@ export default function ZeashellShopModal({
               e.target.src = EMPTY_MERCHANT_IMAGE;
             }}
           />
+
+          {/* Left / Right Swipe Arrows when Multiple Photos */}
+          {hasRealPhotos && realPhotos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActivePhotoIdx((prev) => (prev - 1 + realPhotos.length) % realPhotos.length)}
+                aria-label="Previous store photo"
+                style={{
+                  position: 'absolute',
+                  left: 16,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 5,
+                }}
+              >
+                <HiChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePhotoIdx((prev) => (prev + 1) % realPhotos.length)}
+                aria-label="Next store photo"
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 5,
+                }}
+              >
+                <HiChevronRight size={24} />
+              </button>
+
+              {/* Concept 1 White Pagination Dots Centered at Bottom */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 18,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 12px',
+                  borderRadius: 9999,
+                  background: 'rgba(15, 23, 42, 0.5)',
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 5,
+                }}
+              >
+                {realPhotos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActivePhotoIdx(idx)}
+                    aria-label={`View photo ${idx + 1}`}
+                    style={{
+                      width: activePhotoIdx === idx ? 20 : 8,
+                      height: 8,
+                      borderRadius: 4,
+                      border: 'none',
+                      padding: 0,
+                      background: activePhotoIdx === idx ? '#FFFFFF' : 'rgba(255,255,255,0.48)',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s ease',
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="zeas-fs-photo-badge">
-            {photos[0] === EMPTY_MERCHANT_IMAGE
+            {!hasRealPhotos
               ? '🏬 Storefront'
-              : `📷 ${activePhotoIdx + 1}/${photos.length} Photos`}
+              : `📷 ${activePhotoIdx + 1}/${realPhotos.length} Photos`}
           </div>
+
+          {promoVideoUrl && (
+            <button
+              type="button"
+              onClick={() => promoVideoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              style={{
+                position: 'absolute',
+                top: 16,
+                left: 16,
+                background: 'rgba(37, 99, 235, 0.92)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255,255,255,0.4)',
+                borderRadius: 9999,
+                padding: '7px 14px',
+                fontSize: 12.5,
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                zIndex: 5,
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
+              }}
+            >
+              <HiPlay size={16} />
+              <span>Watch Promo Video</span>
+            </button>
+          )}
         </div>
 
         {/* Thumbnail Selector Strip if Multiple Real Photos */}
-        {photos.length > 1 && photos[0] !== EMPTY_MERCHANT_IMAGE && (
+        {hasRealPhotos && realPhotos.length > 1 && (
           <div className="zeas-fs-thumb-strip">
-            {photos.map((p, idx) => (
+            {realPhotos.map((p, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -699,6 +827,44 @@ export default function ZeashellShopModal({
             </div>
           </div>
         </div>
+
+        {/* 6. STORE TOUR / PROMO VIDEO (WHEN ADDED BY MERCHANT) */}
+        {promoVideoUrl && (
+          <div
+            ref={promoVideoSectionRef}
+            className="zeas-fs-card"
+            style={{ marginTop: 20 }}
+          >
+            <div className="zeas-fs-card-head">
+              <h2 className="zeas-fs-card-title">
+                <HiVideoCamera className="zeas-fs-card-icon" />
+                Store Tour &amp; Promo Video
+              </h2>
+            </div>
+            <div
+              style={{
+                background: '#0F172A',
+                borderRadius: 16,
+                overflow: 'hidden',
+                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)',
+              }}
+            >
+              <video
+                controls
+                playsInline
+                preload="metadata"
+                key={promoVideoUrl}
+                src={promoVideoUrl}
+                style={{
+                  width: '100%',
+                  maxHeight: 440,
+                  display: 'block',
+                  objectFit: 'contain',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </main>
 
       {/* 6. FLOATING STICKY BOTTOM ACTION BAR */}

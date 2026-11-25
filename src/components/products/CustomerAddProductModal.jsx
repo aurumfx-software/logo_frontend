@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { HiX, HiPhotograph, HiPlus, HiCheckCircle, HiLockClosed, HiCreditCard } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createCustomerProduct } from '../../api/productApi';
-import { apiFetch } from '../../api/apiClient';
+import { isCustomerAuthenticated, fetchCustomerProfile } from '../../api/customerApi';
+import {
+  fetchAdminSubscriptionPackages,
+  hasActiveSellerSubscription,
+  startCustomerRazorpaySubscription,
+} from '../../api/subscriptionApi';
 
 const PRODUCT_CATEGORIES = [
   'Fashion & Traditional Wear',
@@ -18,7 +23,7 @@ const PRODUCT_CATEGORIES = [
 export default function CustomerAddProductModal({ customerUser, isOpen, onClose, onProductCreated }) {
   if (!isOpen) return null;
 
-  const canSell = Boolean(customerUser?.can_sell_products || customerUser?.is_subscriber);
+  const canSell = isCustomerAuthenticated() && hasActiveSellerSubscription(customerUser);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,8 +33,8 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
     original_price: '',
     sizes: 'Free Size',
     image_url: '',
-    district: customerUser?.district || 'Kannur',
-    city: customerUser?.city || 'Payyanur',
+    district: customerUser?.district || '',
+    city: customerUser?.city || '',
     seller_name: customerUser?.name && !customerUser.name.startsWith('Customer (') ? customerUser.name : '',
     seller_phone: customerUser?.phone ? customerUser.phone.replace(/[^0-9]/g, '').slice(-10) : '',
     seller_whatsapp: customerUser?.phone ? customerUser.phone.replace(/[^0-9]/g, '').slice(-10) : '',
@@ -44,6 +49,11 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+
+    if (!isCustomerAuthenticated() || !canSell) {
+      setErrorMsg('Only customers with an active ₹500 Seller Plan subscription can create products.');
+      return;
+    }
 
     if (!formData.name.trim()) {
       setErrorMsg('Please enter a product title');
@@ -111,72 +121,22 @@ export default function CustomerAddProductModal({ customerUser, isOpen, onClose,
     setIsSubscribing(true);
     setErrorMsg('');
     try {
-      if (!customerUser) {
+      if (!isCustomerAuthenticated() || !customerUser) {
         alert('Please sign in first to subscribe to the ₹500 Seller Plan.');
         return;
       }
-      if (!window.Razorpay) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load Razorpay payment SDK'));
-          document.body.appendChild(script);
-        });
-      }
+      const pkgs = await fetchAdminSubscriptionPackages({ audience: 'USER', include_inactive: false });
+      const userPkg =
+        (Array.isArray(pkgs) ? pkgs : []).find((p) => Number(p.amount) === 500) ||
+        (Array.isArray(pkgs) ? pkgs[0] : null) || {
+          code: 'USER_SELLER_500',
+          name: '₹500 Seller Plan',
+          amount: 500,
+        };
 
-      const res = await apiFetch('/api/v1/wallet/topup/razorpay/order', {
-        method: 'POST',
-        body: JSON.stringify({ amount: 500 }),
-      });
-      const orderData = await res.json();
-      if (!res.ok) throw new Error(orderData.detail || orderData.message || 'Failed to initialize payment');
-
-      const options = {
-        key: orderData.razorpay_key_id,
-        amount: orderData.amount_paise,
-        currency: orderData.currency || 'INR',
-        name: 'Logo Kerala Marketplace',
-        description: '₹500 Seller Subscription Plan',
-        order_id: orderData.razorpay_order_id,
-        handler: async function (response) {
-          try {
-            await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
-              method: 'POST',
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-
-            await apiFetch('/api/v1/subscriptions/subscribe', {
-              method: 'POST',
-              body: JSON.stringify({
-                package_code: 'USER_SELLER_500',
-                payment_reference: response.razorpay_payment_id,
-              }),
-            });
-
-            alert('🎉 ₹500 Seller Plan activated successfully! You can now publish your products.');
-            window.location.reload();
-          } catch (err) {
-            alert('Payment received! Activating plan... ' + (err.message || ''));
-            window.location.reload();
-          }
-        },
-        prefill: {
-          name: customerUser.name || '',
-          contact: customerUser.phone ? customerUser.phone.replace(/[^0-9]/g, '').slice(-10) : '',
-          email: customerUser.email || '',
-        },
-        theme: {
-          color: '#1769D2',
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      await startCustomerRazorpaySubscription({ packageObj: userPkg, customerUser });
+      await fetchCustomerProfile().catch(() => null);
+      alert('🎉 ₹500 Seller Plan activated successfully! You can now create products.');
     } catch (err) {
       alert(err.message || 'Razorpay checkout failed. You can also subscribe via WhatsApp below.');
     } finally {

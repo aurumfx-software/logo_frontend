@@ -1,4 +1,20 @@
 import { apiFetch } from './apiClient';
+import {
+  isCustomerAuthenticated,
+  getCustomerHeaders,
+  getStoredCustomerUser,
+  getCustomerToken,
+} from './customerApi';
+
+function _getCustomerDeliveryAddressKey() {
+  const user = getStoredCustomerUser();
+  const uid = user?.id || user?.user_id || user?.phone || user?.email;
+  return uid ? `@logo_delivery_address_${uid}` : null;
+}
+
+function _getOptionalCustomerHeaders() {
+  return getCustomerToken() ? getCustomerHeaders() : { 'Content-Type': 'application/json' };
+}
 
 /**
  * Format media URL to ensure proper full URL with fallback
@@ -236,8 +252,12 @@ export async function fetchProductReviews(productId) {
  * Public / Buyer: Place single product order
  */
 export async function placeProductOrder(orderData) {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in first to purchase products.');
+  }
   const res = await apiFetch('/api/v1/products/order', {
     method: 'POST',
+    headers: getCustomerHeaders(),
     body: JSON.stringify(orderData),
   });
   const data = await res.json();
@@ -369,37 +389,50 @@ export async function clearMarketCart() {
 const DELIVERY_ADDRESS_KEY = '@logo_delivery_address';
 
 export async function getSavedDeliveryAddress() {
+  if (!isCustomerAuthenticated()) {
+    return null;
+  }
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const raw = window.localStorage.getItem(DELIVERY_ADDRESS_KEY);
-      if (raw) return JSON.parse(raw);
+    const key = _getCustomerDeliveryAddressKey();
+    if (key && typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.address && parsed.phone) return parsed;
+      }
     }
-    // Fallback: check server addresses if signed in
+    // Check server addresses explicitly saved for this authenticated customer
     const serverAddrs = await getMarketplaceAddresses().catch(() => []);
     if (Array.isArray(serverAddrs) && serverAddrs.length > 0) {
       const def = serverAddrs.find((a) => a.is_default) || serverAddrs[0];
-      return {
-        name: def.full_name || def.name,
-        phone: def.phone,
-        address: def.address_line1 || def.address,
-        landmark: def.landmark || def.address_line2 || '',
-        city: def.city,
-        district: def.district || 'Kannur',
-        pincode: def.pincode,
-      };
+      if (def && (def.address_line1 || def.address || def.address_line)) {
+        return {
+          name: def.full_name || def.recipient_name || def.name || '',
+          phone: def.phone || '',
+          address: def.address_line1 || def.address_line || def.address || '',
+          landmark: def.landmark || def.address_line2 || '',
+          city: def.city || '',
+          district: def.district || '',
+          pincode: def.pincode || '',
+        };
+      }
     }
   } catch (_) {}
   return null;
 }
 
 export async function saveDeliveryAddress(addressData) {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in first to save a delivery address.');
+  }
   try {
+    const key = _getCustomerDeliveryAddressKey();
     const str = JSON.stringify(addressData);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(DELIVERY_ADDRESS_KEY, str);
+    if (key && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, str);
       window.dispatchEvent(new CustomEvent('logo-delivery-address-changed', { detail: addressData }));
     }
-    // Also attempt server sync if logged in
+    // Also attempt server sync for this logged-in customer
     createMarketplaceAddress({
       full_name: addressData.name,
       phone: addressData.phone,
@@ -421,12 +454,16 @@ export async function saveDeliveryAddress(addressData) {
 const BUYER_ORDERS_KEY = '@logo_buyer_orders';
 
 export async function getMarketplaceOrderHistory({ status, limit = 50, offset = 0 } = {}) {
+  if (!isCustomerAuthenticated()) return [];
   const query = new URLSearchParams();
   if (status) query.set('status', status);
   if (limit) query.set('limit', String(limit));
   if (offset) query.set('offset', String(offset));
   const qs = query.toString() ? `?${query.toString()}` : '';
-  const res = await apiFetch(`/api/v1/marketplace/orders/history${qs}`, { method: 'GET' });
+  const res = await apiFetch(`/api/v1/marketplace/orders/history${qs}`, {
+    method: 'GET',
+    headers: getCustomerHeaders(),
+  });
   if (res.ok) {
     const json = await res.json();
     if (Array.isArray(json?.orders)) return json.orders;
@@ -436,13 +473,19 @@ export async function getMarketplaceOrderHistory({ status, limit = 50, offset = 
 }
 
 export async function getMarketplaceOrderTracking(orderId) {
-  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/tracking`, { method: 'GET' });
+  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/tracking`, {
+    method: 'GET',
+    headers: _getOptionalCustomerHeaders(),
+  });
   if (res.ok) return await res.json();
   throw new Error('Failed to load live tracking details');
 }
 
 export async function getMarketplaceOrderDetail(orderId) {
-  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}`, { method: 'GET' });
+  const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}`, {
+    method: 'GET',
+    headers: _getOptionalCustomerHeaders(),
+  });
   if (res.ok) return await res.json();
   throw new Error('Failed to load order details');
 }
@@ -450,6 +493,7 @@ export async function getMarketplaceOrderDetail(orderId) {
 export async function cancelMarketplaceOrder(orderId, reason = 'Buyer cancelled order') {
   const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/cancel`, {
     method: 'POST',
+    headers: _getOptionalCustomerHeaders(),
     body: JSON.stringify({ reason }),
   });
   if (res.ok) return await res.json();
@@ -458,8 +502,12 @@ export async function cancelMarketplaceOrder(orderId, reason = 'Buyer cancelled 
 }
 
 export async function submitOrderReview(orderId, { rating, title = '', comment = '' }) {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to submit a review.');
+  }
   const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/review`, {
     method: 'POST',
+    headers: getCustomerHeaders(),
     body: JSON.stringify({
       rating: Number(rating),
       title: title || undefined,
@@ -472,6 +520,9 @@ export async function submitOrderReview(orderId, { rating, title = '', comment =
 }
 
 export async function getBuyerOrders() {
+  if (!isCustomerAuthenticated()) {
+    return [];
+  }
   let serverOrders = [];
   try {
     const list = await getMarketplaceOrderHistory({ limit: 50 });
@@ -651,26 +702,38 @@ export async function getBuyerOrderById(id) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export async function getMarketplaceWishlist() {
+  if (!isCustomerAuthenticated()) return { items: [], total: 0 };
   try {
-    const res = await apiFetch('/api/v1/marketplace/wishlist', { method: 'GET' });
+    const res = await apiFetch('/api/v1/marketplace/wishlist', {
+      method: 'GET',
+      headers: getCustomerHeaders(),
+    });
     if (res.ok) return await res.json();
   } catch (_) {}
   return { items: [], total: 0 };
 }
 
 export async function addToMarketplaceWishlist(productId) {
-  try {
-    const res = await apiFetch(`/api/v1/marketplace/wishlist/${productId}`, { method: 'POST' });
-    if (res.ok) return await res.json();
-  } catch (_) {}
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to save items to your wishlist.');
+  }
+  const res = await apiFetch(`/api/v1/marketplace/wishlist/${productId}`, {
+    method: 'POST',
+    headers: getCustomerHeaders(),
+  });
+  if (res.ok) return await res.json();
   return { success: true };
 }
 
 export async function removeFromMarketplaceWishlist(productId) {
-  try {
-    const res = await apiFetch(`/api/v1/marketplace/wishlist/${productId}`, { method: 'DELETE' });
-    if (res.ok) return await res.json();
-  } catch (_) {}
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to manage your wishlist.');
+  }
+  const res = await apiFetch(`/api/v1/marketplace/wishlist/${productId}`, {
+    method: 'DELETE',
+    headers: getCustomerHeaders(),
+  });
+  if (res.ok) return await res.json();
   return { success: true };
 }
 
@@ -679,7 +742,11 @@ export async function removeFromMarketplaceWishlist(productId) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export async function getMarketplaceAddresses() {
-  const res = await apiFetch('/api/v1/marketplace/addresses', { method: 'GET' });
+  if (!isCustomerAuthenticated()) return [];
+  const res = await apiFetch('/api/v1/marketplace/addresses', {
+    method: 'GET',
+    headers: getCustomerHeaders(),
+  });
   if (res.ok) {
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -688,8 +755,10 @@ export async function getMarketplaceAddresses() {
 }
 
 export async function createMarketplaceAddress(addressData) {
+  if (!isCustomerAuthenticated()) return null;
   const res = await apiFetch('/api/v1/marketplace/addresses', {
     method: 'POST',
+    headers: getCustomerHeaders(),
     body: JSON.stringify(addressData),
   });
   if (res.ok) return await res.json();
@@ -697,8 +766,10 @@ export async function createMarketplaceAddress(addressData) {
 }
 
 export async function updateMarketplaceAddress(addressId, addressData) {
+  if (!isCustomerAuthenticated()) return null;
   const res = await apiFetch(`/api/v1/marketplace/addresses/${addressId}`, {
     method: 'PATCH',
+    headers: getCustomerHeaders(),
     body: JSON.stringify(addressData),
   });
   if (res.ok) return await res.json();
@@ -706,8 +777,10 @@ export async function updateMarketplaceAddress(addressId, addressData) {
 }
 
 export async function deleteMarketplaceAddress(addressId) {
+  if (!isCustomerAuthenticated()) return false;
   const res = await apiFetch(`/api/v1/marketplace/addresses/${addressId}`, {
     method: 'DELETE',
+    headers: getCustomerHeaders(),
   });
   return res.ok;
 }
@@ -794,24 +867,54 @@ export async function createAdminProduct(productData) {
 }
 
 export async function createCustomerProduct(productData) {
-  return await createAdminProduct(productData);
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in first to create products.');
+  }
+  const res = await apiFetch('/api/v1/customer/products', {
+    method: 'POST',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify(productData),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    let msg = 'Failed to publish product';
+    if (Array.isArray(data.detail)) {
+      msg = data.detail.map((e) => (typeof e === 'object' ? `${e.loc?.slice(-1)[0] || 'Field'}: ${e.msg}` : String(e))).join(', ');
+    } else if (typeof data.detail === 'string') {
+      msg = data.detail;
+    } else if (data.message) {
+      msg = data.message;
+    }
+    throw new Error(msg);
+  }
+  return data;
 }
 
 export async function fetchMyProducts() {
-  const res = await apiFetch('/api/v1/customer/products/my-products', { method: 'GET' });
+  if (!isCustomerAuthenticated()) return [];
+  const res = await apiFetch('/api/v1/customer/products/my-products', {
+    method: 'GET',
+    headers: getCustomerHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to fetch your products');
   return await res.json();
 }
 
 export async function fetchMyOrders() {
-  const res = await apiFetch('/api/v1/customer/products/my-orders', { method: 'GET' });
+  if (!isCustomerAuthenticated()) return [];
+  const res = await apiFetch('/api/v1/customer/products/my-orders', {
+    method: 'GET',
+    headers: getCustomerHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to fetch received orders');
   return await res.json();
 }
 
 export async function updateCustomerProduct(id, productData) {
+  if (!isCustomerAuthenticated()) throw new Error('Please sign in to update products');
   const res = await apiFetch(`/api/v1/customer/products/${id}`, {
     method: 'PUT',
+    headers: getCustomerHeaders(),
     body: JSON.stringify(productData),
   });
   const data = await res.json();
@@ -820,7 +923,11 @@ export async function updateCustomerProduct(id, productData) {
 }
 
 export async function deleteCustomerProduct(id) {
-  const res = await apiFetch(`/api/v1/customer/products/${id}`, { method: 'DELETE' });
+  if (!isCustomerAuthenticated()) throw new Error('Please sign in to delete products');
+  const res = await apiFetch(`/api/v1/customer/products/${id}`, {
+    method: 'DELETE',
+    headers: getCustomerHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to delete product');
   return await res.json();
 }
@@ -871,8 +978,12 @@ export function loadRazorpayWebScript() {
  * Call backend to start order payment session and generate Razorpay order ID
  */
 export async function startOrderPayment(orderId, method = 'RAZORPAY') {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to proceed with payment.');
+  }
   const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/pay`, {
     method: 'POST',
+    headers: getCustomerHeaders(),
     body: JSON.stringify({ method }),
   });
   const data = await res.json();
@@ -894,8 +1005,12 @@ export async function startOrderPayment(orderId, method = 'RAZORPAY') {
  * Call backend to verify payment signature and mark order paid
  */
 export async function verifyOrderPayment(orderId, { razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to verify payment.');
+  }
   const res = await apiFetch(`/api/v1/marketplace/orders/${orderId}/pay/verify`, {
     method: 'POST',
+    headers: getCustomerHeaders(),
     body: JSON.stringify({
       razorpay_order_id,
       razorpay_payment_id,
@@ -930,19 +1045,14 @@ export async function startProductOrderRazorpayCheckout({
   onError,
   onDismiss,
 }) {
+  if (!isCustomerAuthenticated()) {
+    const authErr = new Error('Please sign in to complete online payment.');
+    if (onError) onError(authErr);
+    throw authErr;
+  }
   try {
     // 1. Call backend to start payment session and generate Razorpay order
-    let paySession = null;
-    try {
-      paySession = await startOrderPayment(orderId, 'RAZORPAY');
-    } catch (payErr) {
-      console.warn('Backend startOrderPayment notice:', payErr);
-      // If error indicates unauthenticated user, propagate so UI can prompt sign-in
-      const pMsg = String(payErr?.message || '');
-      if (pMsg.toLowerCase().includes('authenticated') || pMsg.toLowerCase().includes('log in') || pMsg.toLowerCase().includes('unauthorized')) {
-        throw new Error('Please sign in to complete online payment.');
-      }
-    }
+    const paySession = await startOrderPayment(orderId, 'RAZORPAY');
 
     const keyId = paySession?.razorpay_key_id || DEFAULT_RAZORPAY_KEY;
     const razorpayOrderId = paySession?.razorpay_order_id;

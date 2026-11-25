@@ -1,4 +1,18 @@
 import { apiFetch } from './apiClient';
+import { getCustomerHeaders, getCustomerToken, fetchCustomerProfile } from './customerApi';
+import { getMerchantToken } from './merchantApi';
+
+function _getSubscriberHeaders(audience = 'USER') {
+  const mToken = getMerchantToken();
+  const cToken = getCustomerToken();
+  if (audience === 'MERCHANT' && mToken) {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${mToken}` };
+  }
+  if (cToken) {
+    return getCustomerHeaders();
+  }
+  return { 'Content-Type': 'application/json' };
+}
 
 /**
  * Fetch all subscription packages (Optionally filter by USER or MERCHANT, or activeOnly)
@@ -79,4 +93,213 @@ export async function assignAdminSubscription(payload) {
     throw new Error(data.detail || data.message || 'Failed to assign subscription');
   }
   return data.data || data;
+}
+
+/**
+ * Customer/Merchant: Fetch current user's active subscriptions
+ */
+export async function fetchMyActiveSubscriptions() {
+  const headers = _getSubscriberHeaders('USER');
+  if (!headers.Authorization && !getCustomerToken() && !getMerchantToken()) {
+    return null;
+  }
+  const response = await apiFetch('/api/v1/subscriptions/me/active', {
+    method: 'GET',
+    headers,
+  });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  return data?.data || data;
+}
+
+/**
+ * Customer/Merchant: Subscribe to package
+ */
+export async function subscribeToPackage({
+  package_id,
+  merchant_profile_id = null,
+  payment_reference = null,
+  audience = 'USER',
+}) {
+  const body = { package_id: Number(package_id) };
+  if (merchant_profile_id) body.merchant_profile_id = Number(merchant_profile_id);
+  if (payment_reference) body.payment_reference = String(payment_reference);
+
+  const response = await apiFetch('/api/v1/subscriptions/subscribe', {
+    method: 'POST',
+    headers: _getSubscriberHeaders(audience),
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      typeof data.detail === 'string'
+        ? data.detail
+        : data.message || 'Failed to activate subscription'
+    );
+  }
+  await fetchCustomerProfile().catch(() => null);
+  return data?.data || data;
+}
+
+/**
+ * Customer/Merchant: Cancel an active subscription
+ */
+export async function cancelMySubscription(subscriptionId, audience = 'USER') {
+  const response = await apiFetch(`/api/v1/subscriptions/${subscriptionId}/cancel`, {
+    method: 'POST',
+    headers: _getSubscriberHeaders(audience),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to cancel subscription');
+  }
+  await fetchCustomerProfile().catch(() => null);
+  return data?.data || data;
+}
+
+/**
+ * Check if customer has unlocked ₹500 Seller Plan to create products
+ */
+export function hasActiveSellerSubscription(customerUser, activeSubData = null) {
+  if (!customerUser) return false;
+  if (
+    Boolean(customerUser.can_sell_products) ||
+    Boolean(customerUser.is_subscriber) ||
+    customerUser.subscription_plan === '500_SELLER'
+  ) {
+    return true;
+  }
+  const userSubs = activeSubData?.user_subscriptions || activeSubData?.subscriptions || [];
+  if (Array.isArray(userSubs) && userSubs.length > 0) {
+    return userSubs.some((s) => {
+      const st = String(s.status || 'ACTIVE').toUpperCase();
+      return st === 'ACTIVE' || st === 'PAID';
+    });
+  }
+  return false;
+}
+
+/**
+ * Launch Razorpay checkout for ₹500 Seller Subscription (exact match to mobile razorpayService.js)
+ */
+export async function startCustomerRazorpaySubscription({
+  packageItem,
+  customerUser,
+  audience = 'USER',
+  merchantProfileId = null,
+  onSuccess,
+  onError,
+  onDismiss,
+}) {
+  if (!customerUser) {
+    throw new Error('Please sign in first to purchase a subscription plan.');
+  }
+  const pkgPrice = Number(packageItem?.price || 500);
+  const headers = _getSubscriberHeaders(audience);
+
+  if (pkgPrice <= 0) {
+    const subRes = await subscribeToPackage({
+      package_id: packageItem.id,
+      merchant_profile_id: merchantProfileId,
+      audience,
+    });
+    if (onSuccess) await onSuccess(subRes);
+    return subRes;
+  }
+
+  if (!window.Razorpay) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Failed to load Razorpay checkout SDK'));
+      document.body.appendChild(script);
+    });
+  }
+
+  const orderRes = await apiFetch('/api/v1/wallet/topup/razorpay/order', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ amount: pkgPrice }),
+  });
+  const orderData = await orderRes.json().catch(() => ({}));
+  if (!orderRes.ok) {
+    throw new Error(
+      typeof orderData.detail === 'string'
+        ? orderData.detail
+        : orderData.message || 'Failed to initialize Razorpay subscription order'
+    );
+  }
+
+  // Dev simulated mode
+  if (orderData.razorpay_order_id && orderData.razorpay_order_id.startsWith('order_dev_')) {
+    await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        razorpay_order_id: orderData.razorpay_order_id,
+        razorpay_payment_id: `pay_dev_sub_${Date.now()}`,
+        razorpay_signature: 'dev_signature_ok',
+      }),
+    }).catch(() => null);
+
+    const subRes = await subscribeToPackage({
+      package_id: packageItem.id,
+      merchant_profile_id: merchantProfileId,
+      payment_reference: `pay_dev_sub_${Date.now()}`,
+      audience,
+    });
+    if (onSuccess) await onSuccess(subRes);
+    return subRes;
+  }
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      key: orderData.razorpay_key_id,
+      amount: orderData.amount_paise || Math.round(pkgPrice * 100),
+      currency: orderData.currency || 'INR',
+      name: 'Logo Kerala Marketplace',
+      description: `${packageItem?.name || 'Seller Plan'} (₹${pkgPrice})`,
+      order_id: orderData.razorpay_order_id,
+      prefill: {
+        name: customerUser?.name || '',
+        email: customerUser?.email || '',
+        contact: customerUser?.phone || customerUser?.phone_number || '',
+      },
+      theme: { color: '#2563eb' },
+      handler: async (response) => {
+        try {
+          await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const subRes = await subscribeToPackage({
+            package_id: packageItem.id,
+            merchant_profile_id: merchantProfileId,
+            payment_reference: response.razorpay_payment_id || response.razorpay_order_id,
+            audience,
+          });
+          if (onSuccess) await onSuccess(subRes);
+          resolve(subRes);
+        } catch (err) {
+          if (onError) onError(err);
+          reject(err);
+        }
+      },
+      modal: {
+        ondismiss: () => {
+          if (onDismiss) onDismiss();
+          resolve({ cancelled: true });
+        },
+      },
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  });
 }
