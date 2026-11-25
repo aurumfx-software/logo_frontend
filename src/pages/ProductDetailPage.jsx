@@ -29,6 +29,7 @@ import {
   getMarketplaceWishlist,
   addToMarketplaceWishlist,
   removeFromMarketplaceWishlist,
+  isOwnProduct,
 } from '../api/productApi';
 import { isCustomerAuthenticated, getStoredCustomerUser } from '../api/customerApi';
 import ProductCard from '../components/market/ProductCard';
@@ -196,6 +197,14 @@ export default function ProductDetailPage() {
       openCustomerAuth('Please sign in to add products to your cart and purchase.');
       return;
     }
+    if (isOwnProduct(product, customerUser)) {
+      showToast('Sellers cannot purchase their own listed product.');
+      return;
+    }
+    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (product.stockQuantity !== null && Number(product.stockQuantity) <= 0)) {
+      showToast('This product is currently out of stock.');
+      return;
+    }
     const itemPrice = Number(product.price || 0);
     const minQty = itemPrice > 0 && itemPrice < 150 ? Math.ceil(150 / itemPrice) : 1;
     const finalQty = Math.max(quantity, minQty);
@@ -208,6 +217,14 @@ export default function ProductDetailPage() {
     if (!product) return;
     if (!isCustomerAuthenticated()) {
       openCustomerAuth('Sign in required: please sign in to purchase products.');
+      return;
+    }
+    if (isOwnProduct(product, customerUser)) {
+      showToast('Sellers cannot purchase their own listed product.');
+      return;
+    }
+    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (product.stockQuantity !== null && Number(product.stockQuantity) <= 0)) {
+      showToast('This product is currently out of stock.');
       return;
     }
     const itemPrice = Number(product.price || 0);
@@ -277,7 +294,11 @@ export default function ProductDetailPage() {
   const discount = Number(product.discountPercent || product.discount_percent || 0);
   const originalPrice = Number(product.originalPrice || product.original_price || 0);
   const price = Number(product.price || 0);
-  const isOutOfStock = !product.inStock || product.stockStatus === 'OUT_OF_STOCK';
+  const ownProduct = isOwnProduct(product, customerUser);
+  const isOutOfStock =
+    !product.inStock ||
+    product.stockStatus === 'OUT_OF_STOCK' ||
+    (product.stockQuantity !== null && product.stockQuantity !== undefined && Number(product.stockQuantity) <= 0);
   const isLowStock =
     !isOutOfStock &&
     product.stockQuantity !== null &&
@@ -398,10 +419,10 @@ export default function ProductDetailPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span className="mkt-detail-category-tag">{product.category}</span>
-                {product.district && (
+                {(product.district || product.city) && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '12px', color: '#64748b' }}>
                     <HiLocationMarker size={14} color="#64748b" />
-                    {product.district}, Kerala
+                    {[product.city, product.district, 'Kerala'].filter((v, i, arr) => v && arr.indexOf(v) === i).join(', ')}
                   </span>
                 )}
               </div>
@@ -454,7 +475,11 @@ export default function ProductDetailPage() {
             ) : (
               <div className="mkt-stock-alert is-in-stock">
                 <HiCheckCircle size={18} />
-                <span>In Stock & Ready for Immediate Dispatch</span>
+                <span>
+                  {product.stockQuantity !== null && product.stockQuantity !== undefined
+                    ? `In Stock • ${product.stockQuantity} units available`
+                    : 'In Stock & Ready for Immediate Dispatch'}
+                </span>
               </div>
             )}
 
@@ -494,7 +519,18 @@ export default function ProductDetailPage() {
                     <span className="mkt-qty-val">{quantity}</span>
                     <button
                       type="button"
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() =>
+                        setQuantity((q) =>
+                          product.stockQuantity !== null && product.stockQuantity !== undefined
+                            ? Math.min(Number(product.stockQuantity), q + 1)
+                            : q + 1
+                        )
+                      }
+                      disabled={
+                        product.stockQuantity !== null &&
+                        product.stockQuantity !== undefined &&
+                        quantity >= Number(product.stockQuantity)
+                      }
                       className="mkt-qty-btn"
                     >
                       <HiPlus size={14} />
@@ -511,25 +547,41 @@ export default function ProductDetailPage() {
             )}
 
             {/* Action Buttons (Desktop / Tablet) */}
-            <div className="mkt-detail-cta-row" style={{ display: 'flex' }}>
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={isOutOfStock}
-                className="mkt-btn-add-cart"
-              >
-                <HiShoppingBag size={18} />
-                <span>Add to Cart</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleBuyNow}
-                disabled={isOutOfStock}
-                className="mkt-btn-buy-now"
-              >
-                <span>Buy Now</span>
-              </button>
-            </div>
+            {ownProduct ? (
+              <div style={{ padding: '14px 16px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e' }}>This is Your Listed Product</div>
+                  <div style={{ fontSize: 12, color: '#b45309' }}>Sellers cannot purchase their own listing. Manage stock or edit details in My Products.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard?tab=my-products')}
+                  style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Manage in My Products →
+                </button>
+              </div>
+            ) : (
+              <div className="mkt-detail-cta-row" style={{ display: 'flex' }}>
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  className="mkt-btn-add-cart"
+                >
+                  <HiShoppingBag size={18} />
+                  <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  disabled={isOutOfStock}
+                  className="mkt-btn-buy-now"
+                >
+                  <span>{isOutOfStock ? 'Unavailable' : 'Buy Now'}</span>
+                </button>
+              </div>
+            )}
 
             {/* Delivery Estimator Card */}
             <div className="mkt-trust-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -786,25 +838,38 @@ export default function ProductDetailPage() {
         }}
         className="mobile-sticky-bar"
       >
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={isOutOfStock}
-          className="mkt-btn-add-cart"
-          style={{ flex: 1, padding: '11px 14px', fontSize: '13px' }}
-        >
-          <HiShoppingBag size={16} />
-          <span>Add to Cart</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleBuyNow}
-          disabled={isOutOfStock}
-          className="mkt-btn-buy-now"
-          style={{ flex: 1.2, padding: '11px 18px', fontSize: '13px' }}
-        >
-          <span>Buy Now</span>
-        </button>
+        {ownProduct ? (
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard?tab=my-products')}
+            className="mkt-btn-buy-now"
+            style={{ flex: 1, padding: '11px 18px', fontSize: '13px', background: '#0f172a' }}
+          >
+            <span>Manage Your Product in My Products →</span>
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={isOutOfStock}
+              className="mkt-btn-add-cart"
+              style={{ flex: 1, padding: '11px 14px', fontSize: '13px' }}
+            >
+              <HiShoppingBag size={16} />
+              <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleBuyNow}
+              disabled={isOutOfStock}
+              className="mkt-btn-buy-now"
+              style={{ flex: 1.2, padding: '11px 18px', fontSize: '13px' }}
+            >
+              <span>{isOutOfStock ? 'Unavailable' : 'Buy Now'}</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── Toast Notification ── */}

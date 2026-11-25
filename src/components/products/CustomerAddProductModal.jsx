@@ -14,7 +14,7 @@ import {
   HiChevronUp,
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createCustomerProduct } from '../../api/productApi';
+import { createCustomerProduct, updateCustomerProduct } from '../../api/productApi';
 import { isCustomerAuthenticated, fetchCustomerProfile } from '../../api/customerApi';
 import { uploadMerchantMedia } from '../../api/merchantApi';
 import { fetchCategoriesList } from '../../api/categoryApi';
@@ -63,8 +63,11 @@ export default function CustomerAddProductModal({
   isOpen,
   onClose,
   onProductCreated,
+  onProductUpdated,
+  initialProduct = null,
   embedded = false,
 }) {
+  const isEditing = Boolean(initialProduct?.id);
   const canSell = isCustomerAuthenticated() && hasActiveSellerSubscription(customerUser);
 
   const [name, setName] = useState('');
@@ -108,7 +111,54 @@ export default function CustomerAddProductModal({
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    if (customerUser) {
+    if (!isOpen) return;
+    if (initialProduct?.id) {
+      setName(initialProduct.name || '');
+      setCategory(initialProduct.category || 'Kerala Kasavu Sarees');
+      setSelectedSizes(
+        Array.isArray(initialProduct.sizes) && initialProduct.sizes.length > 0
+          ? initialProduct.sizes
+          : ['Free Size']
+      );
+      setPrice(initialProduct.price ? String(initialProduct.price) : '');
+      const mrpVal = initialProduct.original_price ?? initialProduct.originalPrice;
+      setOriginalPrice(mrpVal ? String(mrpVal) : '');
+      const stkVal = initialProduct.stock_quantity ?? initialProduct.stockQuantity;
+      setStockQuantity(stkVal !== undefined && stkVal !== null ? String(stkVal) : '10');
+      setUploadedPhotos(
+        Array.isArray(initialProduct.images) ? initialProduct.images.filter(Boolean) : []
+      );
+      setDescription(initialProduct.description || '');
+      const initHl =
+        Array.isArray(initialProduct.highlights) && initialProduct.highlights.length > 0
+          ? initialProduct.highlights.map((h) => ({ label: h.label || '', value: h.value || '' }))
+          : [{ label: '', value: '' }];
+      setHighlights(initHl);
+      const rawDet = initialProduct.additional_details ?? initialProduct.additionalDetails;
+      const initDet =
+        Array.isArray(rawDet) && rawDet.length > 0
+          ? rawDet.map((d) => ({ label: d.label || '', value: d.value || '' }))
+          : [{ label: '', value: '' }];
+      setAdditionalDetails(initDet);
+      if (initialProduct.district) setDistrict(initialProduct.district);
+      setCity(initialProduct.city || '');
+      if (initialProduct.seller_name || initialProduct.sellerName) {
+        setSellerName(initialProduct.seller_name || initialProduct.sellerName);
+      }
+      const pPhone = String(
+        initialProduct.seller_whatsapp ||
+          initialProduct.sellerWhatsapp ||
+          initialProduct.seller_phone ||
+          initialProduct.sellerPhone ||
+          customerUser?.phone ||
+          ''
+      )
+        .replace(/[^0-9]/g, '')
+        .slice(-10);
+      if (pPhone) setSellerPhone(pPhone);
+      setErrorMsg('');
+      setSuccessMsg('');
+    } else if (customerUser) {
       if (!sellerName && customerUser.name && !customerUser.name.startsWith('Customer (')) {
         setSellerName(customerUser.name);
       }
@@ -118,7 +168,7 @@ export default function CustomerAddProductModal({
       if (customerUser.district) setDistrict(customerUser.district);
       if (customerUser.city) setCity(customerUser.city);
     }
-  }, [customerUser]);
+  }, [initialProduct, isOpen, customerUser]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -317,12 +367,19 @@ export default function CustomerAddProductModal({
         seller_whatsapp: cleanPhone,
       };
 
-      const res = await createCustomerProduct(payload);
-      setSuccessMsg('Your product has been published to Logo Kerala Marketplace!');
-      if (onProductCreated) onProductCreated(res);
+      const res = isEditing
+        ? await updateCustomerProduct(initialProduct.id, payload)
+        : await createCustomerProduct(payload);
+      setSuccessMsg(
+        isEditing
+          ? 'Product details updated in Marketplace!'
+          : 'Your product has been published to Logo Kerala Marketplace!'
+      );
+      if (isEditing && onProductUpdated) onProductUpdated(res);
+      if (!isEditing && onProductCreated) onProductCreated(res);
       if (!embedded) {
-        setTimeout(() => onClose(), 1300);
-      } else {
+        setTimeout(() => onClose(), 900);
+      } else if (!isEditing) {
         setName('');
         setPrice('');
         setOriginalPrice('');
@@ -434,10 +491,12 @@ export default function CustomerAddProductModal({
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#0f172a' }}>
-              Sell Your Product
+              {isEditing ? 'Edit Product' : 'Sell Your Product'}
             </h2>
             <span style={{ fontSize: 12.5, color: '#64748b' }}>
-              Publish full-featured listings with Categories, Sizes, Photos, Highlights & Additional Details
+              {isEditing
+                ? 'Update pricing, photos, stock, sizes, highlights & additional details'
+                : 'Publish full-featured listings with Categories, Sizes, Photos, Highlights & Additional Details'}
             </span>
           </div>
         </div>
@@ -1084,7 +1143,13 @@ export default function CustomerAddProductModal({
                   boxShadow: '0 6px 18px rgba(22, 163, 74, 0.25)',
                 }}
               >
-                {isSubmitting ? 'Publishing Product...' : 'Publish Product to Marketplace →'}
+                {isSubmitting
+                  ? isEditing
+                    ? 'Saving Changes...'
+                    : 'Publishing Product...'
+                  : isEditing
+                  ? 'Save Product Changes →'
+                  : 'Publish Product to Marketplace →'}
               </button>
             </div>
           </form>

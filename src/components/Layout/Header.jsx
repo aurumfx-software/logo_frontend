@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  HiOutlineMenu,
   HiOutlineSearch,
   HiOutlineLogout,
   HiOutlineUser,
@@ -46,9 +45,6 @@ export default function Header({ title, onToggleSidebar }) {
   return (
     <header className="header">
       <div className="header-left">
-        <button className="header-toggle" onClick={onToggleSidebar} aria-label="Toggle sidebar">
-          <HiOutlineMenu />
-        </button>
         <h2 className="header-title">{title}</h2>
       </div>
 

@@ -22,6 +22,8 @@ import {
   clearMarketCart,
   fetchCheckoutRules,
   startProductOrderRazorpayCheckout,
+  startOrderPayment,
+  isOwnProduct,
 } from '../api/productApi';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
 import MobileAccountModal from '../components/MobileAccountModal';
@@ -161,10 +163,27 @@ export default function CheckoutPage() {
     setAccountModalOpen(true);
   };
 
+  const ownProduct = isOwnProduct(product, customerUser);
+  const isOutOfStock = Boolean(
+    product &&
+      (product.inStock === false ||
+        product.in_stock === false ||
+        String(product.stockStatus || product.stock_status || '').toUpperCase() === 'OUT_OF_STOCK' ||
+        (product.stockQuantity !== null && product.stockQuantity !== undefined && Number(product.stockQuantity) <= 0))
+  );
+
   const handleContinueToPayment = () => {
     if (!isCustomerAuthenticated()) {
       setErrorMsg('Please sign in with your Customer Account to purchase products.');
       openCustomerAuth('Please sign in to proceed to payment and place orders.');
+      return;
+    }
+    if (ownProduct) {
+      setErrorMsg('You cannot purchase your own listed product.');
+      return;
+    }
+    if (isOutOfStock) {
+      setErrorMsg('This product is currently out of stock.');
       return;
     }
     if (subtotal < minOrderValue) {
@@ -199,6 +218,14 @@ export default function CheckoutPage() {
       openCustomerAuth('Sign in is strictly required before Cash on Delivery or Online Payment can be used.');
       return;
     }
+    if (ownProduct) {
+      setErrorMsg('Sellers cannot purchase their own listed products.');
+      return;
+    }
+    if (isOutOfStock) {
+      setErrorMsg('This item is currently out of stock.');
+      return;
+    }
     if (subtotal < minOrderValue) {
       setErrorMsg(`Minimum order amount is ₹${minOrderValue}.`);
       return;
@@ -230,8 +257,8 @@ export default function CheckoutPage() {
         quantity: quantity,
         price: unitPrice,
         total_amount: finalPayable,
-        payment_method: paymentMethod === 'online' ? 'RAZORPAY' : 'CASH_ON_DELIVERY',
-        notes: `Ordered via Logo Web Marketplace (${paymentMethod === 'online' ? 'Razorpay Online' : 'Cash on Delivery +₹40'})`,
+        payment_method: paymentMethod === 'online' ? 'RAZORPAY' : 'COD',
+        notes: `Ordered via Logo Web Marketplace (${paymentMethod === 'online' ? 'Razorpay Online' : 'Cash on Delivery'})`,
       };
 
       const result = await placeProductOrder(orderPayload);
@@ -271,7 +298,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      // ── If COD: Confirm immediately ──
+      // ── If COD: Record COD method cleanly on backend & confirm ──
+      await startOrderPayment(result.id, 'COD').catch(() => null);
       await clearMarketCart();
       triggerOrderCelebration(result);
     } catch (err) {
@@ -512,7 +540,18 @@ export default function CheckoutPage() {
                           <span className="mkt-qty-val">{quantity}</span>
                           <button
                             type="button"
-                            onClick={() => setQuantity(quantity + 1)}
+                            onClick={() =>
+                              setQuantity((q) =>
+                                product.stockQuantity !== null && product.stockQuantity !== undefined
+                                  ? Math.min(Number(product.stockQuantity), q + 1)
+                                  : q + 1
+                              )
+                            }
+                            disabled={
+                              product.stockQuantity !== null &&
+                              product.stockQuantity !== undefined &&
+                              quantity >= Number(product.stockQuantity)
+                            }
                             className="mkt-qty-btn"
                           >
                             <HiPlus size={13} />
@@ -767,7 +806,15 @@ export default function CheckoutPage() {
 
               {/* Action Button */}
               <div style={{ marginTop: '20px' }}>
-                {!isCustomerAuthenticated() ? (
+                {ownProduct ? (
+                  <div style={{ padding: '14px', borderRadius: '10px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}>
+                    You cannot purchase your own listed product.
+                  </div>
+                ) : isOutOfStock ? (
+                  <div style={{ padding: '14px', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}>
+                    Currently Out of Stock
+                  </div>
+                ) : !isCustomerAuthenticated() ? (
                   <button
                     type="button"
                     onClick={() => openCustomerAuth('Please sign in before placing an order or choosing payment.')}

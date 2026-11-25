@@ -52,8 +52,8 @@ import {
   removeFromMarketplaceWishlist,
 } from '../api/productApi';
 import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
-
-const ORDER_STATUS_CHOICES = ['PLACED', 'CONFIRMED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+import MyProductsPanel from '../components/products/MyProductsPanel';
+import SellerOrdersPanel from '../components/products/SellerOrdersPanel';
 
 const KERALA_DISTRICTS = [
   'Thiruvananthapuram',
@@ -160,11 +160,6 @@ export default function FieldStaffDashboard() {
     description: '',
   });
   const [submittingComplaint, setSubmittingComplaint] = useState(false);
-
-  // Modals
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [dispatchModalOrder, setDispatchModalOrder] = useState(null);
-  const [dispatchForm, setDispatchForm] = useState({ courier_partner: '', tracking_number: '', tracking_url: '' });
 
   const isSellerSubscribed = hasActiveSellerSubscription(customerUser, activeSubData);
 
@@ -542,76 +537,6 @@ export default function FieldStaffDashboard() {
     }
   };
 
-  // Seller Product & Order Handlers
-  const handleToggleProductLive = async (prod) => {
-    try {
-      const res = await apiFetch(`/api/v1/customer/products/${prod.id}`, {
-        method: 'PUT',
-        headers: buildCustomerHeaders(),
-        body: JSON.stringify({ is_active: !prod.is_active }),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setMyProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, is_active: updated.is_active } : p)));
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Could not update product status');
-    }
-  };
-
-  const handleDeleteMyProduct = async (productId) => {
-    if (!window.confirm('Delete this product listing?')) return;
-    try {
-      const res = await apiFetch(`/api/v1/customer/products/${productId}`, {
-        method: 'DELETE',
-        headers: buildCustomerHeaders(),
-      });
-      if (res.ok) {
-        setMyProducts((prev) => prev.filter((p) => p.id !== productId));
-        setNoticeMsg('Product deleted.');
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to delete product');
-    }
-  };
-
-  const handleUpdateSellerOrderStatus = async (orderId, nextStatus) => {
-    try {
-      const res = await apiFetch(`/api/v1/customer/products/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: buildCustomerHeaders(),
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (res.ok) {
-        setSellerOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus, delivery_status: nextStatus } : o))
-        );
-        setNoticeMsg(`Order updated to ${nextStatus}`);
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to update order status');
-    }
-  };
-
-  const handleDispatchOrder = async (e) => {
-    e.preventDefault();
-    if (!dispatchModalOrder) return;
-    try {
-      const res = await apiFetch(`/api/v1/customer/products/orders/${dispatchModalOrder.id}/dispatch`, {
-        method: 'POST',
-        headers: buildCustomerHeaders(),
-        body: JSON.stringify(dispatchForm),
-      });
-      if (!res.ok) throw new Error('Dispatch failed');
-      setNoticeMsg(`Order #${dispatchModalOrder.order_code || dispatchModalOrder.id} marked as Shipped!`);
-      setDispatchModalOrder(null);
-      setDispatchForm({ courier_partner: '', tracking_number: '', tracking_url: '' });
-      await loadPanel('seller-orders');
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to dispatch order');
-    }
-  };
-
   const handleSubmitComplaint = async (e) => {
     e.preventDefault();
     if (!complaintForm.subject.trim() || !complaintForm.description.trim()) {
@@ -643,11 +568,6 @@ export default function FieldStaffDashboard() {
       setSubmittingComplaint(false);
     }
   };
-
-  const dispatchedOrders = sellerOrders.filter((o) => {
-    const st = String(o.status || o.delivery_status || '').toUpperCase();
-    return ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(st) || Boolean(o.tracking_number);
-  });
 
   const renderPlanLockCard = (title) => (
     <div style={{ textAlign: 'center', padding: '44px 24px', background: '#f8fafc', borderRadius: 16, border: '1.5px dashed #cbd5e1' }}>
@@ -1009,93 +929,20 @@ export default function FieldStaffDashboard() {
             )}
           </div>
         ) : activePanel === 'seller-orders' || activePanel === 'dispatched' ? (
-          <div>
-            {activePanel === 'seller-orders' && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <button type="button" onClick={() => setOrdersSubTab('seller')} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: ordersSubTab === 'seller' ? '#2563eb' : '#f1f5f9', color: ordersSubTab === 'seller' ? '#fff' : '#334155', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                  Incoming Seller Orders (₹500 Plan)
-                </button>
-                <button type="button" onClick={() => setOrdersSubTab('buyer')} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: ordersSubTab === 'buyer' ? '#2563eb' : '#f1f5f9', color: ordersSubTab === 'buyer' ? '#fff' : '#334155', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                  My Placed Orders ({buyerOrders.length})
-                </button>
-              </div>
-            )}
-
-            {ordersSubTab === 'buyer' && activePanel === 'seller-orders' ? (
-              buyerOrders.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#64748b' }}>You have not placed any marketplace orders yet.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {buyerOrders.map((ord) => {
-                    const amt = Number(ord.total_price ?? ord.total_amount ?? ord.unit_price ?? ord.price ?? 0);
-                    return (
-                      <div key={ord.id || ord.order_code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: 14, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>#{ord.order_code || ord.id} — {ord.product_name}</div>
-                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Qty: {ord.quantity || 1} • ₹{amt.toLocaleString('en-IN')} • Status: <strong>{ord.status || ord.delivery_status}</strong></div>
-                        </div>
-                        <button type="button" onClick={() => navigate(`/order/${ord.id || ord.order_code}`)} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                          Track Order →
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )
-            ) : !isSellerSubscribed ? (
-              renderPlanLockCard(activePanel === 'dispatched' ? 'Dispatched & In Transit' : 'Customer Orders')
-            ) : (
-              <div>
-                <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
-                  {activePanel === 'dispatched' ? 'Dispatched & In Transit Parcels' : 'Incoming Customer Orders'}
-                </h2>
-                {(activePanel === 'dispatched' ? dispatchedOrders : sellerOrders).length === 0 ? (
-                  <p style={{ fontSize: 13, color: '#64748b' }}>No orders in this category yet.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {(activePanel === 'dispatched' ? dispatchedOrders : sellerOrders).map((ord) => (
-                      <div key={ord.id} style={{ padding: 14, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>#{ord.order_code || ord.id} — {ord.product_name}</div>
-                            <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
-                              Buyer: {ord.buyer_name} ({ord.buyer_phone}) • ₹{Number(ord.total_price ?? ord.total_amount ?? 0).toLocaleString('en-IN')}
-                            </div>
-                            <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                              {ord.buyer_address}, {ord.buyer_city}, {ord.buyer_district} - {ord.buyer_pincode}
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <select
-                              value={String(ord.status || ord.delivery_status || 'PLACED').toUpperCase()}
-                              onChange={(e) => handleUpdateSellerOrderStatus(ord.id, e.target.value)}
-                              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700 }}
-                            >
-                              {ORDER_STATUS_CHOICES.map((st) => <option key={st} value={st}>{st}</option>)}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDispatchModalOrder(ord);
-                                setDispatchForm({
-                                  courier_partner: ord.courier_partner || '',
-                                  tracking_number: ord.tracking_number || '',
-                                  tracking_url: ord.tracking_url || '',
-                                });
-                              }}
-                              style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              Dispatch Info
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <SellerOrdersPanel
+            mode={activePanel === 'dispatched' ? 'dispatched' : 'orders'}
+            sellerOrders={sellerOrders}
+            setSellerOrders={setSellerOrders}
+            buyerOrders={buyerOrders}
+            ordersSubTab={ordersSubTab}
+            setOrdersSubTab={setOrdersSubTab}
+            isSellerSubscribed={isSellerSubscribed}
+            renderPlanLockCard={renderPlanLockCard}
+            navigate={navigate}
+            onReload={() => loadPanel(activePanel)}
+            setNoticeMsg={setNoticeMsg}
+            setErrorMsg={setErrorMsg}
+          />
         ) : activePanel === 'my-products' || activePanel === 'sell-ad' ? (
           !isSellerSubscribed ? (
             renderPlanLockCard(activePanel === 'sell-ad' ? 'Sell / Post an Ad' : 'My Products')
@@ -1111,42 +958,14 @@ export default function FieldStaffDashboard() {
               }}
             />
           ) : (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
-                  My Products ({myProducts.length})
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setIsAddProductOpen(true)}
-                  style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <HiPlus size={16} />
-                  Create Product
-                </button>
-              </div>
-              {myProducts.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#64748b' }}>No products created yet. Click "+ Create Product" to list items.</p>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-                  {myProducts.map((p) => (
-                    <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>{p.category}</div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: '#2563eb', marginBottom: 10 }}>₹{Number(p.price || 0).toLocaleString('en-IN')}</div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="button" onClick={() => handleToggleProductLive(p)} style={{ flex: 1, padding: '7px', borderRadius: 8, border: '1px solid #e2e8f0', background: p.is_active ? '#ecfdf5' : '#f8fafc', color: p.is_active ? '#15803d' : '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                          <HiEye size={13} style={{ verticalAlign: 'middle' }} /> {p.is_active ? 'Live' : 'Hidden'}
-                        </button>
-                        <button type="button" onClick={() => handleDeleteMyProduct(p.id)} style={{ padding: '7px 10px', borderRadius: 8, border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                          <HiTrash size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <MyProductsPanel
+              products={myProducts}
+              setProducts={setMyProducts}
+              customerUser={customerUser}
+              onReload={() => loadPanel('my-products')}
+              setNoticeMsg={setNoticeMsg}
+              setErrorMsg={setErrorMsg}
+            />
           )
         ) : activePanel === 'subscriptions' ? (
           <div>
@@ -1260,33 +1079,6 @@ export default function FieldStaffDashboard() {
           </div>
         )}
       </div>
-
-      {/* Dispatch Modal */}
-      {dispatchModalOrder && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15,23,42,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <form onSubmit={handleDispatchOrder} style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 420, width: '100%' }}>
-            <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800 }}>Dispatch Order #{dispatchModalOrder.order_code || dispatchModalOrder.id}</h3>
-            <input type="text" required placeholder="Courier Partner (e.g. DTDC / Speed Post)" value={dispatchForm.courier_partner} onChange={(e) => setDispatchForm({ ...dispatchForm, courier_partner: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', marginBottom: 10 }} />
-            <input type="text" required placeholder="Tracking Number / AWB" value={dispatchForm.tracking_number} onChange={(e) => setDispatchForm({ ...dispatchForm, tracking_number: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', marginBottom: 10 }} />
-            <input type="url" placeholder="Tracking URL (Optional)" value={dispatchForm.tracking_url} onChange={(e) => setDispatchForm({ ...dispatchForm, tracking_url: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', marginBottom: 16 }} />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" onClick={() => setDispatchModalOrder(null)} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontWeight: 700 }}>Cancel</button>
-              <button type="submit" style={{ flex: 1.4, padding: 10, borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontWeight: 800 }}>Mark Dispatched</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ₹500 Subscribed Customer Create Product Modal */}
-      <CustomerAddProductModal
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
-        customerUser={customerUser}
-        onProductCreated={() => {
-          setNoticeMsg('Product created successfully!');
-          loadPanel('my-products');
-        }}
-      />
     </div>
   );
 }

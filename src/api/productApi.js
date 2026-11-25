@@ -93,8 +93,28 @@ export function normalizeProduct(p) {
   }
   if (sizes.length === 0) sizes = ['Standard'];
 
+  const parseKvList = (raw) => {
+    let list = raw;
+    if (typeof list === 'string') {
+      try {
+        list = JSON.parse(list);
+      } catch {
+        list = [];
+      }
+    }
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((it) => it && typeof it === 'object' && (String(it.label || '').trim() || String(it.value || '').trim()))
+      .map((it) => ({ label: String(it.label || '').trim(), value: String(it.value || '').trim() }));
+  };
+
+  const normHighlights = parseKvList(p.highlights);
+  const normDetails = parseKvList(p.additional_details ?? p.additionalDetails);
+
   return {
     id: String(p.id),
+    sellerId: p.seller_id ?? p.sellerId ?? null,
+    seller_id: p.seller_id ?? p.sellerId ?? null,
     name: p.name || 'Kerala Marketplace Item',
     description: p.description || '',
     category: p.category || 'General',
@@ -119,18 +139,43 @@ export function normalizeProduct(p) {
     in_stock: inStock,
     canAddStock,
     can_add_stock: canAddStock,
+    is_active: p.is_active !== false,
+    isActive: p.is_active !== false,
+    approval_status: p.approval_status || 'APPROVED',
     district: p.district || 'Kerala',
     city: p.city || '',
     sellerName: p.seller_name || p.merchant_name || 'Subscribed Seller',
+    seller_name: p.seller_name || p.merchant_name || 'Subscribed Seller',
     sellerPhone: p.seller_phone || '',
+    seller_phone: p.seller_phone || '',
     sellerWhatsapp: p.seller_whatsapp || p.seller_phone || '',
-    ordersCount: p.orders_count || 0,
-    rating: p.rating || 4.8,
-    reviewsCount: p.reviews_count || p.reviews || 24,
-    highlights: Array.isArray(p.highlights) ? p.highlights : [],
-    additional_details: Array.isArray(p.additional_details) ? p.additional_details : [],
-    additionalDetails: Array.isArray(p.additional_details) ? p.additional_details : [],
+    seller_whatsapp: p.seller_whatsapp || p.seller_phone || '',
+    ordersCount: Number(p.orders_count ?? p.ordersCount ?? 0),
+    orders_count: Number(p.orders_count ?? p.ordersCount ?? 0),
+    viewsCount: Number(p.views_count ?? 0),
+    rating: p.rating_average || p.rating || 4.8,
+    reviewsCount: p.rating_count ?? p.reviews_count ?? p.reviews ?? 0,
+    highlights: normHighlights,
+    additional_details: normDetails,
+    additionalDetails: normDetails,
   };
+}
+
+/**
+ * Determine whether the currently signed-in customer is the seller of this product.
+ */
+export function isOwnProduct(product, user) {
+  if (!product || !user) return false;
+  const uid = String(user.id ?? user.user_id ?? '').trim();
+  const sid = String(product.sellerId ?? product.seller_id ?? '').trim();
+  if (uid && sid && uid === sid) return true;
+  const uPhone = String(user.phone || '').replace(/[^0-9]/g, '').slice(-10);
+  const sPhone = String(
+    product.sellerWhatsapp || product.sellerPhone || product.seller_whatsapp || product.seller_phone || ''
+  )
+    .replace(/[^0-9]/g, '')
+    .slice(-10);
+  return uPhone.length === 10 && sPhone.length === 10 && uPhone === sPhone;
 }
 
 /**
@@ -907,7 +952,33 @@ export async function fetchMyProducts() {
     headers: getCustomerHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch your products');
-  return await res.json();
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : data?.products || data?.items || [];
+  return list.map(normalizeProduct);
+}
+
+export async function fetchSellerAnalytics(period = 'all') {
+  if (!isCustomerAuthenticated()) return null;
+  const res = await apiFetch(
+    `/api/v1/customer/products/seller-analytics?period=${encodeURIComponent(period)}`,
+    { method: 'GET', headers: getCustomerHeaders() }
+  );
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  return json?.data || json || null;
+}
+
+export async function addStockToProduct(id, quantity = 5) {
+  if (!isCustomerAuthenticated()) throw new Error('Please sign in to manage stock');
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  const res = await apiFetch(`/api/v1/customer/products/${id}/add-stock`, {
+    method: 'POST',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify({ quantity: qty }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.message || 'Failed to add stock');
+  return normalizeProduct(data?.data || data?.product || data);
 }
 
 export async function fetchMyOrders() {
@@ -920,6 +991,31 @@ export async function fetchMyOrders() {
   return await res.json();
 }
 
+export async function updateSellerOrderStatus(orderId, status, notes = '', reason = '') {
+  if (!isCustomerAuthenticated()) throw new Error('Please sign in to update order status');
+  const noteText = reason || notes || '';
+  const res = await apiFetch(`/api/v1/customer/products/orders/${orderId}/status`, {
+    method: 'PUT',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify({ status, notes: noteText, reason: noteText }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.message || 'Failed to update order status');
+  return data;
+}
+
+export async function dispatchSellerOrder(orderId, dispatchData) {
+  if (!isCustomerAuthenticated()) throw new Error('Please sign in to dispatch order');
+  const res = await apiFetch(`/api/v1/customer/products/orders/${orderId}/dispatch`, {
+    method: 'PUT',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify(dispatchData),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.message || 'Failed to dispatch order');
+  return data;
+}
+
 export async function updateCustomerProduct(id, productData) {
   if (!isCustomerAuthenticated()) throw new Error('Please sign in to update products');
   const res = await apiFetch(`/api/v1/customer/products/${id}`, {
@@ -927,9 +1023,9 @@ export async function updateCustomerProduct(id, productData) {
     headers: getCustomerHeaders(),
     body: JSON.stringify(productData),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || data.detail || 'Failed to update product');
-  return data;
+  return normalizeProduct(data?.data || data?.product || data);
 }
 
 export async function deleteCustomerProduct(id) {
