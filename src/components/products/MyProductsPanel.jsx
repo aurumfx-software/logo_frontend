@@ -366,6 +366,11 @@ export default function MyProductsPanel({
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', background: '#f1f5f9', padding: '2px 8px', borderRadius: 6 }}>
                         {p.ordersCount || 0} Orders
                       </span>
+                      {Array.isArray(p.sub_products) && p.sub_products.length > 1 && (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#4338ca', background: '#eef2ff', padding: '2px 8px', borderRadius: 6 }}>
+                          {p.sub_products.length - 1} Sub-Product{p.sub_products.length - 1 === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

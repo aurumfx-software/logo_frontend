@@ -14,7 +14,7 @@ import {
   HiChevronUp,
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createCustomerProduct, updateCustomerProduct } from '../../api/productApi';
+import { createCustomerProduct, updateCustomerProduct, deleteCustomerProduct } from '../../api/productApi';
 import { isCustomerAuthenticated, fetchCustomerProfile } from '../../api/customerApi';
 import { uploadMerchantMedia } from '../../api/merchantApi';
 import { fetchCategoriesList } from '../../api/categoryApi';
@@ -108,6 +108,7 @@ export default function CustomerAddProductModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subProducts, setSubProducts] = useState([]);
+  const [removedSubProductIds, setRemovedSubProductIds] = useState([]);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -160,7 +161,43 @@ export default function CustomerAddProductModal({
       if (pPhone) setSellerPhone(pPhone);
       setErrorMsg('');
       setSuccessMsg('');
-      setSubProducts([]);
+      setRemovedSubProductIds([]);
+      const existingSubs = (Array.isArray(initialProduct.sub_products) ? initialProduct.sub_products : [])
+        .filter((s) => String(s.id) !== String(initialProduct.id))
+        .map((s) => ({
+          id: s.id,
+          name: s.name || '',
+          price: s.price ? String(s.price) : '',
+          originalPrice: s.original_price ?? s.originalPrice ? String(s.original_price ?? s.originalPrice) : '',
+          stockQuantity:
+            s.stock_quantity !== undefined && s.stock_quantity !== null
+              ? String(s.stock_quantity)
+              : s.stockQuantity !== undefined && s.stockQuantity !== null
+              ? String(s.stockQuantity)
+              : '10',
+          category: s.category || initialProduct.category || 'Kerala Kasavu Sarees',
+          selectedSizes: Array.isArray(s.sizes) && s.sizes.length > 0 ? s.sizes : ['Free Size'],
+          customSize: '',
+          description: s.description || '',
+          uploadedPhotos: Array.isArray(s.images) ? s.images.filter(Boolean) : [],
+          highlights:
+            Array.isArray(s.highlights) && s.highlights.length > 0
+              ? s.highlights.map((h) => ({ label: h.label || '', value: h.value || '' }))
+              : [{ label: '', value: '' }],
+          additionalDetails:
+            Array.isArray(s.additional_details) && s.additional_details.length > 0
+              ? s.additional_details.map((d) => ({ label: d.label || '', value: d.value || '' }))
+              : [{ label: '', value: '' }],
+          sellerName: s.seller_name || s.sellerName || initialProduct.sellerName || '',
+          sellerPhone: String(
+            s.seller_whatsapp || s.sellerWhatsapp || s.seller_phone || s.sellerPhone || pPhone || ''
+          )
+            .replace(/[^0-9]/g, '')
+            .slice(-10),
+          district: s.district || initialProduct.district || 'Ernakulam',
+          city: s.city || initialProduct.city || '',
+        }));
+      setSubProducts(existingSubs);
     } else if (customerUser) {
       if (!sellerName && customerUser.name && !customerUser.name.startsWith('Customer (')) {
         setSellerName(customerUser.name);
@@ -335,6 +372,10 @@ export default function CustomerAddProductModal({
   };
 
   const handleRemoveSubProduct = (idx) => {
+    const target = subProducts[idx];
+    if (target?.id) {
+      setRemovedSubProductIds((prev) => [...prev, target.id]);
+    }
     setSubProducts((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -400,6 +441,7 @@ export default function CustomerAddProductModal({
         spSizes.push(String(sp.customSize).trim());
       }
       subPayloads.push({
+        _existingId: sp.id || null,
         name: String(sp.name).trim(),
         description: String(sp.description || '').trim() || null,
         category: String(sp.category || category).trim() || 'General',
@@ -448,13 +490,25 @@ export default function CustomerAddProductModal({
         ? await updateCustomerProduct(initialProduct.id, payload)
         : await createCustomerProduct(payload);
 
+      for (const delId of removedSubProductIds) {
+        await deleteCustomerProduct(delId).catch(() => null);
+      }
+
       const parentId = Number(initialProduct?.parent_product_id || initialProduct?.id || res?.id);
       if (parentId && subPayloads.length > 0) {
-        for (const spPayload of subPayloads) {
-          await createCustomerProduct({
-            ...spPayload,
-            parent_product_id: parentId,
-          });
+        for (const spItem of subPayloads) {
+          const { _existingId, ...spPayload } = spItem;
+          if (_existingId) {
+            await updateCustomerProduct(_existingId, {
+              ...spPayload,
+              parent_product_id: parentId,
+            });
+          } else {
+            await createCustomerProduct({
+              ...spPayload,
+              parent_product_id: parentId,
+            });
+          }
         }
       }
 

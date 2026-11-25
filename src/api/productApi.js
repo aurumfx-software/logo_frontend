@@ -121,6 +121,7 @@ export function normalizeProduct(p) {
         id: String(s.id),
         parent_product_id: s.parent_product_id ?? null,
         name: s.name || 'Variant',
+        description: s.description || '',
         category: s.category || p.category || 'General',
         price: Number(s.price || 0),
         originalPrice: s.original_price ? Number(s.original_price) : null,
@@ -130,10 +131,18 @@ export function normalizeProduct(p) {
           sImgs[0] ||
           'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300',
         sizes: Array.isArray(s.sizes) ? s.sizes : [],
+        highlights: parseKvList(s.highlights),
+        additional_details: parseKvList(s.additional_details ?? s.additionalDetails),
         stockQuantity: s.stock_quantity ?? null,
         stock_quantity: s.stock_quantity ?? null,
+        stockStatus: s.stock_status || 'IN_STOCK',
         inStock: s.in_stock !== false,
         in_stock: s.in_stock !== false,
+        district: s.district || p.district || 'Kerala',
+        city: s.city || p.city || '',
+        sellerName: s.seller_name || p.seller_name || '',
+        sellerPhone: s.seller_phone || p.seller_phone || '',
+        sellerWhatsapp: s.seller_whatsapp || s.seller_phone || p.seller_whatsapp || '',
       };
     });
 
