@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
+import { setCustomerSession } from '../api/customerApi';
+import { setMerchantSession } from '../api/merchantApi';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -65,11 +67,11 @@ export default function Login() {
 
       const rawRole = (apiUser.role || '').toUpperCase();
       let detectedRole = 'Admin';
-      if (cleanEmail.toLowerCase() === 'user01@gmail.com' || rawRole === 'SELLER' || apiUser.can_sell_products) {
+      if (cleanEmail.toLowerCase() === 'user01@gmail.com' || rawRole === 'SELLER') {
         detectedRole = 'Seller';
       } else if (rawRole === 'MERCHANT' || cleanEmail.toLowerCase() === 'merchent@gmail.com') {
         detectedRole = 'Merchant';
-      } else if (rawRole === 'FIELD_STAFF' || rawRole === 'STAFF' || rawRole === 'Staff') {
+      } else if (rawRole === 'FIELD_STAFF' || rawRole === 'STAFF' || rawRole === 'CUSTOMER' || rawRole === 'Staff') {
         detectedRole = 'Staff';
       }
 
@@ -77,8 +79,8 @@ export default function Login() {
         id: apiUser.id || 1,
         user_id: apiUser.id || 1,
         email: apiUser.email || cleanEmail,
-        name: apiUser.name || (detectedRole === 'Seller' ? 'Product Seller (user01)' : detectedRole === 'Merchant' ? 'Logo Merchant' : detectedRole === 'Admin' ? 'Super Admin' : 'Staff Member'),
-        role: detectedRole === 'Seller' ? 'SELLER' : detectedRole === 'Merchant' ? 'MERCHANT' : detectedRole,
+        name: apiUser.name || (detectedRole === 'Seller' ? 'Product Seller (user01)' : detectedRole === 'Merchant' ? 'Logo Merchant' : detectedRole === 'Admin' ? 'Super Admin' : 'Customer'),
+        role: detectedRole === 'Seller' ? 'SELLER' : detectedRole === 'Merchant' ? 'MERCHANT' : rawRole === 'FIELD_STAFF' ? 'FIELD_STAFF' : detectedRole,
         user_code: apiUser.user_code || apiUser.userCode || (detectedRole === 'Seller' ? 'SELLER_01' : detectedRole === 'Merchant' ? 'MERCH_1' : detectedRole === 'Admin' ? 'ADM_4' : 'FLS_1'),
         login_id: loginRes.login_id || apiUser.login_id || null,
         loginTime: new Date().toISOString(),
@@ -86,6 +88,11 @@ export default function Login() {
       };
 
       login(userData, { accessToken, refreshToken });
+      if (rawRole === 'FIELD_STAFF' || rawRole === 'CUSTOMER' || detectedRole === 'Staff') {
+        setCustomerSession({ access_token: accessToken, refresh_token: refreshToken, user: userData });
+      } else if (detectedRole === 'Merchant') {
+        setMerchantSession({ access_token: accessToken, refresh_token: refreshToken, user: userData });
+      }
 
       if (detectedRole === 'Seller') {
         navigate('/products', { replace: true });

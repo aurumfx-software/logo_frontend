@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
 import { fetchAdminWithdrawals } from '../../api/walletApi';
+import { logoutCustomerSession } from '../../api/customerApi';
 
 const ALL_NAV_ITEMS = [
   {
@@ -81,9 +82,11 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   });
 
   const userRole = normalizeRole(user);
+  const rawRoleStr = String(user?.role || '').toUpperCase();
   const isAdminUser = userRole === ROLES.ADMIN;
   const isMerchantUser = !isAdminUser && (userRole === ROLES.MERCHANT || (user?.email || '').toLowerCase() === 'merchent@gmail.com');
   const isSellerUser = !isAdminUser && (userRole === ROLES.SELLER || (user?.email || '').toLowerCase() === 'user01@gmail.com');
+  const isCustomerUser = !isAdminUser && !isMerchantUser && !isSellerUser && (rawRoleStr === 'FIELD_STAFF' || rawRoleStr === 'CUSTOMER' || userRole === ROLES.STAFF);
 
   useEffect(() => {
     const handlePermChange = () => {
@@ -125,15 +128,28 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     };
   }, [isAdminUser]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (onCloseMobile) onCloseMobile();
+    await logoutCustomerSession().catch(() => {});
     logout();
     navigate('/login', { replace: true });
   };
 
+  // If Customer (FIELD_STAFF) user: Exact mobile app customer links only.
   // If Merchant user: ONLY Logo Merchant section is shown.
-  // If Admin / Staff: Full admin modules, WITHOUT Logo Merchant.
-  const navSections = isSellerUser
+  // If Admin: Full admin modules.
+  const navSections = isCustomerUser
+    ? [
+        {
+          title: 'Customer Account',
+          items: [
+            { key: 'dashboard', path: '/dashboard', icon: HiOutlineUserGroup, label: 'My Account' },
+            { key: 'marketplace', path: '/marketplace', icon: HiOutlineShoppingBag, label: 'Marketplace' },
+            { key: 'home', path: '/', icon: HiOutlineGlobe, label: 'Directory Home' },
+          ],
+        },
+      ]
+    : isSellerUser
     ? [
         {
           title: 'Products & Orders Platform',
@@ -180,15 +196,15 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
       {/* Brand */}
       <div className="sidebar-brand">
         <div className="sidebar-brand-icon">
-          {isSellerUser ? 'S' : isMerchantUser ? 'M' : 'L'}
+          {isCustomerUser ? 'C' : isSellerUser ? 'S' : isMerchantUser ? 'M' : 'L'}
         </div>
         {(!collapsed || mobileOpen) && (
           <div className="sidebar-brand-text">
             <span className="sidebar-brand-name">
-              {isSellerUser ? 'Seller Platform' : isMerchantUser ? 'Logo Merchant' : 'Logo Admin'}
+              {isCustomerUser ? 'Logo Kerala' : isSellerUser ? 'Seller Platform' : isMerchantUser ? 'Logo Merchant' : 'Logo Admin'}
             </span>
             <span className="sidebar-brand-sub">
-              {isSellerUser ? 'Products & Orders' : isMerchantUser ? 'Merchant Workspace' : 'AurumFX Pvt Ltd'}
+              {isCustomerUser ? 'Customer Account' : isSellerUser ? 'Products & Orders' : isMerchantUser ? 'Merchant Workspace' : 'AurumFX Pvt Ltd'}
             </span>
           </div>
         )}
@@ -237,11 +253,11 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
         {!collapsed && (
           <div className="sidebar-footer-user" style={{ marginBottom: 8 }}>
             <div className="sidebar-footer-avatar">
-              {user?.initials || (isMerchantUser ? 'M' : isAdminUser ? 'A' : 'S')}
+              {user?.initials || (isCustomerUser ? (user?.name || 'C').charAt(0).toUpperCase() : isMerchantUser ? 'M' : isAdminUser ? 'A' : 'S')}
             </div>
             <div className="sidebar-footer-info">
-              <div className="sidebar-footer-name">{user?.name || (isMerchantUser ? 'Logo Merchant' : isAdminUser ? 'Admin User' : 'Staff User')}</div>
-              <div className="sidebar-footer-role">{getRoleDisplayTitle(user)}</div>
+              <div className="sidebar-footer-name">{user?.name || (isCustomerUser ? 'Customer' : isMerchantUser ? 'Logo Merchant' : isAdminUser ? 'Admin User' : 'Staff User')}</div>
+              <div className="sidebar-footer-role">{isCustomerUser ? 'Customer Account' : getRoleDisplayTitle(user)}</div>
             </div>
           </div>
         )}

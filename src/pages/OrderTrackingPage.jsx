@@ -162,17 +162,19 @@ export default function OrderTrackingPage() {
       })
     : 'Recent';
 
-  const totalAmount =
-    Number(order.total_price) ||
-    Number(order.total_amount) ||
-    Number(order.unit_price) ||
-    Number(order.price) ||
-    0;
-
   const unitPrice =
     Number(order.unit_price) ||
     Number(order.price) ||
-    (order.quantity ? totalAmount / order.quantity : totalAmount);
+    (order.quantity && (Number(order.total_price) || Number(order.total_amount))
+      ? (Number(order.total_price) || Number(order.total_amount)) / Number(order.quantity)
+      : 0);
+
+  const totalAmount =
+    Number(order.total_price) ||
+    Number(order.total_amount) ||
+    Number(order.amount_paid) ||
+    unitPrice * Number(order.quantity || 1) ||
+    0;
 
   const paymentMethodLabel =
     String(order.payment_method || '').toUpperCase() === 'RAZORPAY' ||
@@ -484,7 +486,9 @@ export default function OrderTrackingPage() {
                 <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>Total Payable</span>
+                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                    {String(order.payment_status || '').toUpperCase() === 'PAID' ? 'Total Paid' : 'Total Payable'}
+                  </span>
                   <span style={{ fontSize: '20px', fontWeight: 900, color: '#2563eb' }}>
                     ₹{totalAmount.toLocaleString('en-IN')}
                   </span>
