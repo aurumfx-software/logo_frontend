@@ -547,14 +547,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
             </div>
-
-            {/* Product Description Card (Balanced Left Column under Trust Card) */}
-            <div className="mkt-trust-card">
-              <h4 className="mkt-trust-title">Product Description</h4>
-              <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.65, color: '#334155', whiteSpace: 'pre-line' }}>
-                {product.description || 'Authentic, handcrafted, and sourced from trusted local producers across Kerala.'}
-              </p>
-            </div>
           </div>
 
           {/* ── Right Column: Info, Pricing, Size, CTA ── */}
@@ -750,6 +742,14 @@ export default function ProductDetailPage() {
               >
                 {deliveryAddress?.address ? 'Change' : 'Add Address'}
               </button>
+            </div>
+
+            {/* Product Description Card (Below Delivery Address) */}
+            <div className="mkt-trust-card">
+              <h4 className="mkt-trust-title">Product Description</h4>
+              <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.65, color: '#334155', whiteSpace: 'pre-line' }}>
+                {product.description || 'Authentic, handcrafted, and sourced from trusted local producers across Kerala.'}
+              </p>
             </div>
           </div>
         </div>
