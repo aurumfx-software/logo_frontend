@@ -149,7 +149,6 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
           title: 'CUSTOMER ACCOUNT',
           items: [
             { key: 'cust_profile', path: '/dashboard?tab=profile', icon: HiOutlineUser, label: 'Customer Profile' },
-            { key: 'cust_wallet', path: '/dashboard?tab=wallet', icon: HiOutlineCreditCard, label: 'My Wallet' },
             { key: 'cust_orders', path: '/dashboard?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
             { key: 'cust_dispatched', path: '/dashboard?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
             { key: 'cust_products', path: '/dashboard?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },

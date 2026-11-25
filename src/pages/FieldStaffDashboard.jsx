@@ -90,7 +90,8 @@ export default function FieldStaffDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activePanel = searchParams.get('tab') || 'profile';
+  const rawTab = searchParams.get('tab') || 'profile';
+  const activePanel = rawTab === 'wallet' ? 'profile' : rawTab;
 
   const getLiveToken = () => getAccessToken() || getCustomerToken();
 
@@ -185,10 +186,9 @@ export default function FieldStaffDashboard() {
     }
 
     const headers = buildCustomerHeaders();
-    const [profileRes, subRes, balRes] = await Promise.all([
+    const [profileRes, subRes] = await Promise.all([
       apiFetch('/api/v1/auth/me', { method: 'GET', headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetchMyActiveSubscriptions().catch(() => null),
-      apiFetch('/api/v1/wallet/me', { method: 'GET', headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
 
     if (profileRes) {
@@ -203,11 +203,6 @@ export default function FieldStaffDashboard() {
     }
 
     if (subRes) setActiveSubData(subRes);
-
-    const bal = balRes?.wallet?.balance ?? balRes?.balance ?? balRes?.data?.balance;
-    if (bal !== undefined && bal !== null) {
-      setWalletBalance(Number(bal).toFixed(2));
-    }
   };
 
   const loadWalletData = async () => {
@@ -245,9 +240,7 @@ export default function FieldStaffDashboard() {
     try {
       await syncCustomerAuthAndOverview();
 
-      if (panel === 'wallet') {
-        await loadWalletData();
-      } else if (panel === 'saved') {
+      if (panel === 'saved') {
         const res = await getMarketplaceWishlist();
         setWishlistItems(Array.isArray(res?.items) ? res.items : []);
       } else if (panel === 'seller-orders' || panel === 'dispatched') {
@@ -722,7 +715,6 @@ export default function FieldStaffDashboard() {
                   { label: 'Login ID', value: customerUser?.login_id || '-' },
                   { label: 'District / City', value: [customerUser?.city, customerUser?.district].filter(Boolean).join(', ') || 'Not set' },
                   { label: 'Address', value: customerUser?.address || 'Not set' },
-                  { label: 'Wallet Balance', value: `₹${walletBalance}` },
                   { label: '₹500 Seller Plan', value: isSellerSubscribed ? 'Active (Unlocked)' : 'Not Subscribed' },
                 ].map((field) => (
                   <div key={field.label} style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #f1f5f9' }}>
@@ -730,134 +722,6 @@ export default function FieldStaffDashboard() {
                     <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{field.value}</div>
                   </div>
                 ))}
-              </div>
-            )}
-          </div>
-        ) : activePanel === 'wallet' ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>My Wallet</h2>
-              <button type="button" onClick={() => loadPanel('wallet')} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <HiRefresh size={14} /> Refresh
-              </button>
-            </div>
-
-            <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)', color: '#fff', borderRadius: 16, padding: 22, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, opacity: 0.9, fontWeight: 700 }}>AVAILABLE WALLET BALANCE</div>
-              <div style={{ fontSize: 34, fontWeight: 900, margin: '6px 0 16px' }}>₹{walletBalance}</div>
-
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {[
-                  { id: 'DASHBOARD', label: 'Transactions' },
-                  { id: 'TOPUP', label: '+ Add Money (Razorpay)' },
-                  { id: 'SEND', label: 'Send Money' },
-                  { id: 'WITHDRAW', label: 'Withdraw to Bank' },
-                ].map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => setWalletView(v.id)}
-                    style={{
-                      background: walletView === v.id ? '#ffffff' : 'rgba(255,255,255,0.18)',
-                      color: walletView === v.id ? '#1d4ed8' : '#ffffff',
-                      border: 'none',
-                      borderRadius: 8,
-                      padding: '8px 14px',
-                      fontSize: 12.5,
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {pendingRewards.length > 0 && (
-              <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#854d0e', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <HiGift size={16} /> Pending Cashback Rewards ({pendingRewards.length})
-                </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {pendingRewards.map((rw) => (
-                    <button
-                      key={rw.id}
-                      type="button"
-                      onClick={async () => {
-                        await apiFetch(`/api/v1/wallet/rewards/${rw.id}/redeem`, { method: 'POST', headers: buildCustomerHeaders() });
-                        setNoticeMsg(`Claimed ₹${rw.amount} reward!`);
-                        await loadWalletData();
-                      }}
-                      style={{ background: '#ca8a04', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Claim ₹{rw.amount}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {walletView === 'TOPUP' && (
-              <form onSubmit={handleWalletRazorpayTopup} style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <input type="number" min="10" required placeholder="Enter top-up amount (₹)" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13.5 }} />
-                <button type="submit" disabled={toppingUp} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 800, cursor: 'pointer' }}>
-                  {toppingUp ? 'Opening Razorpay...' : 'Proceed with Razorpay'}
-                </button>
-              </form>
-            )}
-
-            {walletView === 'SEND' && (
-              <form onSubmit={handleWalletTransfer} style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 10 }}>
-                  <input type="text" required placeholder="Recipient Email / Phone / User ID" value={transferForm.target} onChange={(e) => setTransferForm({ ...transferForm, target: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                  <input type="number" min="1" required placeholder="Amount (₹)" value={transferForm.amount} onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                  <input type="text" placeholder="Note (Optional)" value={transferForm.note} onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                </div>
-                <button type="submit" disabled={transferring} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 800, cursor: 'pointer' }}>
-                  {transferring ? 'Sending...' : 'Send Money'}
-                </button>
-              </form>
-            )}
-
-            {walletView === 'WITHDRAW' && (
-              <form onSubmit={handleWalletWithdraw} style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 10 }}>
-                  <input type="number" min="100" required placeholder="Withdraw Amount (min ₹100)" value={withdrawForm.amount} onChange={(e) => setWithdrawForm({ ...withdrawForm, amount: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                  <input type="text" required placeholder="Account Holder Name" value={withdrawForm.account_holder_name} onChange={(e) => setWithdrawForm({ ...withdrawForm, account_holder_name: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                  <input type="text" required placeholder="Bank Account Number" value={withdrawForm.account_number} onChange={(e) => setWithdrawForm({ ...withdrawForm, account_number: e.target.value })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                  <input type="text" required placeholder="IFSC Code" value={withdrawForm.ifsc_code} onChange={(e) => setWithdrawForm({ ...withdrawForm, ifsc_code: e.target.value.toUpperCase() })} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }} />
-                </div>
-                <button type="submit" disabled={withdrawing} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 800, cursor: 'pointer' }}>
-                  <HiCash size={15} style={{ verticalAlign: 'middle', marginRight: 5 }} />
-                  {withdrawing ? 'Submitting...' : 'Submit Withdrawal Request'}
-                </button>
-              </form>
-            )}
-
-            <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 800, color: '#334155' }}>Recent Transactions ({walletTxns.length})</h4>
-            {walletTxns.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#64748b' }}>No wallet transactions yet.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {walletTxns.map((tx, idx) => {
-                  const dir = String(tx.direction || tx.tx_type || '').toUpperCase();
-                  const isCredit = dir === 'CREDIT' || String(tx.transaction_type || tx.type || '').toUpperCase().includes('CREDIT') || Number(tx.amount) > 0;
-                  return (
-                    <div key={tx.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {isCredit ? <HiArrowDown size={18} color="#16a34a" /> : <HiArrowUp size={18} color="#dc2626" />}
-                        <div>
-                          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>{tx.description || tx.note || formatTxnType(tx.transaction_type || tx.type, dir)}</div>
-                          <div style={{ fontSize: 11, color: '#64748b' }}>{tx.created_at ? new Date(tx.created_at).toLocaleString('en-IN') : ''}</div>
-                        </div>
-                      </div>
-                      <strong style={{ fontSize: 14, color: isCredit ? '#16a34a' : '#dc2626' }}>
-                        {isCredit ? '+' : '-'}₹{Math.abs(Number(tx.amount || 0)).toLocaleString('en-IN')}
-                      </strong>
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>

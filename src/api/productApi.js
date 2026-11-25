@@ -111,8 +111,38 @@ export function normalizeProduct(p) {
   const normHighlights = parseKvList(p.highlights);
   const normDetails = parseKvList(p.additional_details ?? p.additionalDetails);
 
+  const normSubProducts = (Array.isArray(p.sub_products) ? p.sub_products : [])
+    .filter((s) => s && typeof s === 'object' && s.id !== undefined)
+    .map((s) => {
+      const sImgs = (Array.isArray(s.images) ? s.images : s.image ? [s.image] : [])
+        .map(formatMediaUrl)
+        .filter(Boolean);
+      return {
+        id: String(s.id),
+        parent_product_id: s.parent_product_id ?? null,
+        name: s.name || 'Variant',
+        category: s.category || p.category || 'General',
+        price: Number(s.price || 0),
+        originalPrice: s.original_price ? Number(s.original_price) : null,
+        original_price: s.original_price ? Number(s.original_price) : null,
+        images: sImgs,
+        image:
+          sImgs[0] ||
+          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300',
+        sizes: Array.isArray(s.sizes) ? s.sizes : [],
+        stockQuantity: s.stock_quantity ?? null,
+        stock_quantity: s.stock_quantity ?? null,
+        inStock: s.in_stock !== false,
+        in_stock: s.in_stock !== false,
+      };
+    });
+
   return {
     id: String(p.id),
+    parent_product_id: p.parent_product_id ?? p.parentProductId ?? null,
+    parentProductId: p.parent_product_id ?? p.parentProductId ?? null,
+    sub_products: normSubProducts,
+    subProducts: normSubProducts,
     sellerId: p.seller_id ?? p.sellerId ?? null,
     seller_id: p.seller_id ?? p.sellerId ?? null,
     name: p.name || 'Kerala Marketplace Item',

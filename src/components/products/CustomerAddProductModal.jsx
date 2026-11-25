@@ -23,6 +23,7 @@ import {
   hasActiveSellerSubscription,
   startCustomerRazorpaySubscription,
 } from '../../api/subscriptionApi';
+import SubProductVariantCard from './SubProductVariantCard';
 
 const QUICK_CATEGORIES = [
   'Kerala Kasavu Sarees',
@@ -106,6 +107,7 @@ export default function CustomerAddProductModal({
   const [city, setCity] = useState(customerUser?.city || '');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [subProducts, setSubProducts] = useState([]);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -158,6 +160,7 @@ export default function CustomerAddProductModal({
       if (pPhone) setSellerPhone(pPhone);
       setErrorMsg('');
       setSuccessMsg('');
+      setSubProducts([]);
     } else if (customerUser) {
       if (!sellerName && customerUser.name && !customerUser.name.startsWith('Customer (')) {
         setSellerName(customerUser.name);
@@ -304,6 +307,37 @@ export default function CustomerAddProductModal({
     setAdditionalDetails((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : [{ label: '', value: '' }]));
   };
 
+  const handleAddSubProduct = () => {
+    setSubProducts((prev) => [
+      ...prev,
+      {
+        name: name.trim() ? `${name.trim()} - Variant ${prev.length + 1}` : '',
+        price: price || '',
+        originalPrice: originalPrice || '',
+        stockQuantity: stockQuantity || '10',
+        category: category || 'Kerala Kasavu Sarees',
+        selectedSizes: [...selectedSizes],
+        customSize: customSize || '',
+        description: description || '',
+        uploadedPhotos: [],
+        highlights: [{ label: '', value: '' }],
+        additionalDetails: [{ label: '', value: '' }],
+        sellerName: sellerName || '',
+        sellerPhone: sellerPhone || '',
+        district: district || 'Ernakulam',
+        city: city || '',
+      },
+    ]);
+  };
+
+  const handleUpdateSubProduct = (idx, nextVariant) => {
+    setSubProducts((prev) => prev.map((item, i) => (i === idx ? nextVariant : item)));
+  };
+
+  const handleRemoveSubProduct = (idx) => {
+    setSubProducts((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleApplyCustomCategory = () => {
     const clean = customCatInput.trim();
     if (!clean) return;
@@ -346,6 +380,49 @@ export default function CustomerAddProductModal({
       .map((d) => ({ label: d.label.trim(), value: d.value.trim() }))
       .filter((d) => d.label || d.value);
 
+    // Validate sub-products up front before creating any records
+    const subPayloads = [];
+    for (let i = 0; i < subProducts.length; i++) {
+      const sp = subProducts[i];
+      if (!String(sp.name || '').trim()) {
+        return setErrorMsg(`Please enter a Title / Name for Sub-Product Variant #${i + 1}`);
+      }
+      const spPrice = Number(sp.price);
+      if (!spPrice || spPrice <= 0) {
+        return setErrorMsg(`Please enter a valid Selling Price for Sub-Product Variant #${i + 1}`);
+      }
+      const spPhone = String(sp.sellerPhone || cleanPhone).trim().replace(/[^0-9]/g, '');
+      if (!spPhone || spPhone.length < 10) {
+        return setErrorMsg(`Please enter a 10-digit WhatsApp phone for Sub-Product Variant #${i + 1}`);
+      }
+      const spSizes = [...(sp.selectedSizes || ['Free Size'])];
+      if (sp.customSize && String(sp.customSize).trim() && !spSizes.includes(String(sp.customSize).trim())) {
+        spSizes.push(String(sp.customSize).trim());
+      }
+      subPayloads.push({
+        name: String(sp.name).trim(),
+        description: String(sp.description || '').trim() || null,
+        category: String(sp.category || category).trim() || 'General',
+        price: spPrice,
+        original_price: sp.originalPrice ? Number(sp.originalPrice) : null,
+        stock_quantity: sp.stockQuantity !== '' && sp.stockQuantity !== undefined ? Math.max(0, parseInt(sp.stockQuantity, 10) || 0) : 10,
+        stock_status: sp.stockQuantity !== '' && parseInt(sp.stockQuantity, 10) === 0 ? 'OUT_OF_STOCK' : 'IN_STOCK',
+        sizes: spSizes.length > 0 ? spSizes : ['Free Size'],
+        images: Array.isArray(sp.uploadedPhotos) ? sp.uploadedPhotos : [],
+        highlights: (sp.highlights || [])
+          .map((h) => ({ label: String(h.label || '').trim(), value: String(h.value || '').trim() }))
+          .filter((h) => h.label || h.value),
+        additional_details: (sp.additionalDetails || [])
+          .map((d) => ({ label: String(d.label || '').trim(), value: String(d.value || '').trim() }))
+          .filter((d) => d.label || d.value),
+        district: sp.district || district,
+        city: String(sp.city || city || sp.district || district).trim(),
+        seller_name: String(sp.sellerName || sellerName || customerUser?.name || 'Local Seller').trim(),
+        seller_phone: spPhone,
+        seller_whatsapp: spPhone,
+      });
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -370,9 +447,24 @@ export default function CustomerAddProductModal({
       const res = isEditing
         ? await updateCustomerProduct(initialProduct.id, payload)
         : await createCustomerProduct(payload);
+
+      const parentId = Number(initialProduct?.parent_product_id || initialProduct?.id || res?.id);
+      if (parentId && subPayloads.length > 0) {
+        for (const spPayload of subPayloads) {
+          await createCustomerProduct({
+            ...spPayload,
+            parent_product_id: parentId,
+          });
+        }
+      }
+
       setSuccessMsg(
         isEditing
-          ? 'Product details updated in Marketplace!'
+          ? subPayloads.length > 0
+            ? `Product updated and ${subPayloads.length} new sub-product variant(s) published!`
+            : 'Product details updated in Marketplace!'
+          : subPayloads.length > 0
+          ? `Published main product and ${subPayloads.length} sub-product variant(s) to Marketplace!`
           : 'Your product has been published to Logo Kerala Marketplace!'
       );
       if (isEditing && onProductUpdated) onProductUpdated(res);
@@ -387,6 +479,9 @@ export default function CustomerAddProductModal({
         setDescription('');
         setHighlights([{ label: '', value: '' }]);
         setAdditionalDetails([{ label: '', value: '' }]);
+        setSubProducts([]);
+      } else {
+        setSubProducts([]);
       }
     } catch (err) {
       setErrorMsg(err.message || 'Could not publish product. Please check your ₹500 Seller Plan.');
@@ -1115,6 +1210,69 @@ export default function CustomerAddProductModal({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Unlimited Sub-Products List */}
+            {subProducts.map((variant, vIdx) => (
+              <SubProductVariantCard
+                key={vIdx}
+                index={vIdx}
+                variant={variant}
+                allCategories={allCategories}
+                onChange={handleUpdateSubProduct}
+                onRemove={handleRemoveSubProduct}
+                onError={(msg) => setErrorMsg(msg)}
+              />
+            ))}
+
+            {/* Publish Same Product With Difference (+) Bar */}
+            <div
+              style={{
+                marginTop: 18,
+                marginBottom: 16,
+                padding: '14px 18px',
+                borderRadius: 14,
+                border: '1.5px dashed #6366f1',
+                background: '#eef2ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#312e81' }}>
+                  Have Different Colors, Sizes, Photos, Names, or Prices for This Product?
+                </div>
+                <div style={{ fontSize: 12, color: '#4338ca' }}>
+                  Add unlimited sub-product listings linked directly on the product page.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddSubProduct}
+                style={{
+                  background: '#4f46e5',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '10px 18px',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <HiPlus size={16} />
+                <span>
+                  {subProducts.length === 0
+                    ? 'Publish Same Product with Difference'
+                    : `Add Another Sub-Product (${subProducts.length} added)`}
+                </span>
+              </button>
             </div>
 
             {/* Submit Bar */}
