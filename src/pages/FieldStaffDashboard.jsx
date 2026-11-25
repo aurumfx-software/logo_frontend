@@ -35,7 +35,10 @@ import {
   updateCustomerProfile,
   updateCustomerLocation,
   uploadCustomerAvatar,
+  customerForgotPassword,
+  customerResetPassword,
 } from '../api/customerApi';
+import ChangePasswordCard from '../components/UI/ChangePasswordCard';
 import { formatMediaUrl } from '../api/merchantApi';
 import {
   fetchAdminSubscriptionPackages,
@@ -724,6 +727,14 @@ export default function FieldStaffDashboard() {
                 ))}
               </div>
             )}
+
+            <ChangePasswordCard
+              defaultEmail={customerUser?.email || ''}
+              title="Reset / Change Customer Password"
+              subtitle="Verify with a 6-digit email OTP to set a new password across Mobile App & Web."
+              onSendOtp={customerForgotPassword}
+              onResetPassword={customerResetPassword}
+            />
           </div>
         ) : activePanel === 'saved' ? (
           <div>

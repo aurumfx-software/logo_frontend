@@ -17,6 +17,7 @@ import {
 } from 'react-icons/hi';
 import CircularSpinner from '../components/UI/CircularSpinner';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
+import ChangePasswordCard from '../components/UI/ChangePasswordCard';
 import {
   getMerchantProfile,
   getMyMerchants,
@@ -26,6 +27,8 @@ import {
   updateMerchant,
   uploadMerchantMedia,
   requestPromotionAccess,
+  merchantForgotPassword,
+  merchantResetPassword,
 } from '../api/merchantApi';
 import { getAccessToken } from '../api/apiClient';
 import {
@@ -699,6 +702,7 @@ export default function MerchantPortal() {
       {/* Active Workspace Panel */}
       <div style={cardStyle}>
         {activePanel === 'edit' && (
+          <>
           <form onSubmit={handleSaveStore}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
               <div>
@@ -991,6 +995,15 @@ export default function MerchantPortal() {
               </button>
             </div>
           </form>
+
+          <ChangePasswordCard
+            defaultEmail={formData.email || selectedShop?.email || user?.email || ''}
+            title="Reset / Change Merchant Password"
+            subtitle="Verify with a 6-digit email OTP to update your merchant password across Mobile App & Web."
+            onSendOtp={merchantForgotPassword}
+            onResetPassword={merchantResetPassword}
+          />
+          </>
         )}
 
         {activePanel === 'promotions' && (
