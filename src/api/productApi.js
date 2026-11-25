@@ -127,6 +127,9 @@ export function normalizeProduct(p) {
     ordersCount: p.orders_count || 0,
     rating: p.rating || 4.8,
     reviewsCount: p.reviews_count || p.reviews || 24,
+    highlights: Array.isArray(p.highlights) ? p.highlights : [],
+    additional_details: Array.isArray(p.additional_details) ? p.additional_details : [],
+    additionalDetails: Array.isArray(p.additional_details) ? p.additional_details : [],
   };
 }
 

@@ -592,6 +592,60 @@ export default function ProductDetailPage() {
               </p>
             </div>
 
+            {/* Product Highlights (Image 3 layout: 2-column label/value grid) */}
+            {Array.isArray(product.highlights) && product.highlights.length > 0 && (
+              <div className="mkt-trust-card">
+                <h4 className="mkt-trust-title" style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', marginBottom: '14px' }}>
+                  Product Highlights
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
+                  {product.highlights.map((hl, idx) => (
+                    <div key={idx}>
+                      {hl.label && (
+                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '3px', fontWeight: 500 }}>
+                          {hl.label}
+                        </div>
+                      )}
+                      {hl.value && (
+                        <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 500 }}>
+                          {hl.value}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Additional Details (Image 3 layout: Bold heading left, normal answer right) */}
+            {Array.isArray(product.additional_details) && product.additional_details.length > 0 && (
+              <div className="mkt-trust-card">
+                <h4 className="mkt-trust-title" style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', marginBottom: '14px' }}>
+                  Additional Details
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {product.additional_details.map((det, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(120px, 40%) 1fr',
+                        gap: '12px',
+                        alignItems: 'baseline',
+                      }}
+                    >
+                      <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#334155' }}>
+                        {det.label}
+                      </span>
+                      <span style={{ fontSize: '13.5px', fontWeight: 400, color: '#0f172a' }}>
+                        {det.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Customer Reviews Section */}
             <div className="mkt-trust-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>

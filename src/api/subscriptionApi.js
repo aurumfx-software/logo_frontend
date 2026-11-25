@@ -239,7 +239,7 @@ export async function startCustomerRazorpaySubscription({
   const orderRes = await apiFetch('/api/v1/wallet/topup/razorpay/order', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ amount: pkgPrice }),
+    body: JSON.stringify({ amount: pkgPrice, purpose: 'SUBSCRIPTION' }),
   });
   const orderData = await orderRes.json().catch(() => ({}));
   if (!orderRes.ok) {
@@ -250,18 +250,8 @@ export async function startCustomerRazorpaySubscription({
     );
   }
 
-  // Dev simulated mode
+  // Dev simulated mode (does NOT touch personal user wallet)
   if (orderData.razorpay_order_id && orderData.razorpay_order_id.startsWith('order_dev_')) {
-    await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        razorpay_order_id: orderData.razorpay_order_id,
-        razorpay_payment_id: `pay_dev_sub_${Date.now()}`,
-        razorpay_signature: 'dev_signature_ok',
-      }),
-    }).catch(() => null);
-
     const subRes = await subscribeToPackage({
       package_id: targetPackageId,
       merchant_profile_id: merchantProfileId,
@@ -288,15 +278,6 @@ export async function startCustomerRazorpaySubscription({
       theme: { color: '#2563eb' },
       handler: async (response) => {
         try {
-          await apiFetch('/api/v1/wallet/topup/razorpay/verify', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
           const subRes = await subscribeToPackage({
             package_id: targetPackageId,
             merchant_profile_id: merchantProfileId,

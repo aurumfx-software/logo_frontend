@@ -1099,11 +1099,22 @@ export default function FieldStaffDashboard() {
         ) : activePanel === 'my-products' || activePanel === 'sell-ad' ? (
           !isSellerSubscribed ? (
             renderPlanLockCard(activePanel === 'sell-ad' ? 'Sell / Post an Ad' : 'My Products')
+          ) : activePanel === 'sell-ad' ? (
+            <CustomerAddProductModal
+              isOpen={true}
+              embedded={true}
+              onClose={() => setTab('my-products')}
+              customerUser={customerUser}
+              onProductCreated={() => {
+                setNoticeMsg('Product created successfully!');
+                setTab('my-products');
+              }}
+            />
           ) : (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
-                  {activePanel === 'sell-ad' ? 'Create & Post Product Ad' : `My Products (${myProducts.length})`}
+                  My Products ({myProducts.length})
                 </h2>
                 <button
                   type="button"
@@ -1114,17 +1125,6 @@ export default function FieldStaffDashboard() {
                   Create Product
                 </button>
               </div>
-              {activePanel === 'sell-ad' && (
-                <div style={{ padding: 20, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                  <div>
-                    <strong style={{ fontSize: 14, color: '#166534' }}>₹500 Seller Plan Active</strong>
-                    <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#15803d' }}>Upload real product photos, set size variants, stock & publish directly to Kerala buyers.</p>
-                  </div>
-                  <button type="button" onClick={() => setIsAddProductOpen(true)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                    + Open Product Creation Form
-                  </button>
-                </div>
-              )}
               {myProducts.length === 0 ? (
                 <p style={{ fontSize: 13, color: '#64748b' }}>No products created yet. Click "+ Create Product" to list items.</p>
               ) : (
