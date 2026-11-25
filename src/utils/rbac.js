@@ -75,7 +75,7 @@ export function normalizeRole(user) {
   const raw = (user.role || user.user_role || user.type || '').toString().toUpperCase().trim();
   const email = (user.email || '').toString().toLowerCase().trim();
 
-  if (email === 'user01@gmail.com' || raw === 'SELLER' || user.can_sell_products) {
+  if (email === 'user01@gmail.com' || raw === 'SELLER') {
     return ROLES.SELLER;
   }
 

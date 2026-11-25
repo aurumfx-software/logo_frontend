@@ -77,6 +77,19 @@ function RoleProtectedRoute({ allowedRoles, children }) {
   return children;
 }
 
+// Admin, Merchant, and legacy standalone Seller only — Customers stay inside /dashboard
+function ProductsPlatformRoute({ children }) {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  const role = normalizeRole(user);
+  if (role === ROLES.STAFF) {
+    return <Navigate to="/dashboard?tab=my-products" replace />;
+  }
+  return children;
+}
+
 // Public login wrapper — redirects based on role if already authenticated
 function LoginPublicRoute({ children }) {
   const { user, isAuthenticated } = useAuth();
@@ -153,9 +166,9 @@ function AppRoutes() {
         <Route path="/merchant-portal" element={<MerchantPortal />} />
         <Route path="/geography" element={<AdminOnlyRoute><Geography /></AdminOnlyRoute>} />
         <Route path="/reports" element={<AdminOnlyRoute><Reports /></AdminOnlyRoute>} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/seller" element={<Products />} />
-        <Route path="/seller-hub" element={<Products />} />
+        <Route path="/products" element={<ProductsPlatformRoute><Products /></ProductsPlatformRoute>} />
+        <Route path="/seller" element={<ProductsPlatformRoute><Products /></ProductsPlatformRoute>} />
+        <Route path="/seller-hub" element={<ProductsPlatformRoute><Products /></ProductsPlatformRoute>} />
 
 
         {/* Restricted Admin / Super Admin routes */}

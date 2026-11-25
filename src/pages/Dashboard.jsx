@@ -174,7 +174,7 @@ export default function Dashboard() {
   }, []);
 
   const roleUpper = (user?.role || '').toString().toUpperCase();
-  if (roleUpper === 'STAFF' || roleUpper === 'FIELD STAFF' || roleUpper === 'FIELD_STAFF') {
+  if (roleUpper === 'STAFF' || roleUpper === 'FIELD STAFF' || roleUpper === 'FIELD_STAFF' || roleUpper === 'CUSTOMER') {
     return <FieldStaffDashboard />;
   }
 
