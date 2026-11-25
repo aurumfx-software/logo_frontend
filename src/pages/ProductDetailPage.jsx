@@ -140,15 +140,18 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => {
-    const handleSync = () => {
+    const handleSync = async () => {
       const authed = isCustomerAuthenticated();
       setCustomerUser(authed ? getStoredCustomerUser() : null);
-      setDeliveryAddress(authed ? getSavedDeliveryAddress() : null);
+      const saved = authed ? await getSavedDeliveryAddress() : null;
+      setDeliveryAddress(saved?.address ? saved : null);
     };
     window.addEventListener('customer-session-changed', handleSync);
+    window.addEventListener('logo-delivery-address-changed', handleSync);
     window.addEventListener('storage', handleSync);
     return () => {
       window.removeEventListener('customer-session-changed', handleSync);
+      window.removeEventListener('logo-delivery-address-changed', handleSync);
       window.removeEventListener('storage', handleSync);
     };
   }, []);
@@ -787,9 +790,10 @@ export default function ProductDetailPage() {
         }}
         initialSection="customer-login"
         promptMessage={accountPromptMessage}
-        onAuthSuccess={(u) => {
+        onAuthSuccess={async (u) => {
           setCustomerUser(u || getStoredCustomerUser());
-          setDeliveryAddress(getSavedDeliveryAddress());
+          const saved = await getSavedDeliveryAddress();
+          setDeliveryAddress(saved?.address ? saved : null);
           setAccountModalOpen(false);
           setAccountPromptMessage('');
           showToast('Signed in successfully!');

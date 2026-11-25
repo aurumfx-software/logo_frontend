@@ -3,10 +3,10 @@ import {
   HiX,
   HiLocationMarker,
   HiCheckCircle,
-  HiPhone,
-  HiUser,
+  HiSparkles,
 } from 'react-icons/hi';
 import { saveDeliveryAddress, getSavedDeliveryAddress } from '../../api/productApi';
+import { isCustomerAuthenticated } from '../../api/customerApi';
 import './market-web.css';
 
 export const KERALA_DISTRICTS = [
@@ -26,9 +26,56 @@ export const KERALA_DISTRICTS = [
   'Kasaragod',
 ];
 
-export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, initialAddress }) {
-  if (!isOpen) return null;
+const KERALA_DISTRICT_COORDS = [
+  { name: 'Thiruvananthapuram', lat: 8.5241, lng: 76.9366 },
+  { name: 'Kollam', lat: 8.8932, lng: 76.6141 },
+  { name: 'Pathanamthitta', lat: 9.2648, lng: 76.7870 },
+  { name: 'Alappuzha', lat: 9.4981, lng: 76.3388 },
+  { name: 'Kottayam', lat: 9.5916, lng: 76.5222 },
+  { name: 'Idukki', lat: 9.9189, lng: 77.1025 },
+  { name: 'Ernakulam', lat: 9.9816, lng: 76.2999 },
+  { name: 'Thrissur', lat: 10.5276, lng: 76.2144 },
+  { name: 'Palakkad', lat: 10.7867, lng: 76.6548 },
+  { name: 'Malappuram', lat: 11.0510, lng: 76.0711 },
+  { name: 'Kozhikode', lat: 11.2588, lng: 75.7804 },
+  { name: 'Wayanad', lat: 11.6854, lng: 76.1320 },
+  { name: 'Kannur', lat: 11.8745, lng: 75.3704 },
+  { name: 'Kasaragod', lat: 12.4996, lng: 74.9869 },
+];
 
+function matchKeralaDistrict(rawDistrict, lat, lng) {
+  const clean = String(rawDistrict || '')
+    .replace(/\s*district\s*/i, '')
+    .trim()
+    .toLowerCase();
+  if (clean) {
+    const exact = KERALA_DISTRICTS.find(
+      (d) => d.toLowerCase() === clean || clean.includes(d.toLowerCase()) || d.toLowerCase().includes(clean)
+    );
+    if (exact) return exact;
+  }
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    let best = '';
+    let minDist = Infinity;
+    for (const c of KERALA_DISTRICT_COORDS) {
+      const dist = (c.lat - lat) ** 2 + (c.lng - lng) ** 2;
+      if (dist < minDist) {
+        minDist = dist;
+        best = c.name;
+      }
+    }
+    return best;
+  }
+  return '';
+}
+
+export default function DeliveryAddressModal({
+  isOpen,
+  onClose,
+  onAddressSaved,
+  onSaveAddress,
+  initialAddress,
+}) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -37,34 +84,42 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
     city: '',
     district: '',
     pincode: '',
+    state: 'Kerala',
   });
 
   const [errorMsg, setErrorMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
+  const [gpsMessage, setGpsMessage] = useState('');
 
   useEffect(() => {
+    if (!isOpen) return;
+    setErrorMsg('');
+    setGpsMessage('');
     async function init() {
-      if (initialAddress) {
+      if (initialAddress && (initialAddress.address || initialAddress.name || initialAddress.phone)) {
         setFormData({
           name: initialAddress.name || '',
-          phone: (initialAddress.phone || '').replace(/[^0-9]/g, '').slice(-10),
+          phone: String(initialAddress.phone || '').replace(/[^0-9]/g, '').slice(-10),
           address: initialAddress.address || initialAddress.address_line1 || '',
           landmark: initialAddress.landmark || initialAddress.address_line2 || '',
           city: initialAddress.city || '',
           district: initialAddress.district || '',
           pincode: initialAddress.pincode || '',
+          state: initialAddress.state || 'Kerala',
         });
-      } else {
+      } else if (isCustomerAuthenticated()) {
         const saved = await getSavedDeliveryAddress();
-        if (saved) {
+        if (saved && saved.address) {
           setFormData({
             name: saved.name || '',
-            phone: (saved.phone || '').replace(/[^0-9]/g, '').slice(-10),
+            phone: String(saved.phone || '').replace(/[^0-9]/g, '').slice(-10),
             address: saved.address || '',
             landmark: saved.landmark || '',
             city: saved.city || '',
             district: saved.district || '',
             pincode: saved.pincode || '',
+            state: saved.state || 'Kerala',
           });
         } else {
           setFormData({
@@ -75,19 +130,113 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             city: '',
             district: '',
             pincode: '',
+            state: 'Kerala',
           });
         }
+      } else {
+        setFormData({
+          name: '',
+          phone: '',
+          address: '',
+          landmark: '',
+          city: '',
+          district: '',
+          pincode: '',
+          state: 'Kerala',
+        });
       }
     }
     init();
   }, [initialAddress, isOpen]);
 
+  if (!isOpen) return null;
+
+  const handleDetectLocation = () => {
+    setErrorMsg('');
+    setGpsMessage('');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setErrorMsg('GPS Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          let detectedCity = '';
+          let detectedDistrict = '';
+          let detectedPincode = '';
+          let detectedRoad = '';
+          let detectedLandmark = '';
+          let detectedState = 'Kerala';
+
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+              { headers: { 'Accept-Language': 'en' } }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const a = data.address || {};
+              detectedCity =
+                a.town || a.city || a.suburb || a.village || a.neighbourhood || a.county || '';
+              detectedDistrict = a.state_district || a.district || a.county || '';
+              detectedPincode = (a.postcode || '').replace(/\s+/g, '').slice(0, 6);
+              detectedRoad = [a.house_number, a.road, a.residential, a.suburb]
+                .filter(Boolean)
+                .join(', ');
+              detectedLandmark = a.neighbourhood || a.amenity || a.suburb || '';
+              if (a.state) detectedState = a.state;
+            }
+          } catch (_) {}
+
+          const matchedDistrict = matchKeralaDistrict(detectedDistrict, latitude, longitude);
+
+          setFormData((prev) => ({
+            ...prev,
+            address: prev.address.trim() ? prev.address : detectedRoad || prev.address,
+            landmark: prev.landmark.trim() ? prev.landmark : detectedLandmark || prev.landmark,
+            city: detectedCity || matchedDistrict || prev.city,
+            district: matchedDistrict || prev.district,
+            pincode: detectedPincode || prev.pincode,
+            state: detectedState || 'Kerala',
+          }));
+
+          setGpsMessage(
+            `Auto-filled: ${detectedCity || matchedDistrict || 'Location detected'}${
+              detectedPincode ? ` (${detectedPincode})` : ''
+            }`
+          );
+        } catch (_) {
+          setErrorMsg('Could not auto-fill address details. Please type manually.');
+        } finally {
+          setDetectingGps(false);
+        }
+      },
+      (geoErr) => {
+        setDetectingGps(false);
+        setErrorMsg(
+          geoErr.code === 1
+            ? 'GPS permission denied. Please allow location access in your browser.'
+            : 'Could not detect GPS location. Please enter your address manually.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
+    if (!isCustomerAuthenticated()) {
+      setErrorMsg('Please sign in first to save a delivery address.');
+      return;
+    }
+
     if (!formData.name.trim()) {
-      setErrorMsg('Please enter your full name');
+      setErrorMsg('Please enter recipient full name');
       return;
     }
 
@@ -97,8 +246,13 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
       return;
     }
 
-    if (!formData.address.trim()) {
-      setErrorMsg('Please enter your complete house/building street address');
+    if (!formData.address.trim() || formData.address.trim().length < 5) {
+      setErrorMsg('Please enter your complete house/flat, building & street address');
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      setErrorMsg('Please enter city / town');
       return;
     }
 
@@ -123,10 +277,12 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
         city: formData.city.trim() || formData.district,
         district: formData.district,
         pincode: cleanPincode.slice(0, 6),
+        state: formData.state || 'Kerala',
       };
 
       await saveDeliveryAddress(payload);
       if (onAddressSaved) onAddressSaved(payload);
+      if (onSaveAddress) onSaveAddress(payload);
       onClose();
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to save delivery address');
@@ -146,7 +302,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>Delivery Address</h3>
-              <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Shipped across all 14 Kerala districts</p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Where should your marketplace orders be delivered?</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="mkt-nav-back-btn" style={{ width: '32px', height: '32px' }}>
@@ -162,9 +318,91 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             </div>
           )}
 
+          {/* GPS Auto-Detect Button (Exact Mobile App Parity) */}
+          <button
+            type="button"
+            onClick={handleDetectLocation}
+            disabled={detectingGps}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              marginBottom: gpsMessage ? '10px' : '16px',
+              background: 'linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%)',
+              border: '1.5px solid #bfdbfe',
+              borderRadius: '12px',
+              cursor: detectingGps ? 'wait' : 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#ffffff',
+                border: '1px solid #dbeafe',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#2563eb',
+                flexShrink: 0,
+              }}
+            >
+              <HiLocationMarker size={18} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e40af' }}>
+                {detectingGps ? 'Detecting GPS Location...' : 'Use Current Location (GPS Auto-Fill)'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#475569' }}>
+                Auto-fills Street, City / Town, District & PIN Code instantly
+              </div>
+            </div>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                padding: '4px 8px',
+                borderRadius: '9999px',
+                fontSize: '10.5px',
+                fontWeight: 800,
+              }}
+            >
+              <HiSparkles size={12} />
+              GPS
+            </span>
+          </button>
+
+          {gpsMessage && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 12px',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#15803d',
+                marginBottom: '14px',
+              }}
+            >
+              <HiCheckCircle size={16} />
+              <span>{gpsMessage}</span>
+            </div>
+          )}
+
           <div className="mkt-form-grid-2">
             <div className="mkt-form-group">
-              <label className="mkt-form-label">Full Name *</label>
+              <label className="mkt-form-label">Recipient Full Name *</label>
               <input
                 type="text"
                 required
@@ -181,7 +419,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
                 type="tel"
                 required
                 maxLength={10}
-                placeholder="9876543210"
+                placeholder="10-digit number"
                 value={formData.phone}
                 onChange={(e) =>
                   setFormData({
@@ -200,7 +438,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             <textarea
               required
               rows={2}
-              placeholder="e.g. TC 14/235, Green Villa, Temple Road"
+              placeholder="Flat/House No., Building Name, Street"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="mkt-form-textarea"
@@ -212,7 +450,7 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
               <label className="mkt-form-label">Landmark / Area (Optional)</label>
               <input
                 type="text"
-                placeholder="e.g. Near HP Petrol Pump"
+                placeholder="e.g. Near Temple / Bus Stand"
                 value={formData.landmark}
                 onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                 className="mkt-form-input"
@@ -251,12 +489,12 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
             </div>
 
             <div className="mkt-form-group">
-              <label className="mkt-form-label">6-Digit Postal Pincode *</label>
+              <label className="mkt-form-label">6-Digit PIN Code *</label>
               <input
                 type="text"
                 required
                 maxLength={6}
-                placeholder="e.g. 695121"
+                placeholder="6-digit PIN"
                 value={formData.pincode}
                 onChange={(e) =>
                   setFormData({
@@ -268,6 +506,17 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
                 style={{ fontFamily: 'monospace' }}
               />
             </div>
+          </div>
+
+          <div className="mkt-form-group">
+            <label className="mkt-form-label">State</label>
+            <input
+              type="text"
+              value={formData.state || 'Kerala'}
+              readOnly
+              className="mkt-form-input"
+              style={{ background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
+            />
           </div>
 
           {/* Action Buttons */}
@@ -286,7 +535,8 @@ export default function DeliveryAddressModal({ isOpen, onClose, onAddressSaved, 
               className="mkt-btn-buy-now"
               style={{ flex: 1.5, padding: '10px 16px', display: 'flex', justifyContent: 'center' }}
             >
-              {isSaving ? 'Saving...' : 'Save Delivery Address'}
+              <HiCheckCircle size={16} />
+              <span>{isSaving ? 'Saving...' : 'Save Address'}</span>
             </button>
           </div>
         </form>

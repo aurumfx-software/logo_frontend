@@ -79,15 +79,18 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
-    const syncAuth = () => {
+    const syncAuth = async () => {
       const authed = isCustomerAuthenticated();
       setCustomerUser(authed ? getStoredCustomerUser() : null);
-      setDeliveryAddress(authed ? getSavedDeliveryAddress() : null);
+      const saved = authed ? await getSavedDeliveryAddress() : null;
+      setDeliveryAddress(saved?.address ? saved : null);
     };
     window.addEventListener('customer-session-changed', syncAuth);
+    window.addEventListener('logo-delivery-address-changed', syncAuth);
     window.addEventListener('storage', syncAuth);
     return () => {
       window.removeEventListener('customer-session-changed', syncAuth);
+      window.removeEventListener('logo-delivery-address-changed', syncAuth);
       window.removeEventListener('storage', syncAuth);
     };
   }, []);
@@ -241,9 +244,10 @@ export default function CheckoutPage() {
             orderCode: result.order_code,
             productName: product?.name,
             amount: finalPayable,
-            user: user || {
+            user: customerUser || {
               name: deliveryAddress.name,
               phone: deliveryAddress.phone,
+              email: customerUser?.email || '',
             },
             onSuccess: async () => {
               await clearMarketCart();
@@ -822,7 +826,7 @@ export default function CheckoutPage() {
         isOpen={isAddressModalOpen}
         onClose={() => setIsAddressModalOpen(false)}
         initialAddress={deliveryAddress}
-        onSaveAddress={(saved) => {
+        onAddressSaved={(saved) => {
           setDeliveryAddress(saved);
           setErrorMsg('');
         }}
@@ -837,9 +841,9 @@ export default function CheckoutPage() {
         }}
         initialSection="customer-login"
         promptMessage={accountPrompt}
-        onAuthSuccess={(u) => {
+        onAuthSuccess={async (u) => {
           setCustomerUser(u || getStoredCustomerUser());
-          const saved = getSavedDeliveryAddress();
+          const saved = await getSavedDeliveryAddress();
           setDeliveryAddress(saved?.address ? saved : null);
           setAccountModalOpen(false);
           setAccountPrompt('');
