@@ -1,8 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiStar, HiHeart, HiOutlineHeart } from 'react-icons/hi';
-import { isOwnProduct } from '../../api/productApi';
-import { getStoredCustomerUser, isCustomerAuthenticated } from '../../api/customerApi';
 import './market-web.css';
 
 export default function ProductCard({
@@ -13,9 +11,6 @@ export default function ProductCard({
 }) {
   const navigate = useNavigate();
   if (!product) return null;
-
-  const currentUser = isCustomerAuthenticated() ? getStoredCustomerUser() : null;
-  const ownListing = isOwnProduct(product, currentUser);
 
   const discount = Number(product.discountPercent || product.discount_percent || 0);
   const originalPrice = Number(product.originalPrice || product.original_price || 0);
@@ -63,8 +58,6 @@ export default function ProductCard({
 
           {isOutOfStock ? (
             <span className="mkt-badge-stockout">OUT OF STOCK</span>
-          ) : ownListing ? (
-            <span className="mkt-badge-deal" style={{ background: '#0f172a', color: '#ffffff' }}>YOUR LISTING</span>
           ) : discount > 0 ? (
             <span className="mkt-badge-discount">{discount}% OFF</span>
           ) : (
@@ -134,8 +127,6 @@ export default function ProductCard({
         {/* Badges */}
         {isOutOfStock ? (
           <span className="mkt-badge-stockout">OUT OF STOCK</span>
-        ) : ownListing ? (
-          <span className="mkt-badge-deal" style={{ background: '#0f172a', color: '#ffffff' }}>YOUR LISTING</span>
         ) : discount > 0 ? (
           <span className="mkt-badge-discount">{discount}% OFF</span>
         ) : (

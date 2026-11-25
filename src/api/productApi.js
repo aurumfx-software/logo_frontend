@@ -323,7 +323,25 @@ export async function fetchProductReviews(productId) {
       return await res.json();
     }
   } catch (_) {}
-  return { reviews: [], total: 0, rating_average: 4.8, rating_count: 24 };
+  return { reviews: [], total: 0, rating_average: 0, rating_count: 0 };
+}
+
+export async function submitProductReview(productId, { rating, title = '', comment = '' }) {
+  if (!isCustomerAuthenticated()) {
+    throw new Error('Please sign in to submit a review.');
+  }
+  const res = await apiFetch(`/api/v1/products/${productId}/reviews`, {
+    method: 'POST',
+    headers: getCustomerHeaders(),
+    body: JSON.stringify({
+      rating: Number(rating),
+      title: title || undefined,
+      comment: comment || undefined,
+    }),
+  });
+  if (res.ok) return await res.json();
+  const err = await res.json().catch(() => ({}));
+  throw new Error(err.message || err.detail || 'Failed to submit review');
 }
 
 /**

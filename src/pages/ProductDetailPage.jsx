@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   HiChevronLeft,
+  HiChevronRight,
   HiShoppingBag,
   HiHeart,
   HiOutlineHeart,
@@ -17,22 +18,19 @@ import {
   HiMinus,
   HiOutlineClock,
 } from 'react-icons/hi';
-import { FaWhatsapp } from 'react-icons/fa';
 import {
   fetchProductById,
-  fetchPublicProducts,
   getMarketCart,
   addToMarketCart,
   getSavedDeliveryAddress,
   fetchProductReviews,
-  submitOrderReview,
+  submitProductReview,
   getMarketplaceWishlist,
   addToMarketplaceWishlist,
   removeFromMarketplaceWishlist,
   isOwnProduct,
 } from '../api/productApi';
 import { isCustomerAuthenticated, getStoredCustomerUser } from '../api/customerApi';
-import ProductCard from '../components/market/ProductCard';
 import MarketCartDrawer from '../components/market/MarketCartDrawer';
 import DeliveryAddressModal from '../components/market/DeliveryAddressModal';
 import MobileAccountModal from '../components/MobileAccountModal';
@@ -45,12 +43,12 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
   const [selectedSize, setSelectedSize] = useState('Standard');
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [similarProducts, setSimilarProducts] = useState([]);
   const [deliveryAddress, setDeliveryAddress] = useState(null);
-  const [reviewsData, setReviewsData] = useState({ reviews: [], rating_average: 4.8, rating_count: 24 });
+  const [reviewsData, setReviewsData] = useState({ reviews: [], total: 0, rating_average: 0, rating_count: 0 });
   const [customerUser, setCustomerUser] = useState(() =>
     isCustomerAuthenticated() ? getStoredCustomerUser() : null
   );
@@ -62,6 +60,7 @@ export default function ProductDetailPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewError, setReviewError] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Cart & Drawers
@@ -89,6 +88,7 @@ export default function ProductDetailPage() {
 
       if (prodRes) {
         setProduct(prodRes);
+        setActiveImageIdx(0);
         if (prodRes.sizes && prodRes.sizes.length > 0) {
           setSelectedSize(prodRes.sizes[0]);
         }
@@ -97,14 +97,6 @@ export default function ProductDetailPage() {
           setQuantity(Math.ceil(150 / itemPrice));
         } else {
           setQuantity(1);
-        }
-
-        if (prodRes.category) {
-          fetchPublicProducts({ category: prodRes.category, limit: 8 })
-            .then((sim) => {
-              setSimilarProducts((sim || []).filter((p) => String(p.id) !== String(id)));
-            })
-            .catch(() => {});
         }
       }
 
@@ -240,19 +232,32 @@ export default function ProductDetailPage() {
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
-    if (!reviewTitle.trim() && !reviewComment.trim()) return;
+    setReviewError('');
+    if (!isCustomerAuthenticated()) {
+      openCustomerAuth('Please sign in to submit a product review.');
+      return;
+    }
+    if (!reviewTitle.trim() && !reviewComment.trim()) {
+      setReviewError('Please enter a review title or comment.');
+      return;
+    }
 
     setSubmittingReview(true);
     try {
-      await submitOrderReview(id, {
+      await submitProductReview(id, {
         rating: reviewRating,
-        title: reviewTitle,
-        comment: reviewComment,
+        title: reviewTitle.trim(),
+        comment: reviewComment.trim(),
       });
-      showToast('Thank you! Your review has been submitted.');
+      const updatedRevs = await fetchProductReviews(id);
+      if (updatedRevs) setReviewsData(updatedRevs);
+      setReviewTitle('');
+      setReviewComment('');
+      setReviewRating(5);
       setShowReviewForm(false);
+      showToast('Thank you! Your review has been published.');
     } catch (err) {
-      alert(err?.message || 'Failed to submit review');
+      setReviewError(err?.message || 'Failed to submit review. Please try again.');
     } finally {
       setSubmittingReview(false);
     }
@@ -360,7 +365,17 @@ export default function ProductDetailPage() {
         <div className="mkt-detail-grid">
           {/* ── Left Column: Image Gallery & Trust Guarantees ── */}
           <div className="mkt-gallery-wrap">
-            <div className="mkt-gallery-main">
+            <div
+              className="mkt-gallery-main"
+              onTouchStart={(e) => setTouchStartX(e.touches?.[0]?.clientX ?? null)}
+              onTouchEnd={(e) => {
+                if (touchStartX === null || images.length <= 1) return;
+                const diff = (e.changedTouches?.[0]?.clientX ?? 0) - touchStartX;
+                if (diff > 40) setActiveImageIdx((i) => (i - 1 + images.length) % images.length);
+                else if (diff < -40) setActiveImageIdx((i) => (i + 1) % images.length);
+                setTouchStartX(null);
+              }}
+            >
               <img
                 src={images[activeImageIdx] || images[0]}
                 alt={product.name}
@@ -372,23 +387,93 @@ export default function ProductDetailPage() {
               ) : (
                 <span className="mkt-badge-deal">SPECIAL DEAL</span>
               )}
-            </div>
 
-            {/* Thumbnail Strip */}
-            {images.length > 1 && (
-              <div className="mkt-gallery-thumbs">
-                {images.map((img, idx) => (
+              {images.length > 1 && (
+                <>
                   <button
-                    key={idx}
                     type="button"
-                    onClick={() => setActiveImageIdx(idx)}
-                    className={`mkt-gallery-thumb-btn ${activeImageIdx === idx ? 'is-active' : ''}`}
+                    aria-label="Previous image"
+                    onClick={() => setActiveImageIdx((i) => (i - 1 + images.length) % images.length)}
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'rgba(15, 23, 42, 0.58)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      zIndex: 5,
+                    }}
                   >
-                    <img src={img} alt={`Thumb ${idx}`} />
+                    <HiChevronLeft size={20} />
                   </button>
-                ))}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    aria-label="Next image"
+                    onClick={() => setActiveImageIdx((i) => (i + 1) % images.length)}
+                    style={{
+                      position: 'absolute',
+                      right: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'rgba(15, 23, 42, 0.58)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      zIndex: 5,
+                    }}
+                  >
+                    <HiChevronRight size={20} />
+                  </button>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 12,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      gap: 6,
+                      padding: '5px 10px',
+                      borderRadius: 999,
+                      background: 'rgba(15, 23, 42, 0.5)',
+                      zIndex: 5,
+                    }}
+                  >
+                    {images.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        aria-label={`Slide ${idx + 1}`}
+                        onClick={() => setActiveImageIdx(idx)}
+                        style={{
+                          width: activeImageIdx === idx ? 18 : 7,
+                          height: 7,
+                          borderRadius: 999,
+                          border: 'none',
+                          padding: 0,
+                          background: activeImageIdx === idx ? '#ffffff' : 'rgba(255,255,255,0.45)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Available Sub-Products / Variants Strip (Directly above Kerala Trust & Quality Assurance) */}
             {Array.isArray(product.sub_products) && product.sub_products.length > 0 && (
@@ -465,22 +550,16 @@ export default function ProductDetailPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span className="mkt-detail-category-tag">{product.category}</span>
-                {(product.district || product.city) && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '12px', color: '#64748b' }}>
-                    <HiLocationMarker size={14} color="#64748b" />
-                    {[product.city, product.district, 'Kerala'].filter((v, i, arr) => v && arr.indexOf(v) === i).join(', ')}
-                  </span>
-                )}
               </div>
               <h1 className="mkt-detail-heading">{product.name}</h1>
 
               <div className="mkt-detail-rating-row" style={{ marginTop: '8px' }}>
                 <span className="mkt-card-rating-pill" style={{ padding: '3px 8px', fontSize: '11px' }}>
-                  <span>{reviewsData.rating_average || product.rating || 4.8}</span>
+                  <span>{reviewsData.rating_count > 0 ? reviewsData.rating_average : (product.rating || 4.8)}</span>
                   <HiStar size={12} />
                 </span>
                 <span style={{ color: '#64748b', fontSize: '12px' }}>
-                  {reviewsData.rating_count || product.reviewsCount || 24} Ratings & Reviews
+                  {reviewsData.rating_count || 0} Ratings & Reviews
                 </span>
                 <span style={{ color: '#cbd5e1' }}>•</span>
                 <span style={{ color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', fontSize: '11.5px', fontWeight: 700 }}>
@@ -660,27 +739,6 @@ export default function ProductDetailPage() {
                 {deliveryAddress?.address ? 'Change' : 'Add Address'}
               </button>
             </div>
-
-            {/* Seller Contact Card */}
-            <div className="mkt-seller-card">
-              <div>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Sold By</span>
-                <h4 style={{ margin: '2px 0', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{product.sellerName}</h4>
-                <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>{product.district || 'Kerala'} • Verified Local Seller</p>
-              </div>
-
-              {(product.sellerPhone || product.sellerWhatsapp) && (
-                <a
-                  href={`https://wa.me/91${String(product.sellerWhatsapp || product.sellerPhone).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! Inquiring regarding "${product.name}" on Logo Marketplace.`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mkt-whatsapp-btn"
-                >
-                  <FaWhatsapp size={16} />
-                  <span>Chat with Seller</span>
-                </a>
-              )}
-            </div>
           </div>
         </div>
 
@@ -808,6 +866,12 @@ export default function ProductDetailPage() {
                     />
                   </div>
 
+                  {reviewError && (
+                    <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+                      {reviewError}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                     <button type="button" onClick={() => setShowReviewForm(false)} className="mkt-btn-secondary" style={{ display: 'inline-flex' }}>
                       Cancel
@@ -822,9 +886,9 @@ export default function ProductDetailPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {reviewsData.reviews && reviewsData.reviews.length > 0 ? (
                   reviewsData.reviews.map((rev, i) => (
-                    <div key={i} style={{ padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <div key={rev.id || i} style={{ padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <strong style={{ fontSize: '12px', color: '#0f172a' }}>{rev.user_name || rev.author || 'Verified Buyer'}</strong>
+                        <strong style={{ fontSize: '12px', color: '#0f172a' }}>{rev.buyer_name || rev.user_name || rev.author || 'Verified Buyer'}</strong>
                         <div style={{ display: 'flex', gap: '1px' }}>
                           {[...Array(Number(rev.rating || 5))].map((_, idx) => (
                             <HiStar key={idx} size={13} color="#f59e0b" />
@@ -832,7 +896,7 @@ export default function ProductDetailPage() {
                         </div>
                       </div>
                       {rev.title && <h5 style={{ margin: '2px 0', fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{rev.title}</h5>}
-                      <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>{rev.comment}</p>
+                      {rev.comment && <p style={{ margin: 0, fontSize: '12px', color: '#475569' }}>{rev.comment}</p>}
                     </div>
                   ))
                 ) : (
@@ -842,25 +906,6 @@ export default function ProductDetailPage() {
                 )}
               </div>
             </div>
-
-        {/* ── Similar Products Row ── */}
-        {similarProducts.length > 0 && (
-          <div style={{ marginTop: '40px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 900, margin: '0 0 16px', color: '#0f172a' }}>
-              More in {product.category}
-            </h3>
-            <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', scrollbarWidth: 'none', padding: '4px 0' }}>
-              {similarProducts.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  variant="horizontal"
-                  onToggleWishlist={handleToggleWishlist}
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* ── Mobile Sticky Bottom Action Bar ── */}
