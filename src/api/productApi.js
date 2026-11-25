@@ -117,15 +117,20 @@ export function normalizeProduct(p) {
       const sImgs = (Array.isArray(s.images) ? s.images : s.image ? [s.image] : [])
         .map(formatMediaUrl)
         .filter(Boolean);
+      const sPrice = Number(s.price || 0);
+      const sOrig = s.original_price ? Number(s.original_price) : null;
+      const sDiscount = sOrig && sOrig > sPrice ? Math.round(((sOrig - sPrice) / sOrig) * 100) : 0;
       return {
         id: String(s.id),
         parent_product_id: s.parent_product_id ?? null,
         name: s.name || 'Variant',
         description: s.description || '',
         category: s.category || p.category || 'General',
-        price: Number(s.price || 0),
-        originalPrice: s.original_price ? Number(s.original_price) : null,
-        original_price: s.original_price ? Number(s.original_price) : null,
+        price: sPrice,
+        originalPrice: sOrig,
+        original_price: sOrig,
+        discountPercent: sDiscount,
+        discount_percent: sDiscount,
         images: sImgs,
         image:
           sImgs[0] ||
@@ -244,7 +249,7 @@ export async function fetchPublicProducts(params = {}) {
   }
   const data = await res.json();
   const list = Array.isArray(data) ? data : data?.products || data?.items || [];
-  return list.map(normalizeProduct);
+  return list.map(normalizeProduct).filter((p) => !p.parent_product_id);
 }
 
 /**
@@ -1011,7 +1016,7 @@ export async function fetchMyProducts() {
   if (!res.ok) throw new Error('Failed to fetch your products');
   const data = await res.json();
   const list = Array.isArray(data) ? data : data?.products || data?.items || [];
-  return list.map(normalizeProduct);
+  return list.map(normalizeProduct).filter((p) => !p.parent_product_id);
 }
 
 export async function fetchSellerAnalytics(period = 'all') {

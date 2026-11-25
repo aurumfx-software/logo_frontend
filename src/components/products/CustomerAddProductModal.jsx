@@ -494,7 +494,9 @@ export default function CustomerAddProductModal({
         await deleteCustomerProduct(delId).catch(() => null);
       }
 
-      const parentId = Number(initialProduct?.parent_product_id || initialProduct?.id || res?.id);
+      const parentId = Number(
+        initialProduct?.parent_product_id || initialProduct?.id || res?.id || res?.data?.id || res?.product?.id
+      );
       if (parentId && subPayloads.length > 0) {
         for (const spItem of subPayloads) {
           const { _existingId, ...spPayload } = spItem;

@@ -75,8 +75,10 @@ export default function ProductDetailPage() {
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  const loadProduct = async () => {
-    setLoading(true);
+  const loadProduct = async (isSiblingSwitch = false) => {
+    if (!isSiblingSwitch) {
+      setLoading(true);
+    }
     try {
       const [prodRes, addr, cart, revs, wish] = await Promise.all([
         fetchProductById(id),
@@ -114,8 +116,22 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => {
-    loadProduct();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const matchedSibling = product?.sub_products?.find((s) => String(s.id) === String(id));
+    if (matchedSibling) {
+      setProduct((prev) => ({
+        ...prev,
+        ...matchedSibling,
+        sub_products: prev?.sub_products || [],
+      }));
+      setActiveImageIdx(0);
+      if (matchedSibling.sizes && matchedSibling.sizes.length > 0) {
+        setSelectedSize(matchedSibling.sizes[0]);
+      }
+      loadProduct(true);
+    } else {
+      loadProduct(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [id]);
 
   useEffect(() => {
@@ -475,41 +491,37 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Available Sub-Products / Variants Strip (Directly above Kerala Trust & Quality Assurance) */}
+            {/* Sub-Products Thumbnail Strip (Exact old image-thumbnails spot directly below main slider & above Trust section) */}
             {Array.isArray(product.sub_products) && product.sub_products.length > 0 && (
-              <div className="mkt-trust-card">
-                <h4 className="mkt-trust-title" style={{ marginBottom: '10px', color: '#1e3a8a' }}>
-                  Available Options & Sub-Products ({product.sub_products.length})
-                </h4>
-                <div className="mkt-variants-row">
-                  {product.sub_products.map((sub) => {
-                    const isCurrent = String(sub.id) === String(product.id);
-                    const subOut = !sub.inStock || (sub.stockQuantity !== null && sub.stockQuantity !== undefined && Number(sub.stockQuantity) <= 0);
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => !isCurrent && navigate(`/product/${sub.id}`)}
-                        className={`mkt-variant-tile ${isCurrent ? 'is-active' : ''}`}
-                      >
-                        <img
-                          src={sub.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=120'}
-                          alt={sub.name}
-                          style={{ width: 44, height: 44, borderRadius: 7, objectFit: 'cover', flexShrink: 0, background: '#f1f5f9' }}
-                        />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 11.5, fontWeight: 800, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {sub.name}
-                          </div>
-                          <div style={{ fontSize: 11.5, fontWeight: 900, color: subOut ? '#dc2626' : '#2563eb' }}>
-                            ₹{Number(sub.price || 0).toLocaleString('en-IN')}
-                            {subOut ? ' · Out' : ''}
-                          </div>
+              <div className="mkt-subthumbs-strip">
+                {product.sub_products.map((sub) => {
+                  const isCurrent = String(sub.id) === String(product.id);
+                  const subOut = !sub.inStock || (sub.stockQuantity !== null && sub.stockQuantity !== undefined && Number(sub.stockQuantity) <= 0);
+                  const sizeHint = Array.isArray(sub.sizes) && sub.sizes.length > 0 ? sub.sizes[0] : '';
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => !isCurrent && navigate(`/product/${sub.id}`)}
+                      className={`mkt-subthumb-btn ${isCurrent ? 'is-active' : ''}`}
+                      title={`${sub.name} — ₹${Number(sub.price || 0).toLocaleString('en-IN')}`}
+                    >
+                      <img
+                        src={sub.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=120'}
+                        alt={sub.name}
+                        className="mkt-subthumb-img"
+                      />
+                      <div className="mkt-subthumb-meta">
+                        <div className="mkt-subthumb-name">{sub.name}</div>
+                        <div className="mkt-subthumb-price" style={subOut ? { color: '#dc2626' } : undefined}>
+                          ₹{Number(sub.price || 0).toLocaleString('en-IN')}
+                          {sizeHint ? ` · ${sizeHint}` : ''}
+                          {subOut ? ' · Out' : ''}
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
