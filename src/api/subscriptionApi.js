@@ -1,24 +1,19 @@
-import { apiFetch } from './apiClient';
+import { apiFetch, getAccessToken } from './apiClient';
 import { getCustomerHeaders, getCustomerToken, fetchCustomerProfile } from './customerApi';
 import { getMerchantToken } from './merchantApi';
 
 function _getSubscriberHeaders(audience = 'USER') {
   const mToken = getMerchantToken();
   const cToken = getCustomerToken();
+  const fallbackToken = getAccessToken();
   const adminToken = typeof window !== 'undefined' ? localStorage.getItem('logo_admin_token') || '' : '';
-  if (audience === 'MERCHANT') {
-    const tok = mToken || adminToken || cToken;
-    return tok
-      ? { 'Content-Type': 'application/json', Authorization: tok.startsWith('Bearer ') ? tok : `Bearer ${tok}` }
-      : { 'Content-Type': 'application/json' };
-  }
-  if (cToken) {
-    return getCustomerHeaders();
-  }
-  if (adminToken) {
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` };
-  }
-  return { 'Content-Type': 'application/json' };
+  const tok =
+    audience === 'MERCHANT'
+      ? mToken || fallbackToken || adminToken || cToken
+      : cToken || mToken || fallbackToken || adminToken;
+  return tok
+    ? { 'Content-Type': 'application/json', Authorization: tok.startsWith('Bearer ') ? tok : `Bearer ${tok}` }
+    : { 'Content-Type': 'application/json' };
 }
 
 /**
@@ -146,7 +141,7 @@ export async function subscribeToPackage({
         : data.message || 'Failed to activate subscription'
     );
   }
-  if (audience !== 'MERCHANT') {
+  if (audience !== 'MERCHANT' && getCustomerToken()) {
     await fetchCustomerProfile().catch(() => null);
   }
   return data?.data || data;
@@ -164,21 +159,24 @@ export async function cancelMySubscription(subscriptionId, audience = 'USER') {
   if (!response.ok) {
     throw new Error(data.detail || data.message || 'Failed to cancel subscription');
   }
-  if (audience !== 'MERCHANT') {
+  if (audience !== 'MERCHANT' && getCustomerToken()) {
     await fetchCustomerProfile().catch(() => null);
   }
   return data?.data || data;
 }
 
 /**
- * Check if customer has unlocked ₹500 Seller Plan to create products
+ * Check if user (Customer or Merchant) has unlocked ₹500 Seller Plan to create products
  */
 export function hasActiveSellerSubscription(customerUser, activeSubData = null) {
   if (!customerUser) return false;
   if (
     Boolean(customerUser.can_sell_products) ||
     Boolean(customerUser.is_subscriber) ||
-    customerUser.subscription_plan === '500_SELLER'
+    customerUser.subscription_plan === '500_SELLER' ||
+    Boolean(activeSubData?.can_sell_products) ||
+    Boolean(activeSubData?.is_subscriber) ||
+    activeSubData?.subscription_plan === '500_SELLER'
   ) {
     return true;
   }
@@ -186,7 +184,8 @@ export function hasActiveSellerSubscription(customerUser, activeSubData = null) 
   if (Array.isArray(userSubs) && userSubs.length > 0) {
     return userSubs.some((s) => {
       const st = String(s.status || 'ACTIVE').toUpperCase();
-      return st === 'ACTIVE' || st === 'PAID';
+      const pkgCode = String(s.package_code || '').toUpperCase();
+      return (st === 'ACTIVE' || st === 'PAID') && pkgCode !== 'USER_FREE';
     });
   }
   return false;
@@ -288,7 +287,7 @@ export async function startCustomerRazorpaySubscription({
     });
     if (verifyRes.ok) {
       const vJson = await verifyRes.json().catch(() => ({}));
-      if (audience !== 'MERCHANT') {
+      if (audience !== 'MERCHANT' && getCustomerToken()) {
         await fetchCustomerProfile().catch(() => null);
       }
       return vJson?.data || vJson;

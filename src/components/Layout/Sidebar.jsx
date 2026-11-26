@@ -24,6 +24,8 @@ import {
   HiOutlinePhone,
   HiOutlineChatAlt2,
   HiOutlineHome,
+  HiOutlineChevronDown,
+  HiOutlineChevronRight,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -96,6 +98,18 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   const isMerchantUser = !isAdminUser && (userRole === ROLES.MERCHANT || (user?.email || '').toLowerCase() === 'merchent@gmail.com');
   const isSellerUser = !isAdminUser && (userRole === ROLES.SELLER || (user?.email || '').toLowerCase() === 'user01@gmail.com');
   const isCustomerUser = !isAdminUser && !isMerchantUser && !isSellerUser && (rawRoleStr === 'FIELD_STAFF' || rawRoleStr === 'CUSTOMER' || userRole === ROLES.STAFF);
+
+  const currentTabParam = new URLSearchParams(location.search || '').get('tab') || '';
+  const isMerchantProductTabActive =
+    isMerchantUser &&
+    ['seller-orders', 'dispatched', 'my-products', 'sell-ad'].includes(currentTabParam);
+  const [merchProductsOpen, setMerchProductsOpen] = useState(isMerchantProductTabActive);
+
+  useEffect(() => {
+    if (isMerchantProductTabActive) {
+      setMerchProductsOpen(true);
+    }
+  }, [isMerchantProductTabActive]);
 
   useEffect(() => {
     const handlePermChange = () => {
@@ -186,6 +200,26 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
           title: 'MERCHANT & BUSINESS WORKSPACE',
           items: [
             { key: 'merch_edit', path: '/merchant?tab=edit', icon: HiOutlineOfficeBuilding, label: 'Manage & Edit Store', pill: 'STORE' },
+            {
+              key: 'merch_products_group',
+              isDropdown: true,
+              icon: HiOutlineCube,
+              label: 'My Products',
+              isOpen: merchProductsOpen,
+              onToggle: () => {
+                if (collapsed && !mobileOpen) {
+                  navigate('/merchant?tab=my-products');
+                  return;
+                }
+                setMerchProductsOpen((prev) => !prev);
+              },
+              children: [
+                { key: 'merch_cust_orders', path: '/merchant?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
+                { key: 'merch_dispatched', path: '/merchant?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
+                { key: 'merch_my_products', path: '/merchant?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
+                { key: 'merch_sell_ad', path: '/merchant?tab=sell-ad', icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: '₹500 PLAN' },
+              ],
+            },
             { key: 'merch_promo', path: '/merchant?tab=promotions', icon: HiOutlineSpeakerphone, label: 'Promotions & Ad Banners', pill: 'NEW PROMO' },
             { key: 'merch_subs', path: '/merchant?tab=subscriptions', icon: HiOutlineSparkles, label: 'Growth & Promo Subscriptions', pill: 'NEW' },
             { key: 'merch_complaints', path: '/merchant?tab=complaints', icon: HiOutlineChatAlt2, label: 'Store Complaints & Support' },
@@ -249,53 +283,134 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
             {(!collapsed || mobileOpen) && (
               <div className="sidebar-section-title">{section.title}</div>
             )}
-            {section.items.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  if (onCloseMobile) onCloseMobile();
-                }}
-                className={({ isActive }) => {
-                  const fullCur = `${location.pathname}${location.search || ''}`;
-                  const isMatch = item.path.includes('?tab=')
-                    ? fullCur === item.path ||
-                      (item.path === '/dashboard?tab=profile' && location.pathname === '/dashboard' && !location.search) ||
-                      (item.path === '/merchant?tab=edit' && (location.pathname === '/merchant' || location.pathname === '/merchant/dashboard' || location.pathname === '/merchant-portal') && !location.search)
-                    : isActive && location.pathname === item.path;
-                  return `sidebar-link ${isMatch ? 'active' : ''}`;
-                }}
-                end={item.path === '/'}
-                title={collapsed && !mobileOpen ? item.label : undefined}
-              >
-                <span className="sidebar-link-icon">
-                  <item.icon />
-                </span>
-                {(!collapsed || mobileOpen) && (
-                  <>
-                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                    {item.pill && (
-                      <span
+            {section.items.map((item) => {
+              if (item.isDropdown) {
+                const anyChildActive = (item.children || []).some(
+                  (c) => `${location.pathname}${location.search || ''}` === c.path
+                );
+                return (
+                  <div key={item.key}>
+                    <button
+                      type="button"
+                      onClick={item.onToggle}
+                      className={`sidebar-link ${anyChildActive ? 'active' : ''}`}
+                      title={collapsed && !mobileOpen ? item.label : undefined}
+                      style={{ width: '100%' }}
+                    >
+                      <span className="sidebar-link-icon">
+                        <item.icon />
+                      </span>
+                      {(!collapsed || mobileOpen) && (
+                        <>
+                          <span style={{ flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.label}
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', opacity: 0.78, flexShrink: 0 }}>
+                            {item.isOpen ? <HiOutlineChevronDown size={15} /> : <HiOutlineChevronRight size={15} />}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    {item.isOpen && (!collapsed || mobileOpen) && (
+                      <div
                         style={{
-                          fontSize: '9px',
-                          fontWeight: 800,
-                          padding: '2px 5px',
-                          borderRadius: '4px',
-                          background: item.pill === 'UPGRADE' ? 'rgba(168,85,247,0.22)' : 'rgba(56,189,248,0.18)',
-                          color: item.pill === 'UPGRADE' ? '#d8b4fe' : '#7dd3fc',
-                          flexShrink: 0,
+                          margin: '2px 0 6px 12px',
+                          paddingLeft: 8,
+                          borderLeft: '1px solid rgba(148, 163, 184, 0.22)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 2,
                         }}
                       >
-                        {item.pill}
-                      </span>
+                        {(item.children || []).map((child) => (
+                          <NavLink
+                            key={child.path}
+                            to={child.path}
+                            onClick={() => {
+                              if (onCloseMobile) onCloseMobile();
+                            }}
+                            className={() => {
+                              const fullCur = `${location.pathname}${location.search || ''}`;
+                              return `sidebar-link ${fullCur === child.path ? 'active' : ''}`;
+                            }}
+                            style={{ padding: '7px 10px', fontSize: 12.5 }}
+                          >
+                            <span className="sidebar-link-icon">
+                              <child.icon />
+                            </span>
+                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {child.label}
+                            </span>
+                            {child.pill && (
+                              <span
+                                style={{
+                                  fontSize: '9px',
+                                  fontWeight: 800,
+                                  padding: '2px 5px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(56,189,248,0.18)',
+                                  color: '#7dd3fc',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {child.pill}
+                              </span>
+                            )}
+                          </NavLink>
+                        ))}
+                      </div>
                     )}
-                    {Number(item.badge) > 0 && (
-                      <span className="sidebar-link-badge">{item.badge}</span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            ))}
+                  </div>
+                );
+              }
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => {
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className={({ isActive }) => {
+                    const fullCur = `${location.pathname}${location.search || ''}`;
+                    const isMatch = item.path.includes('?tab=')
+                      ? fullCur === item.path ||
+                        (item.path === '/dashboard?tab=profile' && location.pathname === '/dashboard' && !location.search) ||
+                        (item.path === '/merchant?tab=edit' && (location.pathname === '/merchant' || location.pathname === '/merchant/dashboard' || location.pathname === '/merchant-portal') && !location.search)
+                      : isActive && location.pathname === item.path;
+                    return `sidebar-link ${isMatch ? 'active' : ''}`;
+                  }}
+                  end={item.path === '/'}
+                  title={collapsed && !mobileOpen ? item.label : undefined}
+                >
+                  <span className="sidebar-link-icon">
+                    <item.icon />
+                  </span>
+                  {(!collapsed || mobileOpen) && (
+                    <>
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                      {item.pill && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                            background: item.pill === 'UPGRADE' ? 'rgba(168,85,247,0.22)' : 'rgba(56,189,248,0.18)',
+                            color: item.pill === 'UPGRADE' ? '#d8b4fe' : '#7dd3fc',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.pill}
+                        </span>
+                      )}
+                      {Number(item.badge) > 0 && (
+                        <span className="sidebar-link-badge">{item.badge}</span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
         ))}
       </nav>

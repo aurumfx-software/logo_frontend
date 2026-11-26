@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   HiOutlineOfficeBuilding,
   HiOutlineSpeakerphone,
@@ -15,6 +15,7 @@ import {
   HiOutlineChatAlt2,
   HiOutlineTrash,
   HiOutlineLockClosed,
+  HiOutlineCreditCard,
   HiOutlineVideoCamera,
   HiOutlineDocumentText,
   HiOutlinePencil,
@@ -25,6 +26,9 @@ import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import ChangePasswordCard from '../components/UI/ChangePasswordCard';
 import PromotionImageCropperModal from '../components/UI/PromotionImageCropperModal';
 import VideoAdCropModal from '../components/UI/VideoAdCropModal';
+import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
+import MyProductsPanel from '../components/products/MyProductsPanel';
+import SellerOrdersPanel from '../components/products/SellerOrdersPanel';
 import {
   getMerchantProfile,
   getMyMerchants,
@@ -37,7 +41,7 @@ import {
   merchantForgotPassword,
   merchantResetPassword,
 } from '../api/merchantApi';
-import { getAccessToken } from '../api/apiClient';
+import { apiFetch, getAccessToken } from '../api/apiClient';
 import {
   fetchMerchantPromotions,
   createPromotion,
@@ -48,6 +52,11 @@ import {
   updateMerchantSliderInterval,
 } from '../api/promotionApi';
 import {
+  getBuyerOrders,
+  fetchMyProducts,
+  fetchMyOrders,
+} from '../api/productApi';
+import {
   getStoredSliderIntervalSec,
   setStoredMerchantSliderOverrideSec,
 } from '../utils/useSliderInterval';
@@ -56,7 +65,9 @@ import { fetchCategoriesList } from '../api/categoryApi';
 import {
   fetchAdminSubscriptionPackages,
   fetchMyActiveSubscriptions,
+  hasActiveSellerSubscription,
   startCustomerRazorpaySubscription,
+  cancelMySubscription,
 } from '../api/subscriptionApi';
 import {
   getStatesList,
@@ -132,9 +143,11 @@ const labelStyle = {
 };
 
 export default function MerchantPortal() {
-  const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activePanel = searchParams.get('tab') || 'edit';
+  const setTab = (tab) => setSearchParams({ tab });
 
   const isFormInitialized = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -209,10 +222,20 @@ export default function MerchantPortal() {
     rawFile: null,
   });
 
-  // Merchant Growth Subscriptions State
+  // Merchant Growth & Seller Subscriptions State
   const [subPackages, setSubPackages] = useState([]);
   const [activeSubData, setActiveSubData] = useState(null);
+  const [userSubPackages, setUserSubPackages] = useState([]);
+  const [userSubData, setUserSubData] = useState(null);
+  const [sellerAccountUser, setSellerAccountUser] = useState(() => user || null);
   const [subscribingId, setSubscribingId] = useState(null);
+
+  // Merchant Product Selling State (Exact Customer Dashboard Parity)
+  const [ordersSubTab, setOrdersSubTab] = useState('seller');
+  const [buyerOrders, setBuyerOrders] = useState([]);
+  const [sellerOrders, setSellerOrders] = useState([]);
+  const [myProducts, setMyProducts] = useState([]);
+  const [loadingSellerPanel, setLoadingSellerPanel] = useState(false);
 
   // Complaints & Grievance State
   const [complaints, setComplaints] = useState([]);
@@ -290,16 +313,39 @@ export default function MerchantPortal() {
     setErrorMsg('');
     if (!isFormInitialized.current) setLoading(true);
     try {
-      const liveToken = getAccessToken();
+      const liveToken = getAccessToken() || getMerchantToken();
       if (liveToken && !localStorage.getItem('logo_merchant_token') && user) {
         setMerchantSession({ access_token: liveToken, user });
       }
+      const authHeaders = liveToken
+        ? {
+            'Content-Type': 'application/json',
+            Authorization: liveToken.startsWith('Bearer ') ? liveToken : `Bearer ${liveToken}`,
+          }
+        : { 'Content-Type': 'application/json' };
 
-      const [meShop, shopsList, cats] = await Promise.all([
+      const [meShop, shopsList, cats, meUserRes, userSubRes, userPkgsRes] = await Promise.all([
         getMerchantProfile().catch(() => null),
         getMyMerchants().catch(() => []),
         fetchCategoriesList().catch(() => null),
+        liveToken
+          ? apiFetch('/api/v1/auth/me', { method: 'GET', headers: authHeaders })
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null)
+          : null,
+        fetchMyActiveSubscriptions('USER').catch(() => null),
+        fetchAdminSubscriptionPackages({ audience: 'USER', activeOnly: true }).catch(() => []),
       ]);
+
+      if (meUserRes && typeof meUserRes === 'object') {
+        const mergedAuthUser = { ...(user || {}), ...meUserRes };
+        setSellerAccountUser(mergedAuthUser);
+        if (updateUser) updateUser(mergedAuthUser);
+      } else if (user) {
+        setSellerAccountUser(user);
+      }
+      if (userSubRes) setUserSubData(userSubRes);
+      if (Array.isArray(userPkgsRes)) setUserSubPackages(userPkgsRes);
 
       if (Array.isArray(cats) && cats.length > 0) {
         setCategoriesList(cats.map((c) => (typeof c === 'string' ? c : c.name || c.title)).filter(Boolean));
@@ -362,9 +408,63 @@ export default function MerchantPortal() {
     }
   };
 
+  const loadMerchantSellerData = async (panel = activePanel) => {
+    if (!['seller-orders', 'dispatched', 'my-products', 'sell-ad', 'subscriptions'].includes(panel)) {
+      return;
+    }
+    setLoadingSellerPanel(true);
+    try {
+      const [meUserRes, userSubRes] = await Promise.all([
+        (() => {
+          const liveTok = getAccessToken() || getMerchantToken();
+          if (!liveTok) return null;
+          return apiFetch('/api/v1/auth/me', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: liveTok.startsWith('Bearer ') ? liveTok : `Bearer ${liveTok}`,
+            },
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+        })(),
+        fetchMyActiveSubscriptions('USER').catch(() => null),
+      ]);
+      if (meUserRes && typeof meUserRes === 'object') {
+        const merged = { ...(user || {}), ...meUserRes };
+        setSellerAccountUser(merged);
+        if (updateUser) updateUser(merged);
+      }
+      if (userSubRes) setUserSubData(userSubRes);
+
+      if (panel === 'seller-orders' || panel === 'dispatched') {
+        const [sOrders, bOrders] = await Promise.all([
+          fetchMyOrders().catch(() => []),
+          getBuyerOrders().catch(() => []),
+        ]);
+        setSellerOrders(Array.isArray(sOrders) ? sOrders : []);
+        setBuyerOrders(Array.isArray(bOrders) ? bOrders : []);
+      } else if (panel === 'my-products') {
+        const prods = await fetchMyProducts().catch(() => []);
+        setMyProducts(Array.isArray(prods) ? prods : []);
+      } else if (panel === 'subscriptions') {
+        const pkgs = await fetchAdminSubscriptionPackages({ audience: 'USER', activeOnly: true }).catch(() => []);
+        setUserSubPackages(Array.isArray(pkgs) ? pkgs : []);
+      }
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to load seller products data');
+    } finally {
+      setLoadingSellerPanel(false);
+    }
+  };
+
   useEffect(() => {
     loadMerchantWorkspace(false);
   }, []);
+
+  useEffect(() => {
+    loadMerchantSellerData(activePanel);
+  }, [activePanel]);
 
   const handleSelectShop = async (shopId) => {
     const match = shops.find((s) => String(s.id) === String(shopId));
@@ -743,6 +843,100 @@ export default function MerchantPortal() {
     }
   };
 
+  // ₹500 Seller Plan Subscription Handler (Same USER_SELLER_500 plan as Customer Profile)
+  const handleSubscribeSeller500Plan = async (pkgOverride = null) => {
+    const targetPkg =
+      pkgOverride ||
+      userSubPackages.find((p) => String(p.code || '').toUpperCase() === 'USER_SELLER_500') ||
+      userSubPackages.find((p) => Number(p.price ?? p.amount) === 500) || {
+        id: 'default-500',
+        code: 'USER_SELLER_500',
+        name: '₹500 Seller Plan',
+        price: 500,
+        duration_days: 30,
+        description: 'Unlock My Products, Sell / Post an Ad, Customer Orders & Dispatch Tracking.',
+      };
+
+    setSubscribingId(targetPkg.id || targetPkg.code || 'USER_SELLER_500');
+    setErrorMsg('');
+    setNoticeMsg('');
+    try {
+      await startCustomerRazorpaySubscription({
+        packageItem: targetPkg,
+        customerUser: {
+          id: sellerAccountUser?.id || user?.id,
+          name: formData.owner_name || formData.business_name || sellerAccountUser?.name || 'Merchant',
+          email: formData.email || sellerAccountUser?.email || '',
+          phone: formData.phone_number || sellerAccountUser?.phone || '',
+        },
+        audience: 'USER',
+        onSuccess: async () => {
+          showNotice('₹500 Seller Plan activated! Product selling & customer orders are now unlocked.');
+          await loadMerchantWorkspace(true);
+          await loadMerchantSellerData(activePanel);
+        },
+        onError: (payErr) => setErrorMsg(payErr?.message || 'Seller Plan activation failed.'),
+      });
+    } catch (err) {
+      setErrorMsg(err?.message || 'Seller Plan activation failed.');
+    } finally {
+      setSubscribingId(null);
+    }
+  };
+
+  const renderSellerPlanLockCard = (title) => (
+    <div style={{ textAlign: 'center', padding: '44px 24px', background: '#f8fafc', borderRadius: 16, border: '1.5px dashed #cbd5e1' }}>
+      <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+        <HiOutlineLockClosed size={26} />
+      </div>
+      <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
+        {title} Requires ₹500 Seller Plan
+      </h3>
+      <p style={{ margin: '0 auto 20px', maxWidth: 460, fontSize: 13.5, color: '#475569', lineHeight: 1.6 }}>
+        Subscribe to the official <strong>₹500 Seller Plan</strong> to unlock creating products, managing your products, incoming customer orders, and parcel dispatch tracking — identical to Customer Accounts.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          disabled={Boolean(subscribingId)}
+          onClick={() => handleSubscribeSeller500Plan()}
+          style={{
+            background: '#2563eb',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 10,
+            padding: '11px 22px',
+            fontSize: 13.5,
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <HiOutlineCreditCard size={18} />
+          <span>{subscribingId ? 'Processing Razorpay...' : 'Activate ₹500 Seller Plan via Razorpay'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('subscriptions')}
+          style={{
+            background: '#ffffff',
+            color: '#334155',
+            border: '1px solid #cbd5e1',
+            borderRadius: 10,
+            padding: '11px 18px',
+            fontSize: 13.5,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          View Seller &amp; Merchant Plans
+        </button>
+      </div>
+    </div>
+  );
+
   // Complaints & Grievance Submission Handler
   const handleCreateComplaint = async (e, isGrievance = false) => {
     e.preventDefault();
@@ -808,6 +1002,26 @@ export default function MerchantPortal() {
       const sameShop = !currentShopId || !s.merchant_profile_id || Number(s.merchant_profile_id) === currentShopId;
       return sameShop && ['ACTIVE', 'PAID'].includes(String(s.status || 'ACTIVE').toUpperCase());
     });
+
+  const isSellerSubscribed = hasActiveSellerSubscription(sellerAccountUser, userSubData);
+  const sellerUserContext = sellerAccountUser
+    ? {
+        ...sellerAccountUser,
+        name:
+          formData.business_name ||
+          sellerAccountUser.name ||
+          formData.owner_name ||
+          'Merchant',
+        phone: formData.phone_number || sellerAccountUser.phone || '',
+        district: formData.district || sellerAccountUser.district || 'Ernakulam',
+        city: formData.city || sellerAccountUser.city || '',
+      }
+    : null;
+
+  const sellerPaidPackages = userSubPackages.filter((p) => {
+    const code = String(p.code || '').toUpperCase();
+    return code !== 'USER_FREE' && Number(p.price ?? p.amount ?? 0) > 0;
+  });
 
   const promo999Pkg =
     subPackages.find((p) => String(p.code || '').toUpperCase() === 'MERCHANT_PROMO_BASIC') ||
@@ -882,6 +1096,60 @@ export default function MerchantPortal() {
 
       {/* Active Workspace Panel */}
       <div style={cardStyle}>
+        {(activePanel === 'seller-orders' || activePanel === 'dispatched') && (
+          loadingSellerPanel && sellerOrders.length === 0 && isSellerSubscribed ? (
+            <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}>
+              <CircularSpinner />
+            </div>
+          ) : (
+            <SellerOrdersPanel
+              mode={activePanel === 'dispatched' ? 'dispatched' : 'orders'}
+              sellerOrders={sellerOrders}
+              setSellerOrders={setSellerOrders}
+              buyerOrders={buyerOrders}
+              ordersSubTab={ordersSubTab}
+              setOrdersSubTab={setOrdersSubTab}
+              isSellerSubscribed={isSellerSubscribed}
+              renderPlanLockCard={renderSellerPlanLockCard}
+              navigate={navigate}
+              onReload={() => loadMerchantSellerData(activePanel)}
+              setNoticeMsg={showNotice}
+              setErrorMsg={setErrorMsg}
+            />
+          )
+        )}
+
+        {(activePanel === 'my-products' || activePanel === 'sell-ad') && (
+          !isSellerSubscribed ? (
+            renderSellerPlanLockCard(activePanel === 'sell-ad' ? 'Sell / Post an Ad' : 'My Products')
+          ) : activePanel === 'sell-ad' ? (
+            <CustomerAddProductModal
+              isOpen={true}
+              embedded={true}
+              onClose={() => setTab('my-products')}
+              customerUser={sellerUserContext}
+              onProductCreated={() => {
+                showNotice('Product created successfully!');
+                setTab('my-products');
+              }}
+              onSubscriptionActivated={() => loadMerchantWorkspace(true)}
+            />
+          ) : loadingSellerPanel && myProducts.length === 0 ? (
+            <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}>
+              <CircularSpinner />
+            </div>
+          ) : (
+            <MyProductsPanel
+              products={myProducts}
+              setProducts={setMyProducts}
+              customerUser={sellerUserContext}
+              onReload={() => loadMerchantSellerData('my-products')}
+              setNoticeMsg={showNotice}
+              setErrorMsg={setErrorMsg}
+            />
+          )
+        )}
+
         {activePanel === 'edit' && (
           <>
             <form onSubmit={handleSaveStore}>
@@ -1775,6 +2043,86 @@ export default function MerchantPortal() {
 
         {activePanel === 'subscriptions' && (
           <div>
+            {/* 1. Product Selling Subscription (₹500 Seller Plan — unlocks My Products, Sell / Post an Ad, Customer Orders, Dispatched) */}
+            <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid #e2e8f0' }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>
+                Product Selling Plan (₹500 Seller Plan)
+              </h2>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
+                Unlock <strong>My Products</strong>, <strong>Sell / Post an Ad</strong>, <strong>Customer Orders</strong>, and <strong>Dispatched &amp; In Transit</strong> tracking for your Merchant account (same Razorpay plan as Customers).
+              </p>
+
+              {isSellerSubscribed && (
+                <div style={{ padding: 14, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#166534' }}>₹500 Seller Plan Active</div>
+                    <div style={{ fontSize: 12.5, color: '#15803d' }}>
+                      Your My Products, Sell / Post an Ad, Customer Orders &amp; Dispatched tabs are unlocked.
+                    </div>
+                  </div>
+                  {(userSubData?.user_subscriptions || []).map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Cancel active ₹500 Seller Plan subscription?')) return;
+                        await cancelMySubscription(sub.id, 'USER');
+                        await loadMerchantWorkspace(true);
+                      }}
+                      style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Cancel Plan
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                {(sellerPaidPackages.length > 0
+                  ? sellerPaidPackages
+                  : [
+                      {
+                        id: 'default-500',
+                        code: 'USER_SELLER_500',
+                        name: 'Seller Plan ₹500',
+                        price: 500,
+                        duration_days: 30,
+                        description: 'Unlock product creation, My Products, Customer Orders & Dispatched tracking.',
+                      },
+                    ]
+                ).map((pkg) => {
+                  const pkgAmt = Number(pkg.price ?? pkg.amount ?? 500);
+                  return (
+                    <div key={pkg.id || pkg.code} style={{ border: '1.5px solid #bfdbfe', borderRadius: 14, padding: 18, background: '#eff6ff44' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                        <span style={{ fontSize: 19, fontWeight: 900, color: '#2563eb' }}>₹{pkgAmt.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                        Duration: {pkg.duration_days || 30} Days
+                      </div>
+                      <p style={{ fontSize: 12.5, color: '#475569', minHeight: 34, margin: '0 0 12px' }}>
+                        {pkg.description || 'Create & sell products directly to buyers across Kerala.'}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={subscribingId === (pkg.id || pkg.code)}
+                        onClick={() => handleSubscribeSeller500Plan(pkg)}
+                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        {subscribingId === (pkg.id || pkg.code)
+                          ? 'Processing...'
+                          : isSellerSubscribed
+                          ? 'Extend / Renew Seller Plan'
+                          : 'Subscribe ₹500 via Razorpay'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Merchant Store Ad & Visibility Plans (₹999 / ₹1999) */}
             <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Growth & Promo Subscriptions</h2>
             <p style={{ margin: '0 0 18px', fontSize: 13, color: '#64748b' }}>
               Promote your store with banner ads & premium visibility via official Logo Kerala plans.

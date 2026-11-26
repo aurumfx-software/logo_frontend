@@ -1,10 +1,36 @@
-import { apiFetch } from './apiClient';
+import { apiFetch, getAccessToken } from './apiClient';
 import {
   isCustomerAuthenticated,
   getCustomerHeaders,
   getStoredCustomerUser,
   getCustomerToken,
 } from './customerApi';
+
+function _getActorToken() {
+  const cTok = getCustomerToken();
+  if (cTok && cTok.trim().length > 10) return cTok.trim();
+  const mTok = typeof window !== 'undefined' ? localStorage.getItem('logo_merchant_token') : '';
+  if (mTok && mTok.trim().length > 10) return mTok.trim();
+  const accTok = getAccessToken();
+  if (accTok && accTok.trim().length > 10) return accTok.trim();
+  return '';
+}
+
+function _isActorAuthenticated() {
+  return isCustomerAuthenticated() || _getActorToken().length > 10;
+}
+
+function _getActorHeaders(extra = {}) {
+  const tok = _getActorToken();
+  if (tok) {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: tok.startsWith('Bearer ') ? tok : `Bearer ${tok}`,
+      ...extra,
+    };
+  }
+  return getCustomerHeaders(extra);
+}
 
 function _getCustomerDeliveryAddressKey() {
   const user = getStoredCustomerUser();
@@ -13,7 +39,7 @@ function _getCustomerDeliveryAddressKey() {
 }
 
 function _getOptionalCustomerHeaders() {
-  return getCustomerToken() ? getCustomerHeaders() : { 'Content-Type': 'application/json' };
+  return _getActorToken() ? _getActorHeaders() : { 'Content-Type': 'application/json' };
 }
 
 /**
@@ -573,7 +599,7 @@ export async function saveDeliveryAddress(addressData) {
 const BUYER_ORDERS_KEY = '@logo_buyer_orders';
 
 export async function getMarketplaceOrderHistory({ status, limit = 50, offset = 0 } = {}) {
-  if (!isCustomerAuthenticated()) return [];
+  if (!_isActorAuthenticated()) return [];
   const query = new URLSearchParams();
   if (status) query.set('status', status);
   if (limit) query.set('limit', String(limit));
@@ -581,7 +607,7 @@ export async function getMarketplaceOrderHistory({ status, limit = 50, offset = 
   const qs = query.toString() ? `?${query.toString()}` : '';
   const res = await apiFetch(`/api/v1/marketplace/orders/history${qs}`, {
     method: 'GET',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
   });
   if (res.ok) {
     const json = await res.json();
@@ -639,7 +665,7 @@ export async function submitOrderReview(orderId, { rating, title = '', comment =
 }
 
 export async function getBuyerOrders() {
-  if (!isCustomerAuthenticated()) {
+  if (!_isActorAuthenticated()) {
     return [];
   }
   let serverOrders = [];
@@ -993,12 +1019,12 @@ export async function createAdminProduct(productData) {
 }
 
 export async function createCustomerProduct(productData) {
-  if (!isCustomerAuthenticated()) {
+  if (!_isActorAuthenticated()) {
     throw new Error('Please sign in first to create products.');
   }
   const res = await apiFetch('/api/v1/customer/products', {
     method: 'POST',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
     body: JSON.stringify(productData),
   });
   const data = await res.json().catch(() => ({}));
@@ -1017,10 +1043,10 @@ export async function createCustomerProduct(productData) {
 }
 
 export async function fetchMyProducts() {
-  if (!isCustomerAuthenticated()) return [];
+  if (!_isActorAuthenticated()) return [];
   const res = await apiFetch('/api/v1/customer/products/my-products', {
     method: 'GET',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch your products');
   const data = await res.json();
@@ -1029,10 +1055,10 @@ export async function fetchMyProducts() {
 }
 
 export async function fetchSellerAnalytics(period = 'all') {
-  if (!isCustomerAuthenticated()) return null;
+  if (!_isActorAuthenticated()) return null;
   const res = await apiFetch(
     `/api/v1/customer/products/seller-analytics?period=${encodeURIComponent(period)}`,
-    { method: 'GET', headers: getCustomerHeaders() }
+    { method: 'GET', headers: _getActorHeaders() }
   );
   if (!res.ok) return null;
   const json = await res.json().catch(() => null);
@@ -1040,11 +1066,11 @@ export async function fetchSellerAnalytics(period = 'all') {
 }
 
 export async function addStockToProduct(id, quantity = 5) {
-  if (!isCustomerAuthenticated()) throw new Error('Please sign in to manage stock');
+  if (!_isActorAuthenticated()) throw new Error('Please sign in to manage stock');
   const qty = Math.max(1, parseInt(quantity, 10) || 1);
   const res = await apiFetch(`/api/v1/customer/products/${id}/add-stock`, {
     method: 'POST',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
     body: JSON.stringify({ quantity: qty }),
   });
   const data = await res.json().catch(() => ({}));
@@ -1053,21 +1079,21 @@ export async function addStockToProduct(id, quantity = 5) {
 }
 
 export async function fetchMyOrders() {
-  if (!isCustomerAuthenticated()) return [];
+  if (!_isActorAuthenticated()) return [];
   const res = await apiFetch('/api/v1/customer/products/my-orders', {
     method: 'GET',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch received orders');
   return await res.json();
 }
 
 export async function updateSellerOrderStatus(orderId, status, notes = '', reason = '') {
-  if (!isCustomerAuthenticated()) throw new Error('Please sign in to update order status');
+  if (!_isActorAuthenticated()) throw new Error('Please sign in to update order status');
   const noteText = reason || notes || '';
   const res = await apiFetch(`/api/v1/customer/products/orders/${orderId}/status`, {
     method: 'PUT',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
     body: JSON.stringify({ status, notes: noteText, reason: noteText }),
   });
   const data = await res.json().catch(() => ({}));
@@ -1076,10 +1102,10 @@ export async function updateSellerOrderStatus(orderId, status, notes = '', reaso
 }
 
 export async function dispatchSellerOrder(orderId, dispatchData) {
-  if (!isCustomerAuthenticated()) throw new Error('Please sign in to dispatch order');
+  if (!_isActorAuthenticated()) throw new Error('Please sign in to dispatch order');
   const res = await apiFetch(`/api/v1/customer/products/orders/${orderId}/dispatch`, {
     method: 'PUT',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
     body: JSON.stringify(dispatchData),
   });
   const data = await res.json().catch(() => ({}));
@@ -1088,10 +1114,10 @@ export async function dispatchSellerOrder(orderId, dispatchData) {
 }
 
 export async function updateCustomerProduct(id, productData) {
-  if (!isCustomerAuthenticated()) throw new Error('Please sign in to update products');
+  if (!_isActorAuthenticated()) throw new Error('Please sign in to update products');
   const res = await apiFetch(`/api/v1/customer/products/${id}`, {
     method: 'PUT',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
     body: JSON.stringify(productData),
   });
   const data = await res.json().catch(() => ({}));
@@ -1100,10 +1126,10 @@ export async function updateCustomerProduct(id, productData) {
 }
 
 export async function deleteCustomerProduct(id) {
-  if (!isCustomerAuthenticated()) throw new Error('Please sign in to delete products');
+  if (!_isActorAuthenticated()) throw new Error('Please sign in to delete products');
   const res = await apiFetch(`/api/v1/customer/products/${id}`, {
     method: 'DELETE',
-    headers: getCustomerHeaders(),
+    headers: _getActorHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete product');
   return await res.json();

@@ -15,7 +15,8 @@ import {
 } from 'react-icons/hi';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createCustomerProduct, updateCustomerProduct, deleteCustomerProduct } from '../../api/productApi';
-import { isCustomerAuthenticated, fetchCustomerProfile } from '../../api/customerApi';
+import { getAccessToken } from '../../api/apiClient';
+import { isCustomerAuthenticated, fetchCustomerProfile, getCustomerToken } from '../../api/customerApi';
 import { uploadMerchantMedia } from '../../api/merchantApi';
 import { fetchCategoriesList } from '../../api/categoryApi';
 import {
@@ -65,11 +66,19 @@ export default function CustomerAddProductModal({
   onClose,
   onProductCreated,
   onProductUpdated,
+  onSubscriptionActivated,
   initialProduct = null,
   embedded = false,
 }) {
   const isEditing = Boolean(initialProduct?.id);
-  const canSell = isCustomerAuthenticated() && hasActiveSellerSubscription(customerUser);
+  const hasAuthSession =
+    isCustomerAuthenticated() ||
+    Boolean(
+      getAccessToken() &&
+        customerUser &&
+        (customerUser.id || customerUser.user_id || customerUser.email || customerUser.phone)
+    );
+  const canSell = hasAuthSession && hasActiveSellerSubscription(customerUser);
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Kerala Kasavu Sarees');
@@ -465,8 +474,8 @@ export default function CustomerAddProductModal({
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!isCustomerAuthenticated() || !canSell) {
-      setErrorMsg('Only customers with an active ₹500 Seller Plan subscription can create products.');
+    if (!hasAuthSession || !canSell) {
+      setErrorMsg('Only accounts with an active ₹500 Seller Plan subscription can create products.');
       return;
     }
 
@@ -650,7 +659,7 @@ export default function CustomerAddProductModal({
     setIsSubscribing(true);
     setErrorMsg('');
     try {
-      if (!isCustomerAuthenticated() || !customerUser) {
+      if (!hasAuthSession || !customerUser) {
         alert('Please sign in first to subscribe to the ₹500 Seller Plan.');
         return;
       }
@@ -663,9 +672,21 @@ export default function CustomerAddProductModal({
           price: 500,
         };
 
-      await startCustomerRazorpaySubscription({ packageItem: userPkg, customerUser });
-      await fetchCustomerProfile().catch(() => null);
-      setSuccessMsg('₹500 Seller Plan activated! You can now publish products.');
+      await startCustomerRazorpaySubscription({
+        packageItem: userPkg,
+        customerUser,
+        audience: 'USER',
+        onSuccess: async () => {
+          if (getCustomerToken()) {
+            await fetchCustomerProfile().catch(() => null);
+          }
+          if (onSubscriptionActivated) {
+            await onSubscriptionActivated();
+          }
+          setSuccessMsg('₹500 Seller Plan activated! You can now publish products.');
+        },
+        onError: (payErr) => setErrorMsg(payErr?.message || 'Razorpay checkout failed.'),
+      });
     } catch (err) {
       setErrorMsg(err.message || 'Razorpay checkout failed.');
     } finally {
