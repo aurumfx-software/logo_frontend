@@ -58,7 +58,6 @@ export default function ZeashellShopModal({
   const [isSaved, setIsSaved] = useState(false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const touchStartX = useRef(null);
-  const promoVideoSectionRef = useRef(null);
 
   useEffect(() => {
     setActivePhotoIdx(0);
@@ -122,26 +121,35 @@ export default function ZeashellShopModal({
   const lng = merchant.longitude ? Number(merchant.longitude) : 76.2846;
   const coordString = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-  // Extract all up-to-4+ real photos and promo video via shared helper
+  // Extract all up-to-4+ real photos and promo video into unified top hero slider
   const media = extractMerchantMedia(merchant);
   const realPhotos = media.photos;
-  const photos = realPhotos.length > 0 ? realPhotos : [EMPTY_MERCHANT_IMAGE];
-  const hasRealPhotos = realPhotos.length > 0;
-  const currentCoverPhoto = photos[activePhotoIdx] || photos[0];
   const promoVideoUrl = media.videoUrl;
+  const heroMediaItems = [
+    ...realPhotos.map((src) => ({ type: 'image', src })),
+    ...(promoVideoUrl ? [{ type: 'video', src: promoVideoUrl }] : []),
+  ];
+  if (heroMediaItems.length === 0) {
+    heroMediaItems.push({ type: 'image', src: EMPTY_MERCHANT_IMAGE });
+  }
+  const hasRealMedia = realPhotos.length > 0 || Boolean(promoVideoUrl);
+  const safeMediaIdx = heroMediaItems.length > 0 ? activePhotoIdx % heroMediaItems.length : 0;
+  const currentMedia = heroMediaItems[safeMediaIdx] || heroMediaItems[0];
+  const isVideoSlide = currentMedia?.type === 'video';
+  const promoVideoIdx = heroMediaItems.findIndex((item) => item.type === 'video');
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches?.[0]?.clientX ?? null;
   };
   const handleTouchEnd = (e) => {
-    if (touchStartX.current === null || realPhotos.length <= 1) return;
+    if (touchStartX.current === null || heroMediaItems.length <= 1) return;
     const endX = e.changedTouches?.[0]?.clientX ?? touchStartX.current;
     const diff = touchStartX.current - endX;
     if (Math.abs(diff) > 35) {
       if (diff > 0) {
-        setActivePhotoIdx((prev) => (prev + 1) % realPhotos.length);
+        setActivePhotoIdx((prev) => (prev + 1) % heroMediaItems.length);
       } else {
-        setActivePhotoIdx((prev) => (prev - 1 + realPhotos.length) % realPhotos.length);
+        setActivePhotoIdx((prev) => (prev - 1 + heroMediaItems.length) % heroMediaItems.length);
       }
     }
     touchStartX.current = null;
@@ -177,7 +185,7 @@ export default function ZeashellShopModal({
           text: `Check out ${shopName} in ${locationText}, Kerala: ${fullAddress}`,
           url: window.location.href,
         })
-        .catch(() => {});
+        .catch(() => { });
     } else {
       navigator.clipboard.writeText(window.location.href);
       setCopied(true);
@@ -348,79 +356,96 @@ export default function ZeashellShopModal({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <img
-            src={currentCoverPhoto}
-            alt={shopName}
-            className="zeas-fs-hero-img"
-            style={{
-              imageRendering: '-webkit-optimize-contrast',
-              filter: 'contrast(1.02) saturate(1.03)',
-            }}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = EMPTY_MERCHANT_IMAGE;
-            }}
-          />
+          {isVideoSlide ? (
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              key={currentMedia.src}
+              src={currentMedia.src}
+              className="zeas-fs-hero-img"
+              style={{
+                background: '#0F172A',
+                objectFit: 'contain',
+              }}
+            />
+          ) : (
+            <img
+              src={currentMedia.src}
+              alt={shopName}
+              className="zeas-fs-hero-img"
+              style={{
+                imageRendering: '-webkit-optimize-contrast',
+                filter: 'contrast(1.02) saturate(1.03)',
+              }}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = EMPTY_MERCHANT_IMAGE;
+              }}
+            />
+          )}
 
-          {/* Left / Right Swipe Arrows when Multiple Photos */}
-          {hasRealPhotos && realPhotos.length > 1 && (
+          {/* Left / Right Swipe Arrows across Photos & Store Tour Video */}
+          {heroMediaItems.length > 1 && (
             <>
               <button
                 type="button"
-                onClick={() => setActivePhotoIdx((prev) => (prev - 1 + realPhotos.length) % realPhotos.length)}
-                aria-label="Previous store photo"
+                onClick={() => setActivePhotoIdx((prev) => (prev - 1 + heroMediaItems.length) % heroMediaItems.length)}
+                aria-label="Previous store media"
                 style={{
                   position: 'absolute',
                   left: 16,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  width: 40,
-                  height: 40,
+                  width: 42,
+                  height: 42,
                   borderRadius: '50%',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  background: 'rgba(15, 23, 42, 0.55)',
+                  border: '1px solid rgba(255,255,255,0.42)',
+                  background: 'rgba(15, 23, 42, 0.68)',
                   backdropFilter: 'blur(6px)',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  zIndex: 5,
+                  zIndex: 8,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.28)',
                 }}
               >
                 <HiChevronLeft size={24} />
               </button>
               <button
                 type="button"
-                onClick={() => setActivePhotoIdx((prev) => (prev + 1) % realPhotos.length)}
-                aria-label="Next store photo"
+                onClick={() => setActivePhotoIdx((prev) => (prev + 1) % heroMediaItems.length)}
+                aria-label="Next store media"
                 style={{
                   position: 'absolute',
                   right: 16,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  width: 40,
-                  height: 40,
+                  width: 42,
+                  height: 42,
                   borderRadius: '50%',
-                  border: '1px solid rgba(255,255,255,0.35)',
-                  background: 'rgba(15, 23, 42, 0.55)',
+                  border: '1px solid rgba(255,255,255,0.42)',
+                  background: 'rgba(15, 23, 42, 0.68)',
                   backdropFilter: 'blur(6px)',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  zIndex: 5,
+                  zIndex: 8,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.28)',
                 }}
               >
                 <HiChevronRight size={24} />
               </button>
 
-              {/* Concept 1 White Pagination Dots Centered at Bottom */}
+              {/* Pagination Dots Centered at Bottom (lifted above native video scrubber on video slide) */}
               <div
                 style={{
                   position: 'absolute',
-                  bottom: 18,
+                  bottom: isVideoSlide ? 54 : 18,
                   left: '50%',
                   transform: 'translateX(-50%)',
                   display: 'flex',
@@ -428,24 +453,24 @@ export default function ZeashellShopModal({
                   gap: 8,
                   padding: '6px 12px',
                   borderRadius: 9999,
-                  background: 'rgba(15, 23, 42, 0.5)',
+                  background: 'rgba(15, 23, 42, 0.58)',
                   backdropFilter: 'blur(6px)',
-                  zIndex: 5,
+                  zIndex: 8,
                 }}
               >
-                {realPhotos.map((_, idx) => (
+                {heroMediaItems.map((mItem, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => setActivePhotoIdx(idx)}
-                    aria-label={`View photo ${idx + 1}`}
+                    aria-label={mItem.type === 'video' ? 'View Store Tour & Promo Video' : `View photo ${idx + 1}`}
                     style={{
-                      width: activePhotoIdx === idx ? 20 : 8,
+                      width: safeMediaIdx === idx ? 20 : 8,
                       height: 8,
                       borderRadius: 4,
                       border: 'none',
                       padding: 0,
-                      background: activePhotoIdx === idx ? '#FFFFFF' : 'rgba(255,255,255,0.48)',
+                      background: safeMediaIdx === idx ? '#FFFFFF' : 'rgba(255,255,255,0.48)',
                       cursor: 'pointer',
                       transition: 'all 0.25s ease',
                     }}
@@ -456,20 +481,28 @@ export default function ZeashellShopModal({
           )}
 
           <div className="zeas-fs-photo-badge">
-            {!hasRealPhotos
+            {!hasRealMedia
               ? '🏬 Storefront'
-              : `📷 ${activePhotoIdx + 1}/${realPhotos.length} Photos`}
+              : isVideoSlide
+              ? `🎥 Store Tour & Promo Video (${safeMediaIdx + 1}/${heroMediaItems.length})`
+              : `📷 ${safeMediaIdx + 1}/${heroMediaItems.length} ${promoVideoUrl ? 'Media' : 'Photos'}`}
           </div>
 
-          {promoVideoUrl && (
+          {promoVideoIdx >= 0 && (
             <button
               type="button"
-              onClick={() => promoVideoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              onClick={() => {
+                if (isVideoSlide && realPhotos.length > 0) {
+                  setActivePhotoIdx(0);
+                } else {
+                  setActivePhotoIdx(promoVideoIdx);
+                }
+              }}
               style={{
                 position: 'absolute',
                 top: 16,
                 left: 16,
-                background: 'rgba(37, 99, 235, 0.92)',
+                background: isVideoSlide ? 'rgba(15, 23, 42, 0.78)' : 'rgba(37, 99, 235, 0.92)',
                 color: '#FFFFFF',
                 border: '1px solid rgba(255,255,255,0.4)',
                 borderRadius: 9999,
@@ -480,27 +513,58 @@ export default function ZeashellShopModal({
                 alignItems: 'center',
                 gap: 6,
                 cursor: 'pointer',
-                zIndex: 5,
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
+                zIndex: 8,
+                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.35)',
               }}
             >
-              <HiPlay size={16} />
-              <span>Watch Promo Video</span>
+              {isVideoSlide && realPhotos.length > 0 ? (
+                <>
+                  <HiChevronLeft size={16} />
+                  <span>Back to Store Photos</span>
+                </>
+              ) : (
+                <>
+                  <HiPlay size={16} />
+                  <span>Watch Promo Video</span>
+                </>
+              )}
             </button>
           )}
         </div>
 
-        {/* Thumbnail Selector Strip if Multiple Real Photos */}
-        {hasRealPhotos && realPhotos.length > 1 && (
+        {/* Thumbnail Selector Strip if Multiple Media (Photos + Store Tour Video) */}
+        {hasRealMedia && heroMediaItems.length > 1 && (
           <div className="zeas-fs-thumb-strip">
-            {realPhotos.map((p, idx) => (
+            {heroMediaItems.map((item, idx) => (
               <button
                 key={idx}
                 type="button"
-                className={`zeas-fs-thumb-item ${activePhotoIdx === idx ? 'active' : ''}`}
+                className={`zeas-fs-thumb-item ${safeMediaIdx === idx ? 'active' : ''}`}
                 onClick={() => setActivePhotoIdx(idx)}
+                aria-label={item.type === 'video' ? 'Store Tour & Promo Video' : `Photo ${idx + 1}`}
               >
-                <img src={p} alt={`Photo ${idx + 1}`} style={{ imageRendering: '-webkit-optimize-contrast' }} />
+                {item.type === 'video' ? (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      background: '#0F172A',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 2,
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <HiVideoCamera size={16} />
+                    <span>Video</span>
+                  </div>
+                ) : (
+                  <img src={item.src} alt={`Photo ${idx + 1}`} style={{ imageRendering: '-webkit-optimize-contrast' }} />
+                )}
               </button>
             ))}
           </div>
@@ -836,43 +900,6 @@ export default function ZeashellShopModal({
           </div>
         </div>
 
-        {/* 6. STORE TOUR / PROMO VIDEO (WHEN ADDED BY MERCHANT) */}
-        {promoVideoUrl && (
-          <div
-            ref={promoVideoSectionRef}
-            className="zeas-fs-card"
-            style={{ marginTop: 20 }}
-          >
-            <div className="zeas-fs-card-head">
-              <h2 className="zeas-fs-card-title">
-                <HiVideoCamera className="zeas-fs-card-icon" />
-                Store Tour &amp; Promo Video
-              </h2>
-            </div>
-            <div
-              style={{
-                background: '#0F172A',
-                borderRadius: 16,
-                overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.16)',
-              }}
-            >
-              <video
-                controls
-                playsInline
-                preload="metadata"
-                key={promoVideoUrl}
-                src={promoVideoUrl}
-                style={{
-                  width: '100%',
-                  maxHeight: 440,
-                  display: 'block',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          </div>
-        )}
       </main>
 
       {/* 6. FLOATING STICKY BOTTOM ACTION BAR */}
