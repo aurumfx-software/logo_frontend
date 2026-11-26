@@ -56,17 +56,18 @@ export default function Customers() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
 
-  const isSuperOrAdmin =
-    !user?.role ||
-    user?.role === 'SUPER_ADMIN' ||
-    user?.role === 'ADMIN' ||
-    String(user?.role).toUpperCase().includes('ADMIN');
+  const normalizedUserRole = String(user?.role || '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, '_');
+  const isSuperAdminOnly =
+    normalizedUserRole === 'SUPER_ADMIN' || normalizedUserRole === 'SUPERADMIN';
 
   const handleImpersonateCustomer = async (cust) => {
-    if (!cust) return;
+    if (!cust || !isSuperAdminOnly) return;
     const custId = cust.rawId || cust.user_id || cust.id;
     const name = cust.name || cust.full_name || cust.email || `Customer #${custId}`;
-    if (!window.confirm(`Login as customer "${name}" (Impersonation mode)?`)) {
+    if (!window.confirm(`Open customer profile page as "${name}"?`)) {
       return;
     }
     try {
@@ -95,9 +96,9 @@ export default function Customers() {
       );
 
       setCustomerSession(res);
-      navigate('/marketplace');
+      navigate('/dashboard?tab=profile');
     } catch (err) {
-      alert(err.message || 'Failed to impersonate customer');
+      alert(err.message || 'Failed to open customer profile');
     }
   };
   const [loading, setLoading] = useState(true);
@@ -452,10 +453,10 @@ export default function Customers() {
             >
               <HiOutlinePencil />
             </button>
-            {isSuperOrAdmin && (
+            {isSuperAdminOnly && (
               <button
                 className="btn btn-outline btn-sm btn-icon"
-                title="Login as Customer (Impersonate)"
+                title="Open Customer Profile Page (Super Admin Only)"
                 style={{
                   color: '#6D28D9',
                   borderColor: '#DDD6FE',
@@ -466,7 +467,7 @@ export default function Customers() {
                 }}
                 onClick={() => handleImpersonateCustomer(row)}
               >
-                <span style={{ fontFamily: 'monospace', fontWeight: 900 }}>I</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 900 }}>i</span>
               </button>
             )}
             <button

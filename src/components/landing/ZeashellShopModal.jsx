@@ -29,6 +29,7 @@ import {
   FaRegHeart,
 } from 'react-icons/fa';
 import ZeashellNavbar from './ZeashellNavbar';
+import MerchantAdBanner from './MerchantAdBanner';
 import { EMPTY_MERCHANT_IMAGE, extractMerchantMedia } from '../../api/merchantApi';
 
 export default function ZeashellShopModal({
@@ -585,6 +586,9 @@ export default function ZeashellShopModal({
             </span>
           </div>
         </div>
+
+        {/* MERCHANT ADVERTISEMENT BANNER (ABOVE LOCATION) */}
+        <MerchantAdBanner merchantId={merchant.id || merchant.merchant_id} merchantName={shopName} />
 
         {/* 4. UPPER TWO-COLUMN LAYOUT: CONTACT/REVIEWS (LEFT) & MAP/TIMINGS (RIGHT) */}
         <div className="zeas-fs-content-grid">

@@ -290,6 +290,43 @@ export default function CustomerAddProductModal({
     });
   };
 
+  const handleAddCustomSize = () => {
+    const entries = customSize
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (entries.length === 0) return;
+
+    const nextSelected = [...selectedSizes];
+    entries.forEach((sz) => {
+      if (!nextSelected.includes(sz)) nextSelected.push(sz);
+    });
+    const nextStocks = { ...sizeStocks };
+    nextSelected.forEach((sz) => {
+      if (nextStocks[sz] === undefined) {
+        nextStocks[sz] = Math.max(0, parseInt(stockQuantity, 10) || 10);
+      }
+    });
+    setSelectedSizes(nextSelected);
+    setSizeStocks(nextStocks);
+    setCustomSize('');
+    syncTotalStockFromSizes(nextStocks, nextSelected);
+  };
+
+  const handleRemoveSize = (sz) => {
+    const filtered = selectedSizes.filter((s) => s !== sz);
+    const next = filtered.length > 0 ? filtered : ['Free Size'];
+    const nextStocks = { ...sizeStocks };
+    next.forEach((itemSz) => {
+      if (nextStocks[itemSz] === undefined) {
+        nextStocks[itemSz] = Math.max(0, parseInt(stockQuantity, 10) || 10);
+      }
+    });
+    setSelectedSizes(next);
+    setSizeStocks(nextStocks);
+    syncTotalStockFromSizes(nextStocks, [...next, ...activeCustomSizes]);
+  };
+
   const uploadFilesToServer = async (filesList) => {
     const files = Array.from(filesList || []);
     if (!files.length) return;
@@ -1002,13 +1039,86 @@ export default function CustomerAddProductModal({
                       );
                     })}
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Or enter custom size / dimensions e.g. 32, 1 Kg, 500g, 6x4 ft"
-                    value={customSize}
-                    onChange={(e) => setCustomSize(e.target.value)}
-                    style={inputStyle}
-                  />
+
+                  {selectedSizes.some((sz) => !QUICK_SIZES.includes(sz)) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                      {selectedSizes
+                        .filter((sz) => !QUICK_SIZES.includes(sz))
+                        .map((sz) => (
+                          <span
+                            key={sz}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 10px',
+                              borderRadius: 8,
+                              border: '1.5px solid #2563eb',
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                            }}
+                          >
+                            <span>{sz}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSize(sz)}
+                              title={`Remove ${sz}`}
+                              style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#1d4ed8',
+                                cursor: 'pointer',
+                                padding: 0,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                fontWeight: 900,
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      placeholder="Add own size / dimensions e.g. 1 Kg, 500g, 32, 6x4 ft"
+                      value={customSize}
+                      onChange={(e) => setCustomSize(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomSize();
+                        }
+                      }}
+                      style={{ ...inputStyle, flex: 1, minWidth: 180 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomSize}
+                      disabled={!customSize.trim()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: 'none',
+                        background: customSize.trim() ? '#2563eb' : '#cbd5e1',
+                        color: '#ffffff',
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        cursor: customSize.trim() ? 'pointer' : 'not-allowed',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <HiPlus size={15} /> Add Own Size
+                    </button>
+                  </div>
 
                   {/* Separate Stock Count for each Selected Size */}
                   <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>

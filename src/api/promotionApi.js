@@ -38,20 +38,27 @@ export const fetchActivePromotions = (params = {}) => fetchPromotionsList({ stat
  * Create a new promotion: POST /promotions (without /api/v1)
  */
 export async function createPromotion(promoData) {
+  const mediaType =
+    promoData.media_type ||
+    promoData.mediaType ||
+    (promoData.video_url || promoData.videoUrl ? 'video' : 'image');
+
   const payload = {
     title: promoData.title ? promoData.title.trim() : '',
     category: promoData.category || 'Retail & Shopping',
-    type: promoData.type || 'Featured',
+    type: promoData.type || (mediaType === 'text' ? 'Text Banner' : 'Featured'),
     placement: promoData.placement || 'Home Top',
     location: promoData.location || '',
     start_date: promoData.startDate || promoData.start_date || new Date().toISOString().split('T')[0],
-    end_date: promoData.endDate || promoData.end_date || '2026-12-31',
+    end_date: promoData.endDate || promoData.end_date || '2027-12-31',
     status: (promoData.status || 'ACTIVE').toLowerCase(),
-    image_url: promoData.image_url || promoData.imageUrl || promoData.banner_url || promoData.bannerUrl || promoData.image || null,
-    video_url: promoData.video_url || promoData.videoUrl || null,
-    media_type: promoData.media_type || (promoData.video_url || promoData.videoUrl ? 'video' : 'image'),
+    image_url: mediaType === 'image' ? (promoData.image_url || promoData.imageUrl || promoData.banner_url || promoData.bannerUrl || promoData.image || null) : null,
+    video_url: mediaType === 'video' ? (promoData.video_url || promoData.videoUrl || null) : null,
+    media_type: mediaType,
+    bg_color: promoData.bg_color !== undefined ? promoData.bg_color : (promoData.bgColor || null),
+    text_color: promoData.text_color !== undefined ? promoData.text_color : (promoData.textColor || null),
     thumbnail_url: promoData.thumbnail_url || promoData.thumbnailUrl || null,
-    target_url: promoData.target_url || promoData.targetUrl || '#',
+    target_url: promoData.target_url || promoData.targetUrl || null,
     description: promoData.description !== undefined ? promoData.description : null,
     merchant_id: promoData.merchantId || promoData.merchant_id || null,
   };
@@ -94,20 +101,26 @@ export async function createPromotion(promoData) {
  * Update promotion: PUT /api/v1/promotions/{id}
  */
 export async function updatePromotion(id, promoData) {
+  const mediaType =
+    promoData.media_type !== undefined
+      ? promoData.media_type
+      : promoData.mediaType !== undefined
+      ? promoData.mediaType
+      : (promoData.video_url || promoData.videoUrl ? 'video' : undefined);
+
   const payload = {
     ...promoData,
     image_url:
       promoData.image_url !== undefined
         ? promoData.image_url
-        : (promoData.imageUrl || promoData.bannerUrl || promoData.banner_url || promoData.image || null),
-    video_url: promoData.video_url !== undefined ? promoData.video_url : (promoData.videoUrl || null),
-    media_type:
-      promoData.media_type !== undefined
-        ? promoData.media_type
-        : (promoData.video_url || promoData.videoUrl ? 'video' : 'image'),
-    thumbnail_url: promoData.thumbnail_url !== undefined ? promoData.thumbnail_url : (promoData.thumbnailUrl || null),
-    target_url: promoData.target_url !== undefined ? promoData.target_url : (promoData.targetUrl || '#'),
-    description: promoData.description !== undefined ? promoData.description : null,
+        : (promoData.imageUrl || promoData.bannerUrl || promoData.banner_url || promoData.image || undefined),
+    video_url: promoData.video_url !== undefined ? promoData.video_url : (promoData.videoUrl || undefined),
+    media_type: mediaType,
+    bg_color: promoData.bg_color !== undefined ? promoData.bg_color : promoData.bgColor,
+    text_color: promoData.text_color !== undefined ? promoData.text_color : promoData.textColor,
+    thumbnail_url: promoData.thumbnail_url !== undefined ? promoData.thumbnail_url : promoData.thumbnailUrl,
+    target_url: promoData.target_url !== undefined ? promoData.target_url : promoData.targetUrl,
+    description: promoData.description !== undefined ? promoData.description : undefined,
   };
 
   let response = await apiFetch(`/api/v1/promotions/${id}`, {
@@ -265,9 +278,13 @@ export async function rejectPromotion(id, reason = '') {
 /**
  * Fetch promotions submitted by a specific merchant: GET /api/v1/promotions/merchant/${merchantId}
  */
-export async function fetchMerchantPromotions(merchantId) {
+export async function fetchMerchantPromotions(merchantId, params = {}) {
   try {
-    const response = await apiFetch(`/api/v1/promotions/merchant/${merchantId}`, { method: 'GET' });
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.placement) query.append('placement', params.placement);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const response = await apiFetch(`/api/v1/promotions/merchant/${merchantId}${qs}`, { method: 'GET' });
     if (response && response.ok) {
       const resData = await response.json().catch(() => ({}));
       return resData.data || resData.promotions || [];
@@ -277,9 +294,16 @@ export async function fetchMerchantPromotions(merchantId) {
   }
   // Fallback: fetch all and filter client-side
   try {
-    const all = await fetchPromotionsList({ status: 'all' });
+    const all = await fetchPromotionsList({ status: params.status || 'all' });
     if (Array.isArray(all)) {
-      return all.filter((p) => String(p.merchant_id) === String(merchantId) || String(p.merchantId) === String(merchantId));
+      return all.filter((p) => {
+        const matchMerch = String(p.merchant_id) === String(merchantId) || String(p.merchantId) === String(merchantId);
+        if (!matchMerch) return false;
+        if (params.placement && String(p.placement || '').toLowerCase() !== String(params.placement).toLowerCase()) {
+          return false;
+        }
+        return true;
+      });
     }
   } catch (_) {}
   return [];

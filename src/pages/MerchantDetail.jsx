@@ -29,6 +29,7 @@ import {
 import { fetchMerchantsList, getMerchantById, formatMediaUrl } from '../api/merchantApi';
 import { useAuth } from '../context/AuthContext';
 import ZeashellShopModal from '../components/landing/ZeashellShopModal';
+import MerchantAdBanner from '../components/landing/MerchantAdBanner';
 
 function formatSocialUrl(url) {
   if (!url) return '';
@@ -639,6 +640,12 @@ export default function MerchantDetail({ isPublic = false }) {
               <HiOutlinePhotograph size={14} /> {activePhoto + 1}/{photos.length}
             </div>
           </div>
+
+          {/* ── MERCHANT ADVERTISEMENT (ABOVE LOCATION) ── */}
+          <MerchantAdBanner
+            merchantId={merchant.id || merchant.merchant_id}
+            merchantName={merchant.business_name || merchant.name}
+          />
 
           {/* ── 3 INFO BLOCKS GRID (Matching Screenshot Layout) ── */}
           <div

@@ -515,6 +515,9 @@ export default function LandingPage({ defaultTab = 'home' }) {
   // Strict promotion eligibility validation based on publication rules
   const isEligiblePromotion = React.useCallback(
     (p) => {
+      if (String(p.placement || '').toLowerCase() === 'merchant store') {
+        return false;
+      }
       // 1. Promotion itself must be approved / active
       const promoStatus = (p.status || '').toLowerCase();
       if (promoStatus && promoStatus !== 'active' && promoStatus !== 'approved') {
