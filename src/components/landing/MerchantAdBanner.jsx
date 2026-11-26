@@ -9,14 +9,20 @@ function toYoutubeEmbed(url) {
   return match ? `https://www.youtube.com/embed/${match[1]}?rel=0` : null;
 }
 
-export default function MerchantAdBanner({ merchantId, merchantName = '' }) {
+export default function MerchantAdBanner({ merchantId, merchantName = '', initialAds = [] }) {
   const [ads, setAds] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    const baseAds = (Array.isArray(initialAds) ? initialAds : []).map((ad) => ({
+      ...ad,
+      target_url: ad.target_url || ad.link_url || null,
+      media_type: ad.media_type || (ad.video_url ? 'video' : ad.image_url ? 'image' : 'text'),
+    }));
+
     if (!merchantId || Number.isNaN(Number(merchantId))) {
-      setAds([]);
+      setAds(baseAds);
       return undefined;
     }
     fetchMerchantPromotions(merchantId, { status: 'active', placement: 'Merchant Store' })
@@ -26,16 +32,25 @@ export default function MerchantAdBanner({ merchantId, merchantName = '' }) {
           const st = String(ad.status || 'active').toLowerCase();
           return st === 'active' || st === 'approved';
         });
-        setAds(clean);
+        const seenTitles = new Set(clean.map((x) => `${x.title}|${x.image_url || ''}|${x.video_url || ''}`));
+        const merged = [...clean];
+        baseAds.forEach((b) => {
+          const st = String(b.status || 'active').toLowerCase();
+          const key = `${b.title}|${b.image_url || ''}|${b.video_url || ''}`;
+          if ((st === 'active' || st === 'approved') && !seenTitles.has(key)) {
+            merged.push(b);
+          }
+        });
+        setAds(merged);
         setActiveIdx(0);
       })
       .catch(() => {
-        if (!cancelled) setAds([]);
+        if (!cancelled) setAds(baseAds);
       });
     return () => {
       cancelled = true;
     };
-  }, [merchantId]);
+  }, [merchantId, initialAds]);
 
   if (!ads || ads.length === 0) return null;
 

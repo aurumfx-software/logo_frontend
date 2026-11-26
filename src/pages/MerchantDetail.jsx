@@ -645,6 +645,7 @@ export default function MerchantDetail({ isPublic = false }) {
           <MerchantAdBanner
             merchantId={merchant.id || merchant.merchant_id}
             merchantName={merchant.business_name || merchant.name}
+            initialAds={merchant.advertisements}
           />
 
           {/* ── 3 INFO BLOCKS GRID (Matching Screenshot Layout) ── */}

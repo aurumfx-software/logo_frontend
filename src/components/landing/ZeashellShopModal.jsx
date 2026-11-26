@@ -588,7 +588,11 @@ export default function ZeashellShopModal({
         </div>
 
         {/* MERCHANT ADVERTISEMENT BANNER (ABOVE LOCATION) */}
-        <MerchantAdBanner merchantId={merchant.id || merchant.merchant_id} merchantName={shopName} />
+        <MerchantAdBanner
+          merchantId={merchant.id || merchant.merchant_id}
+          merchantName={shopName}
+          initialAds={merchant.advertisements}
+        />
 
         {/* 4. UPPER TWO-COLUMN LAYOUT: CONTACT/REVIEWS (LEFT) & MAP/TIMINGS (RIGHT) */}
         <div className="zeas-fs-content-grid">
