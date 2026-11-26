@@ -80,11 +80,13 @@ export function getCustomerHeaders(extra = {}) {
  * 1. Customer Email + Password Login (POST /api/v1/auth/login)
  */
 export async function customerEmailLogin({ email, password }) {
+  const raw = String(email || '').trim();
+  const identifier = raw.includes('@') ? raw.toLowerCase() : raw.toUpperCase();
   const res = await apiFetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: String(email || '').trim().toLowerCase(),
+      email: identifier,
       password,
     }),
   });

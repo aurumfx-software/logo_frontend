@@ -313,8 +313,11 @@ export default function MobileAccountModal({
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!custEmail.trim() || !custEmail.includes('@')) {
-      setError('Please enter a valid email address');
+    const rawTarget = custEmail.trim();
+    const isEmail = rawTarget.includes('@');
+    const target = isEmail ? rawTarget.toLowerCase() : rawTarget.toUpperCase();
+    if (!target || (!isEmail && !/^[A-Z0-9_\s-]{3,30}$/.test(target))) {
+      setError('Please enter a valid Email Address or Login ID (e.g. DAN81493)');
       return;
     }
     if (!custPassword.trim()) {
@@ -323,7 +326,7 @@ export default function MobileAccountModal({
     }
     setLoading(true);
     try {
-      const res = await customerEmailLogin({ email: custEmail.trim(), password: custPassword.trim() });
+      const res = await customerEmailLogin({ email: target, password: custPassword.trim() });
       const userObj = res.user || res.customer || getStoredCustomerUser();
       await fetchCustomerProfile().catch(() => null);
       setCustomerUser(getStoredCustomerUser() || userObj);
@@ -1237,11 +1240,11 @@ export default function MobileAccountModal({
               {customerTab === 'login' && (
                 <form onSubmit={handleCustomerPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <label style={labelStyle}>Email Address *</label>
+                    <label style={labelStyle}>Email Address or Login ID *</label>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      placeholder="user@example.com"
+                      placeholder="user@example.com or DAN81493"
                       value={custEmail}
                       onChange={(e) => setCustEmail(e.target.value)}
                       style={inputStyle}
