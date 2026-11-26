@@ -76,11 +76,10 @@ export default function CustomerAddProductModal({
   const [allCategories, setAllCategories] = useState([]);
   const [catSearch, setCatSearch] = useState('');
   const [showCatPicker, setShowCatPicker] = useState(false);
-  const [customCatInput, setCustomCatInput] = useState('');
-  const [showCustomCatInput, setShowCustomCatInput] = useState(false);
 
   const [selectedSizes, setSelectedSizes] = useState(['Free Size']);
   const [customSize, setCustomSize] = useState('');
+  const [sizeStocks, setSizeStocks] = useState({ 'Free Size': 10 });
   const [price, setPrice] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
   const [stockQuantity, setStockQuantity] = useState('10');
@@ -118,16 +117,23 @@ export default function CustomerAddProductModal({
     if (initialProduct?.id) {
       setName(initialProduct.name || '');
       setCategory(initialProduct.category || 'Kerala Kasavu Sarees');
-      setSelectedSizes(
+      const initSizes =
         Array.isArray(initialProduct.sizes) && initialProduct.sizes.length > 0
           ? initialProduct.sizes
-          : ['Free Size']
-      );
+          : ['Free Size'];
+      setSelectedSizes(initSizes);
       setPrice(initialProduct.price ? String(initialProduct.price) : '');
       const mrpVal = initialProduct.original_price ?? initialProduct.originalPrice;
       setOriginalPrice(mrpVal ? String(mrpVal) : '');
       const stkVal = initialProduct.stock_quantity ?? initialProduct.stockQuantity;
+      const defaultSzStk = stkVal !== undefined && stkVal !== null ? Math.max(0, Number(stkVal)) : 10;
       setStockQuantity(stkVal !== undefined && stkVal !== null ? String(stkVal) : '10');
+      const rawSzStocks = initialProduct.size_stocks ?? initialProduct.sizeStocks ?? {};
+      const nextSzStocks = {};
+      initSizes.forEach((sz) => {
+        nextSzStocks[sz] = sz in rawSzStocks ? Math.max(0, Number(rawSzStocks[sz] || 0)) : defaultSzStk;
+      });
+      setSizeStocks(nextSzStocks);
       setUploadedPhotos(
         Array.isArray(initialProduct.images) ? initialProduct.images.filter(Boolean) : []
       );
@@ -177,6 +183,7 @@ export default function CustomerAddProductModal({
               : '10',
           category: s.category || initialProduct.category || 'Kerala Kasavu Sarees',
           selectedSizes: Array.isArray(s.sizes) && s.sizes.length > 0 ? s.sizes : ['Free Size'],
+          sizeStocks: s.size_stocks && typeof s.size_stocks === 'object' ? s.size_stocks : {},
           customSize: '',
           description: s.description || '',
           uploadedPhotos: Array.isArray(s.images) ? s.images.filter(Boolean) : [],
@@ -237,13 +244,49 @@ export default function CustomerAddProductModal({
 
   if (!isOpen) return null;
 
+  const activeCustomSizes = customSize
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && !selectedSizes.includes(s));
+  const activeAllSizes = [...selectedSizes, ...activeCustomSizes];
+
+  const syncTotalStockFromSizes = (nextSizeStocks, sizesList) => {
+    const total = sizesList.reduce((sum, sz) => {
+      const val = nextSizeStocks[sz];
+      return sum + Math.max(0, Number(val !== undefined && val !== '' ? val : (stockQuantity || 10)));
+    }, 0);
+    setStockQuantity(String(total));
+  };
+
   const toggleSize = (sz) => {
     setSelectedSizes((prev) => {
+      let next;
       if (prev.includes(sz)) {
-        const next = prev.filter((s) => s !== sz);
-        return next.length > 0 ? next : [sz];
+        const filtered = prev.filter((s) => s !== sz);
+        next = filtered.length > 0 ? filtered : [sz];
+      } else {
+        next = [...prev, sz];
       }
-      return [...prev, sz];
+      setSizeStocks((prevStk) => {
+        const updated = { ...prevStk };
+        next.forEach((itemSz) => {
+          if (updated[itemSz] === undefined) {
+            updated[itemSz] = Math.max(0, parseInt(stockQuantity, 10) || 10);
+          }
+        });
+        syncTotalStockFromSizes(updated, [...next, ...activeCustomSizes]);
+        return updated;
+      });
+      return next;
+    });
+  };
+
+  const handleSizeStockChange = (sz, rawVal) => {
+    const parsed = rawVal === '' ? '' : Math.max(0, parseInt(rawVal, 10) || 0);
+    setSizeStocks((prev) => {
+      const next = { ...prev, [sz]: parsed };
+      syncTotalStockFromSizes(next, activeAllSizes);
+      return next;
     });
   };
 
@@ -354,6 +397,7 @@ export default function CustomerAddProductModal({
         stockQuantity: stockQuantity || '10',
         category: category || 'Kerala Kasavu Sarees',
         selectedSizes: [...selectedSizes],
+        sizeStocks: { ...sizeStocks },
         customSize: customSize || '',
         description: description || '',
         uploadedPhotos: [],
@@ -379,14 +423,6 @@ export default function CustomerAddProductModal({
     setSubProducts((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleApplyCustomCategory = () => {
-    const clean = customCatInput.trim();
-    if (!clean) return;
-    setCategory(clean);
-    setCustomCatInput('');
-    setShowCustomCatInput(false);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -398,20 +434,30 @@ export default function CustomerAddProductModal({
     }
 
     if (!name.trim()) return setErrorMsg('Please enter Product Title / Name');
-    if (!category.trim()) return setErrorMsg('Please select or add a Category');
+    if (!category.trim()) return setErrorMsg('Please select a Category');
 
     const numPrice = Number(price);
     if (!numPrice || numPrice <= 0) return setErrorMsg('Please enter a valid Selling Price in ₹');
 
-    const cleanPhone = sellerPhone.trim().replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      return setErrorMsg('Please enter your 10-digit WhatsApp/phone number for receiving orders');
-    }
+    const cleanPhone = String(sellerPhone || customerUser?.phone || '').trim().replace(/[^0-9]/g, '');
 
+    const customList = customSize
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const finalSizes = [...selectedSizes];
-    if (customSize.trim() && !finalSizes.includes(customSize.trim())) {
-      finalSizes.push(customSize.trim());
-    }
+    customList.forEach((cs) => {
+      if (!finalSizes.includes(cs)) finalSizes.push(cs);
+    });
+    const resolvedSizes = finalSizes.length > 0 ? finalSizes : ['Free Size'];
+    const cleanSizeStocks = {};
+    let totalSizeStock = 0;
+    resolvedSizes.forEach((sz) => {
+      const raw = sizeStocks[sz];
+      const val = Math.max(0, parseInt(raw !== undefined && raw !== '' ? raw : (stockQuantity || 10), 10) || 0);
+      cleanSizeStocks[sz] = val;
+      totalSizeStock += val;
+    });
 
     const cleanHighlights = highlights
       .map((h) => ({ label: h.label.trim(), value: h.value.trim() }))
@@ -433,13 +479,24 @@ export default function CustomerAddProductModal({
         return setErrorMsg(`Please enter a valid Selling Price for Sub-Product Variant #${i + 1}`);
       }
       const spPhone = String(sp.sellerPhone || cleanPhone).trim().replace(/[^0-9]/g, '');
-      if (!spPhone || spPhone.length < 10) {
-        return setErrorMsg(`Please enter a 10-digit WhatsApp phone for Sub-Product Variant #${i + 1}`);
-      }
+      const spCustomList = String(sp.customSize || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const spSizes = [...(sp.selectedSizes || ['Free Size'])];
-      if (sp.customSize && String(sp.customSize).trim() && !spSizes.includes(String(sp.customSize).trim())) {
-        spSizes.push(String(sp.customSize).trim());
-      }
+      spCustomList.forEach((cs) => {
+        if (!spSizes.includes(cs)) spSizes.push(cs);
+      });
+      const resolvedSpSizes = spSizes.length > 0 ? spSizes : ['Free Size'];
+      const spSizeStocksMap = sp.sizeStocks && typeof sp.sizeStocks === 'object' ? sp.sizeStocks : {};
+      const cleanSpSizeStocks = {};
+      let spTotalQty = 0;
+      resolvedSpSizes.forEach((sz) => {
+        const raw = spSizeStocksMap[sz];
+        const v = Math.max(0, parseInt(raw !== undefined && raw !== '' ? raw : (sp.stockQuantity ?? 10), 10) || 0);
+        cleanSpSizeStocks[sz] = v;
+        spTotalQty += v;
+      });
       subPayloads.push({
         _existingId: sp.id || null,
         name: String(sp.name).trim(),
@@ -447,9 +504,10 @@ export default function CustomerAddProductModal({
         category: String(sp.category || category).trim() || 'General',
         price: spPrice,
         original_price: sp.originalPrice ? Number(sp.originalPrice) : null,
-        stock_quantity: sp.stockQuantity !== '' && sp.stockQuantity !== undefined ? Math.max(0, parseInt(sp.stockQuantity, 10) || 0) : 10,
-        stock_status: sp.stockQuantity !== '' && parseInt(sp.stockQuantity, 10) === 0 ? 'OUT_OF_STOCK' : 'IN_STOCK',
-        sizes: spSizes.length > 0 ? spSizes : ['Free Size'],
+        stock_quantity: spTotalQty,
+        stock_status: spTotalQty === 0 ? 'OUT_OF_STOCK' : 'IN_STOCK',
+        sizes: resolvedSpSizes,
+        size_stocks: cleanSpSizeStocks,
         images: Array.isArray(sp.uploadedPhotos) ? sp.uploadedPhotos : [],
         highlights: (sp.highlights || [])
           .map((h) => ({ label: String(h.label || '').trim(), value: String(h.value || '').trim() }))
@@ -457,11 +515,11 @@ export default function CustomerAddProductModal({
         additional_details: (sp.additionalDetails || [])
           .map((d) => ({ label: String(d.label || '').trim(), value: String(d.value || '').trim() }))
           .filter((d) => d.label || d.value),
-        district: sp.district || district,
-        city: String(sp.city || city || sp.district || district).trim(),
+        district: sp.district || district || customerUser?.district || 'Ernakulam',
+        city: String(sp.city || city || customerUser?.city || district || '').trim(),
         seller_name: String(sp.sellerName || sellerName || customerUser?.name || 'Local Seller').trim(),
-        seller_phone: spPhone,
-        seller_whatsapp: spPhone,
+        seller_phone: spPhone || null,
+        seller_whatsapp: spPhone || null,
       });
     }
 
@@ -473,17 +531,18 @@ export default function CustomerAddProductModal({
         category: category.trim(),
         price: numPrice,
         original_price: originalPrice ? Number(originalPrice) : null,
-        stock_quantity: stockQuantity !== '' ? Math.max(0, parseInt(stockQuantity, 10) || 0) : 10,
-        stock_status: stockQuantity !== '' && parseInt(stockQuantity, 10) === 0 ? 'OUT_OF_STOCK' : 'IN_STOCK',
-        sizes: finalSizes.length > 0 ? finalSizes : ['Free Size'],
+        stock_quantity: totalSizeStock,
+        stock_status: totalSizeStock === 0 ? 'OUT_OF_STOCK' : 'IN_STOCK',
+        sizes: resolvedSizes,
+        size_stocks: cleanSizeStocks,
         images: uploadedPhotos,
         highlights: cleanHighlights,
         additional_details: cleanAdditionalDetails,
-        district,
-        city: city.trim() || district,
+        district: district || customerUser?.district || 'Ernakulam',
+        city: city.trim() || customerUser?.city || district || '',
         seller_name: sellerName.trim() || customerUser?.name || 'Local Seller',
-        seller_phone: cleanPhone,
-        seller_whatsapp: cleanPhone,
+        seller_phone: cleanPhone || null,
+        seller_whatsapp: cleanPhone || null,
       };
 
       const res = isEditing
@@ -535,6 +594,10 @@ export default function CustomerAddProductModal({
         setDescription('');
         setHighlights([{ label: '', value: '' }]);
         setAdditionalDetails([{ label: '', value: '' }]);
+        setSelectedSizes(['Free Size']);
+        setCustomSize('');
+        setSizeStocks({ 'Free Size': 10 });
+        setStockQuantity('10');
         setSubProducts([]);
       } else {
         setSubProducts([]);
@@ -806,48 +869,30 @@ export default function CustomerAddProductModal({
                   </div>
                 </div>
 
-                {/* 2. Category Selection (Quick Chips + Browse All + Separate Custom Category) BEFORE Description */}
+                {/* 2. Category Selection (Quick Chips + Browse All) */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                     <label style={{ ...labelStyle, marginBottom: 0 }}>2. Product Category *</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => setShowCatPicker(!showCatPicker)}
-                        style={{
-                          background: '#eff6ff',
-                          color: '#2563eb',
-                          border: '1px solid #bfdbfe',
-                          borderRadius: 8,
-                          padding: '5px 10px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        {showCatPicker ? <HiChevronUp size={14} /> : <HiSearch size={14} />}
-                        <span>{showCatPicker ? 'Hide Categories' : `Browse All (${allCategories.length || QUICK_CATEGORIES.length})`}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomCatInput(!showCustomCatInput)}
-                        style={{
-                          background: '#f0fdf4',
-                          color: '#15803d',
-                          border: '1px solid #bbf7d0',
-                          borderRadius: 8,
-                          padding: '5px 10px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        + Add Separate Category
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCatPicker(!showCatPicker)}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: 8,
+                        padding: '5px 10px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      {showCatPicker ? <HiChevronUp size={14} /> : <HiSearch size={14} />}
+                      <span>{showCatPicker ? 'Hide Categories' : `Browse All (${allCategories.length || QUICK_CATEGORIES.length})`}</span>
+                    </button>
                   </div>
 
                   {/* Active Category Pill */}
@@ -857,7 +902,7 @@ export default function CustomerAddProductModal({
                   </div>
 
                   {/* Quick Category Chips */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: showCatPicker || showCustomCatInput ? 12 : 0 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: showCatPicker ? 12 : 0 }}>
                     {QUICK_CATEGORIES.map((cat) => {
                       const active = category === cat;
                       return (
@@ -881,26 +926,6 @@ export default function CustomerAddProductModal({
                       );
                     })}
                   </div>
-
-                  {/* Custom / Separate Category Input */}
-                  {showCustomCatInput && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 10, marginBottom: 10 }}>
-                      <input
-                        type="text"
-                        placeholder="Enter separate category name (e.g. Women Kurtis / Brassware)..."
-                        value={customCatInput}
-                        onChange={(e) => setCustomCatInput(e.target.value)}
-                        style={{ ...inputStyle, flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleApplyCustomCategory}
-                        style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '0 16px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        Set Category
-                      </button>
-                    </div>
-                  )}
 
                   {/* Browse All Server Categories Dropdown Box */}
                   {showCatPicker && (
@@ -984,9 +1009,60 @@ export default function CustomerAddProductModal({
                     onChange={(e) => setCustomSize(e.target.value)}
                     style={inputStyle}
                   />
-                </div>
 
-                {/* 4. Product Description */}
+                  {/* Separate Stock Count for each Selected Size */}
+                  <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>
+                      Stock Count Per Size (0 = Out of Stock)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: 8 }}>
+                      {activeAllSizes.map((sz) => {
+                        const val = sizeStocks[sz] !== undefined ? sizeStocks[sz] : (stockQuantity !== '' ? stockQuantity : 10);
+                        const isZero = Number(val) === 0 && val !== '';
+                        return (
+                          <div
+                            key={sz}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 6,
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              background: isZero ? '#fef2f2' : '#ffffff',
+                              border: `1px solid ${isZero ? '#fca5a5' : '#cbd5e1'}`,
+                            }}
+                          >
+                            <span style={{ fontSize: 12, fontWeight: 800, color: isZero ? '#b91c1c' : '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {sz}
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={val}
+                              onChange={(e) => handleSizeStockChange(sz, e.target.value)}
+                              style={{
+                                width: 58,
+                                padding: '4px 6px',
+                                borderRadius: 6,
+                                border: '1px solid #cbd5e1',
+                                fontSize: 12.5,
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                background: '#ffffff',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN */}
+              <div>
+                {/* 4. Product Description (Above Product Photos) */}
                 <div style={cardStyle}>
                   <label style={labelStyle}>4. Product Description</label>
                   <textarea
@@ -997,10 +1073,7 @@ export default function CustomerAddProductModal({
                     style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' }}
                   />
                 </div>
-              </div>
 
-              {/* RIGHT COLUMN */}
-              <div>
                 {/* 5. Unlimited Product Photos (Upload + Take Photo, NO URL input) */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -1228,41 +1301,6 @@ export default function CustomerAddProductModal({
                         </button>
                       </div>
                     ))}
-                  </div>
-                </div>
-
-                {/* 8. Seller Contact & Location */}
-                <div style={cardStyle}>
-                  <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                    Seller Contact & Location
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                    <div>
-                      <label style={labelStyle}>Seller Name</label>
-                      <input type="text" placeholder="Your Store or Name" value={sellerName} onChange={(e) => setSellerName(e.target.value)} style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>WhatsApp Phone *</label>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        placeholder="10-digit WhatsApp"
-                        value={sellerPhone}
-                        onChange={(e) => setSellerPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>District *</label>
-                      <select value={district} onChange={(e) => setDistrict(e.target.value)} style={inputStyle}>
-                        {KERALA_DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>City / Town</label>
-                      <input type="text" placeholder="e.g. Kochi / Payyanur" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
-                    </div>
                   </div>
                 </div>
               </div>

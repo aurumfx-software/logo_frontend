@@ -43,6 +43,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [zoomPos, setZoomPos] = useState({ active: false, x: 50, y: 50 });
   const [touchStartX, setTouchStartX] = useState(null);
   const [selectedSize, setSelectedSize] = useState('Standard');
   const [quantity, setQuantity] = useState(1);
@@ -92,7 +93,9 @@ export default function ProductDetailPage() {
         setProduct(prodRes);
         setActiveImageIdx(0);
         if (prodRes.sizes && prodRes.sizes.length > 0) {
-          setSelectedSize(prodRes.sizes[0]);
+          const stkMap = prodRes.size_stocks || prodRes.sizeStocks || {};
+          const firstAvail = prodRes.sizes.find((sz) => !(sz in stkMap) || Number(stkMap[sz]) > 0);
+          setSelectedSize(firstAvail || prodRes.sizes[0]);
         }
         const itemPrice = Number(prodRes.price || 0);
         if (itemPrice > 0 && itemPrice < 150) {
@@ -209,8 +212,10 @@ export default function ProductDetailPage() {
       showToast('Sellers cannot purchase their own listed product.');
       return;
     }
-    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (product.stockQuantity !== null && Number(product.stockQuantity) <= 0)) {
-      showToast('This product is currently out of stock.');
+    const stkMap = product.size_stocks || product.sizeStocks || {};
+    const szStk = selectedSize in stkMap ? Number(stkMap[selectedSize]) : product.stockQuantity;
+    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (szStk !== null && szStk !== undefined && Number(szStk) <= 0)) {
+      showToast(selectedSize in stkMap && Number(stkMap[selectedSize]) <= 0 ? `Size "${selectedSize}" is out of stock.` : 'This product is currently out of stock.');
       return;
     }
     const itemPrice = Number(product.price || 0);
@@ -231,8 +236,10 @@ export default function ProductDetailPage() {
       showToast('Sellers cannot purchase their own listed product.');
       return;
     }
-    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (product.stockQuantity !== null && Number(product.stockQuantity) <= 0)) {
-      showToast('This product is currently out of stock.');
+    const stkMap = product.size_stocks || product.sizeStocks || {};
+    const szStk = selectedSize in stkMap ? Number(stkMap[selectedSize]) : product.stockQuantity;
+    if (!product.inStock || product.stockStatus === 'OUT_OF_STOCK' || (szStk !== null && szStk !== undefined && Number(szStk) <= 0)) {
+      showToast(selectedSize in stkMap && Number(stkMap[selectedSize]) <= 0 ? `Size "${selectedSize}" is out of stock.` : 'This product is currently out of stock.');
       return;
     }
     const itemPrice = Number(product.price || 0);
@@ -316,15 +323,24 @@ export default function ProductDetailPage() {
   const originalPrice = Number(product.originalPrice || product.original_price || 0);
   const price = Number(product.price || 0);
   const ownProduct = isOwnProduct(product, customerUser);
-  const isOutOfStock =
+  const sizeStocksMap = product.size_stocks || product.sizeStocks || {};
+  const hasPerSizeStocks = Object.keys(sizeStocksMap).length > 0;
+  const selectedSizeHasStock = hasPerSizeStocks && selectedSize in sizeStocksMap;
+  const activeStockQty = selectedSizeHasStock
+    ? Math.max(0, Number(sizeStocksMap[selectedSize] || 0))
+    : product.stockQuantity;
+  const isProductOutOfStock =
     !product.inStock ||
     product.stockStatus === 'OUT_OF_STOCK' ||
     (product.stockQuantity !== null && product.stockQuantity !== undefined && Number(product.stockQuantity) <= 0);
+  const isOutOfStock =
+    isProductOutOfStock ||
+    (activeStockQty !== null && activeStockQty !== undefined && Number(activeStockQty) <= 0);
   const isLowStock =
     !isOutOfStock &&
-    product.stockQuantity !== null &&
-    product.stockQuantity !== undefined &&
-    Number(product.stockQuantity) <= 5;
+    activeStockQty !== null &&
+    activeStockQty !== undefined &&
+    Number(activeStockQty) <= 5;
 
   const minRequiredQty = price > 0 && price < 150 ? Math.ceil(150 / price) : 1;
 
@@ -383,6 +399,13 @@ export default function ProductDetailPage() {
           <div className="mkt-gallery-wrap">
             <div
               className="mkt-gallery-main"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                setZoomPos({ active: true, x, y });
+              }}
+              onMouseLeave={() => setZoomPos({ active: false, x: 50, y: 50 })}
               onTouchStart={(e) => setTouchStartX(e.touches?.[0]?.clientX ?? null)}
               onTouchEnd={(e) => {
                 if (touchStartX === null || images.length <= 1) return;
@@ -395,6 +418,12 @@ export default function ProductDetailPage() {
               <img
                 src={images[activeImageIdx] || images[0]}
                 alt={product.name}
+                style={{
+                  transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                  transform: zoomPos.active ? 'scale(2.15)' : 'scale(1)',
+                  transition: zoomPos.active ? 'transform 0.04s ease-out' : 'transform 0.22s ease',
+                  cursor: zoomPos.active ? 'zoom-out' : 'zoom-in',
+                }}
               />
               {isOutOfStock ? (
                 <span className="mkt-badge-stockout">OUT OF STOCK</span>
@@ -409,6 +438,7 @@ export default function ProductDetailPage() {
                   <button
                     type="button"
                     aria-label="Previous image"
+                    onMouseEnter={() => setZoomPos((p) => ({ ...p, active: false }))}
                     onClick={() => setActiveImageIdx((i) => (i - 1 + images.length) % images.length)}
                     style={{
                       position: 'absolute',
@@ -433,6 +463,7 @@ export default function ProductDetailPage() {
                   <button
                     type="button"
                     aria-label="Next image"
+                    onMouseEnter={() => setZoomPos((p) => ({ ...p, active: false }))}
                     onClick={() => setActiveImageIdx((i) => (i + 1) % images.length)}
                     style={{
                       position: 'absolute',
@@ -594,19 +625,25 @@ export default function ProductDetailPage() {
             {isOutOfStock ? (
               <div className="mkt-stock-alert is-out-stock">
                 <HiExclamationCircle size={18} />
-                <span>Currently Out of Stock. Check back soon or contact seller.</span>
+                <span>
+                  {!isProductOutOfStock && selectedSizeHasStock
+                    ? `Size "${selectedSize}" is Out of Stock. Choose another size or check back soon.`
+                    : 'Currently Out of Stock. Check back soon or contact seller.'}
+                </span>
               </div>
             ) : isLowStock ? (
               <div className="mkt-stock-alert is-low-stock">
                 <HiOutlineClock size={18} />
-                <span>Hurry! Only {product.stockQuantity} items left in stock.</span>
+                <span>
+                  Hurry! Only {activeStockQty} {selectedSizeHasStock ? `(${selectedSize}) ` : ''}items left in stock.
+                </span>
               </div>
             ) : (
               <div className="mkt-stock-alert is-in-stock">
                 <HiCheckCircle size={18} />
                 <span>
-                  {product.stockQuantity !== null && product.stockQuantity !== undefined
-                    ? `In Stock • ${product.stockQuantity} units available`
+                  {activeStockQty !== null && activeStockQty !== undefined
+                    ? `In Stock • ${activeStockQty} units available${selectedSizeHasStock ? ` (${selectedSize})` : ''}`
                     : 'In Stock & Ready for Immediate Dispatch'}
                 </span>
               </div>
@@ -617,16 +654,37 @@ export default function ProductDetailPage() {
               <div>
                 <h4 className="mkt-size-section-title">Select Size / Variant</h4>
                 <div className="mkt-size-chips-row">
-                  {product.sizes.map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => setSelectedSize(sz)}
-                      className={`mkt-size-chip ${selectedSize === sz ? 'is-active' : ''}`}
-                    >
-                      {sz}
-                    </button>
-                  ))}
+                  {product.sizes.map((sz) => {
+                    const hasSzStock = hasPerSizeStocks && sz in sizeStocksMap;
+                    const szStockCount = hasSzStock ? Number(sizeStocksMap[sz] || 0) : null;
+                    const szOut = isProductOutOfStock || (hasSzStock && szStockCount <= 0);
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSize(sz);
+                          if (hasSzStock && szStockCount > 0 && quantity > szStockCount) {
+                            setQuantity(Math.max(minRequiredQty, szStockCount));
+                          }
+                        }}
+                        className={`mkt-size-chip ${selectedSize === sz ? 'is-active' : ''}`}
+                        style={
+                          szOut
+                            ? {
+                                opacity: 0.65,
+                                borderColor: selectedSize === sz ? '#dc2626' : '#fca5a5',
+                                background: selectedSize === sz ? '#fef2f2' : '#f8fafc',
+                                color: '#991b1b',
+                                textDecoration: 'line-through',
+                              }
+                            : undefined
+                        }
+                      >
+                        {sz}{szOut ? ' (Out of Stock)' : hasSzStock && szStockCount <= 5 ? ` (${szStockCount} left)` : ''}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -650,15 +708,15 @@ export default function ProductDetailPage() {
                       type="button"
                       onClick={() =>
                         setQuantity((q) =>
-                          product.stockQuantity !== null && product.stockQuantity !== undefined
-                            ? Math.min(Number(product.stockQuantity), q + 1)
+                          activeStockQty !== null && activeStockQty !== undefined
+                            ? Math.min(Number(activeStockQty), q + 1)
                             : q + 1
                         )
                       }
                       disabled={
-                        product.stockQuantity !== null &&
-                        product.stockQuantity !== undefined &&
-                        quantity >= Number(product.stockQuantity)
+                        activeStockQty !== null &&
+                        activeStockQty !== undefined &&
+                        quantity >= Number(activeStockQty)
                       }
                       className="mkt-qty-btn"
                     >

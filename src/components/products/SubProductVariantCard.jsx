@@ -56,8 +56,6 @@ export default function SubProductVariantCard({
 }) {
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [catSearch, setCatSearch] = useState('');
-  const [showCustomCatInput, setShowCustomCatInput] = useState(false);
-  const [customCatInput, setCustomCatInput] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const videoRef = useRef(null);
@@ -71,14 +69,40 @@ export default function SubProductVariantCard({
 
   const patch = (fields) => onChange(index, { ...variant, ...fields });
 
+  const activeCustomSizes = String(variant.customSize || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && !(variant.selectedSizes || ['Free Size']).includes(s));
+  const activeAllSizes = [...(variant.selectedSizes || ['Free Size']), ...activeCustomSizes];
+
   const toggleSize = (sz) => {
     const cur = variant.selectedSizes || ['Free Size'];
-    if (cur.includes(sz)) {
-      const next = cur.filter((s) => s !== sz);
-      patch({ selectedSizes: next.length > 0 ? next : [sz] });
-    } else {
-      patch({ selectedSizes: [...cur, sz] });
-    }
+    const next = cur.includes(sz)
+      ? cur.filter((s) => s !== sz).length > 0
+        ? cur.filter((s) => s !== sz)
+        : [sz]
+      : [...cur, sz];
+    const nextStocks = { ...(variant.sizeStocks || {}) };
+    next.forEach((itemSz) => {
+      if (nextStocks[itemSz] === undefined) {
+        nextStocks[itemSz] = Math.max(0, parseInt(variant.stockQuantity ?? 10, 10) || 10);
+      }
+    });
+    const total = [...next, ...activeCustomSizes].reduce(
+      (s, k) => s + Math.max(0, Number(nextStocks[k] ?? variant.stockQuantity ?? 10)),
+      0
+    );
+    patch({ selectedSizes: next, sizeStocks: nextStocks, stockQuantity: String(total) });
+  };
+
+  const handleSizeStockChange = (sz, rawVal) => {
+    const parsed = rawVal === '' ? '' : Math.max(0, parseInt(rawVal, 10) || 0);
+    const nextStocks = { ...(variant.sizeStocks || {}), [sz]: parsed };
+    const total = activeAllSizes.reduce(
+      (s, k) => s + Math.max(0, Number(nextStocks[k] !== undefined && nextStocks[k] !== '' ? nextStocks[k] : (variant.stockQuantity ?? 10))),
+      0
+    );
+    patch({ sizeStocks: nextStocks, stockQuantity: String(total) });
   };
 
   const uploadFilesToServer = async (filesList) => {
@@ -287,15 +311,10 @@ export default function SubProductVariantCard({
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>2. Product Category *</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" onClick={() => setShowCatPicker(!showCatPicker)} style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, padding: '4px 9px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {showCatPicker ? <HiChevronUp size={13} /> : <HiSearch size={13} />}
-                  <span>Browse ({allCategories.length || QUICK_CATEGORIES.length})</span>
-                </button>
-                <button type="button" onClick={() => setShowCustomCatInput(!showCustomCatInput)} style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 8, padding: '4px 9px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-                  + Separate Category
-                </button>
-              </div>
+              <button type="button" onClick={() => setShowCatPicker(!showCatPicker)} style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, padding: '4px 9px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {showCatPicker ? <HiChevronUp size={13} /> : <HiSearch size={13} />}
+                <span>Browse ({allCategories.length || QUICK_CATEGORIES.length})</span>
+              </button>
             </div>
 
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#dbeafe', color: '#1d4ed8', padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
@@ -326,31 +345,6 @@ export default function SubProductVariantCard({
                 );
               })}
             </div>
-
-            {showCustomCatInput && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <input
-                  type="text"
-                  placeholder="Enter separate category..."
-                  value={customCatInput}
-                  onChange={(e) => setCustomCatInput(e.target.value)}
-                  style={{ ...inputStyle, flex: 1 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (customCatInput.trim()) {
-                      patch({ category: customCatInput.trim() });
-                      setCustomCatInput('');
-                      setShowCustomCatInput(false);
-                    }
-                  }}
-                  style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '0 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                >
-                  Set
-                </button>
-              </div>
-            )}
 
             {showCatPicker && (
               <div style={{ border: '1px solid #cbd5e1', borderRadius: 10, padding: 8, marginTop: 10, background: '#f8fafc' }}>
@@ -416,8 +410,47 @@ export default function SubProductVariantCard({
               onChange={(e) => patch({ customSize: e.target.value })}
               style={inputStyle}
             />
-          </div>
 
+            <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
+                Stock Count Per Size (0 = Out of Stock)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
+                {activeAllSizes.map((sz) => {
+                  const val = (variant.sizeStocks || {})[sz] !== undefined ? variant.sizeStocks[sz] : (variant.stockQuantity ?? 10);
+                  const isZero = Number(val) === 0 && val !== '';
+                  return (
+                    <div
+                      key={sz}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 6,
+                        padding: '5px 7px',
+                        borderRadius: 7,
+                        background: isZero ? '#fef2f2' : '#ffffff',
+                        border: `1px solid ${isZero ? '#fca5a5' : '#cbd5e1'}`,
+                      }}
+                    >
+                      <span style={{ fontSize: 11.5, fontWeight: 800, color: isZero ? '#b91c1c' : '#1e293b' }}>{sz}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={val}
+                        onChange={(e) => handleSizeStockChange(sz, e.target.value)}
+                        style={{ width: 52, padding: '3px 5px', borderRadius: 5, border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700, textAlign: 'center', background: '#fff' }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div>
           <div style={cardStyle}>
             <label style={labelStyle}>4. Product Description</label>
             <textarea
@@ -428,10 +461,7 @@ export default function SubProductVariantCard({
               style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' }}
             />
           </div>
-        </div>
 
-        {/* RIGHT COLUMN */}
-        <div>
           <div style={cardStyle}>
             <label style={labelStyle}>5. Photos ({(variant.uploadedPhotos || []).length} added)</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -586,20 +616,6 @@ export default function SubProductVariantCard({
                   </button>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <label style={labelStyle}>8. Contact & Location</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <input type="text" placeholder="Seller Name" value={variant.sellerName || ''} onChange={(e) => patch({ sellerName: e.target.value })} style={inputStyle} />
-              <input type="tel" required placeholder="WhatsApp Phone *" value={variant.sellerPhone || ''} onChange={(e) => patch({ sellerPhone: e.target.value })} style={inputStyle} />
-              <select value={variant.district || 'Ernakulam'} onChange={(e) => patch({ district: e.target.value })} style={inputStyle}>
-                {KERALA_DISTRICTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              <input type="text" placeholder="City / Town" value={variant.city || ''} onChange={(e) => patch({ city: e.target.value })} style={inputStyle} />
             </div>
           </div>
         </div>

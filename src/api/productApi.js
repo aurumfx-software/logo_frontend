@@ -141,6 +141,8 @@ export function normalizeProduct(p) {
           sImgs[0] ||
           'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300',
         sizes: Array.isArray(s.sizes) ? s.sizes : [],
+        size_stocks: s.size_stocks && typeof s.size_stocks === 'object' ? s.size_stocks : {},
+        sizeStocks: s.size_stocks && typeof s.size_stocks === 'object' ? s.size_stocks : {},
         highlights: parseKvList(s.highlights),
         additional_details: parseKvList(s.additional_details ?? s.additionalDetails),
         stockQuantity: s.stock_quantity ?? null,
@@ -180,6 +182,8 @@ export function normalizeProduct(p) {
       images[0] ||
       'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
     sizes,
+    size_stocks: p.size_stocks && typeof p.size_stocks === 'object' ? p.size_stocks : {},
+    sizeStocks: p.size_stocks && typeof p.size_stocks === 'object' ? p.size_stocks : {},
     stockStatus,
     stock_status: stockStatus,
     stockQuantity,

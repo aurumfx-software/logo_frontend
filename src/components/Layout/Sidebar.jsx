@@ -23,6 +23,7 @@ import {
   HiOutlineQuestionMarkCircle,
   HiOutlinePhone,
   HiOutlineChatAlt2,
+  HiOutlineHome,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -312,6 +313,24 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
             </div>
           </div>
         )}
+        <NavLink
+          to="/"
+          onClick={() => {
+            if (onCloseMobile) onCloseMobile();
+          }}
+          className="sidebar-link"
+          title={collapsed ? 'Home' : undefined}
+          style={{
+            width: '100%',
+            marginBottom: 4,
+            color: '#e2e8f0',
+          }}
+        >
+          <span className="sidebar-link-icon">
+            <HiOutlineHome />
+          </span>
+          {!collapsed && <span>Home</span>}
+        </NavLink>
         <button
           onClick={handleLogout}
           className="sidebar-link"
