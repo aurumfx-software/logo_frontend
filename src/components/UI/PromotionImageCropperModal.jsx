@@ -8,8 +8,27 @@ import {
   HiZoomOut,
   HiInformationCircle,
 } from 'react-icons/hi';
+import PhoneCropRatioBar, {
+  PHONE_CROP_PRESETS,
+  getFixedCropBox,
+  hitTestCropHandle,
+  resizeFreeCropBox,
+  drawCropBoxOverlay,
+} from './PhoneCropRatioBar';
 
 export const PLACEMENT_SPECS = {
+  Free: {
+    label: 'Free Size Crop',
+    ratio: null,
+    ratioLabel: 'Freeform Custom Aspect',
+    idealWidth: 1600,
+    idealHeight: 900,
+    minWidth: 300,
+    minHeight: 300,
+    description: 'Drag corners or edges freely to crop any custom size and aspect ratio.',
+    tips: 'Drag the 8 corner/edge handles to adjust crop area, or drag inside to move the image.',
+    videoSpecs: 'Custom Freeform Crop (MP4/WebM)',
+  },
   'Home Top': {
     label: 'Home Top Banner',
     ratio: 16 / 5,
@@ -108,42 +127,72 @@ export const PLACEMENT_SPECS = {
   },
 };
 
+function presetKeyForPlacement(placement) {
+  if (placement === 'Free') return 'Free';
+  const found = PHONE_CROP_PRESETS.find((p) => p.specKey === placement);
+  if (found) return found.key;
+  if (placement === 'Above Footer' || placement === 'Home Middle' || placement === 'Merchant Store') return '16:9';
+  return 'Free';
+}
+
 export default function PromotionImageCropperModal({
   isOpen,
   onClose,
   imageSrc,
-  placement = 'Home Top',
+  placement = 'Free',
   onCropSave,
   onUseOriginal,
 }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  const initialSpec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS['Home Top'];
+  const [activePresetKey, setActivePresetKey] = useState(() => presetKeyForPlacement(placement));
   const [selectedRatioKey, setSelectedRatioKey] = useState(
-    placement in PLACEMENT_SPECS ? placement : 'Home Top'
+    placement in PLACEMENT_SPECS ? placement : 'Free'
   );
-  const [selectedRatio, setSelectedRatio] = useState(initialSpec.ratio);
+  const [selectedRatio, setSelectedRatio] = useState(
+    (PLACEMENT_SPECS[placement] || PLACEMENT_SPECS.Free).ratio
+  );
 
   const [imgObj, setImgObj] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const [freeBox, setFreeBox] = useState(null);
+  const [hoverCursor, setHoverCursor] = useState('grab');
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
+  const dragModeRef = useRef({ type: 'pan', x: 0, y: 0, origBox: null, handle: null });
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const getWorkspaceSize = useCallback(() => {
+    const container = containerRef.current;
+    const cw = container?.clientWidth || 560;
+    const ch = Math.min(400, Math.max(250, Math.round(window.innerHeight * 0.44)));
+    return { cw, ch };
+  }, []);
 
   // Sync placement on open
   useEffect(() => {
     if (isOpen) {
-      const spec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS['Home Top'];
-      setSelectedRatioKey(placement in PLACEMENT_SPECS ? placement : 'Home Top');
-      setSelectedRatio(spec.ratio);
+      const pKey = presetKeyForPlacement(placement);
+      const spec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS.Free;
+      setActivePresetKey(pKey);
+      setSelectedRatioKey(placement in PLACEMENT_SPECS ? placement : 'Free');
+      setSelectedRatio(pKey === 'Free' ? null : spec.ratio);
       setZoom(1);
       setPan({ x: 0, y: 0 });
       setRotation(0);
+      setFreeBox(null);
     }
   }, [isOpen, placement]);
+
+  // Initialize free crop box when canvas mounts or image loads in Free mode
+  useEffect(() => {
+    if (!isOpen || activePresetKey !== 'Free' || freeBox) return;
+    const { cw, ch } = getWorkspaceSize();
+    const fallbackRatio = imgObj ? imgObj.width / imgObj.height : 16 / 9;
+    setFreeBox(getFixedCropBox(cw, ch, Math.max(0.5, Math.min(2.6, fallbackRatio)), 32));
+  }, [isOpen, activePresetKey, freeBox, imgObj, getWorkspaceSize]);
 
   // Load image object
   useEffect(() => {
@@ -240,6 +289,16 @@ export default function PromotionImageCropperModal({
     };
   }, [imageSrc, isOpen]);
 
+  const getActiveBox = useCallback(
+    (cw, ch) => {
+      if (activePresetKey === 'Free' && freeBox) {
+        return freeBox;
+      }
+      return getFixedCropBox(cw, ch, selectedRatio || 16 / 9, 24);
+    },
+    [activePresetKey, freeBox, selectedRatio]
+  );
+
   // Draw crop preview canvas
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -249,53 +308,32 @@ export default function PromotionImageCropperModal({
     const container = containerRef.current;
     if (!container) return;
 
-    const cw = container.clientWidth || 560;
-    const ch = Math.min(420, Math.max(260, window.innerHeight * 0.45));
-
+    const { cw, ch } = getWorkspaceSize();
     canvas.width = cw;
     canvas.height = ch;
 
-    // Background workspace
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, cw, ch);
 
-    // Compute crop box inside canvas
-    const margin = 24;
-    const maxBoxW = cw - margin * 2;
-    const maxBoxH = ch - margin * 2;
+    const box = getActiveBox(cw, ch);
 
-    let boxW = maxBoxW;
-    let boxH = maxBoxW / (selectedRatio || 16 / 5);
-
-    if (boxH > maxBoxH) {
-      boxH = maxBoxH;
-      boxW = maxBoxH * (selectedRatio || 16 / 5);
-    }
-
-    const boxX = (cw - boxW) / 2;
-    const boxY = (ch - boxH) / 2;
-
-    // Draw image transformed
     ctx.save();
-    // Clip image rendering inside canvas workspace
     ctx.beginPath();
     ctx.rect(0, 0, cw, ch);
     ctx.clip();
 
-    // Transform center to canvas center + pan
     ctx.translate(cw / 2 + pan.x, ch / 2 + pan.y);
     ctx.rotate((rotation * Math.PI) / 180);
 
-    // Scale image
-    // Compute base scale so image covers crop box
     const imgAspect = imgObj.width / imgObj.height;
-    const boxAspect = boxW / boxH;
+    const baseBox = getFixedCropBox(cw, ch, selectedRatio || (imgAspect || 16 / 9), 24);
+    const baseAspect = baseBox.w / baseBox.h;
 
     let baseScale;
     if (rotation === 90 || rotation === 270) {
-      baseScale = imgAspect > 1 / boxAspect ? boxH / imgObj.width : boxW / imgObj.height;
+      baseScale = imgAspect > 1 / baseAspect ? baseBox.h / imgObj.width : baseBox.w / imgObj.height;
     } else {
-      baseScale = imgAspect > boxAspect ? boxH / imgObj.height : boxW / imgObj.width;
+      baseScale = imgAspect > baseAspect ? baseBox.h / imgObj.height : baseBox.w / imgObj.width;
     }
 
     const currentScale = baseScale * zoom;
@@ -305,100 +343,99 @@ export default function PromotionImageCropperModal({
     ctx.drawImage(imgObj, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
 
-    // Darkened Dim Mask outside crop box
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
-    // Top
-    ctx.fillRect(0, 0, cw, boxY);
-    // Bottom
-    ctx.fillRect(0, boxY + boxH, cw, ch - (boxY + boxH));
-    // Left
-    ctx.fillRect(0, boxY, boxX, boxH);
-    // Right
-    ctx.fillRect(boxX + boxW, boxY, cw - (boxX + boxW), boxH);
-
-    // Crop box outline
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-    // Rule of Thirds Guidelines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-
-    ctx.beginPath();
-    // Vertical thirds
-    ctx.moveTo(boxX + boxW / 3, boxY);
-    ctx.lineTo(boxX + boxW / 3, boxY + boxH);
-    ctx.moveTo(boxX + (boxW * 2) / 3, boxY);
-    ctx.lineTo(boxX + (boxW * 2) / 3, boxY + boxH);
-    // Horizontal thirds
-    ctx.moveTo(boxX, boxY + boxH / 3);
-    ctx.lineTo(boxX + boxW, boxY + boxH / 3);
-    ctx.moveTo(boxX, boxY + (boxH * 2) / 3);
-    ctx.lineTo(boxX + boxW, boxY + (boxH * 2) / 3);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Corner Accents
-    const cornerSize = 16;
-    ctx.strokeStyle = '#60a5fa';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    // Top-left
-    ctx.moveTo(boxX, boxY + cornerSize);
-    ctx.lineTo(boxX, boxY);
-    ctx.lineTo(boxX + cornerSize, boxY);
-    // Top-right
-    ctx.moveTo(boxX + boxW - cornerSize, boxY);
-    ctx.lineTo(boxX + boxW, boxY);
-    ctx.lineTo(boxX + boxW, boxY + cornerSize);
-    // Bottom-left
-    ctx.moveTo(boxX, boxY + boxH - cornerSize);
-    ctx.lineTo(boxX, boxY + boxH);
-    ctx.lineTo(boxX + cornerSize, boxY + boxH);
-    // Bottom-right
-    ctx.moveTo(boxX + boxW - cornerSize, boxY + boxH);
-    ctx.lineTo(boxX + boxW, boxY + boxH);
-    ctx.lineTo(boxX + boxW, boxY + boxH - cornerSize);
-    ctx.stroke();
-  }, [imgObj, selectedRatio, zoom, pan, rotation]);
+    drawCropBoxOverlay(ctx, cw, ch, box, activePresetKey === 'Free');
+  }, [imgObj, selectedRatio, zoom, pan, rotation, activePresetKey, getWorkspaceSize, getActiveBox]);
 
   useEffect(() => {
     drawCanvas();
   }, [drawCanvas]);
 
-  // Mouse & Touch Pan Handling
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  const toCanvasCoords = (clientX, clientY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { cx: 0, cy: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / (rect.width || canvas.width);
+    const scaleY = canvas.height / (rect.height || canvas.height);
+    return {
+      cx: (clientX - rect.left) * scaleX,
+      cy: (clientY - rect.top) * scaleY,
+    };
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
+  const beginInteraction = (clientX, clientY) => {
+    const { cw, ch } = getWorkspaceSize();
+    const box = getActiveBox(cw, ch);
+    const { cx, cy } = toCanvasCoords(clientX, clientY);
+
+    if (activePresetKey === 'Free') {
+      const hit = hitTestCropHandle(cx, cy, box, 18);
+      if (hit) {
+        setIsDragging(true);
+        dragModeRef.current = {
+          type: 'resize',
+          handle: hit.id,
+          startX: cx,
+          startY: cy,
+          origBox: { ...box },
+        };
+        return;
+      }
+    }
+    setIsDragging(true);
+    dragModeRef.current = {
+      type: 'pan',
+      x: clientX - pan.x,
+      y: clientY - pan.y,
+    };
+  };
+
+  const moveInteraction = (clientX, clientY) => {
+    const { cw, ch } = getWorkspaceSize();
+    const { cx, cy } = toCanvasCoords(clientX, clientY);
+
+    if (!isDragging) {
+      if (activePresetKey === 'Free') {
+        const hit = hitTestCropHandle(cx, cy, getActiveBox(cw, ch), 18);
+        setHoverCursor(hit ? hit.cursor : 'grab');
+      } else {
+        setHoverCursor('grab');
+      }
+      return;
+    }
+
+    const mode = dragModeRef.current;
+    if (mode.type === 'resize' && mode.origBox) {
+      const nextBox = resizeFreeCropBox(
+        mode.origBox,
+        mode.handle,
+        cx - mode.startX,
+        cy - mode.startY,
+        cw,
+        ch
+      );
+      setFreeBox(nextBox);
+      return;
+    }
+
     setPan({
-      x: e.clientX - dragStartRef.current.x,
-      y: e.clientY - dragStartRef.current.y,
+      x: clientX - mode.x,
+      y: clientY - mode.y,
     });
   };
 
+  // Mouse & Touch Handling
+  const handleMouseDown = (e) => beginInteraction(e.clientX, e.clientY);
+  const handleMouseMove = (e) => moveInteraction(e.clientX, e.clientY);
   const handleMouseUp = () => setIsDragging(false);
 
   const handleTouchStart = (e) => {
     if (!e.touches[0]) return;
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.touches[0].clientX - pan.x,
-      y: e.touches[0].clientY - pan.y,
-    };
+    beginInteraction(e.touches[0].clientX, e.touches[0].clientY);
   };
 
   const handleTouchMove = (e) => {
-    if (!isDragging || !e.touches[0]) return;
-    setPan({
-      x: e.touches[0].clientX - dragStartRef.current.x,
-      y: e.touches[0].clientY - dragStartRef.current.y,
-    });
+    if (!e.touches[0]) return;
+    moveInteraction(e.touches[0].clientX, e.touches[0].clientY);
   };
 
   // Perform Final High-Resolution Crop Export
@@ -408,52 +445,53 @@ export default function PromotionImageCropperModal({
     try {
       setIsProcessing(true);
 
-      const spec = PLACEMENT_SPECS[selectedRatioKey] || PLACEMENT_SPECS['Home Top'];
-      const targetW = spec.idealWidth || 1920;
-      const targetH = spec.idealHeight || Math.round(targetW / selectedRatio);
+      const { cw, ch } = getWorkspaceSize();
+      const box = getActiveBox(cw, ch);
+      const boxRatio = box.w / box.h;
+
+      const spec = PLACEMENT_SPECS[selectedRatioKey] || PLACEMENT_SPECS.Free;
+      let targetW;
+      let targetH;
+      if (activePresetKey === 'Free') {
+        if (boxRatio >= 1) {
+          targetW = 1440;
+          targetH = Math.max(240, Math.round(1440 / boxRatio));
+        } else {
+          targetH = 1440;
+          targetW = Math.max(240, Math.round(1440 * boxRatio));
+        }
+      } else {
+        targetW = spec.idealWidth || 1600;
+        targetH = spec.idealHeight || Math.round(targetW / (selectedRatio || boxRatio));
+      }
 
       const offCanvas = document.createElement('canvas');
       offCanvas.width = targetW;
       offCanvas.height = targetH;
       const offCtx = offCanvas.getContext('2d');
 
-      // Fill background for any transparent edge
       offCtx.fillStyle = '#0f172a';
       offCtx.fillRect(0, 0, targetW, targetH);
       offCtx.imageSmoothingEnabled = true;
       offCtx.imageSmoothingQuality = 'high';
 
-      // Compute matching transform on target canvas
-      const container = containerRef.current;
-      const cw = container?.clientWidth || 560;
-      const ch = Math.min(420, Math.max(260, window.innerHeight * 0.45));
-
-      const margin = 24;
-      const maxBoxW = cw - margin * 2;
-      const maxBoxH = ch - margin * 2;
-
-      let boxW = maxBoxW;
-      let boxH = maxBoxW / selectedRatio;
-      if (boxH > maxBoxH) {
-        boxH = maxBoxH;
-        boxW = maxBoxH * selectedRatio;
-      }
-
-      // Scaling factor from preview box to final high-res canvas
-      const scaleToOutput = targetW / boxW;
+      const scaleToOutput = targetW / box.w;
+      const dx = (cw / 2 + pan.x) - (box.x + box.w / 2);
+      const dy = (ch / 2 + pan.y) - (box.y + box.h / 2);
 
       offCtx.save();
-      offCtx.translate(targetW / 2 + pan.x * scaleToOutput, targetH / 2 + pan.y * scaleToOutput);
+      offCtx.translate(targetW / 2 + dx * scaleToOutput, targetH / 2 + dy * scaleToOutput);
       offCtx.rotate((rotation * Math.PI) / 180);
 
       const imgAspect = imgObj.width / imgObj.height;
-      const boxAspect = boxW / boxH;
+      const baseBox = getFixedCropBox(cw, ch, selectedRatio || (imgAspect || 16 / 9), 24);
+      const baseAspect = baseBox.w / baseBox.h;
 
       let baseScale;
       if (rotation === 90 || rotation === 270) {
-        baseScale = imgAspect > 1 / boxAspect ? boxH / imgObj.width : boxW / imgObj.height;
+        baseScale = imgAspect > 1 / baseAspect ? baseBox.h / imgObj.width : baseBox.w / imgObj.height;
       } else {
-        baseScale = imgAspect > boxAspect ? boxH / imgObj.height : boxW / imgObj.width;
+        baseScale = imgAspect > baseAspect ? baseBox.h / imgObj.height : baseBox.w / imgObj.width;
       }
 
       const currentScale = baseScale * zoom * scaleToOutput;
@@ -597,65 +635,25 @@ export default function PromotionImageCropperModal({
             </div>
           </div>
 
-          {/* Aspect Ratio Preset Selector Pills */}
-          <div style={{ marginBottom: 12 }}>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#475569',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                marginBottom: 8,
-              }}
-            >
-              Select Placement Aspect Ratio:
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {Object.entries(PLACEMENT_SPECS).map(([key, spec]) => {
-                const isActive = selectedRatioKey === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRatioKey(key);
-                      setSelectedRatio(spec.ratio);
-                      setPan({ x: 0, y: 0 });
-                    }}
-                    style={{
-                      padding: '7px 12px',
-                      borderRadius: 8,
-                      border: isActive ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                      background: isActive ? '#eff6ff' : '#f8fafc',
-                      color: isActive ? '#2563eb' : '#334155',
-                      fontSize: 12,
-                      fontWeight: isActive ? 800 : 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <span>{spec.label}</span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        background: isActive ? '#2563eb' : '#e2e8f0',
-                        color: isActive ? '#ffffff' : '#475569',
-                        padding: '1px 6px',
-                        borderRadius: 4,
-                      }}
-                    >
-                      {spec.idealWidth}×{spec.idealHeight}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Phone-style Straight Horizontal Aspect Ratio Icon Toolbar */}
+          <PhoneCropRatioBar
+            activeKey={activePresetKey}
+            disabled={isProcessing}
+            onSelectPreset={(preset) => {
+              setActivePresetKey(preset.key);
+              setPan({ x: 0, y: 0 });
+              if (preset.isFree) {
+                setSelectedRatioKey('Free');
+                setSelectedRatio(null);
+                const { cw, ch } = getWorkspaceSize();
+                const fallbackRatio = imgObj ? imgObj.width / imgObj.height : 16 / 9;
+                setFreeBox(getFixedCropBox(cw, ch, Math.max(0.5, Math.min(2.6, fallbackRatio)), 32));
+              } else {
+                setSelectedRatioKey(preset.specKey && preset.specKey in PLACEMENT_SPECS ? preset.specKey : 'Merchant Store');
+                setSelectedRatio(preset.ratio);
+              }
+            }}
+          />
 
           {/* Interactive Canvas Workspace */}
           <div
@@ -664,7 +662,7 @@ export default function PromotionImageCropperModal({
               position: 'relative',
               borderRadius: 12,
               overflow: 'hidden',
-              cursor: isDragging ? 'grabbing' : 'grab',
+              cursor: isDragging ? 'grabbing' : hoverCursor,
               userSelect: 'none',
               background: '#0f172a',
               boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.4)',
@@ -695,7 +693,9 @@ export default function PromotionImageCropperModal({
                 pointerEvents: 'none',
               }}
             >
-              ✋ Drag image to reposition within crop box
+              {activePresetKey === 'Free'
+                ? '✂️ Drag corners/edges to resize freely • Drag inside to move image'
+                : '✋ Drag image to reposition within crop box'}
             </div>
 
             {/* Target output resolution indicator badge */}
@@ -713,7 +713,9 @@ export default function PromotionImageCropperModal({
                 pointerEvents: 'none',
               }}
             >
-              Output: {currentSpec.idealWidth} × {currentSpec.idealHeight} px
+              {activePresetKey === 'Free'
+                ? `Free Crop (${freeBox ? `${Math.round(freeBox.w)}:${Math.round(freeBox.h)}` : 'Custom'})`
+                : `Output: ${currentSpec.idealWidth} × ${currentSpec.idealHeight} px`}
             </div>
           </div>
 
@@ -811,6 +813,11 @@ export default function PromotionImageCropperModal({
                   setZoom(1);
                   setPan({ x: 0, y: 0 });
                   setRotation(0);
+                  if (activePresetKey === 'Free') {
+                    const { cw, ch } = getWorkspaceSize();
+                    const fallbackRatio = imgObj ? imgObj.width / imgObj.height : 16 / 9;
+                    setFreeBox(getFixedCropBox(cw, ch, Math.max(0.5, Math.min(2.6, fallbackRatio)), 32));
+                  }
                 }}
                 style={{
                   background: '#ffffff',

@@ -1,12 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { HiCheck, HiOutlinePlay, HiOutlinePause, HiOutlineRefresh, HiX } from 'react-icons/hi';
+import PhoneCropRatioBar, {
+  PHONE_CROP_PRESETS,
+  drawCropBoxOverlay,
+  getFixedCropBox,
+  hitTestCropHandle,
+  resizeFreeCropBox,
+} from './PhoneCropRatioBar';
 
-const VIDEO_CROP_RATIOS = [
-  { key: '16:9', label: '16:9 Widescreen', ratio: 16 / 9, width: 1280, height: 720 },
-  { key: '16:5', label: '16:5 Wide Banner', ratio: 16 / 5, width: 1280, height: 400 },
-  { key: '4:3', label: '4:3 Card Ad', ratio: 4 / 3, width: 960, height: 720 },
-  { key: '1:1', label: '1:1 Square', ratio: 1, width: 720, height: 720 },
-];
+const PREVIEW_W = 660;
+const PREVIEW_H = 320;
+const DEFAULT_FREE_BOX = { x: 70, y: 24, w: 520, h: 272 };
+
+const toEven = (val) => Math.max(240, Math.round(val / 2) * 2);
+
+const getTargetDimensions = (boxW, boxH) => {
+  const boxRatio = boxW / Math.max(1, boxH);
+  if (boxRatio > 1.05) {
+    return { targetW: 1280, targetH: toEven(1280 / boxRatio) };
+  }
+  if (boxRatio < 0.95) {
+    return { targetW: toEven(1280 * boxRatio), targetH: 1280 };
+  }
+  return { targetW: 960, targetH: toEven(960 / boxRatio) };
+};
 
 export default function VideoAdCropModal({
   isOpen,
@@ -19,12 +36,15 @@ export default function VideoAdCropModal({
   const videoRef = useRef(null);
   const previewCanvasRef = useRef(null);
   const animFrameRef = useRef(null);
-  const dragStartRef = useRef({ x: 0, y: 0 });
+  const hasResizedFreeRef = useRef(false);
+  const dragActionRef = useRef(null);
 
-  const [selectedPreset, setSelectedPreset] = useState(VIDEO_CROP_RATIOS[0]);
+  const [selectedPreset, setSelectedPreset] = useState(PHONE_CROP_PRESETS[0]);
+  const [freeBox, setFreeBox] = useState(DEFAULT_FREE_BOX);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [hoverCursor, setHoverCursor] = useState('grab');
 
   const [duration, setDuration] = useState(0);
   const [startSec, setStartSec] = useState(0);
@@ -34,11 +54,19 @@ export default function VideoAdCropModal({
   const [progressPct, setProgressPct] = useState(0);
   const [loadError, setLoadError] = useState('');
 
+  // Latest render parameters read by RAF loop without restarting it on every drag pixel
+  const stateRef = useRef({ selectedPreset, freeBox, zoom, pan, startSec, endSec });
+  stateRef.current = { selectedPreset, freeBox, zoom, pan, startSec, endSec };
+
   useEffect(() => {
     if (!isOpen) return;
-    setSelectedPreset(VIDEO_CROP_RATIOS[0]);
+    hasResizedFreeRef.current = false;
+    dragActionRef.current = null;
+    setSelectedPreset(PHONE_CROP_PRESETS[0]);
+    setFreeBox(DEFAULT_FREE_BOX);
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setHoverCursor('grab');
     setDuration(0);
     setStartSec(0);
     setEndSec(0);
@@ -48,87 +76,97 @@ export default function VideoAdCropModal({
     setLoadError('');
   }, [isOpen, videoSrc]);
 
-  const drawFrame = () => {
-    const canvas = previewCanvasRef.current;
-    const video = videoRef.current;
-    if (!canvas || !video || !video.videoWidth || !video.videoHeight) return;
+  const computeVideoLayout = (vid, cW, cH, preset, curFreeBox, curZoom, curPan) => {
+    const isFree = Boolean(preset?.isFree);
+    const box = isFree
+      ? curFreeBox
+      : getFixedCropBox(cW, cH, preset?.ratio || 16 / 9, 22);
 
-    const ctx = canvas.getContext('2d');
-    const cW = canvas.width;
-    const cH = canvas.height;
-    ctx.clearRect(0, 0, cW, cH);
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, cW, cH);
-
-    const maxBoxW = cW * 0.88;
-    const maxBoxH = cH * 0.86;
-    let boxW = maxBoxW;
-    let boxH = boxW / selectedPreset.ratio;
-    if (boxH > maxBoxH) {
-      boxH = maxBoxH;
-      boxW = boxH * selectedPreset.ratio;
+    const vAspect = vid.videoWidth / vid.videoHeight;
+    let baseScale;
+    if (isFree) {
+      // Keep entire video visible & static while handles are dragged freely
+      baseScale = Math.min((cW - 48) / vid.videoWidth, (cH - 48) / vid.videoHeight);
+    } else {
+      const boxAspect = box.w / box.h;
+      baseScale = vAspect > boxAspect ? box.h / vid.videoHeight : box.w / vid.videoWidth;
     }
-    const boxX = (cW - boxW) / 2;
-    const boxY = (cH - boxH) / 2;
 
-    const vAspect = video.videoWidth / video.videoHeight;
-    const boxAspect = boxW / boxH;
-    const baseScale = vAspect > boxAspect ? boxH / video.videoHeight : boxW / video.videoWidth;
-    const currentScale = baseScale * zoom;
-    const drawW = video.videoWidth * currentScale;
-    const drawH = video.videoHeight * currentScale;
-    const drawX = cW / 2 + pan.x - drawW / 2;
-    const drawY = cH / 2 + pan.y - drawH / 2;
-
-    ctx.drawImage(video, drawX, drawY, drawW, drawH);
-
-    // Dim exterior
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
-    ctx.fillRect(0, 0, cW, boxY);
-    ctx.fillRect(0, boxY + boxH, cW, cH - (boxY + boxH));
-    ctx.fillRect(0, boxY, boxX, boxH);
-    ctx.fillRect(boxX + boxW, boxY, cW - (boxX + boxW), boxH);
-
-    // Crop box outline & thirds grid
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i <= 2; i += 1) {
-      ctx.beginPath();
-      ctx.moveTo(boxX + (boxW / 3) * i, boxY);
-      ctx.lineTo(boxX + (boxW / 3) * i, boxY + boxH);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + (boxH / 3) * i);
-      ctx.lineTo(boxX + boxW, boxY + (boxH / 3) * i);
-      ctx.stroke();
-    }
+    const currentScale = baseScale * curZoom;
+    const drawW = vid.videoWidth * currentScale;
+    const drawH = vid.videoHeight * currentScale;
+    const drawX = cW / 2 + curPan.x - drawW / 2;
+    const drawY = cH / 2 + curPan.y - drawH / 2;
+    return { box, isFree, drawX, drawY, drawW, drawH };
   };
 
   useEffect(() => {
     if (!isOpen) return undefined;
     let active = true;
+
     const loop = () => {
       if (!active) return;
+      const canvas = previewCanvasRef.current;
       const vid = videoRef.current;
-      if (vid && endSec > 0 && vid.currentTime >= endSec && !vid.paused) {
-        vid.currentTime = startSec;
+      const {
+        selectedPreset: preset,
+        freeBox: curFreeBox,
+        zoom: curZoom,
+        pan: curPan,
+        startSec: sSec,
+        endSec: eSec,
+      } = stateRef.current;
+
+      if (vid && eSec > 0 && vid.currentTime >= eSec && !vid.paused) {
+        vid.currentTime = sSec;
       }
-      drawFrame();
+
+      if (canvas && vid && vid.videoWidth && vid.videoHeight) {
+        const ctx = canvas.getContext('2d');
+        const cW = canvas.width;
+        const cH = canvas.height;
+        ctx.clearRect(0, 0, cW, cH);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, cW, cH);
+
+        const { box, isFree, drawX, drawY, drawW, drawH } = computeVideoLayout(
+          vid,
+          cW,
+          cH,
+          preset,
+          curFreeBox,
+          curZoom,
+          curPan
+        );
+        ctx.drawImage(videoRef.current, drawX, drawY, drawW, drawH);
+        drawCropBoxOverlay(ctx, cW, cH, box, isFree);
+      }
+
       animFrameRef.current = requestAnimationFrame(loop);
     };
+
     animFrameRef.current = requestAnimationFrame(loop);
     return () => {
       active = false;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  });
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const toCanvasCoords = (clientX, clientY) => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return { cx: 0, cy: 0, scaleX: 1, scaleY: 1 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / Math.max(1, rect.width);
+    const scaleY = canvas.height / Math.max(1, rect.height);
+    return {
+      cx: (clientX - rect.left) * scaleX,
+      cy: (clientY - rect.top) * scaleY,
+      scaleX,
+      scaleY,
+    };
+  };
 
   const togglePlayPreview = () => {
     const vid = videoRef.current;
@@ -145,29 +183,92 @@ export default function VideoAdCropModal({
     }
   };
 
-  const handleMouseDown = (e) => {
+  const startPointerDrag = (clientX, clientY) => {
+    const { cx, cy } = toCanvasCoords(clientX, clientY);
+    if (selectedPreset.isFree) {
+      const hit = hitTestCropHandle(cx, cy, freeBox, 18);
+      if (hit) {
+        dragActionRef.current = {
+          type: 'handle',
+          handleId: hit.id,
+          startCx: cx,
+          startCy: cy,
+          origBox: { ...freeBox },
+        };
+        setIsDragging(true);
+        return;
+      }
+    }
+    dragActionRef.current = {
+      type: 'pan',
+      startClientX: clientX,
+      startClientY: clientY,
+      origPan: { ...pan },
+    };
     setIsDragging(true);
-    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    setPan({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y });
+  const movePointerDrag = (clientX, clientY) => {
+    const action = dragActionRef.current;
+    const { cx, cy, scaleX, scaleY } = toCanvasCoords(clientX, clientY);
+
+    if (!action) {
+      if (selectedPreset.isFree) {
+        const hit = hitTestCropHandle(cx, cy, freeBox, 18);
+        setHoverCursor(hit ? hit.cursor : 'grab');
+      } else {
+        setHoverCursor('grab');
+      }
+      return;
+    }
+
+    if (action.type === 'handle') {
+      const dx = cx - action.startCx;
+      const dy = cy - action.startCy;
+      hasResizedFreeRef.current = true;
+      setFreeBox(resizeFreeCropBox(action.origBox, action.handleId, dx, dy, PREVIEW_W, PREVIEW_H, 64, 14));
+      return;
+    }
+
+    setPan({
+      x: action.origPan.x + (clientX - action.startClientX) * scaleX,
+      y: action.origPan.y + (clientY - action.startClientY) * scaleY,
+    });
   };
 
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleTouchStart = (e) => {
-    const t = e.touches?.[0];
-    if (!t) return;
-    setIsDragging(true);
-    dragStartRef.current = { x: t.clientX - pan.x, y: t.clientY - pan.y };
+  const endPointerDrag = () => {
+    dragActionRef.current = null;
+    setIsDragging(false);
   };
 
-  const handleTouchMove = (e) => {
-    const t = e.touches?.[0];
-    if (!isDragging || !t) return;
-    setPan({ x: t.clientX - dragStartRef.current.x, y: t.clientY - dragStartRef.current.y });
+  const handleSelectPreset = (preset) => {
+    const vid = videoRef.current;
+    if (preset.isFree) {
+      if (selectedPreset.isFree && vid?.videoWidth) {
+        setFreeBox(getFixedCropBox(PREVIEW_W, PREVIEW_H, vid.videoWidth / vid.videoHeight, 24));
+      } else if (!selectedPreset.isFree && selectedPreset.ratio) {
+        setFreeBox(getFixedCropBox(PREVIEW_W, PREVIEW_H, selectedPreset.ratio, 22));
+      }
+    } else {
+      hasResizedFreeRef.current = false;
+    }
+    setSelectedPreset(preset);
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  };
+
+  const handleResetCrop = () => {
+    const vid = videoRef.current;
+    hasResizedFreeRef.current = false;
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    if (selectedPreset.isFree) {
+      setFreeBox(
+        vid?.videoWidth
+          ? getFixedCropBox(PREVIEW_W, PREVIEW_H, vid.videoWidth / vid.videoHeight, 24)
+          : DEFAULT_FREE_BOX
+      );
+    }
   };
 
   const handleApplyVideoCrop = async () => {
@@ -193,33 +294,30 @@ export default function VideoAdCropModal({
     setLoadError('');
 
     try {
-      const targetW = selectedPreset.width;
-      const targetH = selectedPreset.height;
+      const cW = prevCanvas.width;
+      const cH = prevCanvas.height;
+      const { box, drawX, drawY, drawW, drawH } = computeVideoLayout(
+        vid,
+        cW,
+        cH,
+        selectedPreset,
+        freeBox,
+        zoom,
+        pan
+      );
+
+      const { targetW, targetH } = getTargetDimensions(box.w, box.h);
       const offCanvas = document.createElement('canvas');
       offCanvas.width = targetW;
       offCanvas.height = targetH;
       const offCtx = offCanvas.getContext('2d');
 
-      const cW = prevCanvas.width;
-      const cH = prevCanvas.height;
-      const maxBoxW = cW * 0.88;
-      const maxBoxH = cH * 0.86;
-      let boxW = maxBoxW;
-      let boxH = boxW / selectedPreset.ratio;
-      if (boxH > maxBoxH) {
-        boxH = maxBoxH;
-        boxW = boxH * selectedPreset.ratio;
-      }
-      const scaleToOut = targetW / boxW;
-
-      const vAspect = vid.videoWidth / vid.videoHeight;
-      const boxAspect = boxW / boxH;
-      const baseScale = vAspect > boxAspect ? boxH / vid.videoHeight : boxW / vid.videoWidth;
-      const currentScale = baseScale * zoom * scaleToOut;
-      const drawW = vid.videoWidth * currentScale;
-      const drawH = vid.videoHeight * currentScale;
-      const drawX = targetW / 2 + pan.x * scaleToOut - drawW / 2;
-      const drawY = targetH / 2 + pan.y * scaleToOut - drawH / 2;
+      const outScaleX = targetW / box.w;
+      const outScaleY = targetH / box.h;
+      const outW = drawW * outScaleX;
+      const outH = drawH * outScaleY;
+      const outX = (drawX - box.x) * outScaleX;
+      const outY = (drawY - box.y) * outScaleY;
 
       const clipStart = Math.max(0, Number(startSec) || 0);
       const clipEnd = Math.max(clipStart + 0.5, Number(endSec) || duration || 10);
@@ -271,7 +369,7 @@ export default function VideoAdCropModal({
       const renderExport = () => {
         offCtx.fillStyle = '#000000';
         offCtx.fillRect(0, 0, targetW, targetH);
-        offCtx.drawImage(vid, drawX, drawY, drawW, drawH);
+        offCtx.drawImage(vid, outX, outY, outW, outH);
         const elapsed = Math.max(0, vid.currentTime - clipStart);
         setProgressPct(Math.min(99, Math.max(5, Math.round((elapsed / clipSpan) * 100))));
         if (vid.currentTime >= clipEnd || vid.ended) {
@@ -342,7 +440,9 @@ export default function VideoAdCropModal({
               ✂️ Crop &amp; Trim Video Advertisement
             </h3>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
-              Choose aspect ratio, drag &amp; zoom to frame the video, and optionally trim start/end time.
+              {selectedPreset.isFree
+                ? 'Free Size Crop active — drag any corner/edge circle handle to resize freely, or drag inside to reposition video.'
+                : `Locked to ${selectedPreset.label} — drag video to frame and adjust zoom/trim sliders below.`}
             </p>
           </div>
           <button
@@ -364,44 +464,26 @@ export default function VideoAdCropModal({
             playsInline
             muted
             onLoadedMetadata={(e) => {
-              const dur = Number(e.currentTarget.duration || 0);
+              const vidEl = e.currentTarget;
+              const dur = Number(vidEl.duration || 0);
               setDuration(dur);
               setStartSec(0);
               setEndSec(dur);
+              if (!hasResizedFreeRef.current && vidEl.videoWidth && vidEl.videoHeight) {
+                setFreeBox(getFixedCropBox(PREVIEW_W, PREVIEW_H, vidEl.videoWidth / vidEl.videoHeight, 24));
+              }
             }}
             onError={() => setLoadError('Preview failed to decode this video. You can still upload original below.')}
             style={{ display: 'none' }}
           />
 
-          {/* Aspect Ratio Presets */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            {VIDEO_CROP_RATIOS.map((preset) => {
-              const active = selectedPreset.key === preset.key;
-              return (
-                <button
-                  key={preset.key}
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    setSelectedPreset(preset);
-                    setPan({ x: 0, y: 0 });
-                    setZoom(1);
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 8,
-                    border: `1.5px solid ${active ? '#2563eb' : '#cbd5e1'}`,
-                    background: active ? '#eff6ff' : '#ffffff',
-                    color: active ? '#1d4ed8' : '#334155',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
+          {/* Phone-editor-style horizontal aspect ratio bar */}
+          <div style={{ marginBottom: 12 }}>
+            <PhoneCropRatioBar
+              activeKey={selectedPreset.key}
+              disabled={isProcessing}
+              onSelectPreset={handleSelectPreset}
+            />
           </div>
 
           {loadError && (
@@ -416,22 +498,28 @@ export default function VideoAdCropModal({
               background: '#0f172a',
               borderRadius: 14,
               overflow: 'hidden',
-              cursor: isDragging ? 'grabbing' : 'grab',
+              cursor: isDragging ? (dragActionRef.current?.type === 'handle' ? hoverCursor : 'grabbing') : hoverCursor,
               position: 'relative',
               marginBottom: 14,
             }}
           >
             <canvas
               ref={previewCanvasRef}
-              width={660}
-              height={320}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleMouseUp}
+              width={PREVIEW_W}
+              height={PREVIEW_H}
+              onMouseDown={(e) => startPointerDrag(e.clientX, e.clientY)}
+              onMouseMove={(e) => movePointerDrag(e.clientX, e.clientY)}
+              onMouseUp={endPointerDrag}
+              onMouseLeave={endPointerDrag}
+              onTouchStart={(e) => {
+                const t = e.touches?.[0];
+                if (t) startPointerDrag(t.clientX, t.clientY);
+              }}
+              onTouchMove={(e) => {
+                const t = e.touches?.[0];
+                if (t) movePointerDrag(t.clientX, t.clientY);
+              }}
+              onTouchEnd={endPointerDrag}
               style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'none' }}
             />
             {isProcessing && (
@@ -460,10 +548,7 @@ export default function VideoAdCropModal({
                   <button
                     type="button"
                     disabled={isProcessing}
-                    onClick={() => {
-                      setZoom(1);
-                      setPan({ x: 0, y: 0 });
-                    }}
+                    onClick={handleResetCrop}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '4px 9px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#fff', color: '#334155', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                   >
                     <HiOutlineRefresh size={13} /> Reset

@@ -1905,7 +1905,7 @@ export default function MerchantPortal() {
         isOpen={imageCropState.isOpen}
         onClose={() => setImageCropState({ isOpen: false, src: '', rawFile: null })}
         imageSrc={imageCropState.src}
-        placement="Merchant Store"
+        placement="Free"
         onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
         onUseOriginal={imageCropState.rawFile ? () => handlePromoMediaUpload(imageCropState.rawFile) : undefined}
       />
