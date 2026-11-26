@@ -23,7 +23,7 @@ export default function MerchantAdBanner({ merchantId, merchantName = '', initia
   const [activeIdx, setActiveIdx] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
-  const autoSlideMs = useSliderInterval(4, 'merchant_store');
+  const autoSlideMs = useSliderInterval(4, 'merchant_store', merchantId);
 
   const swipeStartX = useRef(null);
   const videoRefs = useRef({});
@@ -505,17 +505,30 @@ export default function MerchantAdBanner({ merchantId, merchantName = '', initia
                 {mediaType !== 'text' && mediaType !== 'video' && (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     {imgSrc && (
-                      <img
-                        src={imgSrc}
-                        alt={ad.title || 'Merchant Advertisement'}
-                        draggable={false}
+                      <div
                         style={{
                           width: '100%',
-                          height: 'clamp(220px, 36vw, 360px)',
-                          objectFit: 'cover',
-                          display: 'block',
+                          flex: 1,
+                          background: '#0f172a',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
                         }}
-                      />
+                      >
+                        <img
+                          src={imgSrc}
+                          alt={ad.title || 'Merchant Advertisement'}
+                          draggable={false}
+                          style={{
+                            width: '100%',
+                            height: 'auto',
+                            maxHeight: 'clamp(260px, 44vw, 440px)',
+                            objectFit: 'contain',
+                            display: 'block',
+                          }}
+                        />
+                      </div>
                     )}
                     {(ad.title || ad.description || targetHref) && (
                       <div

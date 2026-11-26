@@ -44,7 +44,13 @@ import {
   updatePromotion,
   deletePromotion,
   uploadPromotionMedia,
+  fetchSliderSettings,
+  updateMerchantSliderInterval,
 } from '../api/promotionApi';
+import {
+  getStoredSliderIntervalSec,
+  setStoredMerchantSliderOverrideSec,
+} from '../utils/useSliderInterval';
 import { complaintsApi } from '../api/complaintsApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import {
@@ -188,6 +194,10 @@ export default function MerchantPortal() {
   const [newPromo, setNewPromo] = useState(INITIAL_PROMO);
   const [promoUploading, setPromoUploading] = useState(false);
   const [promoSubmitting, setPromoSubmitting] = useState(false);
+  const [promoSwipeSeconds, setPromoSwipeSeconds] = useState(() =>
+    getStoredSliderIntervalSec(4, 'merchant_store')
+  );
+  const [savingSwipeSpeed, setSavingSwipeSpeed] = useState(false);
   const [imageCropState, setImageCropState] = useState({
     isOpen: false,
     src: '',
@@ -319,12 +329,13 @@ export default function MerchantPortal() {
         const targetId = activeShop.id;
         const targetName = (activeShop.business_name || activeShop.name || '').trim();
 
-        const [promosRes, compRes, countsRes, pkgsRes, activeSubRes] = await Promise.all([
+        const [promosRes, compRes, countsRes, pkgsRes, activeSubRes, sliderRes] = await Promise.all([
           targetId ? fetchMerchantPromotions(targetId, { placement: 'Merchant Store' }).catch(() => []) : [],
           complaintsApi.list({ merchant: targetName || undefined }).catch(() => []),
           complaintsApi.getCounts().catch(() => ({ all: 0, open: 0, 'in-progress': 0, resolved: 0 })),
           fetchAdminSubscriptionPackages({ audience: 'MERCHANT', activeOnly: true }).catch(() => []),
           fetchMyActiveSubscriptions('MERCHANT', targetId).catch(() => null),
+          targetId ? fetchSliderSettings(targetId).catch(() => null) : null,
         ]);
 
         setPromotions(Array.isArray(promosRes) ? promosRes : []);
@@ -332,6 +343,17 @@ export default function MerchantPortal() {
         setComplaintCounts(countsRes || { all: 0, open: 0, 'in-progress': 0, resolved: 0 });
         setSubPackages(Array.isArray(pkgsRes) ? pkgsRes : []);
         setActiveSubData(activeSubRes);
+        if (sliderRes) {
+          const mSec = Number(
+            sliderRes.merchant_interval_seconds ?? sliderRes.merchant_store_seconds ?? sliderRes.interval_seconds ?? 4
+          );
+          if (Number.isFinite(mSec) && mSec >= 2) {
+            setPromoSwipeSeconds(Math.min(60, Math.round(mSec)));
+            if (targetId) {
+              setStoredMerchantSliderOverrideSec(targetId, mSec, sliderRes);
+            }
+          }
+        }
       }
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to load merchant workspace');
@@ -349,14 +371,24 @@ export default function MerchantPortal() {
     if (!match) return;
     setSelectedShop(match);
     populateFormFromShop(match);
-    const [promosRes, compRes, activeSubRes] = await Promise.all([
+    const [promosRes, compRes, activeSubRes, sliderRes] = await Promise.all([
       match.id ? fetchMerchantPromotions(match.id, { placement: 'Merchant Store' }).catch(() => []) : [],
       complaintsApi.list({ merchant: (match.business_name || match.name || '').trim() || undefined }).catch(() => []),
       fetchMyActiveSubscriptions('MERCHANT', match.id).catch(() => null),
+      match.id ? fetchSliderSettings(match.id).catch(() => null) : null,
     ]);
     setPromotions(Array.isArray(promosRes) ? promosRes : []);
     setComplaints(Array.isArray(compRes) ? compRes : []);
     if (activeSubRes) setActiveSubData(activeSubRes);
+    if (sliderRes) {
+      const mSec = Number(
+        sliderRes.merchant_interval_seconds ?? sliderRes.merchant_store_seconds ?? sliderRes.interval_seconds ?? 4
+      );
+      if (Number.isFinite(mSec) && mSec >= 2) {
+        setPromoSwipeSeconds(Math.min(60, Math.round(mSec)));
+        setStoredMerchantSliderOverrideSec(match.id, mSec, sliderRes);
+      }
+    }
   };
 
   // Save Store Profile via Mobile PUT /api/v1/merchants/{id}
@@ -591,6 +623,13 @@ export default function MerchantPortal() {
         merchant_id: Number(targetId),
         status: newPromo.status || 'active',
       };
+      const cleanSwipeSec = Math.max(2, Math.min(60, Math.round(Number(promoSwipeSeconds) || 4)));
+      if (targetId) {
+        try {
+          const speedRes = await updateMerchantSliderInterval(targetId, cleanSwipeSec);
+          setStoredMerchantSliderOverrideSec(targetId, cleanSwipeSec, speedRes?.slider_settings);
+        } catch (_) {}
+      }
       if (newPromo.id) {
         await updatePromotion(newPromo.id, payload);
         showNotice('Store advertisement updated & saved!');
@@ -605,6 +644,24 @@ export default function MerchantPortal() {
       setErrorMsg(err?.message || 'Failed to save store advertisement.');
     } finally {
       setPromoSubmitting(false);
+    }
+  };
+
+  const handleSavePromoSwipeSpeed = async () => {
+    const targetId = formData.id || selectedShop?.id;
+    if (!targetId) return;
+    const cleanSec = Math.max(2, Math.min(60, Math.round(Number(promoSwipeSeconds) || 4)));
+    setPromoSwipeSeconds(cleanSec);
+    setSavingSwipeSpeed(true);
+    setErrorMsg('');
+    try {
+      const res = await updateMerchantSliderInterval(targetId, cleanSec);
+      setStoredMerchantSliderOverrideSec(targetId, cleanSec, res?.slider_settings);
+      showNotice(`Store advertisement auto-swipe speed set to every ${cleanSec} seconds!`);
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to update advertisement swipe speed.');
+    } finally {
+      setSavingSwipeSpeed(false);
     }
   };
 
@@ -1367,6 +1424,73 @@ export default function MerchantPortal() {
                     />
                   </div>
 
+                  {/* Auto-Swipe Speed Control (Seconds) right inside Create/Edit Ad */}
+                  <div style={{ padding: '12px 14px', borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
+                        ⏱️ Ad Auto-Swipe Speed (Seconds)
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                        Choose after how many seconds store ads automatically swipe on your Store page (2s – 60s).
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {[2, 3, 4, 5, 8, 10].map((secOpt) => {
+                        const activeSec = Number(promoSwipeSeconds) === secOpt;
+                        return (
+                          <button
+                            key={secOpt}
+                            type="button"
+                            onClick={() => setPromoSwipeSeconds(secOpt)}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 8,
+                              border: `1.5px solid ${activeSec ? '#2563eb' : '#cbd5e1'}`,
+                              background: activeSec ? '#eff6ff' : '#f8fafc',
+                              color: activeSec ? '#1d4ed8' : '#334155',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {secOpt}s
+                          </button>
+                        );
+                      })}
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                        <input
+                          type="number"
+                          min={2}
+                          max={60}
+                          value={promoSwipeSeconds}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            setPromoSwipeSeconds(Number.isNaN(v) ? '' : Math.max(1, Math.min(60, v)));
+                          }}
+                          style={{ ...inputStyle, width: 64, padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}
+                        />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>sec</span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={savingSwipeSpeed}
+                        onClick={handleSavePromoSwipeSpeed}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          border: '1px solid #bfdbfe',
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          fontSize: 12,
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {savingSwipeSpeed ? 'Saving...' : 'Save Speed'}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* IMAGE UPLOAD / PREVIEW */}
                   {newPromo.mediaType === 'image' && (
                     <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
@@ -1409,11 +1533,24 @@ export default function MerchantPortal() {
                         )}
                       </div>
                       {newPromo.imageUrl && (
-                        <img
-                          src={formatMediaUrl(newPromo.imageUrl)}
-                          alt="Ad Preview"
-                          style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, border: '1px solid #e2e8f0' }}
-                        />
+                        <div
+                          style={{
+                            width: '100%',
+                            background: '#0f172a',
+                            borderRadius: 10,
+                            border: '1px solid #e2e8f0',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <img
+                            src={formatMediaUrl(newPromo.imageUrl)}
+                            alt="Ad Preview"
+                            style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', display: 'block' }}
+                          />
+                        </div>
                       )}
                     </div>
                   )}

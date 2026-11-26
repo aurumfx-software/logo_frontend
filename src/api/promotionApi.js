@@ -310,11 +310,12 @@ export async function fetchMerchantPromotions(merchantId, params = {}) {
 }
 
 /**
- * Fetch global slider auto-slide settings
+ * Fetch global or merchant-specific slider auto-slide settings
  */
-export async function fetchSliderSettings() {
+export async function fetchSliderSettings(merchantId = null) {
   try {
-    const response = await apiFetch('/api/v1/promotions/settings/slider', { method: 'GET' });
+    const qs = merchantId != null ? `?merchant_id=${encodeURIComponent(merchantId)}` : '';
+    const response = await apiFetch(`/api/v1/promotions/settings/slider${qs}`, { method: 'GET' });
     if (response && response.ok) {
       const resData = await response.json();
       return resData.data || resData;
@@ -323,6 +324,21 @@ export async function fetchSliderSettings() {
     console.warn('fetchSliderSettings notice:', err);
   }
   return null;
+}
+
+/**
+ * Update slider auto-slide speed in seconds for a specific merchant store
+ */
+export async function updateMerchantSliderInterval(merchantId, intervalSeconds) {
+  const response = await apiFetch(`/api/v1/promotions/merchant/${merchantId}/slider`, {
+    method: 'PUT',
+    body: JSON.stringify({ interval_seconds: Number(intervalSeconds) }),
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response || !response.ok) {
+    throw new Error(resData.detail || resData.message || 'Failed to update store swipe speed');
+  }
+  return resData.data || resData;
 }
 
 /**
