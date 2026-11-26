@@ -9,12 +9,48 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { switchBackToAdminApi } from '../../api/userApi';
+import { clearCustomerSession } from '../../api/customerApi';
 
 export default function Header({ title, onToggleSidebar }) {
-  const { user, logout } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [switchingBack, setSwitchingBack] = useState(false);
   const dropdownRef = useRef(null);
+
+  const isImpersonating =
+    typeof window !== 'undefined' &&
+    localStorage.getItem('is_impersonation') === 'true' &&
+    Boolean(localStorage.getItem('admin_session_backup'));
+
+  const handleReturnToAdmin = async () => {
+    setSwitchingBack(true);
+    try {
+      await switchBackToAdminApi().catch(() => null);
+      const rawBackup = localStorage.getItem('admin_session_backup');
+      const parsed = rawBackup ? JSON.parse(rawBackup) : null;
+      localStorage.removeItem('is_impersonation');
+      localStorage.removeItem('impersonated_user');
+      localStorage.removeItem('admin_session_backup');
+      clearCustomerSession();
+      if (parsed?.user && parsed?.accessToken) {
+        login(JSON.parse(parsed.user), {
+          accessToken: parsed.accessToken,
+          refreshToken: parsed.refreshToken || '',
+        });
+        navigate('/customers');
+      } else {
+        logout();
+        navigate('/login', { replace: true });
+      }
+    } catch (_) {
+      logout();
+      navigate('/login', { replace: true });
+    } finally {
+      setSwitchingBack(false);
+    }
+  };
 
   // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
@@ -49,6 +85,26 @@ export default function Header({ title, onToggleSidebar }) {
       </div>
 
       <div className="header-right">
+        {isImpersonating && (
+          <button
+            type="button"
+            onClick={handleReturnToAdmin}
+            disabled={switchingBack}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 10,
+              border: '1px solid #C4B5FD',
+              background: '#F5F3FF',
+              color: '#5B21B6',
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {switchingBack ? 'Returning...' : '← Back to Super Admin'}
+          </button>
+        )}
         <div className="header-search">
           <HiOutlineSearch className="header-search-icon" />
           <input type="text" placeholder="Search anything..." />
