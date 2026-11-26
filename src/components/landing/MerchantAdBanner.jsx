@@ -8,6 +8,7 @@ import {
 } from 'react-icons/hi';
 import { fetchMerchantPromotions } from '../../api/promotionApi';
 import { formatMediaUrl } from '../../api/merchantApi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 function toYoutubeEmbed(url) {
   if (!url || typeof url !== 'string') return null;
@@ -20,7 +21,9 @@ const EMPTY_ADS = [];
 export default function MerchantAdBanner({ merchantId, merchantName = '', initialAds = EMPTY_ADS }) {
   const [ads, setAds] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+
+  const autoSlideMs = useSliderInterval(4, 'merchant_store');
 
   const swipeStartX = useRef(null);
   const videoRefs = useRef({});
@@ -85,17 +88,18 @@ export default function MerchantAdBanner({ merchantId, merchantName = '', initia
       ).toLowerCase()
     : 'image';
 
-  // Auto-slide every 4.5s across non-video slides when not hovered
+  // Auto-scroll reliably across all ads at the configured backend speed (paused only while user plays a video)
   useEffect(() => {
-    if (ads.length <= 1 || isHovered || activeType === 'video') return undefined;
+    if (ads.length <= 1 || isVideoPlaying) return undefined;
     const timer = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % ads.length);
-    }, 4500);
+    }, autoSlideMs);
     return () => clearInterval(timer);
-  }, [ads.length, isHovered, activeType]);
+  }, [ads.length, isVideoPlaying, autoSlideMs]);
 
-  // Pause background HTML5 videos when sliding to another slide
+  // Pause background HTML5 videos & reset videoPlaying flag when slide changes
   useEffect(() => {
+    setIsVideoPlaying(false);
     Object.entries(videoRefs.current).forEach(([idxStr, el]) => {
       if (!el) return;
       if (Number(idxStr) !== safeIdx && typeof el.pause === 'function') {
@@ -157,9 +161,7 @@ export default function MerchantAdBanner({ merchantId, merchantName = '', initia
 
   return (
     <div
-      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
-        setIsHovered(false);
         swipeStartX.current = null;
       }}
       style={{
@@ -416,9 +418,17 @@ export default function MerchantAdBanner({ merchantId, merchantName = '', initia
                         src={vidSrc}
                         controls
                         muted
-                        loop
+                        loop={false}
                         playsInline
                         preload="metadata"
+                        onPlay={() => setIsVideoPlaying(true)}
+                        onPause={() => setIsVideoPlaying(false)}
+                        onEnded={() => {
+                          setIsVideoPlaying(false);
+                          if (ads.length > 1) {
+                            setActiveIdx((prev) => (prev + 1) % ads.length);
+                          }
+                        }}
                         onMouseDown={(e) => e.stopPropagation()}
                         style={{
                           width: '100%',

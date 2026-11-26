@@ -250,7 +250,7 @@ export default function ZeashellBusinessNetworkSlider({
   const touchStartX = useRef(0);
 
   // Hook into live Super Admin slider speed (default 5s for multi-card business network)
-  const autoSlideInterval = useSliderInterval(5);
+  const autoSlideInterval = useSliderInterval(5, 'business_network');
 
   // Responsive items per view: 3 on desktop, 2 on tablet, 1 on mobile
   const [windowWidth, setWindowWidth] = useState(() =>

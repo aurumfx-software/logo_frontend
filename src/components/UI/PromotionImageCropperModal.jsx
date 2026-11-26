@@ -94,6 +94,18 @@ export const PLACEMENT_SPECS = {
     tips: 'Recommended size: 1080 × 1080 px. Displays with ambient letterbox backdrop on widescreen.',
     videoSpecs: 'Square MP4 video (1080×1080 px), Max 40MB',
   },
+  'Merchant Store': {
+    label: 'Merchant Store Advertisement',
+    ratio: 16 / 9,
+    ratioLabel: '16:9 (Merchant Store Banner)',
+    idealWidth: 1280,
+    idealHeight: 720,
+    minWidth: 800,
+    minHeight: 450,
+    description: 'Store advertisement displayed directly above Location on the merchant store details page.',
+    tips: 'Recommended size: 1280 × 720 px (16:9) or 1080 × 1080 px (1:1). Crop and zoom for a crisp storefront banner.',
+    videoSpecs: '16:9 MP4/WebM video (1280×720 px), Max 50MB',
+  },
 };
 
 export default function PromotionImageCropperModal({
@@ -102,6 +114,7 @@ export default function PromotionImageCropperModal({
   imageSrc,
   placement = 'Home Top',
   onCropSave,
+  onUseOriginal,
 }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -848,6 +861,29 @@ export default function PromotionImageCropperModal({
           >
             Cancel
           </button>
+
+          {typeof onUseOriginal === 'function' && (
+            <button
+              type="button"
+              onClick={() => {
+                onUseOriginal();
+                onClose();
+              }}
+              disabled={isProcessing}
+              style={{
+                padding: '9px 16px',
+                borderRadius: 10,
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                color: '#1d4ed8',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Use Original Image
+            </button>
+          )}
 
           <button
             type="button"

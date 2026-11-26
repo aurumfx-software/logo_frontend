@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HiChevronLeft, HiChevronRight, HiSparkles, HiArrowRight, HiPlay } from 'react-icons/hi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 const DEFAULT_ENVATO_SLIDES = [
   {
@@ -80,17 +81,19 @@ export default function ZeashellEnvatoShowcase({ slides = [], onCtaClick, onTagC
     }
   }, [isPaused, isVideo, current]);
 
-  // Auto-slide: 3 seconds for images; if current slide is a video, wait for full video playback (onEnded)
+  const autoSlideInterval = useSliderInterval(4, 'above_footer');
+
+  // Auto-slide: configured speed for images; if current slide is a video, wait for full video playback (onEnded)
   useEffect(() => {
     if (isPaused || validSlides.length <= 1) return;
     if (isVideo) return; // Video controls its slide transition when playback finishes
 
     const timer = setTimeout(() => {
       next();
-    }, 3000);
+    }, autoSlideInterval);
 
     return () => clearTimeout(timer);
-  }, [current, isPaused, isVideo, next, validSlides.length]);
+  }, [current, isPaused, isVideo, next, validSlides.length, autoSlideInterval]);
 
   const handleTouchStart = (e) => {
     touchStart.current = e.touches[0].clientX;

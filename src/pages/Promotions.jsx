@@ -36,8 +36,20 @@ import {
 } from '../api/promotionApi';
 import {
   getStoredSliderIntervalSec,
+  getStoredSliderSettings,
+  normalizeSliderSettings,
   setStoredSliderIntervalSec,
 } from '../utils/useSliderInterval';
+
+const PER_TYPE_SLIDER_CONTROLS = [
+  { key: 'home_top', field: 'home_top_seconds', label: 'Top Banners', icon: '🎯', defaultSec: 4 },
+  { key: 'home_middle', field: 'home_middle_seconds', label: 'Middle Ads', icon: '📢', defaultSec: 4 },
+  { key: 'above_footer', field: 'above_footer_seconds', label: 'Above Footer', icon: '🎬', defaultSec: 4 },
+  { key: 'featured_offers', field: 'featured_offers_seconds', label: 'Featured Offers', icon: '🔥', defaultSec: 4 },
+  { key: 'business_network', field: 'business_network_seconds', label: 'Business Network', icon: '💼', defaultSec: 5 },
+  { key: 'merchant_store', field: 'merchant_store_seconds', label: 'Merchant Store Ads', icon: '🏪', defaultSec: 4 },
+  { key: 'moving_text', field: 'moving_text_seconds', label: 'Moving Text', icon: '📜', defaultSec: 4 },
+];
 import { fetchCategoriesList } from '../api/categoryApi';
 import { uploadMerchantMedia } from '../api/merchantApi';
 
@@ -190,34 +202,121 @@ export default function Promotions() {
   const fileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
 
-  // Super Admin Slider Auto-Slide Speed State
+  // Super Admin Slider Auto-Slide Speed State (Global + Separate Per-Type)
   const [sliderIntervalSec, setSliderIntervalSec] = useState(() => getStoredSliderIntervalSec(4));
+  const [perTypeSpeeds, setPerTypeSpeeds] = useState(() => getStoredSliderSettings().per_type_seconds);
   const [isSavingSlider, setIsSavingSlider] = useState(false);
+  const [savingTypeKey, setSavingTypeKey] = useState(null);
   const [sliderMsg, setSliderMsg] = useState('');
 
   useEffect(() => {
     fetchSliderSettings()
       .then((cfg) => {
-        if (cfg && cfg.interval_seconds) {
-          setSliderIntervalSec(cfg.interval_seconds);
-          setStoredSliderIntervalSec(cfg.interval_seconds);
+        if (cfg) {
+          const norm = normalizeSliderSettings(cfg);
+          setSliderIntervalSec(norm.interval_seconds);
+          setPerTypeSpeeds(norm.per_type_seconds);
+          setStoredSliderIntervalSec(norm);
         }
       })
       .catch(() => {});
   }, []);
 
-  const handleSaveSliderSpeed = async (val) => {
-    const sec = Math.max(2, Math.min(30, Number(val) || 4));
+  const handleSaveSliderSpeed = async (val, applyAll = false) => {
+    const sec = Math.max(2, Math.min(60, Number(val) || 4));
     setSliderIntervalSec(sec);
-    setStoredSliderIntervalSec(sec);
+    const nextSettings = normalizeSliderSettings({
+      ...getStoredSliderSettings(),
+      per_type_seconds: perTypeSpeeds,
+      interval_seconds: sec,
+      ...(applyAll
+        ? Object.fromEntries(PER_TYPE_SLIDER_CONTROLS.map((c) => [`${c.key}_seconds`, sec]))
+        : {}),
+    });
+    if (applyAll) {
+      setPerTypeSpeeds(nextSettings.per_type_seconds);
+    }
+    setStoredSliderIntervalSec(nextSettings);
     setIsSavingSlider(true);
     setSliderMsg('');
     try {
-      await updateSliderSettings(sec);
-      setSliderMsg(`✓ Slider timing updated! Ads will auto-slide every ${sec} seconds.`);
+      const saved = await updateSliderSettings({
+        interval_seconds: sec,
+        apply_all: applyAll,
+      });
+      const norm = normalizeSliderSettings(saved);
+      setSliderIntervalSec(norm.interval_seconds);
+      setPerTypeSpeeds(norm.per_type_seconds);
+      setStoredSliderIntervalSec(norm);
+      setSliderMsg(
+        applyAll
+          ? `✓ Updated all ad types & global speed to ${sec}s on server!`
+          : `✓ Default slider timing updated to ${sec}s on server!`
+      );
       setTimeout(() => setSliderMsg(''), 4500);
     } catch (err) {
       setSliderMsg(`✓ Saved locally to ${sec}s.`);
+      setTimeout(() => setSliderMsg(''), 4500);
+    } finally {
+      setIsSavingSlider(false);
+    }
+  };
+
+  const handleSavePerTypeSpeed = async (control, valOverride = null) => {
+    const rawVal = valOverride !== null ? valOverride : perTypeSpeeds?.[control.key];
+    const sec = Math.max(2, Math.min(60, Number(rawVal) || control.defaultSec || 4));
+    const nextPerType = { ...perTypeSpeeds, [control.key]: sec };
+    setPerTypeSpeeds(nextPerType);
+    const nextSettings = normalizeSliderSettings({
+      ...getStoredSliderSettings(),
+      interval_seconds: Number(sliderIntervalSec) || 4,
+      per_type_seconds: nextPerType,
+      [control.field]: sec,
+    });
+    setStoredSliderIntervalSec(nextSettings);
+    setSavingTypeKey(control.key);
+    setSliderMsg('');
+    try {
+      const saved = await updateSliderSettings({
+        [control.field]: sec,
+        per_type_seconds: nextPerType,
+      });
+      const norm = normalizeSliderSettings(saved);
+      setPerTypeSpeeds(norm.per_type_seconds);
+      setStoredSliderIntervalSec(norm);
+      setSliderMsg(`✓ "${control.label}" auto-slide speed saved (${sec}s) in backend!`);
+      setTimeout(() => setSliderMsg(''), 4500);
+    } catch (err) {
+      setSliderMsg(`✓ Saved "${control.label}" locally (${sec}s).`);
+      setTimeout(() => setSliderMsg(''), 4500);
+    } finally {
+      setSavingTypeKey(null);
+    }
+  };
+
+  const handleSaveAllPerTypeSpeeds = async () => {
+    setIsSavingSlider(true);
+    setSliderMsg('');
+    const nextPerType = {};
+    const payload = { interval_seconds: Math.max(2, Math.min(60, Number(sliderIntervalSec) || 4)) };
+    PER_TYPE_SLIDER_CONTROLS.forEach((c) => {
+      const s = Math.max(2, Math.min(60, Number(perTypeSpeeds?.[c.key]) || c.defaultSec || 4));
+      nextPerType[c.key] = s;
+      payload[c.field] = s;
+    });
+    payload.per_type_seconds = nextPerType;
+    setPerTypeSpeeds(nextPerType);
+    setStoredSliderIntervalSec(normalizeSliderSettings(payload));
+    try {
+      const saved = await updateSliderSettings(payload);
+      const norm = normalizeSliderSettings(saved);
+      setSliderIntervalSec(norm.interval_seconds);
+      setPerTypeSpeeds(norm.per_type_seconds);
+      setStoredSliderIntervalSec(norm);
+      setSliderMsg('✓ All ad type slider speeds saved in backend!');
+      setTimeout(() => setSliderMsg(''), 4500);
+    } catch (err) {
+      setSliderMsg('✓ Saved all ad type speeds locally.');
       setTimeout(() => setSliderMsg(''), 4500);
     } finally {
       setIsSavingSlider(false);
@@ -849,7 +948,7 @@ export default function Promotions() {
           <button
             type="button"
             disabled={isSavingSlider}
-            onClick={() => handleSaveSliderSpeed(sliderIntervalSec)}
+            onClick={() => handleSaveSliderSpeed(sliderIntervalSec, false)}
             style={{
               padding: '8px 15px',
               borderRadius: 8,
@@ -868,6 +967,140 @@ export default function Promotions() {
             <HiLightningBolt size={14} />
             <span>{isSavingSlider ? 'Saving...' : 'Apply Seconds'}</span>
           </button>
+
+          <button
+            type="button"
+            disabled={isSavingSlider}
+            onClick={() => handleSaveSliderSpeed(sliderIntervalSec, true)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 8,
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              border: '1px solid #bfdbfe',
+              fontSize: 12.5,
+              fontWeight: 800,
+              cursor: isSavingSlider ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Apply to All Ad Types
+          </button>
+        </div>
+
+        {/* Separate Per-Ad-Type Speed Controls */}
+        <div
+          style={{
+            width: '100%',
+            paddingTop: 14,
+            marginTop: 4,
+            borderTop: '1px solid #bfdbfe',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+              Separate Speed Per Ad Type (Saved to Backend API)
+            </div>
+            <button
+              type="button"
+              disabled={isSavingSlider}
+              onClick={handleSaveAllPerTypeSpeeds}
+              style={{
+                padding: '6px 13px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#2563eb',
+                color: '#ffffff',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: isSavingSlider ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSavingSlider ? 'Saving...' : 'Save All Ad Type Speeds'}
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+              gap: 10,
+            }}
+          >
+            {PER_TYPE_SLIDER_CONTROLS.map((ctrl) => {
+              const secVal = perTypeSpeeds?.[ctrl.key] ?? ctrl.defaultSec;
+              const isSavingThis = savingTypeKey === ctrl.key;
+              return (
+                <div
+                  key={ctrl.key}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 12,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span>{ctrl.icon}</span>
+                      <span>{ctrl.label}</span>
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: '#eff6ff', color: '#1d4ed8' }}>
+                      {secVal}s
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '3px 7px', flex: 1 }}>
+                      <input
+                        type="number"
+                        min="2"
+                        max="60"
+                        value={secVal}
+                        onChange={(e) =>
+                          setPerTypeSpeeds((prev) => ({
+                            ...prev,
+                            [ctrl.key]: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: '100%',
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: '#0f172a',
+                          textAlign: 'center',
+                        }}
+                      />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>s</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSavingThis}
+                      onClick={() => handleSavePerTypeSpeed(ctrl)}
+                      style={{
+                        padding: '6px 11px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: '#059669',
+                        color: '#ffffff',
+                        fontSize: 11.5,
+                        fontWeight: 800,
+                        cursor: isSavingThis ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {isSavingThis ? '...' : 'Set'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {sliderMsg && (

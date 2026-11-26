@@ -150,7 +150,7 @@ export default function ZeashellBannerSlider({ banners = [], onBannerClick }) {
     currentVideoUrl
   );
 
-  const autoSlideInterval = useSliderInterval(4);
+  const autoSlideInterval = useSliderInterval(4, 'home_top');
 
   // Auto-slide: dynamically controlled from Super Admin settings; if current ad is a video, wait for full video playback (onEnded)
   useEffect(() => {

@@ -197,7 +197,7 @@ export default function ZeashellMiddleBannerSlider({ banners = [], onBannerClick
   );
   const currentImgUrl = currentBanner ? (currentBanner.imageUrl || currentBanner.image_url || currentBanner.bannerUrl) : '';
 
-  const autoSlideInterval = useSliderInterval(4);
+  const autoSlideInterval = useSliderInterval(4, 'home_middle');
 
   // Auto-slide: dynamic interval from Super Admin; if current ad is video, wait for video onEnded
   useEffect(() => {

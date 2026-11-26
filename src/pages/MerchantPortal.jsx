@@ -23,6 +23,8 @@ import {
 import CircularSpinner from '../components/UI/CircularSpinner';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import ChangePasswordCard from '../components/UI/ChangePasswordCard';
+import PromotionImageCropperModal from '../components/UI/PromotionImageCropperModal';
+import VideoAdCropModal from '../components/UI/VideoAdCropModal';
 import {
   getMerchantProfile,
   getMyMerchants,
@@ -186,6 +188,16 @@ export default function MerchantPortal() {
   const [newPromo, setNewPromo] = useState(INITIAL_PROMO);
   const [promoUploading, setPromoUploading] = useState(false);
   const [promoSubmitting, setPromoSubmitting] = useState(false);
+  const [imageCropState, setImageCropState] = useState({
+    isOpen: false,
+    src: '',
+    rawFile: null,
+  });
+  const [videoCropState, setVideoCropState] = useState({
+    isOpen: false,
+    src: '',
+    rawFile: null,
+  });
 
   // Merchant Growth Subscriptions State
   const [subPackages, setSubPackages] = useState([]);
@@ -286,10 +298,10 @@ export default function MerchantPortal() {
       const combinedShops = Array.isArray(shopsList) && shopsList.length > 0
         ? shopsList
         : meShop
-        ? [meShop]
-        : getStoredMerchantUser()
-        ? [getStoredMerchantUser()]
-        : [];
+          ? [meShop]
+          : getStoredMerchantUser()
+            ? [getStoredMerchantUser()]
+            : [];
 
       setShops(combinedShops);
       const activeShop =
@@ -439,7 +451,7 @@ export default function MerchantPortal() {
               detectedAddress = data.display_name.split(',').map((s) => s.trim()).slice(0, 4).join(', ');
             }
           }
-        } catch (_) {}
+        } catch (_) { }
 
         setFormData((prev) => ({
           ...prev,
@@ -532,6 +544,17 @@ export default function MerchantPortal() {
       setErrorMsg(err?.message || 'Failed to upload advertisement media.');
     } finally {
       setPromoUploading(false);
+    }
+  };
+
+  const handlePickPromoFileWithCrop = (file, mode = 'image') => {
+    if (!file) return;
+    const isVid = mode === 'video' || file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name);
+    const localUrl = URL.createObjectURL(file);
+    if (isVid) {
+      setVideoCropState({ isOpen: true, src: localUrl, rawFile: file });
+    } else {
+      setImageCropState({ isOpen: true, src: localUrl, rawFile: file });
     }
   };
 
@@ -722,7 +745,7 @@ export default function MerchantPortal() {
     Boolean(formData.has_active_subscription) ||
     Boolean(
       activeSubData?.merchant_has_active_subscription &&
-        (!activeSubData?.merchant_profile_id || !currentShopId || Number(activeSubData.merchant_profile_id) === currentShopId)
+      (!activeSubData?.merchant_profile_id || !currentShopId || Number(activeSubData.merchant_profile_id) === currentShopId)
     ) ||
     merchantSubs.some((s) => {
       const sameShop = !currentShopId || !s.merchant_profile_id || Number(s.merchant_profile_id) === currentShopId;
@@ -804,306 +827,306 @@ export default function MerchantPortal() {
       <div style={cardStyle}>
         {activePanel === 'edit' && (
           <>
-          <form onSubmit={handleSaveStore}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Manage & Edit Store</h2>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-                  Edit store details, hours, location & photos (synced with Logo Mobile App).
-                </p>
-              </div>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-              >
-                {saving ? 'Saving...' : 'Save Store Changes'}
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 16 }}>
-              <div>
-                <label style={labelStyle}>Merchant / Store Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.business_name}
-                  onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Owner Name</label>
-                <input
-                  type="text"
-                  value={formData.owner_name}
-                  onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Category *</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  style={inputStyle}
-                >
-                  {formData.category && !categoriesList.includes(formData.category) && (
-                    <option value={formData.category}>{formData.category}</option>
-                  )}
-                  {categoriesList.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Mobile / Contact Number *</label>
-                <input
-                  type="text"
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>WhatsApp Number</label>
-                <input
-                  type="text"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Landline Number</label>
-                <input
-                  type="text"
-                  value={formData.landline}
-                  onChange={(e) => setFormData({ ...formData, landline: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Email Address</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Business / Service Hours</label>
-                <input
-                  type="text"
-                  value={formData.service_timing}
-                  onChange={(e) => setFormData({ ...formData, service_timing: e.target.value })}
-                  placeholder="09:00 AM - 09:00 PM"
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-
-            {/* Location & GPS */}
-            <div style={{ padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
-                  <HiOutlineLocationMarker size={18} color="#2563eb" />
-                  Location & GPS Address
+            <form onSubmit={handleSaveStore}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Manage & Edit Store</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                    Edit store details, hours, location & photos (synced with Logo Mobile App).
+                  </p>
                 </div>
                 <button
-                  type="button"
-                  onClick={handleDetectGps}
-                  disabled={detectingGps}
-                  style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                  type="submit"
+                  disabled={saving}
+                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
                 >
-                  {detectingGps ? 'Detecting GPS...' : 'Auto-Detect Store GPS'}
+                  {saving ? 'Saving...' : 'Save Store Changes'}
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 16 }}>
                 <div>
-                  <label style={labelStyle}>State</label>
-                  <select
-                    value={formData.state}
-                    onChange={(e) => {
-                      const st = e.target.value;
-                      const dists = getDistrictsForState(st);
-                      setFormData({ ...formData, state: st, district: dists[0] || '', city: '' });
-                    }}
-                    style={inputStyle}
-                  >
-                    {getStatesList().map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>District</label>
-                  <select
-                    value={formData.district}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                    style={inputStyle}
-                  >
-                    {formData.district && !districts.includes(formData.district) && (
-                      <option value={formData.district}>{formData.district}</option>
-                    )}
-                    {districts.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>City / Town</label>
+                  <label style={labelStyle}>Merchant / Store Name *</label>
                   <input
                     type="text"
-                    list="merchant-city-suggestions"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    required
+                    value={formData.business_name}
+                    onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
                     style={inputStyle}
                   />
-                  <datalist id="merchant-city-suggestions">
-                    {cities.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
                 </div>
                 <div>
-                  <label style={labelStyle}>Landmark</label>
+                  <label style={labelStyle}>Owner Name</label>
                   <input
                     type="text"
-                    value={formData.landmark}
-                    onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                    value={formData.owner_name}
+                    onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Category *</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    style={inputStyle}
+                  >
+                    {formData.category && !categoriesList.includes(formData.category) && (
+                      <option value={formData.category}>{formData.category}</option>
+                    )}
+                    {categoriesList.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Mobile / Contact Number *</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>WhatsApp Number</label>
+                  <input
+                    type="text"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Landline Number</label>
+                  <input
+                    type="text"
+                    value={formData.landline}
+                    onChange={(e) => setFormData({ ...formData, landline: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Email Address</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Business / Service Hours</label>
+                  <input
+                    type="text"
+                    value={formData.service_timing}
+                    onChange={(e) => setFormData({ ...formData, service_timing: e.target.value })}
+                    placeholder="09:00 AM - 09:00 PM"
                     style={inputStyle}
                   />
                 </div>
               </div>
 
-              <div style={{ marginBottom: 12 }}>
-                <label style={labelStyle}>Full Address</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              {/* Location & GPS */}
+              <div style={{ padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+                    <HiOutlineLocationMarker size={18} color="#2563eb" />
+                    Location & GPS Address
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetectGps}
+                    disabled={detectingGps}
+                    style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {detectingGps ? 'Detecting GPS...' : 'Auto-Detect Store GPS'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={labelStyle}>State</label>
+                    <select
+                      value={formData.state}
+                      onChange={(e) => {
+                        const st = e.target.value;
+                        const dists = getDistrictsForState(st);
+                        setFormData({ ...formData, state: st, district: dists[0] || '', city: '' });
+                      }}
+                      style={inputStyle}
+                    >
+                      {getStatesList().map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>District</label>
+                    <select
+                      value={formData.district}
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                      style={inputStyle}
+                    >
+                      {formData.district && !districts.includes(formData.district) && (
+                        <option value={formData.district}>{formData.district}</option>
+                      )}
+                      {districts.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>City / Town</label>
+                    <input
+                      type="text"
+                      list="merchant-city-suggestions"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      style={inputStyle}
+                    />
+                    <datalist id="merchant-city-suggestions">
+                      {cities.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Landmark</label>
+                    <input
+                      type="text"
+                      value={formData.landmark}
+                      onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Full Address</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <GoogleMapsLocationInput
+                  latitude={formData.latitude}
+                  longitude={formData.longitude}
+                  address={formData.address}
+                  onLocationChange={(loc) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      latitude: loc.lat ?? loc.latitude ?? prev.latitude,
+                      longitude: loc.lng ?? loc.longitude ?? prev.longitude,
+                      address: loc.address || prev.address,
+                      city: loc.city || prev.city,
+                      district: loc.district || prev.district,
+                    }))
+                  }
+                />
+              </div>
+
+              {/* About & Social */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={labelStyle}>About Business & Services</label>
+                <textarea
+                  rows={3}
+                  value={formData.about}
+                  onChange={(e) => setFormData({ ...formData, about: e.target.value })}
                   style={inputStyle}
                 />
               </div>
 
-              <GoogleMapsLocationInput
-                latitude={formData.latitude}
-                longitude={formData.longitude}
-                address={formData.address}
-                onLocationChange={(loc) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    latitude: loc.lat ?? loc.latitude ?? prev.latitude,
-                    longitude: loc.lng ?? loc.longitude ?? prev.longitude,
-                    address: loc.address || prev.address,
-                    city: loc.city || prev.city,
-                    district: loc.district || prev.district,
-                  }))
-                }
-              />
-            </div>
-
-            {/* About & Social */}
-            <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>About Business & Services</label>
-              <textarea
-                rows={3}
-                value={formData.about}
-                onChange={(e) => setFormData({ ...formData, about: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-              <div>
-                <label style={labelStyle}>Website</label>
-                <input type="text" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Instagram</label>
-                <input type="text" value={formData.instagram} onChange={(e) => setFormData({ ...formData, instagram: e.target.value })} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Facebook</label>
-                <input type="text" value={formData.facebook} onChange={(e) => setFormData({ ...formData, facebook: e.target.value })} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>YouTube</label>
-                <input type="text" value={formData.youtube} onChange={(e) => setFormData({ ...formData, youtube: e.target.value })} style={inputStyle} />
-              </div>
-            </div>
-
-            {/* 4 Showcase Photos & Video */}
-            <div style={{ padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
-              <label style={{ ...labelStyle, fontSize: 13.5, marginBottom: 10 }}>
-                Storefront & Business Photos (Up to 4)
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                {(formData.photos || ['', '', '', '']).map((photoUrl, idx) => (
-                  <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {photoUrl ? (
-                      <div style={{ position: 'relative', height: 110, borderRadius: 8, overflow: 'hidden' }}>
-                        <img src={photoUrl} alt={`Store ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => {
-                              const next = [...prev.photos];
-                              next[idx] = '';
-                              return { ...prev, photos: next };
-                            })
-                          }
-                          style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                        >
-                          <HiOutlineTrash size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ height: 110, borderRadius: 8, border: '1.5px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 12 }}>
-                        <HiOutlinePhotograph size={24} />
-                        <span>Photo #{idx + 1}</span>
-                      </div>
-                    )}
-                    <label style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                      {uploadingPhotoIndex === idx ? 'Uploading...' : photoUrl ? 'Replace Photo' : 'Upload Photo'}
-                      <input type="file" accept="image/*" hidden onChange={(e) => handlePhotoUpload(idx, e.target.files?.[0])} />
-                    </label>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+                <div>
+                  <label style={labelStyle}>Website</label>
+                  <input type="text" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Instagram</label>
+                  <input type="text" value={formData.instagram} onChange={(e) => setFormData({ ...formData, instagram: e.target.value })} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Facebook</label>
+                  <input type="text" value={formData.facebook} onChange={(e) => setFormData({ ...formData, facebook: e.target.value })} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>YouTube</label>
+                  <input type="text" value={formData.youtube} onChange={(e) => setFormData({ ...formData, youtube: e.target.value })} style={inputStyle} />
+                </div>
               </div>
 
-              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <label style={{ padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
-                  {uploadingVideo ? 'Uploading Video...' : formData.videoUrl ? 'Replace Store Video' : 'Upload Store Video'}
-                  <input type="file" accept="video/*" hidden onChange={(e) => handleVideoUpload(e.target.files?.[0])} />
+              {/* 4 Showcase Photos & Video */}
+              <div style={{ padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                <label style={{ ...labelStyle, fontSize: 13.5, marginBottom: 10 }}>
+                  Storefront & Business Photos (Up to 4)
                 </label>
-                {formData.videoUrl && (
-                  <span style={{ fontSize: 12, color: '#059669', fontWeight: 700 }}>Video attached ✓</span>
-                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                  {(formData.photos || ['', '', '', '']).map((photoUrl, idx) => (
+                    <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {photoUrl ? (
+                        <div style={{ position: 'relative', height: 110, borderRadius: 8, overflow: 'hidden' }}>
+                          <img src={photoUrl} alt={`Store ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => {
+                                const next = [...prev.photos];
+                                next[idx] = '';
+                                return { ...prev, photos: next };
+                              })
+                            }
+                            style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          >
+                            <HiOutlineTrash size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ height: 110, borderRadius: 8, border: '1.5px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 12 }}>
+                          <HiOutlinePhotograph size={24} />
+                          <span>Photo #{idx + 1}</span>
+                        </div>
+                      )}
+                      <label style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        {uploadingPhotoIndex === idx ? 'Uploading...' : photoUrl ? 'Replace Photo' : 'Upload Photo'}
+                        <input type="file" accept="image/*" hidden onChange={(e) => handlePhotoUpload(idx, e.target.files?.[0])} />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <label style={{ padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+                    {uploadingVideo ? 'Uploading Video...' : formData.videoUrl ? 'Replace Store Video' : 'Upload Store Video'}
+                    <input type="file" accept="video/*" hidden onChange={(e) => handleVideoUpload(e.target.files?.[0])} />
+                  </label>
+                  {formData.videoUrl && (
+                    <span style={{ fontSize: 12, color: '#059669', fontWeight: 700 }}>Video attached ✓</span>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}
-              >
-                {saving ? 'Saving Changes...' : 'Save All Store Changes'}
-              </button>
-            </div>
-          </form>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}
+                >
+                  {saving ? 'Saving Changes...' : 'Save All Store Changes'}
+                </button>
+              </div>
+            </form>
 
-          <ChangePasswordCard
-            defaultEmail={formData.email || selectedShop?.email || user?.email || ''}
-            title="Reset / Change Merchant Password"
-            subtitle="Verify with a 6-digit email OTP to update your merchant password across Mobile App & Web."
-            onSendOtp={merchantForgotPassword}
-            onResetPassword={merchantResetPassword}
-          />
+            <ChangePasswordCard
+              defaultEmail={formData.email || selectedShop?.email || user?.email || ''}
+              title="Reset / Change Merchant Password"
+              subtitle="Verify with a 6-digit email OTP to update your merchant password across Mobile App & Web."
+              onSendOtp={merchantForgotPassword}
+              onResetPassword={merchantResetPassword}
+            />
           </>
         )}
 
@@ -1350,8 +1373,17 @@ export default function MerchantPortal() {
                       <label style={labelStyle}>Advertisement Image *</label>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
                         <label style={{ padding: '9px 14px', borderRadius: 9, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                          {promoUploading ? 'Uploading Image...' : 'Upload Ad Image'}
-                          <input type="file" accept="image/*" hidden onChange={(e) => handlePromoMediaUpload(e.target.files?.[0])} />
+                          {promoUploading ? 'Uploading Image...' : 'Upload & Crop Ad Image'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = '';
+                              if (picked) handlePickPromoFileWithCrop(picked, 'image');
+                            }}
+                          />
                         </label>
                         <input
                           type="text"
@@ -1360,6 +1392,21 @@ export default function MerchantPortal() {
                           placeholder="Or paste image URL..."
                           style={{ ...inputStyle, flex: 1, minWidth: 200 }}
                         />
+                        {newPromo.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImageCropState({
+                                isOpen: true,
+                                src: formatMediaUrl(newPromo.imageUrl),
+                                rawFile: null,
+                              })
+                            }
+                            style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #bfdbfe', background: '#f0f9ff', color: '#0369a1', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            ✂️ Crop Image
+                          </button>
+                        )}
                       </div>
                       {newPromo.imageUrl && (
                         <img
@@ -1440,8 +1487,17 @@ export default function MerchantPortal() {
                       <label style={labelStyle}>Advertisement Video *</label>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
                         <label style={{ padding: '9px 14px', borderRadius: 9, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                          {promoUploading ? 'Uploading Video...' : 'Upload Video (MP4/WEBM)'}
-                          <input type="file" accept="video/*" hidden onChange={(e) => handlePromoMediaUpload(e.target.files?.[0])} />
+                          {promoUploading ? 'Uploading Video...' : 'Upload & Crop Video (MP4/WEBM)'}
+                          <input
+                            type="file"
+                            accept="video/*"
+                            hidden
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = '';
+                              if (picked) handlePickPromoFileWithCrop(picked, 'video');
+                            }}
+                          />
                         </label>
                         <input
                           type="text"
@@ -1450,6 +1506,21 @@ export default function MerchantPortal() {
                           placeholder="Or paste MP4 / YouTube video URL..."
                           style={{ ...inputStyle, flex: 1, minWidth: 200 }}
                         />
+                        {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setVideoCropState({
+                                isOpen: true,
+                                src: formatMediaUrl(newPromo.videoUrl),
+                                rawFile: null,
+                              })
+                            }
+                            style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #bfdbfe', background: '#f0f9ff', color: '#0369a1', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            ✂️ Crop / Trim Video
+                          </button>
+                        )}
                       </div>
                       {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
                         <video
@@ -1828,6 +1899,26 @@ export default function MerchantPortal() {
           </div>
         )}
       </div>
+
+      {/* Image Crop Modal for Merchant Advertisements */}
+      <PromotionImageCropperModal
+        isOpen={imageCropState.isOpen}
+        onClose={() => setImageCropState({ isOpen: false, src: '', rawFile: null })}
+        imageSrc={imageCropState.src}
+        placement="Merchant Store"
+        onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
+        onUseOriginal={imageCropState.rawFile ? () => handlePromoMediaUpload(imageCropState.rawFile) : undefined}
+      />
+
+      {/* Video Crop & Trim Modal for Merchant Advertisements */}
+      <VideoAdCropModal
+        isOpen={videoCropState.isOpen}
+        onClose={() => setVideoCropState({ isOpen: false, src: '', rawFile: null })}
+        videoSrc={videoCropState.src}
+        videoFile={videoCropState.rawFile}
+        onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
+        onUseOriginal={videoCropState.rawFile ? () => handlePromoMediaUpload(videoCropState.rawFile) : undefined}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { HiChevronLeft, HiChevronRight, HiFilter, HiLocationMarker, HiSparkles } from 'react-icons/hi';
+import { useSliderInterval } from '../../utils/useSliderInterval';
 
 const POPULAR_OFFER_CATEGORIES = [
   'All Categories',
@@ -103,14 +104,16 @@ export default function ZeashellOffersCarousel({ offers = [], onSelectOffer }) {
     }
   }, []);
 
-  // Auto-scroll every 4 seconds when not paused
+  const autoSlideInterval = useSliderInterval(4, 'featured_offers');
+
+  // Auto-scroll based on Super Admin backend interval when not paused
   useEffect(() => {
     if (isPaused || filteredOffers.length <= 1) return;
     const timer = setInterval(() => {
       scroll('next');
-    }, 4000);
+    }, autoSlideInterval);
     return () => clearInterval(timer);
-  }, [isPaused, filteredOffers.length, scroll]);
+  }, [isPaused, filteredOffers.length, scroll, autoSlideInterval]);
 
   if (!offers.length) return null;
 

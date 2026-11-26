@@ -328,10 +328,15 @@ export async function fetchSliderSettings() {
 /**
  * Update global slider auto-slide speed in seconds (Super Admin)
  */
-export async function updateSliderSettings(intervalSeconds) {
+export async function updateSliderSettings(payloadOrSeconds) {
+  const bodyObj =
+    payloadOrSeconds && typeof payloadOrSeconds === 'object'
+      ? { ...payloadOrSeconds }
+      : { interval_seconds: Number(payloadOrSeconds), apply_all: true };
+
   const response = await apiFetch('/api/v1/promotions/settings/slider', {
     method: 'PUT',
-    body: JSON.stringify({ interval_seconds: Number(intervalSeconds) }),
+    body: JSON.stringify(bodyObj),
   });
   const resData = await response.json().catch(() => ({}));
   if (!response || !response.ok) {
