@@ -77,16 +77,23 @@ export function getCustomerHeaders(extra = {}) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
- * 1. Customer Email + Password Login (POST /api/v1/auth/login)
+ * 1. Customer Login ID + Password Login (POST /api/v1/auth/login)
  */
-export async function customerEmailLogin({ email, password }) {
-  const raw = String(email || '').trim();
-  const identifier = raw.includes('@') ? raw.toLowerCase() : raw.toUpperCase();
+export async function customerEmailLogin({ email, identifier, login_id, password }) {
+  const raw = String(login_id || identifier || email || '').trim();
+  if (!raw || raw.includes('@')) {
+    const err = new Error('Email login is not allowed. Please sign in using your assigned Login ID and password.');
+    err.status = 400;
+    throw err;
+  }
+  const cleanId = raw.toUpperCase();
   const res = await apiFetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: identifier,
+      email: cleanId,
+      login_id: cleanId,
+      login_id_only: true,
       password,
     }),
   });
@@ -95,7 +102,7 @@ export async function customerEmailLogin({ email, password }) {
     const err = new Error(
       typeof data.detail === 'string'
         ? data.detail
-        : data.message || 'Invalid email or password'
+        : data.message || 'Invalid Login ID or password'
     );
     err.status = res.status;
     err.data = data;

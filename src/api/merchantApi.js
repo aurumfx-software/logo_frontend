@@ -986,16 +986,24 @@ export function clearMerchantSession() {
   }
 }
 
-export async function merchantEmailLogin({ email, identifier, password }) {
-  const rawIdentifier = String(identifier || email || '').trim();
-  const isEmail = rawIdentifier.includes('@');
-  const loginIdentifier = isEmail ? rawIdentifier.toLowerCase() : rawIdentifier.toUpperCase();
+export async function merchantEmailLogin({ email, identifier, login_id, password }) {
+  const rawIdentifier = String(login_id || identifier || email || '').trim();
+  if (!rawIdentifier || rawIdentifier.includes('@')) {
+    const err = new Error('Email login is not allowed. Please sign in using your Merchant Login ID and password.');
+    err.status = 400;
+    throw err;
+  }
+  const loginIdentifier = rawIdentifier.toUpperCase();
 
-  const endpoint = isEmail ? '/api/v1/merchants/login' : '/api/v1/auth/login';
-  let res = await apiFetch(endpoint, {
+  let res = await apiFetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: loginIdentifier, password }),
+    body: JSON.stringify({
+      email: loginIdentifier,
+      login_id: loginIdentifier,
+      login_id_only: true,
+      password,
+    }),
   });
   let data = await res.json().catch(() => ({}));
 
@@ -1017,27 +1025,11 @@ export async function merchantEmailLogin({ email, identifier, password }) {
       throw setupErr;
     }
 
-    if (isEmail && (res.status === 404 || res.status === 422)) {
-      res = await apiFetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginIdentifier, password }),
-      });
-      data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : data.detail?.message || data.message || 'Merchant login failed'
-        );
-      }
-    } else {
-      throw new Error(
-        typeof data.detail === 'string'
-          ? data.detail
-          : data.detail?.message || data.message || 'Invalid merchant credentials'
-      );
-    }
+    throw new Error(
+      typeof data.detail === 'string'
+        ? data.detail
+        : data.detail?.message || data.message || 'Invalid Merchant Login ID or password'
+    );
   }
 
   setMerchantSession(data);

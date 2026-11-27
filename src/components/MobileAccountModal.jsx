@@ -308,16 +308,23 @@ export default function MobileAccountModal({
     }
   };
 
-  // ── Customer Auth Handlers (Exact Mobile App Logic) ──────────────────────
+  // ── Customer Auth Handlers (Login ID + Password Only) ────────────────────
   const handleCustomerPasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     const rawTarget = custEmail.trim();
-    const isEmail = rawTarget.includes('@');
-    const target = isEmail ? rawTarget.toLowerCase() : rawTarget.toUpperCase();
-    if (!target || (!isEmail && !/^[A-Z0-9_\s-]{3,30}$/.test(target))) {
-      setError('Please enter a valid Email Address or Login ID (e.g. DAN81493)');
+    if (!rawTarget) {
+      setError('Please enter your assigned Login ID (e.g. DAN81493)');
+      return;
+    }
+    if (rawTarget.includes('@')) {
+      setError('Email login is not allowed. Please enter your assigned Login ID (e.g. DAN81493) and password.');
+      return;
+    }
+    const target = rawTarget.toUpperCase();
+    if (!/^[A-Z0-9_\s-]{3,30}$/.test(target)) {
+      setError('Please enter a valid Login ID (e.g. DAN81493)');
       return;
     }
     if (!custPassword.trim()) {
@@ -326,14 +333,14 @@ export default function MobileAccountModal({
     }
     setLoading(true);
     try {
-      const res = await customerEmailLogin({ email: target, password: custPassword.trim() });
+      const res = await customerEmailLogin({ login_id: target, email: target, password: custPassword.trim() });
       const userObj = res.user || res.customer || getStoredCustomerUser();
       await fetchCustomerProfile().catch(() => null);
       setCustomerUser(getStoredCustomerUser() || userObj);
       if (onAuthSuccess) onAuthSuccess(getStoredCustomerUser() || userObj, 'CUSTOMER', res);
       onClose();
     } catch (err) {
-      setError(err.message || 'Invalid email or password. Please try again.');
+      setError(err.message || 'Invalid Login ID or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -470,17 +477,24 @@ export default function MobileAccountModal({
     if (custResetPass !== custResetConfirm) return setError('Passwords do not match');
     setLoading(true);
     try {
-      await customerResetPassword({
+      const resetRes = await customerResetPassword({
         email: custResetEmail.trim(),
         otp: custResetOtp.trim(),
         new_password: custResetPass,
       });
-      setSuccess('Password reset! Signing in...');
-      const res = await customerEmailLogin({ email: custResetEmail.trim(), password: custResetPass });
-      const userObj = res.user || res.customer || getStoredCustomerUser();
-      setCustomerUser(userObj);
-      if (onAuthSuccess) onAuthSuccess(userObj, 'CUSTOMER', res);
-      onClose();
+      if (resetRes?.login_id) {
+        setSuccess(`Password reset! Signing in with ID ${resetRes.login_id}...`);
+        const res = await customerEmailLogin({ login_id: resetRes.login_id, password: custResetPass });
+        const userObj = res.user || res.customer || getStoredCustomerUser();
+        setCustomerUser(userObj);
+        if (onAuthSuccess) onAuthSuccess(userObj, 'CUSTOMER', res);
+        onClose();
+      } else {
+        setCustEmail('');
+        setCustPassword('');
+        setCustomerTab('login');
+        setSuccess('Password reset! Please sign in using your assigned Login ID and new password.');
+      }
     } catch (err) {
       setError(err.message || 'Failed to reset password');
     } finally {
@@ -507,25 +521,27 @@ export default function MobileAccountModal({
     e.preventDefault();
     setError('');
     const rawTarget = merchEmail.trim();
-    const isEmail = rawTarget.includes('@');
-    const target = isEmail ? rawTarget.toLowerCase() : rawTarget.toUpperCase();
-    if (!target) return setError('Please enter your Merchant Email or ID (e.g. ASH4906)');
-    if (!isEmail && !/^[A-Z0-9_\s-]{3,30}$/.test(target)) {
-      return setError('Please enter a valid Merchant Email or ID (e.g. ASH4906)');
+    if (!rawTarget) return setError('Please enter your Merchant Login ID (e.g. ASH4906)');
+    if (rawTarget.includes('@')) {
+      return setError('Email login is not allowed. Please enter your Merchant Login ID (e.g. ASH4906) and password.');
+    }
+    const target = rawTarget.toUpperCase();
+    if (!/^[A-Z0-9_\s-]{3,30}$/.test(target)) {
+      return setError('Please enter a valid Merchant Login ID (e.g. ASH4906)');
     }
     if (!merchPassword.trim()) return setError('Please enter your password');
     setLoading(true);
     try {
-      const res = await merchantEmailLogin({ identifier: target, email: target, password: merchPassword.trim() });
+      const res = await merchantEmailLogin({ login_id: target, identifier: target, password: merchPassword.trim() });
       completeMerchantSignIn(res, res?.user?.email || target);
     } catch (err) {
       if (err.passwordSetupRequired || err.code === 'MERCHANT_PASSWORD_NOT_SET') {
-        setMerchForgotEmail(isEmail ? target : '');
+        setMerchForgotEmail('');
         setMerchantTab('forgot');
         setError('Password setup required. Enter your registered email to receive an OTP and set your password.');
         return;
       }
-      setError(err.message || 'Invalid merchant credentials.');
+      setError(err.message || 'Invalid Merchant Login ID or password.');
     } finally {
       setLoading(false);
     }
@@ -591,14 +607,21 @@ export default function MobileAccountModal({
     if (merchResetPass !== merchResetConfirm) return setError('Passwords do not match');
     setLoading(true);
     try {
-      await merchantResetPassword({
+      const resetRes = await merchantResetPassword({
         email: merchForgotEmail.trim(),
         otp: merchResetOtp.trim(),
         new_password: merchResetPass,
       });
-      setSuccess('Password set! Signing in to Merchant Portal...');
-      const res = await merchantEmailLogin({ email: merchForgotEmail.trim(), password: merchResetPass });
-      completeMerchantSignIn(res, merchForgotEmail.trim());
+      if (resetRes?.login_id) {
+        setSuccess(`Password set! Signing in with Merchant ID ${resetRes.login_id}...`);
+        const res = await merchantEmailLogin({ login_id: resetRes.login_id, identifier: resetRes.login_id, password: merchResetPass });
+        completeMerchantSignIn(res, res?.user?.email || merchForgotEmail.trim());
+      } else {
+        setMerchEmail('');
+        setMerchPassword('');
+        setMerchantTab('login');
+        setSuccess('Password set! Please sign in using your Merchant Login ID and new password.');
+      }
     } catch (err) {
       setError(err.message || 'Failed to reset merchant password');
     } finally {
@@ -1240,11 +1263,11 @@ export default function MobileAccountModal({
               {customerTab === 'login' && (
                 <form onSubmit={handleCustomerPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <label style={labelStyle}>Email Address or Login ID *</label>
+                    <label style={labelStyle}>Login ID *</label>
                     <input
                       type="text"
                       required
-                      placeholder="user@example.com or DAN81493"
+                      placeholder="Enter your Login ID (e.g. DAN81493)"
                       value={custEmail}
                       onChange={(e) => setCustEmail(e.target.value)}
                       style={inputStyle}
@@ -1544,11 +1567,11 @@ export default function MobileAccountModal({
               {merchantTab === 'login' && (
                 <form onSubmit={handleMerchantPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <label style={labelStyle}>Merchant Email or ID *</label>
+                    <label style={labelStyle}>Merchant Login ID *</label>
                     <input
                       type="text"
                       required
-                      placeholder="merchant@business.com or ASH4906"
+                      placeholder="Enter your Merchant Login ID (e.g. ASH4906)"
                       value={merchEmail}
                       onChange={(e) => setMerchEmail(e.target.value)}
                       style={inputStyle}

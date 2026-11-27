@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
+import { clearTokens } from '../api/apiClient';
 import { setCustomerSession } from '../api/customerApi';
 import { setMerchantSession } from '../api/merchantApi';
 
@@ -66,6 +67,11 @@ export default function Login() {
       const refreshToken = loginRes.refreshToken || '';
 
       const rawRole = (apiUser.role || '').toUpperCase();
+      if (isEmail && ['MERCHANT', 'FIELD_STAFF', 'CUSTOMER'].includes(rawRole)) {
+        clearTokens();
+        setError('Customers and Merchants cannot log in with Email. Please use your assigned Login ID and password.');
+        return;
+      }
       let detectedRole = 'Admin';
       if (cleanEmail.toLowerCase() === 'user01@gmail.com' || rawRole === 'SELLER') {
         detectedRole = 'Seller';
