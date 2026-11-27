@@ -42,6 +42,7 @@ import {
   merchantVerifyOTP,
   merchantForgotPassword,
   merchantResetPassword,
+  createMerchantRegistrationOrder,
   onboardMerchant,
   uploadMerchantMedia,
   logoutMerchantSession,
@@ -299,7 +300,10 @@ export default function MobileAccountModal({
         fetchAdminSubscriptionPackages({ audience, activeOnly: true }).catch(() => []),
         fetchMyActiveSubscriptions().catch(() => null),
       ]);
-      setSubPackages(Array.isArray(pkgs) ? pkgs : []);
+      const filteredPkgs = (Array.isArray(pkgs) ? pkgs : []).filter(
+        (p) => String(p.code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
+      );
+      setSubPackages(filteredPkgs);
       setActiveSubData(active);
     } catch (err) {
       setError('Could not load subscription plans.');
@@ -674,7 +678,59 @@ export default function MobileAccountModal({
     const validPhotos = merchPhotos.filter((p) => p && p.trim() !== '');
     setLoading(true);
     try {
-      await onboardMerchant({
+      const regOrder = await createMerchantRegistrationOrder({
+        email: cleanEmail,
+        phone_number: cleanPhone,
+        business_name: storeName,
+      });
+
+      let paymentProof = null;
+      if (regOrder?.razorpay_order_id && String(regOrder.razorpay_order_id).startsWith('order_dev_')) {
+        paymentProof = {
+          razorpay_order_id: regOrder.razorpay_order_id,
+          razorpay_payment_id: `pay_dev_mreg_${Date.now()}`,
+          razorpay_signature: 'dev_signature_ok',
+        };
+      } else {
+        if (!window.Razorpay) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load Razorpay checkout SDK'));
+            document.body.appendChild(script);
+          });
+        }
+        paymentProof = await new Promise((resolve, reject) => {
+          const rzp = new window.Razorpay({
+            key: regOrder.razorpay_key_id,
+            amount: regOrder.amount_paise || 100000,
+            currency: regOrder.currency || 'INR',
+            name: 'Logo Kerala',
+            description: 'Mandatory ₹1,000 Merchant Registration Plan',
+            order_id: regOrder.razorpay_order_id,
+            prefill: {
+              name: merchReg.owner_name.trim() || storeName,
+              email: cleanEmail,
+              contact: cleanPhone,
+            },
+            theme: { color: '#2563EB' },
+            handler: (rsp) =>
+              resolve({
+                razorpay_order_id: rsp.razorpay_order_id || regOrder.razorpay_order_id,
+                razorpay_payment_id: rsp.razorpay_payment_id,
+                razorpay_signature: rsp.razorpay_signature || 'verified_sdk_sig',
+              }),
+            modal: {
+              ondismiss: () =>
+                reject(new Error('₹1,000 registration payment is required to register as a Merchant.')),
+            },
+          });
+          rzp.open();
+        });
+      }
+
+      const onbRes = await onboardMerchant({
         business_name: storeName,
         name: storeName,
         owner_name: merchReg.owner_name.trim() || 'Owner',
@@ -699,11 +755,15 @@ export default function MobileAccountModal({
         video_url: merchVideoUrl || null,
         merchant_videos: merchVideoUrl ? [merchVideoUrl] : [],
         status: 'PENDING',
+        ...paymentProof,
       });
+      const assignedLoginId = onbRes?.login_id || onbRes?.merchant?.login_id || '';
       setSuccess(
-        'Merchant registered successfully! Your account is saved and pending admin approval. You can sign in once approved.'
+        assignedLoginId
+          ? `Merchant registered & ₹1,000 subscription paid! Your Login ID is ${assignedLoginId}. Sign in once approved by Admin.`
+          : 'Merchant registered & ₹1,000 subscription paid! Pending admin approval.'
       );
-      setMerchEmail(cleanEmail);
+      setMerchEmail(assignedLoginId);
       setMerchPassword(merchReg.password.trim());
       setMerchantTab('login');
     } catch (err) {
@@ -1075,6 +1135,28 @@ export default function MobileAccountModal({
                   </div>
 
                   {/* Account Menu Items matching Mobile App profile.js */}
+                  <AccountMenuRow
+                    icon={<HiCreditCard size={18} color={isSeller ? '#059669' : '#64748B'} />}
+                    title="Wallet & Cashback Section"
+                    subtitle={
+                      isSeller
+                        ? 'Balance, cashback claims, top-up & bank withdrawals'
+                        : 'Unlock Wallet & Cashback rewards (Requires ₹500 Plan)'
+                    }
+                    badge={isSeller ? 'UNLOCKED' : '₹500 PLAN'}
+                    badgeBg={isSeller ? '#DCFCE7' : '#FAE8FF'}
+                    badgeColor={isSeller ? '#15803D' : '#A21CAF'}
+                    onClick={() => {
+                      if (isSeller) {
+                        onClose();
+                        navigate('/dashboard?tab=wallet');
+                      } else {
+                        setSection('subscriptions');
+                        loadSubscriptionData('USER');
+                      }
+                    }}
+                  />
+
                   <AccountMenuRow
                     icon={<HiShoppingBag size={18} color={isSeller ? '#2563EB' : '#64748B'} />}
                     title="My Products & Seller Orders"
@@ -1848,8 +1930,12 @@ export default function MobileAccountModal({
                     </label>
                   </div>
 
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 12, fontWeight: 700, color: '#1E40AF' }}>
+                    💳 Mandatory ₹1,000 Merchant Registration Plan applies via Razorpay before shop creation.
+                  </div>
+
                   <button type="submit" disabled={loading || uploadingMedia} style={primaryBtnStyle}>
-                    {loading ? 'Submitting Shop...' : 'Register Business Account'}
+                    {loading ? 'Processing ₹1,000 Payment...' : 'Pay ₹1,000 & Register Business Account'}
                   </button>
                 </form>
               )}
@@ -1912,22 +1998,24 @@ export default function MobileAccountModal({
           {/* ════════════ 4. SUBSCRIPTIONS VIEW (₹500 Seller Plan & Packages) ════════════ */}
           {section === 'subscriptions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={tabBarStyle}>
-                <button
-                  type="button"
-                  style={tabBtnStyle(subAudience === 'USER')}
-                  onClick={() => loadSubscriptionData('USER')}
-                >
-                  Customer / Seller Plans
-                </button>
-                <button
-                  type="button"
-                  style={tabBtnStyle(subAudience === 'MERCHANT')}
-                  onClick={() => loadSubscriptionData('MERCHANT')}
-                >
-                  Merchant Business Plans
-                </button>
-              </div>
+              {!(merchantUser && !customerUser) && (
+                <div style={tabBarStyle}>
+                  <button
+                    type="button"
+                    style={tabBtnStyle(subAudience === 'USER')}
+                    onClick={() => loadSubscriptionData('USER')}
+                  >
+                    Customer / Seller Plans
+                  </button>
+                  <button
+                    type="button"
+                    style={tabBtnStyle(subAudience === 'MERCHANT')}
+                    onClick={() => loadSubscriptionData('MERCHANT')}
+                  >
+                    Merchant Business Plans
+                  </button>
+                </div>
+              )}
 
               {loadingSubs ? (
                 <p style={{ textAlign: 'center', color: '#64748B', fontSize: 13 }}>Loading official plans...</p>

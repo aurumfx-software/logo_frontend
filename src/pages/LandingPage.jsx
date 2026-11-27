@@ -533,7 +533,7 @@ export default function LandingPage({ defaultTab = 'home' }) {
           if (mStatus !== 'approved' && mStatus !== 'active') {
             return false;
           }
-          if (!m.can_create_promotions && !m.promotion_access) {
+          if (promoStatus !== 'approved' && !m.can_create_promotions && !m.promotion_access) {
             return false;
           }
         }
@@ -550,7 +550,16 @@ export default function LandingPage({ defaultTab = 'home' }) {
   );
 
   const displayTopBanners = React.useMemo(() => {
-    return [
+    const liveTop = (livePromotions || []).filter(
+      (p) =>
+        isEligiblePromotion(p) &&
+        p.placement &&
+        (p.placement === 'Home Top' ||
+          p.placement.toLowerCase().includes('home top') ||
+          p.placement.toLowerCase().includes('hero')) &&
+        (p.imageUrl || p.bannerUrl || p.image_url || p.videoUrl || p.video_url)
+    );
+    const defaults = [
       {
         id: 'banner-fashion',
         title: 'Exclusive Kerala Silk & Festive Designer Fashion Collection',
@@ -587,7 +596,8 @@ export default function LandingPage({ defaultTab = 'home' }) {
         placement: 'Home Top',
       },
     ];
-  }, []);
+    return liveTop.length > 0 ? [...liveTop, ...defaults] : defaults;
+  }, [livePromotions, isEligiblePromotion]);
 
   const displayMiddleBanners = React.useMemo(() => {
     if (livePromotions && livePromotions.length > 0) {

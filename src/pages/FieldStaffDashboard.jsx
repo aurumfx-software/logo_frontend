@@ -94,7 +94,7 @@ export default function FieldStaffDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const rawTab = searchParams.get('tab') || 'profile';
-  const activePanel = rawTab === 'wallet' ? 'profile' : rawTab;
+  const activePanel = rawTab;
 
   const getLiveToken = () => getAccessToken() || getCustomerToken();
 
@@ -246,6 +246,8 @@ export default function FieldStaffDashboard() {
       if (panel === 'saved') {
         const res = await getMarketplaceWishlist();
         setWishlistItems(Array.isArray(res?.items) ? res.items : []);
+      } else if (panel === 'wallet') {
+        await loadWalletData();
       } else if (panel === 'seller-orders' || panel === 'dispatched') {
         const [sOrders, bOrders] = await Promise.all([
           fetchMyOrders().catch(() => []),
@@ -572,7 +574,7 @@ export default function FieldStaffDashboard() {
       </div>
       <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{title} Requires ₹500 Seller Plan</h3>
       <p style={{ margin: '0 auto 20px', maxWidth: 440, fontSize: 13.5, color: '#475569', lineHeight: 1.6 }}>
-        Subscribe to the official <strong>₹500 Seller Plan</strong> to unlock creating products, managing incoming buyer orders, and parcel dispatch tracking.
+        Subscribe to the official <strong>₹500 Seller Plan</strong> to unlock creating products, managing incoming buyer orders, parcel dispatch tracking, and the <strong>Wallet &amp; Cashback Section</strong>.
       </p>
       <button
         type="button"
@@ -736,6 +738,184 @@ export default function FieldStaffDashboard() {
               onResetPassword={customerResetPassword}
             />
           </div>
+        ) : activePanel === 'wallet' ? (
+          !isSellerSubscribed ? (
+            renderPlanLockCard('Wallet & Cashback Section')
+          ) : (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Wallet &amp; Cashback Section</h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                    Add money via Razorpay, claim sales cashback rewards, transfer or withdraw funds.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadWalletData()}
+                  style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: '#334155', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                >
+                  <HiRefresh size={14} /> Refresh Wallet
+                </button>
+              </div>
+
+              <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', borderRadius: 16, padding: '22px 24px', color: '#fff', marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', letterSpacing: 0.6 }}>Available Wallet Balance</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, marginTop: 4 }}>₹{Number(walletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'DASHBOARD', label: 'Overview' },
+                    { id: 'TOPUP', label: '+ Add Money' },
+                    { id: 'SEND', label: 'Transfer' },
+                    { id: 'WITHDRAW', label: 'Withdraw Bank' },
+                  ].map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setWalletView(v.id)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 9,
+                        border: walletView === v.id ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.3)',
+                        background: walletView === v.id ? '#2563eb' : 'rgba(255,255,255,0.12)',
+                        color: '#fff',
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {walletView === 'TOPUP' ? (
+                <form onSubmit={handleWalletRazorpayTopup} style={{ background: '#f8fafc', padding: 18, borderRadius: 14, border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>Add Money via Razorpay</h3>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Enter amount in ₹"
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      style={{ flex: 1, minWidth: 180, padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13.5 }}
+                    />
+                    <button type="submit" disabled={toppingUp} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 20px', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}>
+                      {toppingUp ? 'Opening Razorpay...' : 'Pay & Add Money'}
+                    </button>
+                  </div>
+                </form>
+              ) : walletView === 'SEND' ? (
+                <form onSubmit={handleWalletTransfer} style={{ background: '#f8fafc', padding: 18, borderRadius: 14, border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>Transfer Money to User</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
+                    <input
+                      type="text"
+                      placeholder="Recipient User Code / ID *"
+                      value={transferForm.target}
+                      onChange={(e) => setTransferForm({ ...transferForm, target: e.target.value })}
+                      style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Amount in ₹ *"
+                      value={transferForm.amount}
+                      onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                      style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Note (optional)"
+                      value={transferForm.note}
+                      onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })}
+                      style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                  </div>
+                  <button type="submit" disabled={transferring} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 20px', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}>
+                    {transferring ? 'Transferring...' : 'Send Money'}
+                  </button>
+                </form>
+              ) : walletView === 'WITHDRAW' ? (
+                <form onSubmit={handleWalletWithdraw} style={{ background: '#f8fafc', padding: 18, borderRadius: 14, border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800 }}>Withdraw to Bank Account</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginBottom: 12 }}>
+                    <input type="number" min="1" placeholder="Amount ₹ *" value={withdrawForm.amount} onChange={(e) => setWithdrawForm({ ...withdrawForm, amount: e.target.value })} style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }} />
+                    <input type="text" placeholder="Account Holder Name *" value={withdrawForm.account_holder_name} onChange={(e) => setWithdrawForm({ ...withdrawForm, account_holder_name: e.target.value })} style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }} />
+                    <input type="text" placeholder="Account Number *" value={withdrawForm.account_number} onChange={(e) => setWithdrawForm({ ...withdrawForm, account_number: e.target.value })} style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }} />
+                    <input type="text" placeholder="IFSC Code *" value={withdrawForm.ifsc_code} onChange={(e) => setWithdrawForm({ ...withdrawForm, ifsc_code: e.target.value })} style={{ padding: '10px 12px', borderRadius: 9, border: '1px solid #cbd5e1', fontSize: 13 }} />
+                  </div>
+                  <button type="submit" disabled={withdrawing} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 9, padding: '10px 20px', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}>
+                    {withdrawing ? 'Submitting...' : 'Submit Withdrawal Request'}
+                  </button>
+                </form>
+              ) : null}
+
+              {pendingRewards.length > 0 && (
+                <div style={{ marginBottom: 18 }}>
+                  <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Pending Cashback &amp; Reward Claims</h3>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {pendingRewards.map((rw) => (
+                      <div key={rw.id} style={{ padding: '12px 16px', borderRadius: 12, background: '#fffbeb', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: '#92400e' }}>{rw.title || 'Cashback Reward'} — ₹{Number(rw.amount || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize: 12, color: '#b45309' }}>{rw.description || 'Tap claim to credit directly to your wallet.'}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const headers = buildCustomerHeaders();
+                              const res = await apiFetch(`/api/v1/wallet/rewards/${rw.id}/redeem`, { method: 'POST', headers });
+                              const json = await res.json().catch(() => ({}));
+                              if (!res.ok) throw new Error(json.detail || json.message || 'Failed to claim cashback');
+                              setNoticeMsg(json.message || 'Cashback credited to your wallet!');
+                              await loadWalletData();
+                            } catch (err) {
+                              setErrorMsg(err.message || 'Failed to redeem reward');
+                            }
+                          }}
+                          style={{ background: '#d97706', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}
+                        >
+                          Claim ₹{Number(rw.amount || 0)}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>Wallet &amp; Cashback Transactions</h3>
+                {walletTxns.length === 0 ? (
+                  <p style={{ fontSize: 13, color: '#64748b' }}>No wallet transactions recorded yet.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {walletTxns.map((tx, idx) => {
+                      const amt = Number(tx.amount || 0);
+                      const isCredit = amt > 0 || ['CREDIT', 'WALLET_TOPUP', 'CASHBACK', 'REWARD'].some((k) => String(tx.transaction_type || tx.type || '').toUpperCase().includes(k));
+                      return (
+                        <div key={tx.id || idx} style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>{tx.description || formatTxnTitle(tx)}</div>
+                            <div style={{ fontSize: 11.5, color: '#64748b' }}>{tx.created_at ? new Date(tx.created_at).toLocaleString() : ''}</div>
+                          </div>
+                          <div style={{ fontSize: 14.5, fontWeight: 900, color: isCredit ? '#16a34a' : '#dc2626' }}>
+                            {isCredit ? '+' : '-'}₹{Math.abs(amt).toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
         ) : activePanel === 'saved' ? (
           <div>
             <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>My Saved Products ({wishlistItems.length})</h2>

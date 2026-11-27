@@ -68,7 +68,7 @@ export const MERCHANT_PERMISSION_ITEMS = [
     key: 'ad_special_deals',
     label: 'Special Deals / Feed / Popup Ad',
     group: 'Platform Ad Placements',
-    placement: 'Special Deals',
+    placement: 'Special Offer',
     description: 'Publish ads in Special Deals, Moving Text, In-Between Feed, or Popup',
   },
   {
@@ -177,11 +177,6 @@ export function mergeMerchantGrants(activeSubData, selectedShop, userSubData) {
       });
     }
   });
-  if (!foundAnyGrantMap && (selectedShop?.has_active_subscription || activeSubData?.merchant_has_active_subscription)) {
-    LEGACY_AD_KEYS.forEach((k) => {
-      merged[k] = true;
-    });
-  }
   if (activeSubData?.can_sell_products || userSubData?.can_sell_products) {
     merged.merchant_product_section = true;
   }

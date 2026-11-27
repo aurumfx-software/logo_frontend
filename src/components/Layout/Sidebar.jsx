@@ -170,6 +170,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
           title: 'CUSTOMER ACCOUNT',
           items: [
             { key: 'cust_profile', path: '/dashboard?tab=profile', icon: HiOutlineUser, label: 'Customer Profile' },
+            { key: 'cust_wallet', path: '/dashboard?tab=wallet', icon: HiOutlineCreditCard, label: 'Wallet & Cashback', pill: (user?.can_sell_products || user?.is_subscriber) ? 'UNLOCKED' : '₹500 PLAN' },
             { key: 'cust_orders', path: '/dashboard?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
             { key: 'cust_dispatched', path: '/dashboard?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
             { key: 'cust_products', path: '/dashboard?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
@@ -214,10 +215,10 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 setMerchProductsOpen((prev) => !prev);
               },
               children: [
-                { key: 'merch_cust_orders', path: '/merchant?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
-                { key: 'merch_dispatched', path: '/merchant?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
-                { key: 'merch_my_products', path: '/merchant?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
-                { key: 'merch_sell_ad', path: '/merchant?tab=sell-ad', icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: '₹500 PLAN' },
+                { key: 'merch_cust_orders', path: '/merchant?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: 'PLAN' },
+                { key: 'merch_dispatched', path: '/merchant?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: 'PLAN' },
+                { key: 'merch_my_products', path: '/merchant?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: 'PLAN' },
+                { key: 'merch_sell_ad', path: '/merchant?tab=sell-ad', icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: 'PLAN' },
               ],
             },
             { key: 'merch_promo', path: '/merchant?tab=promotions', icon: HiOutlineSpeakerphone, label: 'Promotions & Ad Banners', pill: 'NEW PROMO' },

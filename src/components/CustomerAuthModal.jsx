@@ -163,7 +163,7 @@ export default function CustomerAuthModal({
         onClose();
       } else {
         if (!formData.email.trim() && !formData.phone.trim()) {
-          throw new Error('Please provide email or phone number.');
+          throw new Error('Please provide your Login ID.');
         }
         if (!formData.password.trim()) {
           throw new Error('Please enter your password.');
@@ -378,7 +378,7 @@ export default function CustomerAuthModal({
           {mode !== 'location' && (
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
-                {mode === 'login' ? 'Email Address or Login ID *' : 'Email Address *'}
+                {mode === 'login' ? 'Login ID *' : 'Email Address *'}
               </label>
               <div style={{ position: 'relative' }}>
                 <HiMail style={{ position: 'absolute', left: 12, top: 12, color: '#94A3B8', fontSize: 18 }} />
@@ -387,7 +387,7 @@ export default function CustomerAuthModal({
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  placeholder={mode === 'login' ? 'customer@example.com or Login ID (e.g. RAJ48291)' : 'customer@example.com'}
+                  placeholder={mode === 'login' ? 'Enter your Login ID (e.g. RAJ48291)' : 'customer@example.com'}
                   required={mode === 'register'}
                   style={{
                     width: '100%',

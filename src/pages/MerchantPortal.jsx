@@ -725,6 +725,7 @@ export default function MerchantPortal() {
       const targetId = formData.id || selectedShop?.id;
       const chosenPlacement = newPromo.placement || 'Merchant Store';
       const chosenMedia = newPromo.mediaType || 'image';
+      const isStorePlacement = String(chosenPlacement).trim().toLowerCase() === 'merchant store';
       const reqPermKey = getRequiredAdPermissionKey(chosenPlacement, chosenMedia);
       if (!merchantGrants?.[reqPermKey]) {
         setErrorMsg(`Your current plan does not unlock ${chosenPlacement} (${chosenMedia}). Please subscribe to a plan with this permission.`);
@@ -744,7 +745,7 @@ export default function MerchantPortal() {
         text_color: chosenMedia === 'text' ? newPromo.textColor : null,
         target_url: String(newPromo.targetUrl || '').trim() || null,
         merchant_id: Number(targetId),
-        status: newPromo.status || 'active',
+        status: isStorePlacement ? (newPromo.status || 'active') : 'pending',
       };
       const cleanSwipeSec = Math.max(2, Math.min(60, Math.round(Number(promoSwipeSeconds) || 4)));
       if (targetId) {
@@ -755,10 +756,18 @@ export default function MerchantPortal() {
       }
       if (newPromo.id) {
         await updatePromotion(newPromo.id, payload);
-        showNotice('Store advertisement updated & saved!');
+        showNotice(
+          isStorePlacement
+            ? 'Store advertisement updated & saved!'
+            : 'Platform advertisement updated and sent to Admin Approval Queue.'
+        );
       } else {
         await createPromotion(payload);
-        showNotice('Store advertisement published above Location on your Store page!');
+        showNotice(
+          isStorePlacement
+            ? 'Store advertisement published above Location on your Store page!'
+            : 'Advertisement submitted to Admin Pending Requests! It will appear on the Landing Page once Admin approves.'
+        );
       }
       resetPromoDraft();
       const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
@@ -913,48 +922,54 @@ export default function MerchantPortal() {
         <HiOutlineLockClosed size={26} />
       </div>
       <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
-        {title} Requires ₹500 Seller Plan
+        {title} Requires a Merchant Plan
       </h3>
       <p style={{ margin: '0 auto 20px', maxWidth: 460, fontSize: 13.5, color: '#475569', lineHeight: 1.6 }}>
-        Subscribe to the official <strong>₹500 Seller Plan</strong> to unlock creating products, managing your products, incoming customer orders, and parcel dispatch tracking — identical to Customer Accounts.
+        Subscribe to an Admin-configured Merchant Plan that includes <strong>Product Selling &amp; Storefront Orders</strong> to unlock My Products, Sell / Post an Ad, Customer Orders, and Dispatched tracking.
       </p>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          disabled={Boolean(subscribingId)}
-          onClick={() => handleSubscribeSeller500Plan()}
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 10,
-            padding: '11px 22px',
-            fontSize: 13.5,
-            fontWeight: 800,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <HiOutlineCreditCard size={18} />
-          <span>{subscribingId ? 'Processing Razorpay...' : 'Activate ₹500 Seller Plan via Razorpay'}</span>
-        </button>
+        {productUnlockPkg && (
+          <button
+            type="button"
+            disabled={Boolean(subscribingId)}
+            onClick={() => handleSubscribePlan(productUnlockPkg)}
+            style={{
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              padding: '11px 22px',
+              fontSize: 13.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <HiOutlineCreditCard size={18} />
+            <span>
+              {subscribingId
+                ? 'Processing Razorpay...'
+                : `Unlock with ${productUnlockPkg.name} (₹${Number(productUnlockPkg.price ?? productUnlockPkg.amount ?? 0).toLocaleString('en-IN')})`}
+            </span>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setTab('subscriptions')}
           style={{
             background: '#ffffff',
-            color: '#334155',
-            border: '1px solid #cbd5e1',
+            color: '#1d4ed8',
+            border: '1.5px solid #2563eb',
             borderRadius: 10,
             padding: '11px 18px',
             fontSize: 13.5,
-            fontWeight: 700,
+            fontWeight: 800,
             cursor: 'pointer',
           }}
         >
-          View Seller &amp; Merchant Plans
+          View Merchant Plans
         </button>
       </div>
     </div>
@@ -1009,23 +1024,6 @@ export default function MerchantPortal() {
     );
   }
 
-  const merchantSubs = [
-    ...(Array.isArray(activeSubData?.merchant_subscriptions) ? activeSubData.merchant_subscriptions : []),
-    ...(Array.isArray(activeSubData?.subscriptions) ? activeSubData.subscriptions : []),
-  ];
-  const currentShopId = Number(formData.id || selectedShop?.id || 0);
-  const hasActiveMerchantSub =
-    Boolean(selectedShop?.has_active_subscription) ||
-    Boolean(formData.has_active_subscription) ||
-    Boolean(
-      activeSubData?.merchant_has_active_subscription &&
-      (!activeSubData?.merchant_profile_id || !currentShopId || Number(activeSubData.merchant_profile_id) === currentShopId)
-    ) ||
-    merchantSubs.some((s) => {
-      const sameShop = !currentShopId || !s.merchant_profile_id || Number(s.merchant_profile_id) === currentShopId;
-      return sameShop && ['ACTIVE', 'PAID'].includes(String(s.status || 'ACTIVE').toUpperCase());
-    });
-
   const merchantGrants = mergeMerchantGrants(activeSubData, selectedShop, userSubData);
   const canUploadProfilePhotos = Boolean(merchantGrants.merchant_profile_photos);
   const canUploadProfileVideo = Boolean(merchantGrants.merchant_profile_video);
@@ -1033,9 +1031,11 @@ export default function MerchantPortal() {
   const canStoreVideoAd = Boolean(merchantGrants.merchant_store_video_ad);
   const hasAnyMerchantAdPerm = hasAnyAdGrant(merchantGrants);
 
+  const hasActiveMerchantSub = MERCHANT_PERMISSION_ITEMS.some((item) => Boolean(merchantGrants[item.key]));
   const isSellerSubscribed =
-    hasActiveSellerSubscription(sellerAccountUser, userSubData) ||
-    Boolean(merchantGrants.merchant_product_section);
+    Boolean(merchantGrants.merchant_product_section) ||
+    Boolean(userSubData?.can_sell_products) ||
+    Boolean(activeSubData?.can_sell_products);
   const sellerUserContext = sellerAccountUser
     ? {
         ...sellerAccountUser,
@@ -1050,20 +1050,12 @@ export default function MerchantPortal() {
       }
     : null;
 
-  const sellerPaidPackages = userSubPackages.filter((p) => {
-    const code = String(p.code || '').toUpperCase();
-    return code !== 'USER_FREE' && Number(p.price ?? p.amount ?? 0) > 0;
-  });
-
-  const promo999Pkg =
-    subPackages.find((p) => String(p.code || '').toUpperCase() === 'MERCHANT_PROMO_BASIC') ||
-    subPackages.find((p) => Number(p.price ?? p.amount) === 999) || {
-      code: 'MERCHANT_PROMO_BASIC',
-      name: 'Merchant Promotions',
-      price: 999,
-      duration_days: 30,
-      description: 'Unlock per-merchant Image, Text with Background & Video advertisements displayed above Location on your store page.',
-    };
+  const merchantFeaturePackages = subPackages.filter(
+    (p) => String(p.code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
+  );
+  const productUnlockPkg = merchantFeaturePackages.find((p) =>
+    getUnlockedPermissionItems(p).some((item) => item.key === 'merchant_product_section')
+  );
 
   const filteredComplaints = complaints.filter((c) => {
     if (complaintFilter === 'all') return true;
@@ -1576,117 +1568,100 @@ export default function MerchantPortal() {
             </div>
 
             {!hasAnyMerchantAdPerm ? (
-              <div
-                style={{
-                  padding: 28,
-                  borderRadius: 16,
-                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                  border: '1.5px solid #fcd34d',
-                  marginBottom: 22,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      background: '#d97706',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <HiOutlineLockClosed size={22} />
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#78350f' }}>
-                      Advertisement Permission Subscription Required
-                    </h3>
-                    <p style={{ margin: '2px 0 0', fontSize: 13, color: '#92400e' }}>
-                      Subscribe to a Merchant Plan that includes Store Ads, Video Ads, or Platform Banner placements.
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, margin: '16px 0 20px' }}>
-                  {[
-                    'Image Banner Advertisements',
-                    'Custom Text + Colored Background Ads',
-                    'Promotional Video Ads (Upload or URL)',
-                    'Hero / Middle / Footer Banner Options',
-                  ].map((feat) => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div
+                  style={{
+                    padding: 22,
+                    borderRadius: 16,
+                    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                    border: '1.5px solid #fcd34d',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div
-                      key={feat}
                       style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: '#d97706',
+                        color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 7,
-                        padding: '9px 12px',
-                        borderRadius: 10,
-                        background: 'rgba(255,255,255,0.75)',
-                        border: '1px solid #fde68a',
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        color: '#78350f',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      <HiOutlineCheckCircle size={16} color="#059669" />
-                      <span>{feat}</span>
+                      <HiOutlineLockClosed size={22} />
                     </div>
-                  ))}
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#78350f' }}>
+                        Advertisement Section Locked — Choose a Merchant Plan
+                      </h3>
+                      <p style={{ margin: '3px 0 0', fontSize: 13, color: '#92400e' }}>
+                        Only features ticked inside your active Admin-configured Merchant Plan unlock here. Subscribe to a plan below to unlock Store Ads, Video Ads, or Landing Page Banner placements.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-                  <div>
-                    <span style={{ fontSize: 24, fontWeight: 900, color: '#0f172a' }}>
-                      ₹{Number(promo999Pkg.price ?? 999).toLocaleString('en-IN')}
-                    </span>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#92400e', marginLeft: 6 }}>
-                      / {promo999Pkg.duration_days || 30} days
-                    </span>
+                {merchantFeaturePackages.length === 0 ? (
+                  <p style={{ fontSize: 13.5, color: '#64748b' }}>No active merchant promotion plans have been published by Admin yet.</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(275px, 1fr))', gap: 14 }}>
+                    {merchantFeaturePackages.map((pkg, idx) => {
+                      const unlocked = getUnlockedPermissionItems(pkg);
+                      return (
+                        <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1.5px solid #cbd5e1', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                              <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#475569' }}>
+                              {pkg.description || 'Admin-configured Merchant Plan with granular permissions.'}
+                            </p>
+                            {pkg.duration_days && (
+                              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>Duration: {pkg.duration_days} Days</div>
+                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {unlocked.length === 0 ? (
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>No permissions configured</span>
+                              ) : unlocked.map((item) => (
+                                <span
+                                  key={item.key}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    padding: '3px 7px',
+                                    borderRadius: 6,
+                                    background: '#eff6ff',
+                                    color: '#1d4ed8',
+                                  }}
+                                >
+                                  <HiOutlineCheckCircle size={12} />
+                                  {item.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={subscribingId === (pkg.id || pkg.code)}
+                            onClick={() => handleSubscribePlan(pkg)}
+                            style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                          >
+                            {subscribingId === (pkg.id || pkg.code)
+                              ? 'Processing...'
+                              : `Pay ₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')} & Unlock via Razorpay`}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/merchant?tab=subscriptions')}
-                      style={{
-                        padding: '12px 18px',
-                        borderRadius: 12,
-                        border: '1.5px solid #2563eb',
-                        background: '#ffffff',
-                        color: '#1d4ed8',
-                        fontSize: 13.5,
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Compare All Plans
-                    </button>
-                    <button
-                      type="button"
-                      disabled={subscribingId === (promo999Pkg.id || promo999Pkg.code)}
-                      onClick={() => handleSubscribePlan(promo999Pkg)}
-                      style={{
-                        padding: '12px 24px',
-                        borderRadius: 12,
-                        border: 'none',
-                        background: '#2563eb',
-                        color: '#ffffff',
-                        fontSize: 14,
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        boxShadow: '0 6px 18px rgba(37, 99, 235, 0.28)',
-                      }}
-                    >
-                      {subscribingId === (promo999Pkg.id || promo999Pkg.code)
-                        ? 'Opening Razorpay...'
-                        : `Pay ₹${Number(promo999Pkg.price ?? 999).toLocaleString('en-IN')} & Unlock via Razorpay`}
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             ) : (
               <>
@@ -2108,20 +2083,32 @@ export default function MerchantPortal() {
                   )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={newPromo.status !== 'inactive'}
-                        onChange={(e) => setNewPromo((prev) => ({ ...prev, status: e.target.checked ? 'active' : 'inactive' }))}
-                      />
-                      <span>Publish Live Immediately on Store Page</span>
-                    </label>
+                    {(newPromo.placement || 'Merchant Store') === 'Merchant Store' ? (
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={newPromo.status !== 'inactive'}
+                          onChange={(e) => setNewPromo((prev) => ({ ...prev, status: e.target.checked ? 'active' : 'inactive' }))}
+                        />
+                        <span>Publish Live Immediately on Store Page</span>
+                      </label>
+                    ) : (
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '6px 12px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                        ⏳ Goes to Admin Approval Requests before Landing Page display
+                      </span>
+                    )}
                     <button
                       type="submit"
                       disabled={promoSubmitting || promoUploading}
                       style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
                     >
-                      {promoSubmitting ? 'Saving...' : newPromo.id ? 'Update Advertisement' : 'Publish Store Advertisement'}
+                      {promoSubmitting
+                        ? 'Saving...'
+                        : newPromo.id
+                        ? 'Update Advertisement'
+                        : (newPromo.placement || 'Merchant Store') === 'Merchant Store'
+                        ? 'Publish Store Advertisement'
+                        : 'Submit Ad for Admin Approval'}
                     </button>
                   </div>
                 </form>
@@ -2213,89 +2200,9 @@ export default function MerchantPortal() {
 
         {activePanel === 'subscriptions' && (
           <div>
-            {/* 1. Product Selling Subscription (₹500 Seller Plan — unlocks My Products, Sell / Post an Ad, Customer Orders, Dispatched) */}
-            <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid #e2e8f0' }}>
-              <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>
-                Product Selling Plan (₹500 Seller Plan)
-              </h2>
-              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
-                Unlock <strong>My Products</strong>, <strong>Sell / Post an Ad</strong>, <strong>Customer Orders</strong>, and <strong>Dispatched &amp; In Transit</strong> tracking for your Merchant account (same Razorpay plan as Customers).
-              </p>
-
-              {isSellerSubscribed && (
-                <div style={{ padding: 14, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#166534' }}>₹500 Seller Plan Active</div>
-                    <div style={{ fontSize: 12.5, color: '#15803d' }}>
-                      Your My Products, Sell / Post an Ad, Customer Orders &amp; Dispatched tabs are unlocked.
-                    </div>
-                  </div>
-                  {(userSubData?.user_subscriptions || []).map((sub) => (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={async () => {
-                        if (!window.confirm('Cancel active ₹500 Seller Plan subscription?')) return;
-                        await cancelMySubscription(sub.id, 'USER');
-                        await loadMerchantWorkspace(true);
-                      }}
-                      style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Cancel Plan
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-                {(sellerPaidPackages.length > 0
-                  ? sellerPaidPackages
-                  : [
-                      {
-                        id: 'default-500',
-                        code: 'USER_SELLER_500',
-                        name: 'Seller Plan ₹500',
-                        price: 500,
-                        duration_days: 30,
-                        description: 'Unlock product creation, My Products, Customer Orders & Dispatched tracking.',
-                      },
-                    ]
-                ).map((pkg) => {
-                  const pkgAmt = Number(pkg.price ?? pkg.amount ?? 500);
-                  return (
-                    <div key={pkg.id || pkg.code} style={{ border: '1.5px solid #bfdbfe', borderRadius: 14, padding: 18, background: '#eff6ff44' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                        <span style={{ fontSize: 19, fontWeight: 900, color: '#2563eb' }}>₹{pkgAmt.toLocaleString('en-IN')}</span>
-                      </div>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
-                        Duration: {pkg.duration_days || 30} Days
-                      </div>
-                      <p style={{ fontSize: 12.5, color: '#475569', minHeight: 34, margin: '0 0 12px' }}>
-                        {pkg.description || 'Create & sell products directly to buyers across Kerala.'}
-                      </p>
-                      <button
-                        type="button"
-                        disabled={subscribingId === (pkg.id || pkg.code)}
-                        onClick={() => handleSubscribeSeller500Plan(pkg)}
-                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        {subscribingId === (pkg.id || pkg.code)
-                          ? 'Processing...'
-                          : isSellerSubscribed
-                          ? 'Extend / Renew Seller Plan'
-                          : 'Subscribe ₹500 via Razorpay'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 2. Merchant Store Ad & Visibility Plans (₹999 / ₹1999) */}
-            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Growth & Promo Subscriptions</h2>
+            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Merchant Subscription Plans</h2>
             <p style={{ margin: '0 0 18px', fontSize: 13, color: '#64748b' }}>
-              Promote your store with banner ads & premium visibility via official Logo Kerala plans.
+              Subscribe to Admin-configured Merchant Plans to unlock Photos, Store Tour Video, Product Selling, and Banner Placements for your business.
             </p>
 
             {hasActiveMerchantSub && (
@@ -2326,11 +2233,11 @@ export default function MerchantPortal() {
               </div>
             )}
 
-            {subPackages.length === 0 ? (
-              <p style={{ fontSize: 13.5, color: '#64748b' }}>No active merchant promotion packages found right now.</p>
+            {merchantFeaturePackages.length === 0 ? (
+              <p style={{ fontSize: 13.5, color: '#64748b' }}>No active merchant plans found right now.</p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(275px, 1fr))', gap: 14 }}>
-                {subPackages.map((pkg, idx) => {
+                {merchantFeaturePackages.map((pkg, idx) => {
                   const unlocked = getUnlockedPermissionItems(pkg);
                   return (
                     <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1px solid #cbd5e1', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>

@@ -274,7 +274,15 @@ export default function ZeashellBusinessNetworkSlider({
     const adminCards = (promotions || [])
       .filter((p) => {
         const place = String(p.placement || '').toLowerCase();
-        return place === 'business network' || place === 'business_network' || place === 'news & updates' || place === 'news';
+        return (
+          place === 'business network' ||
+          place === 'business_network' ||
+          place === 'news & updates' ||
+          place === 'news' ||
+          place === 'square poster' ||
+          place === 'square_poster' ||
+          place === 'square'
+        );
       })
       .map((p, idx) => {
         const cls = CARD_CLASSES[idx % CARD_CLASSES.length];

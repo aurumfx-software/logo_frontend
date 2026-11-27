@@ -16,6 +16,7 @@ import {
   HiOutlineBan,
   HiOutlineUserGroup,
   HiOutlineFilter,
+  HiOutlineLogin,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
@@ -60,11 +61,13 @@ export default function Customers() {
     .toUpperCase()
     .trim()
     .replace(/\s+/g, '_');
-  const isSuperAdminOnly =
-    normalizedUserRole === 'SUPER_ADMIN' || normalizedUserRole === 'SUPERADMIN';
+  const isAdminOrSuper =
+    normalizedUserRole === 'ADMIN' ||
+    normalizedUserRole === 'SUPER_ADMIN' ||
+    normalizedUserRole === 'SUPERADMIN';
 
   const handleImpersonateCustomer = async (cust) => {
-    if (!cust || !isSuperAdminOnly) return;
+    if (!cust || !isAdminOrSuper) return;
     const custId = cust.rawId || cust.user_id || cust.id;
     const name = cust.name || cust.full_name || cust.email || `Customer #${custId}`;
     if (!window.confirm(`Open customer profile page as "${name}"?`)) {
@@ -453,21 +456,18 @@ export default function Customers() {
             >
               <HiOutlinePencil />
             </button>
-            {isSuperAdminOnly && (
+            {isAdminOrSuper && (
               <button
                 className="btn btn-outline btn-sm btn-icon"
-                title="Open Customer Profile Page (Super Admin Only)"
+                title="Login as Customer (Impersonate Account)"
                 style={{
                   color: '#6D28D9',
-                  borderColor: '#DDD6FE',
+                  borderColor: '#C4B5FD',
                   background: '#F5F3FF',
-                  fontWeight: 900,
-                  fontSize: 13,
-                  minWidth: 32,
                 }}
                 onClick={() => handleImpersonateCustomer(row)}
               >
-                <span style={{ fontFamily: 'monospace', fontWeight: 900 }}>i</span>
+                <HiOutlineLogin />
               </button>
             )}
             <button

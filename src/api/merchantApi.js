@@ -1121,6 +1121,27 @@ export async function logoutMerchantSession() {
   clearMerchantSession();
 }
 
+export async function createMerchantRegistrationOrder({ email, phone_number, business_name } = {}) {
+  const response = await apiFetch('/api/v1/merchants/register/razorpay-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: String(email || '').trim().toLowerCase() || undefined,
+      phone_number: String(phone_number || '').trim() || undefined,
+      business_name: String(business_name || '').trim() || undefined,
+    }),
+  });
+  const resData = await response.json().catch(() => ({}));
+  if (!response.ok || resData.success === false) {
+    throw new Error(
+      typeof resData.detail === 'string'
+        ? resData.detail
+        : resData.message || 'Failed to initialize ₹1,000 merchant registration payment'
+    );
+  }
+  return resData?.data || resData;
+}
+
 export async function onboardMerchant(merchantData = {}) {
   const validPhotos = (Array.isArray(merchantData.photos) ? merchantData.photos : merchantData.merchant_photos || [])
     .filter((p) => p && typeof p === 'string' && p.trim() !== '')

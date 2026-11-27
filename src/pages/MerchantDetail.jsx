@@ -230,18 +230,18 @@ export default function MerchantDetail({ isPublic = false }) {
   // Raw photos array — filter out dummy images completely and only keep real photos
   const rawPhotos = merchant
     ? [
-        ...(Array.isArray(merchant.photos) ? merchant.photos : []),
-        ...(Array.isArray(merchant.merchant_photos) ? merchant.merchant_photos : []),
-        merchant.photo_1,
-        merchant.photo_2,
-        merchant.photo_3,
-        merchant.photo_4,
-        merchant.photo_5,
-        merchant.photo_6,
-        merchant.image,
-      ]
-        .filter((p) => p && typeof p === 'string' && p.trim() && !p.includes('images.unsplash.com'))
-        .map((p) => formatMediaUrl(p.trim()))
+      ...(Array.isArray(merchant.photos) ? merchant.photos : []),
+      ...(Array.isArray(merchant.merchant_photos) ? merchant.merchant_photos : []),
+      merchant.photo_1,
+      merchant.photo_2,
+      merchant.photo_3,
+      merchant.photo_4,
+      merchant.photo_5,
+      merchant.photo_6,
+      merchant.image,
+    ]
+      .filter((p) => p && typeof p === 'string' && p.trim() && !p.includes('images.unsplash.com'))
+      .map((p) => formatMediaUrl(p.trim()))
     : [];
 
   const photos = Array.from(new Set(rawPhotos));
@@ -259,12 +259,12 @@ export default function MerchantDetail({ isPublic = false }) {
     merchant && Array.isArray(merchant.highlights) && merchant.highlights.length > 0
       ? merchant.highlights
       : [
-          'Famous Malabar Biryani',
-          'Family Restaurant',
-          'AC & Non-AC Rooms',
-          'Free Parking Available',
-          'Cards & UPI Accepted',
-        ];
+        'Famous Malabar Biryani',
+        'Family Restaurant',
+        'AC & Non-AC Rooms',
+        'Free Parking Available',
+        'Cards & UPI Accepted',
+      ];
 
   if (loading) {
     return (

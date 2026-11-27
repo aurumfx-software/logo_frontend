@@ -138,6 +138,16 @@ const AD_SECTIONS = [
     recommendedRatio: 'Poster Card 3:4 (900×1200 px) or Square 1:1 (1080×1080 px)',
   },
   {
+    id: 'Square Poster',
+    label: 'Square Poster',
+    badge: 'Square Poster',
+    icon: '🟩',
+    headline: 'Square Poster & Product Showcase Ads',
+    description:
+      'High-visibility 1:1 square posters submitted by merchants or created by admins for network & product showcase sliders.',
+    recommendedRatio: 'Square 1:1 (1080×1080 px)',
+  },
+  {
     id: 'Moving Text',
     label: 'Moving Text',
     badge: 'Moving Text',
@@ -779,6 +789,11 @@ export default function Promotions() {
            p.placement.toLowerCase() === 'home bottom' ||
            p.placement.toLowerCase().includes('bottom') ||
            p.placement.toLowerCase().includes('footer'))
+        : activeTab === 'Special Offer'
+        ? p.placement &&
+          (p.placement.toLowerCase().includes('special') ||
+           p.placement.toLowerCase().includes('moving') ||
+           p.placement.toLowerCase().includes('popup'))
         : p.placement &&
           (p.placement.toLowerCase() === activeTab.toLowerCase() ||
            p.placement.toLowerCase().startsWith(activeTab.toLowerCase()));
@@ -1984,6 +1999,7 @@ export default function Promotions() {
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
                   <option value="Business Network">Business Network (News &amp; Updates Multi-Card Slider)</option>
+                  <option value="Square Poster">Square Poster (1:1 Showcase Card)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
                 </select>
               </div>
@@ -2427,6 +2443,7 @@ export default function Promotions() {
                   <option value="Featured Offers">Featured Offers (Deals Carousel)</option>
                   <option value="Special Offer">Special Offer (Floating Widget)</option>
                   <option value="Business Network">Business Network (News &amp; Updates Multi-Card Slider)</option>
+                  <option value="Square Poster">Square Poster (1:1 Showcase Card)</option>
                   <option value="Moving Text">Moving Text (Scrolling Ticker Bar)</option>
                 </select>
               </div>

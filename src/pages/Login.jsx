@@ -38,14 +38,14 @@ export default function Login() {
     const cleanPassword = password.trim();
 
     if (!cleanEmail) {
-      setError('Please enter your email address or Login ID');
+      setError('Please enter your Login ID');
       return;
     }
 
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
     const isLoginId = /^[a-zA-Z0-9_\s-]{3,30}$/.test(cleanEmail);
     if (!isEmail && !isLoginId) {
-      setError('Please enter a valid email address or Merchant/User ID (e.g. ASH4906)');
+      setError('Please enter a valid Login ID (e.g. ASH4906 or RAJ48291)');
       return;
     }
 
@@ -173,7 +173,7 @@ export default function Login() {
 
         <form className="login-form" onSubmit={handleLogin}>
           <div className="form-group">
-            <label className="form-label">Email Address or Login ID</label>
+            <label className="form-label">Login ID</label>
             <div style={{ position: 'relative' }}>
               <HiOutlineMail
                 style={{
@@ -188,7 +188,7 @@ export default function Login() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="Enter email address or Login ID (e.g. RAJ48291)..."
+                placeholder="Enter Login ID (e.g. ASH4906 or RAJ48291)..."
                 value={email}
                 onChange={handleEmailChange}
                 style={{ paddingLeft: 42 }}
