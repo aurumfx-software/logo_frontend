@@ -96,7 +96,7 @@ export default function FieldStaffDashboard() {
   const rawTab = searchParams.get('tab') || 'profile';
   const activePanel = rawTab;
 
-  const getLiveToken = () => getAccessToken() || getCustomerToken();
+  const getLiveToken = () => getCustomerToken() || getAccessToken();
 
   const buildCustomerHeaders = (extra = {}) => {
     const tok = getLiveToken();
@@ -107,7 +107,7 @@ export default function FieldStaffDashboard() {
     };
   };
 
-  const [customerUser, setCustomerUser] = useState(() => user || getStoredCustomerUser() || null);
+  const [customerUser, setCustomerUser] = useState(() => getStoredCustomerUser() || user || null);
   const [activeSubData, setActiveSubData] = useState(null);
   const [loadingPanel, setLoadingPanel] = useState(false);
   const [noticeMsg, setNoticeMsg] = useState('');
@@ -182,9 +182,11 @@ export default function FieldStaffDashboard() {
   };
 
   const syncCustomerAuthAndOverview = async () => {
-    const liveTok = getLiveToken();
+    const custTok = getCustomerToken();
+    const adminTok = getAccessToken();
+    const liveTok = custTok || adminTok;
     const storedCust = getStoredCustomerUser();
-    if (liveTok && user && (getCustomerToken() !== liveTok || !storedCust || Number(storedCust.id) !== Number(user.id))) {
+    if (!custTok && liveTok && user && !storedCust) {
       setCustomerSession({ access_token: liveTok, user });
     }
 
@@ -195,14 +197,15 @@ export default function FieldStaffDashboard() {
     ]);
 
     if (profileRes) {
-      const mergedUser = { ...(user || {}), ...profileRes };
+      const mergedUser = { ...(storedCust || user || {}), ...profileRes };
       setCustomerUser(mergedUser);
       setCustomerSession({ access_token: liveTok, user: mergedUser });
-      if (updateUser) updateUser(mergedUser);
+      if (updateUser && !custTok) updateUser(mergedUser);
       syncFormFromUser(mergedUser);
-    } else if (user) {
-      setCustomerUser(user);
-      syncFormFromUser(user);
+    } else if (storedCust || user) {
+      const fallback = storedCust || user;
+      setCustomerUser(fallback);
+      syncFormFromUser(fallback);
     }
 
     if (subRes) setActiveSubData(subRes);
@@ -287,7 +290,9 @@ export default function FieldStaffDashboard() {
 
   const setTab = (tab) => {
     setIsEditingProfile(false);
-    setSearchParams({ tab });
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next);
   };
 
   // Profile Edit Handlers

@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ROLES, hasAccess, normalizeRole } from './utils/rbac';
+import { isCustomerAuthenticated } from './api/customerApi';
+import { getMerchantToken, getStoredMerchantUser } from './api/merchantApi';
 import AdminLayout from './components/Layout/AdminLayout';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -33,19 +35,57 @@ import Customers from './pages/Customers';
 import ImpersonationBanner from './components/common/ImpersonationBanner';
 
 
-// Protected route wrapper — redirects to /login if not authenticated
+const hasMerchantSession = () => Boolean(getMerchantToken() && getStoredMerchantUser());
+
+// Protected route wrapper — allows Admin/Staff AuthContext, Customer session, or Merchant session
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isCustomerAuthenticated() && !hasMerchantSession()) {
     return <Navigate to="/login" replace />;
   }
   return children;
+}
+
+// Dashboard route — supports Admin/Staff, impersonation, and direct Customer landing-page sessions
+function DashboardRoute({ children }) {
+  const { user, isAuthenticated } = useAuth();
+  if (isAuthenticated) {
+    const role = normalizeRole(user);
+    if (role === ROLES.SELLER) {
+      return <Navigate to="/products" replace />;
+    }
+    if (role === ROLES.MERCHANT && !isCustomerAuthenticated()) {
+      return <Navigate to="/merchant" replace />;
+    }
+    return children;
+  }
+  if (isCustomerAuthenticated()) {
+    return children;
+  }
+  if (hasMerchantSession()) {
+    return <Navigate to="/merchant" replace />;
+  }
+  return <Navigate to="/login" replace />;
+}
+
+// Merchant workspace route — supports Admin, Merchant AuthContext, or direct Merchant landing-page sessions
+function MerchantWorkspaceRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated || hasMerchantSession()) {
+    return children;
+  }
+  if (isCustomerAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Navigate to="/login" replace />;
 }
 
 // Admin & Staff only route wrapper — merchants & sellers are redirected to their respective platforms
 function AdminOnlyRoute({ children }) {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) {
+    if (hasMerchantSession()) return <Navigate to="/merchant" replace />;
+    if (isCustomerAuthenticated()) return <Navigate to="/dashboard" replace />;
     return <Navigate to="/login" replace />;
   }
   const role = normalizeRole(user);
@@ -62,6 +102,8 @@ function AdminOnlyRoute({ children }) {
 function RoleProtectedRoute({ allowedRoles, children }) {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) {
+    if (hasMerchantSession()) return <Navigate to="/merchant" replace />;
+    if (isCustomerAuthenticated()) return <Navigate to="/dashboard" replace />;
     return <Navigate to="/login" replace />;
   }
   const role = normalizeRole(user);
@@ -155,15 +197,15 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<AdminOnlyRoute><Dashboard /></AdminOnlyRoute>} />
+        <Route path="/dashboard" element={<DashboardRoute><Dashboard /></DashboardRoute>} />
         <Route path="/admin" element={<AdminOnlyRoute><Dashboard /></AdminOnlyRoute>} />
         <Route path="/categories" element={<AdminOnlyRoute><Categories /></AdminOnlyRoute>} />
         <Route path="/merchants" element={<AdminOnlyRoute><Merchants /></AdminOnlyRoute>} />
         <Route path="/merchants/:id" element={<AdminOnlyRoute><MerchantDetail /></AdminOnlyRoute>} />
         <Route path="/customers" element={<AdminOnlyRoute><Customers /></AdminOnlyRoute>} />
-        <Route path="/merchant" element={<MerchantPortal />} />
-        <Route path="/merchant/dashboard" element={<MerchantPortal />} />
-        <Route path="/merchant-portal" element={<MerchantPortal />} />
+        <Route path="/merchant" element={<MerchantWorkspaceRoute><MerchantPortal /></MerchantWorkspaceRoute>} />
+        <Route path="/merchant/dashboard" element={<MerchantWorkspaceRoute><MerchantPortal /></MerchantWorkspaceRoute>} />
+        <Route path="/merchant-portal" element={<MerchantWorkspaceRoute><MerchantPortal /></MerchantWorkspaceRoute>} />
         <Route path="/geography" element={<AdminOnlyRoute><Geography /></AdminOnlyRoute>} />
         <Route path="/reports" element={<AdminOnlyRoute><Reports /></AdminOnlyRoute>} />
         <Route path="/products" element={<ProductsPlatformRoute><Products /></ProductsPlatformRoute>} />

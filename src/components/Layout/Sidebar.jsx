@@ -30,8 +30,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
 import { fetchAdminWithdrawals } from '../../api/walletApi';
-import { logoutCustomerSession } from '../../api/customerApi';
-import { logoutMerchantSession } from '../../api/merchantApi';
+import { getCustomerToken, getStoredCustomerUser, logoutCustomerSession } from '../../api/customerApi';
+import { getMerchantToken, getStoredMerchantUser, logoutMerchantSession } from '../../api/merchantApi';
 
 const ALL_NAV_ITEMS = [
   {
@@ -92,12 +92,47 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     return 0;
   });
 
-  const userRole = normalizeRole(user);
-  const rawRoleStr = String(user?.role || '').toUpperCase();
-  const isAdminUser = userRole === ROLES.ADMIN;
-  const isMerchantUser = !isAdminUser && (userRole === ROLES.MERCHANT || (user?.email || '').toLowerCase() === 'merchent@gmail.com');
-  const isSellerUser = !isAdminUser && (userRole === ROLES.SELLER || (user?.email || '').toLowerCase() === 'user01@gmail.com');
-  const isCustomerUser = !isAdminUser && !isMerchantUser && !isSellerUser && (rawRoleStr === 'FIELD_STAFF' || rawRoleStr === 'CUSTOMER' || userRole === ROLES.STAFF);
+  const searchParams = new URLSearchParams(location.search || '');
+  const onMerchantRoute = location.pathname.startsWith('/merchant');
+  const storedCustomer = getCustomerToken() ? getStoredCustomerUser() : null;
+  const storedMerchant = getMerchantToken() ? getStoredMerchantUser() : null;
+  const forceCustomerView = searchParams.get('view') === 'customer' && Boolean(storedCustomer);
+
+  let effectiveUser = user;
+  if (onMerchantRoute && !user && storedMerchant) {
+    effectiveUser = {
+      ...storedMerchant,
+      name: storedMerchant.business_name || storedMerchant.name || storedMerchant.owner_name || 'Merchant',
+      role: 'MERCHANT',
+    };
+  } else if ((forceCustomerView || !user) && storedCustomer) {
+    effectiveUser = { ...storedCustomer, role: storedCustomer.role || 'CUSTOMER' };
+  } else if (!user && storedMerchant) {
+    effectiveUser = {
+      ...storedMerchant,
+      name: storedMerchant.business_name || storedMerchant.name || storedMerchant.owner_name || 'Merchant',
+      role: 'MERCHANT',
+    };
+  }
+
+  const userRole = normalizeRole(effectiveUser);
+  const rawRoleStr = String(effectiveUser?.role || '').toUpperCase();
+  const isAdminUser = Boolean(user) && !forceCustomerView && userRole === ROLES.ADMIN;
+  const isMerchantUser =
+    !isAdminUser &&
+    (userRole === ROLES.MERCHANT || (effectiveUser?.email || '').toLowerCase() === 'merchent@gmail.com');
+  const isSellerUser =
+    !isAdminUser &&
+    (userRole === ROLES.SELLER || (effectiveUser?.email || '').toLowerCase() === 'user01@gmail.com');
+  const isCustomerUser =
+    !isAdminUser &&
+    !isMerchantUser &&
+    !isSellerUser &&
+    (rawRoleStr === 'FIELD_STAFF' ||
+      rawRoleStr === 'CUSTOMER' ||
+      rawRoleStr === 'USER' ||
+      userRole === ROLES.STAFF ||
+      Boolean(storedCustomer));
 
   const currentTabParam = new URLSearchParams(location.search || '').get('tab') || '';
   const isMerchantProductTabActive =
@@ -165,25 +200,26 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   // If Customer (FIELD_STAFF) user: Exact Mobile App Customer Account menu in Sidebar.
   // If Merchant user: ONLY Logo Merchant section is shown.
   // If Admin: Full admin modules.
+  const custViewSuffix = forceCustomerView ? '&view=customer' : '';
   const navSections = isCustomerUser
     ? [
         {
           title: 'CUSTOMER ACCOUNT',
           items: [
-            { key: 'cust_profile', path: '/dashboard?tab=profile', icon: HiOutlineUser, label: 'Customer Profile' },
-            { key: 'cust_wallet', path: '/dashboard?tab=wallet', icon: HiOutlineCreditCard, label: 'Wallet & Cashback', pill: (user?.can_sell_products || user?.is_subscriber) ? 'UNLOCKED' : '₹500 PLAN' },
-            { key: 'cust_orders', path: '/dashboard?tab=seller-orders', icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
-            { key: 'cust_dispatched', path: '/dashboard?tab=dispatched', icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
-            { key: 'cust_products', path: '/dashboard?tab=my-products', icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
-            { key: 'cust_sell', path: '/dashboard?tab=sell-ad', icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: '₹500 PLAN' },
-            { key: 'cust_subs', path: '/dashboard?tab=subscriptions', icon: HiOutlineSparkles, label: 'Seller Plan & Subscriptions', pill: (user?.can_sell_products || user?.is_subscriber) ? 'ACTIVE' : 'UPGRADE' },
+            { key: 'cust_profile', path: `/dashboard?tab=profile${custViewSuffix}`, icon: HiOutlineUser, label: 'Customer Profile' },
+            { key: 'cust_wallet', path: `/dashboard?tab=wallet${custViewSuffix}`, icon: HiOutlineCreditCard, label: 'Wallet & Cashback', pill: (effectiveUser?.can_sell_products || effectiveUser?.is_subscriber) ? 'UNLOCKED' : '₹500 PLAN' },
+            { key: 'cust_orders', path: `/dashboard?tab=seller-orders${custViewSuffix}`, icon: HiOutlineShoppingBag, label: 'Customer Orders', pill: '₹500 PLAN' },
+            { key: 'cust_dispatched', path: `/dashboard?tab=dispatched${custViewSuffix}`, icon: HiOutlineTruck, label: 'Dispatched & In Transit', pill: '₹500 PLAN' },
+            { key: 'cust_products', path: `/dashboard?tab=my-products${custViewSuffix}`, icon: HiOutlineCube, label: 'My Products', pill: '₹500 PLAN' },
+            { key: 'cust_sell', path: `/dashboard?tab=sell-ad${custViewSuffix}`, icon: HiOutlineTag, label: 'Sell / Post an Ad', pill: '₹500 PLAN' },
+            { key: 'cust_subs', path: `/dashboard?tab=subscriptions${custViewSuffix}`, icon: HiOutlineSparkles, label: 'Seller Plan & Subscriptions', pill: (effectiveUser?.can_sell_products || effectiveUser?.is_subscriber) ? 'ACTIVE' : 'UPGRADE' },
           ],
         },
         {
           title: 'SUPPORT & GRIEVANCE',
           items: [
-            { key: 'cust_grievance', path: '/dashboard?tab=grievance', icon: HiOutlineExclamationCircle, label: 'Report an Issue / Grievance' },
-            { key: 'cust_help', path: '/dashboard?tab=help', icon: HiOutlineQuestionMarkCircle, label: 'Help & Customer Support' },
+            { key: 'cust_grievance', path: `/dashboard?tab=grievance${custViewSuffix}`, icon: HiOutlineExclamationCircle, label: 'Report an Issue / Grievance' },
+            { key: 'cust_help', path: `/dashboard?tab=help${custViewSuffix}`, icon: HiOutlineQuestionMarkCircle, label: 'Help & Customer Support' },
           ],
         },
       ]
@@ -422,11 +458,29 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
         {!collapsed && (
           <div className="sidebar-footer-user" style={{ marginBottom: 8 }}>
             <div className="sidebar-footer-avatar">
-              {user?.initials || (isCustomerUser ? (user?.name || 'C').charAt(0).toUpperCase() : isMerchantUser ? 'M' : isAdminUser ? 'A' : 'S')}
+              {effectiveUser?.initials ||
+                (isCustomerUser
+                  ? (effectiveUser?.name || 'C').charAt(0).toUpperCase()
+                  : isMerchantUser
+                  ? (effectiveUser?.name || 'M').charAt(0).toUpperCase()
+                  : isAdminUser
+                  ? 'A'
+                  : 'S')}
             </div>
             <div className="sidebar-footer-info">
-              <div className="sidebar-footer-name">{user?.name || (isCustomerUser ? 'Customer' : isMerchantUser ? 'Logo Merchant' : isAdminUser ? 'Admin User' : 'Staff User')}</div>
-              <div className="sidebar-footer-role">{isCustomerUser ? 'Customer Account' : getRoleDisplayTitle(user)}</div>
+              <div className="sidebar-footer-name">
+                {effectiveUser?.name ||
+                  (isCustomerUser
+                    ? 'Customer'
+                    : isMerchantUser
+                    ? 'Logo Merchant'
+                    : isAdminUser
+                    ? 'Admin User'
+                    : 'Staff User')}
+              </div>
+              <div className="sidebar-footer-role">
+                {isCustomerUser ? 'Customer Account' : getRoleDisplayTitle(effectiveUser)}
+              </div>
             </div>
           </div>
         )}

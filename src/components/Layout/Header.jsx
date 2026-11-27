@@ -6,18 +6,52 @@ import {
   HiOutlineShieldCheck,
   HiOutlineChevronDown,
 } from 'react-icons/hi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { switchBackToAdminApi } from '../../api/userApi';
-import { clearCustomerSession } from '../../api/customerApi';
+import {
+  clearCustomerSession,
+  getCustomerToken,
+  getStoredCustomerUser,
+  logoutCustomerSession,
+} from '../../api/customerApi';
+import {
+  getMerchantToken,
+  getStoredMerchantUser,
+  logoutMerchantSession,
+} from '../../api/merchantApi';
 
 export default function Header({ title, onToggleSidebar }) {
   const { user, login, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [switchingBack, setSwitchingBack] = useState(false);
   const dropdownRef = useRef(null);
+
+  const searchParams = new URLSearchParams(location.search || '');
+  const onMerchantRoute = location.pathname.startsWith('/merchant');
+  const storedCustomer = getCustomerToken() ? getStoredCustomerUser() : null;
+  const storedMerchant = getMerchantToken() ? getStoredMerchantUser() : null;
+  const forceCustomerView = searchParams.get('view') === 'customer' && Boolean(storedCustomer);
+
+  let effectiveUser = user;
+  if (onMerchantRoute && !user && storedMerchant) {
+    effectiveUser = {
+      ...storedMerchant,
+      name: storedMerchant.business_name || storedMerchant.name || storedMerchant.owner_name || 'Merchant',
+      role: 'MERCHANT',
+    };
+  } else if ((forceCustomerView || !user) && storedCustomer) {
+    effectiveUser = { ...storedCustomer, role: storedCustomer.role || 'CUSTOMER' };
+  } else if (!user && storedMerchant) {
+    effectiveUser = {
+      ...storedMerchant,
+      name: storedMerchant.business_name || storedMerchant.name || storedMerchant.owner_name || 'Merchant',
+      role: 'MERCHANT',
+    };
+  }
 
   const isImpersonating =
     typeof window !== 'undefined' &&
@@ -72,10 +106,16 @@ export default function Header({ title, onToggleSidebar }) {
     };
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setDropdownOpen(false);
+    const effRole = String(effectiveUser?.role || '').toUpperCase();
+    const shouldGoHome = !user || forceCustomerView || ['USER', 'CUSTOMER', 'FIELD_STAFF', 'MERCHANT', 'SELLER'].includes(effRole);
+    await Promise.all([
+      logoutCustomerSession().catch(() => {}),
+      logoutMerchantSession().catch(() => {}),
+    ]);
     logout();
-    navigate('/login', { replace: true });
+    navigate(shouldGoHome ? '/' : '/login', { replace: true });
   };
 
   return (
@@ -127,8 +167,8 @@ export default function Header({ title, onToggleSidebar }) {
               cursor: 'pointer',
             }}
           >
-            <div className="header-avatar" title={user?.name || 'Admin User'}>
-              {user?.initials || (user?.name ? user.name.charAt(0).toUpperCase() : 'A')}
+            <div className="header-avatar" title={effectiveUser?.name || 'Admin User'}>
+              {effectiveUser?.initials || (effectiveUser?.name ? effectiveUser.name.charAt(0).toUpperCase() : 'A')}
             </div>
             <HiOutlineChevronDown
               size={14}
@@ -188,7 +228,7 @@ export default function Header({ title, onToggleSidebar }) {
                         boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
                       }}
                     >
-                      {user?.initials || (user?.name ? user.name.charAt(0).toUpperCase() : 'A')}
+                      {effectiveUser?.initials || (effectiveUser?.name ? effectiveUser.name.charAt(0).toUpperCase() : 'A')}
                     </div>
                     <div style={{ overflow: 'hidden' }}>
                       <div
@@ -200,7 +240,7 @@ export default function Header({ title, onToggleSidebar }) {
                           overflow: 'hidden',
                         }}
                       >
-                        {user?.name || 'Admin User'}
+                        {effectiveUser?.name || 'Admin User'}
                       </div>
                       <div
                         style={{
@@ -211,7 +251,7 @@ export default function Header({ title, onToggleSidebar }) {
                           overflow: 'hidden',
                         }}
                       >
-                        {user?.email || 'admin@locality.com'}
+                        {effectiveUser?.login_id || effectiveUser?.user_code || effectiveUser?.email || 'Account'}
                       </div>
                     </div>
                   </div>
@@ -232,7 +272,7 @@ export default function Header({ title, onToggleSidebar }) {
                     }}
                   >
                     <HiOutlineShieldCheck size={13} />
-                    {user?.role || 'Super Admin'}
+                    {effectiveUser?.role || 'Super Admin'}
                   </div>
                 </div>
 
@@ -250,7 +290,7 @@ export default function Header({ title, onToggleSidebar }) {
                     }}
                   >
                     <HiOutlineUser size={16} style={{ color: '#6C63FF' }} />
-                    <span>Role: <strong>{user?.role || 'Admin'}</strong></span>
+                    <span>Role: <strong>{effectiveUser?.role || 'Admin'}</strong></span>
                   </div>
 
                   <div

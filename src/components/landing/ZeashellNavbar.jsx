@@ -881,7 +881,9 @@ export default function ZeashellNavbar({
                     <button
                       type="button"
                       className="zeas-blue-user-badge"
-                      onClick={() => navigate(isMerchantLoggedIn ? '/merchant' : '/dashboard')}
+                      onClick={() =>
+                        navigate(isMerchantLoggedIn ? '/merchant' : '/dashboard?tab=profile&view=customer')
+                      }
                       title={
                         isMerchantLoggedIn
                           ? `Open Merchant Dashboard (${displayAccountName})`

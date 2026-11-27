@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   HiOutlineUsers,
@@ -27,6 +28,7 @@ import StatsCard from '../components/UI/StatsCard';
 import { dashboardStats, platformGrowthData, categoryDistribution, recentActivity } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import adminService from '../services/adminService';
+import { getCustomerToken, getStoredCustomerUser } from '../api/customerApi';
 import FieldStaffDashboard from './FieldStaffDashboard';
 import AdminDashboard from './AdminDashboard';
 
@@ -93,16 +95,26 @@ const processTopCategories = (data) => {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [stats, setStats] = useState(dashboardStats);
   const [growthData, setGrowthData] = useState(platformGrowthData);
   const [catDistribution, setCatDistribution] = useState(categoryDistribution);
   const [activityFeed, setActivityFeed] = useState(recentActivity);
+
+  const storedCustomer = getCustomerToken() ? getStoredCustomerUser() : null;
+  const viewCustomer = searchParams.get('view') === 'customer';
+  const rawRoleUpper = (user?.role || '').toString().toUpperCase();
+  const isCustomerDashboard =
+    Boolean(viewCustomer && storedCustomer) ||
+    Boolean(!user && storedCustomer) ||
+    ['STAFF', 'FIELD STAFF', 'FIELD_STAFF', 'CUSTOMER', 'USER'].includes(rawRoleUpper);
 
   const processedCatDistribution = React.useMemo(() => {
     return processTopCategories(catDistribution);
   }, [catDistribution]);
 
   useEffect(() => {
+    if (isCustomerDashboard) return;
     async function loadLiveDashboard() {
       try {
         const liveStats = await adminService.getDashboardStats();
@@ -171,10 +183,9 @@ export default function Dashboard() {
       }
     }
     loadLiveDashboard();
-  }, []);
+  }, [isCustomerDashboard]);
 
-  const roleUpper = (user?.role || '').toString().toUpperCase();
-  if (roleUpper === 'STAFF' || roleUpper === 'FIELD STAFF' || roleUpper === 'FIELD_STAFF' || roleUpper === 'CUSTOMER') {
+  if (isCustomerDashboard) {
     return <FieldStaffDashboard />;
   }
 

@@ -320,7 +320,10 @@ export default function MerchantPortal() {
     setErrorMsg('');
     if (!isFormInitialized.current) setLoading(true);
     try {
-      const liveToken = getAccessToken() || getMerchantToken();
+      const isImpersonation = localStorage.getItem('is_impersonation') === 'true';
+      const liveToken = isImpersonation
+        ? getAccessToken() || getMerchantToken()
+        : getMerchantToken() || getAccessToken();
       if (liveToken && !localStorage.getItem('logo_merchant_token') && user) {
         setMerchantSession({ access_token: liveToken, user });
       }
