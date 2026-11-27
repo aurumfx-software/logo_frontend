@@ -1024,6 +1024,7 @@ export default function MerchantPortal() {
     );
   }
 
+  const currentShopId = Number(formData.id || selectedShop?.id || 0);
   const merchantGrants = mergeMerchantGrants(activeSubData, selectedShop, userSubData);
   const canUploadProfilePhotos = Boolean(merchantGrants.merchant_profile_photos);
   const canUploadProfileVideo = Boolean(merchantGrants.merchant_profile_video);
