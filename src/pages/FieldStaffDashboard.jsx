@@ -902,7 +902,7 @@ export default function FieldStaffDashboard() {
                       return (
                         <div key={tx.id || idx} style={{ padding: '11px 14px', borderRadius: 10, border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>{tx.description || formatTxnTitle(tx)}</div>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>{tx.description || formatTxnType(tx.transaction_type || tx.type, tx.direction)}</div>
                             <div style={{ fontSize: 11.5, color: '#64748b' }}>{tx.created_at ? new Date(tx.created_at).toLocaleString() : ''}</div>
                           </div>
                           <div style={{ fontSize: 14.5, fontWeight: 900, color: isCredit ? '#16a34a' : '#dc2626' }}>
