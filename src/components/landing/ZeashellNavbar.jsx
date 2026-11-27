@@ -18,7 +18,8 @@ import {
 } from 'react-icons/hi';
 import { FaCrosshairs } from 'react-icons/fa';
 import { contentApi } from '../../api/operationsApi';
-import { getMerchantToken } from '../../api/merchantApi';
+import { getMerchantToken, getStoredMerchantUser, logoutMerchantSession } from '../../api/merchantApi';
+import { useAuth } from '../../context/AuthContext';
 
 export const KERALA_POPULAR_TOWNS = [
   { name: 'Kochi', district: 'Ernakulam' },
@@ -83,6 +84,23 @@ export default function ZeashellNavbar({
   onCustomerLogout,
 }) {
   const navigate = useNavigate();
+  const { user: authUser, logout: authLogout } = useAuth();
+  const [merchantSessionUser, setMerchantSessionUser] = useState(() =>
+    getMerchantToken() ? getStoredMerchantUser() : null
+  );
+  useEffect(() => {
+    const syncMerchant = () => {
+      setMerchantSessionUser(getMerchantToken() ? getStoredMerchantUser() : null);
+    };
+    window.addEventListener('merchant-session-changed', syncMerchant);
+    window.addEventListener('customer-session-changed', syncMerchant);
+    window.addEventListener('storage', syncMerchant);
+    return () => {
+      window.removeEventListener('merchant-session-changed', syncMerchant);
+      window.removeEventListener('customer-session-changed', syncMerchant);
+      window.removeEventListener('storage', syncMerchant);
+    };
+  }, []);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
@@ -840,99 +858,78 @@ export default function ZeashellNavbar({
               </span>
             </button>
 
-            {/* Customer Sign In / Account Hub */}
-            {customerUser ? (
-              <div className="zeas-blue-user-menu">
+            {/* Account Pill (Customer -> /dashboard | Merchant -> /merchant) or Sign In */}
+            {(() => {
+              const activeRole = String(authUser?.role || '').toUpperCase();
+              const isAuthMerchant = activeRole === 'MERCHANT';
+              const isAuthCustomer = ['USER', 'CUSTOMER', 'FIELD_STAFF'].includes(activeRole);
+              const activeMerchant = isAuthMerchant
+                ? { ...(merchantSessionUser || {}), ...authUser }
+                : !customerUser && merchantSessionUser
+                ? merchantSessionUser
+                : null;
+              const activeCustomer = !activeMerchant ? customerUser || (isAuthCustomer ? authUser : null) : null;
+              const loggedInAccount = activeMerchant || activeCustomer;
+              const isMerchantLoggedIn = Boolean(activeMerchant);
+              const displayAccountName = isMerchantLoggedIn
+                ? activeMerchant.business_name || activeMerchant.name || activeMerchant.owner_name || 'Merchant'
+                : activeCustomer?.name || activeCustomer?.phone || 'Account';
+
+              if (loggedInAccount) {
+                return (
+                  <div className="zeas-blue-user-menu">
+                    <button
+                      type="button"
+                      className="zeas-blue-user-badge"
+                      onClick={() => navigate(isMerchantLoggedIn ? '/merchant' : '/dashboard')}
+                      title={
+                        isMerchantLoggedIn
+                          ? `Open Merchant Dashboard (${displayAccountName})`
+                          : `Open Customer Profile Dashboard (${displayAccountName})`
+                      }
+                      style={{ border: 'none', cursor: 'pointer' }}
+                    >
+                      <span className="zeas-blue-user-avatar">
+                        {(displayAccountName || 'A').charAt(0).toUpperCase()}
+                      </span>
+                      <span className="zeas-blue-user-name desktop-only">
+                        {displayAccountName}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="zeas-blue-btn-signout"
+                      onClick={async () => {
+                        if (isMerchantLoggedIn) {
+                          await logoutMerchantSession().catch(() => {});
+                          setMerchantSessionUser(null);
+                          if (isAuthMerchant && authLogout) authLogout();
+                        } else {
+                          if (onCustomerLogout) await onCustomerLogout();
+                          if (isAuthCustomer && authLogout) authLogout();
+                        }
+                      }}
+                      title="Sign Out"
+                    >
+                      <HiLogout size={16} />
+                      <span className="desktop-only">Sign Out</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
                 <button
                   type="button"
-                  className="zeas-blue-user-badge"
+                  className="zeas-blue-btn-signin"
                   onClick={onOpenCustomerLogin}
-                  title={`Account (${customerUser.name || 'Customer'})`}
-                  style={{ border: 'none', cursor: 'pointer' }}
+                  title="Account / Sign In"
                 >
-                  <span className="zeas-blue-user-avatar">
-                    {(customerUser.name || 'C').charAt(0).toUpperCase()}
-                  </span>
-                  <span className="zeas-blue-user-name desktop-only">
-                    {customerUser.name || customerUser.phone || 'Account'}
-                  </span>
+                  <HiUser size={18} />
+                  <span>Sign In</span>
                 </button>
-                <button
-                  type="button"
-                  className="zeas-blue-btn-signout"
-                  onClick={onCustomerLogout}
-                  title="Sign Out"
-                >
-                  <HiLogout size={16} />
-                  <span className="desktop-only">Sign Out</span>
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="zeas-blue-btn-signin"
-                onClick={onOpenCustomerLogin}
-                title="Account / Sign In"
-              >
-                <HiUser size={18} />
-                <span>Sign In</span>
-              </button>
-            )}
-
-            {/* Logo Merchant Portal Button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (getMerchantToken()) {
-                  navigate('/merchant');
-                } else if (onOpenMerchantLogin) {
-                  onOpenMerchantLogin();
-                } else {
-                  navigate('/merchant');
-                }
-              }}
-              className="zeas-blue-btn-merchant-portal"
-              title="Merchant Sign In / Register & Portal"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 14px',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#1d4ed8',
-                backgroundColor: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <HiOutlineShoppingBag size={15} />
-              <span>Merchant</span>
-            </button>
-
-            {/* Subscriber Seller Hub Button */}
-            <Link
-              to="/seller"
-              title="Subscriber Seller Hub (Post Products & View Orders)"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '7px 13px',
-                fontSize: '13px',
-                fontWeight: 700,
-                color: '#b45309',
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fde68a',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <span>🛍️ Seller Hub</span>
-            </Link>
+              );
+            })()}
 
             {/* Admin Portal Button */}
             <Link to="/login" className="zeas-blue-btn-admin-portal" title="Admin & Staff Portal">
