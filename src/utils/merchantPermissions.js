@@ -115,16 +115,27 @@ export function resolvePackageMerchantGrants(pkgOrGrants) {
     MERCHANT_PERMISSION_KEYS.forEach((k) => {
       resolved[k] = Boolean(raw[k]);
     });
+    if (raw.can_add_photos) resolved.merchant_profile_photos = true;
+    if (raw.can_add_videos) resolved.merchant_profile_video = true;
     if (raw.can_sell_products) resolved.merchant_product_section = true;
     return resolved;
+  }
+  if (raw.can_add_photos) resolved.merchant_profile_photos = true;
+  if (raw.can_add_videos) resolved.merchant_profile_video = true;
+  if (raw.can_sell_products) resolved.merchant_product_section = true;
+  if (raw.can_add_detail_page_ad) {
+    resolved.merchant_store_ad = true;
+    resolved.merchant_store_video_ad = true;
+  }
+  if (raw.can_promote_landing) {
+    LEGACY_AD_KEYS.filter((k) => k.startsWith('ad_')).forEach((k) => {
+      resolved[k] = true;
+    });
   }
   if (raw.can_create_promotions) {
     LEGACY_AD_KEYS.forEach((k) => {
       resolved[k] = true;
     });
-  }
-  if (raw.can_sell_products) {
-    resolved.merchant_product_section = true;
   }
   return resolved;
 }
