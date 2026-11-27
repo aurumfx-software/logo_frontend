@@ -76,6 +76,20 @@ export async function updateAdminSubscriptionPackage(packageId, updateData) {
 }
 
 /**
+ * Admin: Duplicate an existing subscription package
+ */
+export async function duplicateAdminSubscriptionPackage(packageId) {
+  const response = await apiFetch(`/api/v1/subscriptions/admin/packages/${packageId}/duplicate`, {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to duplicate subscription package');
+  }
+  return data.data || data;
+}
+
+/**
  * Admin: Deactivate / Delete a subscription package
  */
 export async function deleteAdminSubscriptionPackage(packageId) {
@@ -169,6 +183,9 @@ export async function cancelMySubscription(subscriptionId, audience = 'USER') {
  * Check if user (Customer or Merchant) has unlocked ₹500 Seller Plan to create products
  */
 export function hasActiveSellerSubscription(customerUser, activeSubData = null) {
+  if (Boolean(activeSubData?.merchant_grants?.merchant_product_section)) {
+    return true;
+  }
   if (!customerUser) return false;
   if (
     Boolean(customerUser.can_sell_products) ||

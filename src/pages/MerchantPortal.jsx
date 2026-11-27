@@ -78,6 +78,13 @@ import {
   DEFAULT_DISTRICT,
 } from '../utils/locations';
 import { useAuth } from '../context/AuthContext';
+import {
+  MERCHANT_PERMISSION_ITEMS,
+  mergeMerchantGrants,
+  hasAnyAdGrant,
+  getUnlockedPermissionItems,
+  getRequiredAdPermissionKey,
+} from '../utils/merchantPermissions';
 
 const COMPLAINT_CATEGORIES = [
   'Promotion & Banner Issue',
@@ -376,7 +383,7 @@ export default function MerchantPortal() {
         const targetName = (activeShop.business_name || activeShop.name || '').trim();
 
         const [promosRes, compRes, countsRes, pkgsRes, activeSubRes, sliderRes] = await Promise.all([
-          targetId ? fetchMerchantPromotions(targetId, { placement: 'Merchant Store' }).catch(() => []) : [],
+          targetId ? fetchMerchantPromotions(targetId).catch(() => []) : [],
           complaintsApi.list({ merchant: targetName || undefined }).catch(() => []),
           complaintsApi.getCounts().catch(() => ({ all: 0, open: 0, 'in-progress': 0, resolved: 0 })),
           fetchAdminSubscriptionPackages({ audience: 'MERCHANT', activeOnly: true }).catch(() => []),
@@ -472,7 +479,7 @@ export default function MerchantPortal() {
     setSelectedShop(match);
     populateFormFromShop(match);
     const [promosRes, compRes, activeSubRes, sliderRes] = await Promise.all([
-      match.id ? fetchMerchantPromotions(match.id, { placement: 'Merchant Store' }).catch(() => []) : [],
+      match.id ? fetchMerchantPromotions(match.id).catch(() => []) : [],
       complaintsApi.list({ merchant: (match.business_name || match.name || '').trim() || undefined }).catch(() => []),
       fetchMyActiveSubscriptions('MERCHANT', match.id).catch(() => null),
       match.id ? fetchSliderSettings(match.id).catch(() => null) : null,
@@ -606,6 +613,10 @@ export default function MerchantPortal() {
 
   const handlePhotoUpload = async (slotIdx, file) => {
     if (!file) return;
+    if (!merchantGrants?.merchant_profile_photos) {
+      setErrorMsg("Locked: Your current subscription does not include 'Store Profile Photos'. Subscribe to a plan that unlocks photos.");
+      return;
+    }
     setUploadingPhotoIndex(slotIdx);
     setErrorMsg('');
     try {
@@ -629,6 +640,10 @@ export default function MerchantPortal() {
 
   const handleVideoUpload = async (file) => {
     if (!file) return;
+    if (!merchantGrants?.merchant_profile_video) {
+      setErrorMsg("Locked: Your current subscription does not include 'Store Tour & Promo Video'. Subscribe to a plan that unlocks store video.");
+      return;
+    }
     setUploadingVideo(true);
     setErrorMsg('');
     try {
@@ -708,17 +723,25 @@ export default function MerchantPortal() {
     setErrorMsg('');
     try {
       const targetId = formData.id || selectedShop?.id;
+      const chosenPlacement = newPromo.placement || 'Merchant Store';
+      const chosenMedia = newPromo.mediaType || 'image';
+      const reqPermKey = getRequiredAdPermissionKey(chosenPlacement, chosenMedia);
+      if (!merchantGrants?.[reqPermKey]) {
+        setErrorMsg(`Your current plan does not unlock ${chosenPlacement} (${chosenMedia}). Please subscribe to a plan with this permission.`);
+        setPromoSubmitting(false);
+        return;
+      }
       const payload = {
         ...newPromo,
         title: newPromo.title.trim(),
         description: String(newPromo.description || '').trim(),
-        placement: 'Merchant Store',
-        media_type: newPromo.mediaType || 'image',
-        type: newPromo.mediaType === 'text' ? 'Text Banner' : 'Featured',
-        image_url: newPromo.mediaType === 'image' ? String(newPromo.imageUrl || '').trim() : null,
-        video_url: newPromo.mediaType === 'video' ? String(newPromo.videoUrl || '').trim() : null,
-        bg_color: newPromo.mediaType === 'text' ? newPromo.bgColor : null,
-        text_color: newPromo.mediaType === 'text' ? newPromo.textColor : null,
+        placement: chosenPlacement,
+        media_type: chosenMedia,
+        type: chosenMedia === 'text' ? 'Text Banner' : 'Featured',
+        image_url: chosenMedia === 'image' ? String(newPromo.imageUrl || '').trim() : null,
+        video_url: chosenMedia === 'video' ? String(newPromo.videoUrl || '').trim() : null,
+        bg_color: chosenMedia === 'text' ? newPromo.bgColor : null,
+        text_color: chosenMedia === 'text' ? newPromo.textColor : null,
         target_url: String(newPromo.targetUrl || '').trim() || null,
         merchant_id: Number(targetId),
         status: newPromo.status || 'active',
@@ -738,7 +761,7 @@ export default function MerchantPortal() {
         showNotice('Store advertisement published above Location on your Store page!');
       }
       resetPromoDraft();
-      const updatedPromos = await fetchMerchantPromotions(targetId, { placement: 'Merchant Store' }).catch(() => []);
+      const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
       setPromotions(Array.isArray(updatedPromos) ? updatedPromos : []);
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to save store advertisement.');
@@ -793,7 +816,7 @@ export default function MerchantPortal() {
     const nextStatus = isCurrentlyActive ? 'inactive' : 'active';
     try {
       await updatePromotion(promo.id, { status: nextStatus });
-      const updatedPromos = await fetchMerchantPromotions(targetId, { placement: 'Merchant Store' }).catch(() => []);
+      const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
       setPromotions(Array.isArray(updatedPromos) ? updatedPromos : []);
       showNotice(nextStatus === 'active' ? 'Advertisement set Live on Store page!' : 'Advertisement paused.');
     } catch (err) {
@@ -807,7 +830,7 @@ export default function MerchantPortal() {
     try {
       await deletePromotion(promo.id);
       if (newPromo.id === promo.id) resetPromoDraft();
-      const updatedPromos = await fetchMerchantPromotions(targetId, { placement: 'Merchant Store' }).catch(() => []);
+      const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
       setPromotions(Array.isArray(updatedPromos) ? updatedPromos : []);
       showNotice('Advertisement deleted.');
     } catch (err) {
@@ -1003,7 +1026,16 @@ export default function MerchantPortal() {
       return sameShop && ['ACTIVE', 'PAID'].includes(String(s.status || 'ACTIVE').toUpperCase());
     });
 
-  const isSellerSubscribed = hasActiveSellerSubscription(sellerAccountUser, userSubData);
+  const merchantGrants = mergeMerchantGrants(activeSubData, selectedShop, userSubData);
+  const canUploadProfilePhotos = Boolean(merchantGrants.merchant_profile_photos);
+  const canUploadProfileVideo = Boolean(merchantGrants.merchant_profile_video);
+  const canStoreImageTextAd = Boolean(merchantGrants.merchant_store_ad);
+  const canStoreVideoAd = Boolean(merchantGrants.merchant_store_video_ad);
+  const hasAnyMerchantAdPerm = hasAnyAdGrant(merchantGrants);
+
+  const isSellerSubscribed =
+    hasActiveSellerSubscription(sellerAccountUser, userSubData) ||
+    Boolean(merchantGrants.merchant_product_section);
   const sellerUserContext = sellerAccountUser
     ? {
         ...sellerAccountUser,
@@ -1386,12 +1418,43 @@ export default function MerchantPortal() {
 
               {/* 4 Showcase Photos & Video */}
               <div style={{ padding: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
-                <label style={{ ...labelStyle, fontSize: 13.5, marginBottom: 10 }}>
-                  Storefront & Business Photos (Up to 4)
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  <label style={{ ...labelStyle, fontSize: 13.5, marginBottom: 0 }}>
+                    Storefront &amp; Business Photos (Up to 4)
+                  </label>
+                  {!canUploadProfilePhotos && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/merchant?tab=subscriptions')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '5px 11px',
+                        borderRadius: 8,
+                        border: '1px solid #fcd34d',
+                        background: '#fffbeb',
+                        color: '#92400e',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <HiOutlineLockClosed size={13} />
+                      Unlock Store Photos Plan
+                    </button>
+                  )}
+                </div>
+
+                {!canUploadProfilePhotos && (
+                  <div style={{ padding: '10px 12px', borderRadius: 9, background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: 12.5, fontWeight: 700, marginBottom: 12 }}>
+                    🔒 Adding or replacing shop gallery photos requires an active subscription with &quot;Store Profile Photos&quot; enabled.
+                  </div>
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                   {(formData.photos || ['', '', '', '']).map((photoUrl, idx) => (
-                    <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, opacity: canUploadProfilePhotos ? 1 : 0.72 }}>
                       {photoUrl ? (
                         <div style={{ position: 'relative', height: 110, borderRadius: 8, overflow: 'hidden' }}>
                           <img src={photoUrl} alt={`Store ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1415,19 +1478,40 @@ export default function MerchantPortal() {
                           <span>Photo #{idx + 1}</span>
                         </div>
                       )}
-                      <label style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                        {uploadingPhotoIndex === idx ? 'Uploading...' : photoUrl ? 'Replace Photo' : 'Upload Photo'}
-                        <input type="file" accept="image/*" hidden onChange={(e) => handlePhotoUpload(idx, e.target.files?.[0])} />
-                      </label>
+                      {canUploadProfilePhotos ? (
+                        <label style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                          {uploadingPhotoIndex === idx ? 'Uploading...' : photoUrl ? 'Replace Photo' : 'Upload Photo'}
+                          <input type="file" accept="image/*" hidden onChange={(e) => handlePhotoUpload(idx, e.target.files?.[0])} />
+                        </label>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => navigate('/merchant?tab=subscriptions')}
+                          style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          🔒 Subscription Required
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  <label style={{ padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
-                    {uploadingVideo ? 'Uploading Video...' : formData.videoUrl ? 'Replace Store Video' : 'Upload Store Video'}
-                    <input type="file" accept="video/*" hidden onChange={(e) => handleVideoUpload(e.target.files?.[0])} />
-                  </label>
+                  {canUploadProfileVideo ? (
+                    <label style={{ padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+                      {uploadingVideo ? 'Uploading Video...' : formData.videoUrl ? 'Replace Store Video' : 'Upload Store Video'}
+                      <input type="file" accept="video/*" hidden onChange={(e) => handleVideoUpload(e.target.files?.[0])} />
+                    </label>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/merchant?tab=subscriptions')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fcd34d', fontSize: 12.5, fontWeight: 700, color: '#92400e', cursor: 'pointer' }}
+                    >
+                      <HiOutlineLockClosed size={14} />
+                      Store Tour Video Locked — Subscribe to Unlock
+                    </button>
+                  )}
                   {formData.videoUrl && (
                     <span style={{ fontSize: 12, color: '#059669', fontWeight: 700 }}>Video attached ✓</span>
                   )}
@@ -1491,7 +1575,7 @@ export default function MerchantPortal() {
               )}
             </div>
 
-            {!hasActiveMerchantSub ? (
+            {!hasAnyMerchantAdPerm ? (
               <div
                 style={{
                   padding: 28,
@@ -1519,10 +1603,10 @@ export default function MerchantPortal() {
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#78350f' }}>
-                      ₹999 Store Advertisement Subscription Required
+                      Advertisement Permission Subscription Required
                     </h3>
                     <p style={{ margin: '2px 0 0', fontSize: 13, color: '#92400e' }}>
-                      This portal unlocks immediately once your ₹999 Merchant Promotions plan is active via Razorpay.
+                      Subscribe to a Merchant Plan that includes Store Ads, Video Ads, or Platform Banner placements.
                     </p>
                   </div>
                 </div>
@@ -1532,7 +1616,7 @@ export default function MerchantPortal() {
                     'Image Banner Advertisements',
                     'Custom Text + Colored Background Ads',
                     'Promotional Video Ads (Upload or URL)',
-                    'Shown Above Location on Store Page',
+                    'Hero / Middle / Footer Banner Options',
                   ].map((feat) => (
                     <div
                       key={feat}
@@ -1564,39 +1648,66 @@ export default function MerchantPortal() {
                       / {promo999Pkg.duration_days || 30} days
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    disabled={subscribingId === (promo999Pkg.id || promo999Pkg.code)}
-                    onClick={() => handleSubscribePlan(promo999Pkg)}
-                    style={{
-                      padding: '12px 24px',
-                      borderRadius: 12,
-                      border: 'none',
-                      background: '#2563eb',
-                      color: '#ffffff',
-                      fontSize: 14,
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      boxShadow: '0 6px 18px rgba(37, 99, 235, 0.28)',
-                    }}
-                  >
-                    {subscribingId === (promo999Pkg.id || promo999Pkg.code)
-                      ? 'Opening Razorpay...'
-                      : `Pay ₹${Number(promo999Pkg.price ?? 999).toLocaleString('en-IN')} & Unlock via Razorpay`}
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/merchant?tab=subscriptions')}
+                      style={{
+                        padding: '12px 18px',
+                        borderRadius: 12,
+                        border: '1.5px solid #2563eb',
+                        background: '#ffffff',
+                        color: '#1d4ed8',
+                        fontSize: 13.5,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Compare All Plans
+                    </button>
+                    <button
+                      type="button"
+                      disabled={subscribingId === (promo999Pkg.id || promo999Pkg.code)}
+                      onClick={() => handleSubscribePlan(promo999Pkg)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: 12,
+                        border: 'none',
+                        background: '#2563eb',
+                        color: '#ffffff',
+                        fontSize: 14,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 6px 18px rgba(37, 99, 235, 0.28)',
+                      }}
+                    >
+                      {subscribingId === (promo999Pkg.id || promo999Pkg.code)
+                        ? 'Opening Razorpay...'
+                        : `Pay ₹${Number(promo999Pkg.price ?? 999).toLocaleString('en-IN')} & Unlock via Razorpay`}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               <>
-                <div style={{ padding: '10px 14px', borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#065f46' }}>
-                  <HiOutlineCheckCircle size={18} />
-                  <span>₹999 Store Advertisement Subscription Active — Create, edit, and publish your store ads below.</span>
+                <div style={{ padding: '10px 14px', borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <HiOutlineCheckCircle size={18} />
+                    <span>Advertisement Permissions Active — Select from your unlocked placements and formats below.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/merchant?tab=subscriptions')}
+                    style={{ border: 'none', background: '#059669', color: '#fff', borderRadius: 8, padding: '5px 11px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Upgrade / Add Permissions
+                  </button>
                 </div>
 
                 <form onSubmit={handleCreatePromo} style={{ padding: 20, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 24 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                     <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>
-                      {newPromo.id ? 'Edit Store Advertisement' : 'Create Store Advertisement'}
+                      {newPromo.id ? 'Edit Advertisement' : 'Create Advertisement'}
                     </h4>
                     {newPromo.id && (
                       <button
@@ -1609,6 +1720,52 @@ export default function MerchantPortal() {
                     )}
                   </div>
 
+                  {/* Placement Selector driven by Admin subscription ticks */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={labelStyle}>Choose Ad Placement Section *</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {[
+                        { placement: 'Merchant Store', label: 'Store Page', unlocked: canStoreImageTextAd || canStoreVideoAd },
+                        ...MERCHANT_PERMISSION_ITEMS.filter((i) => i.placement).map((i) => ({
+                          placement: i.placement,
+                          label: i.label.replace(/ Ad$/, ''),
+                          unlocked: Boolean(merchantGrants[i.key]),
+                        })),
+                      ].map((opt) => {
+                        const selected = (newPromo.placement || 'Merchant Store') === opt.placement;
+                        return (
+                          <button
+                            key={opt.placement}
+                            type="button"
+                            onClick={() => {
+                              if (!opt.unlocked) {
+                                navigate('/merchant?tab=subscriptions');
+                                return;
+                              }
+                              setNewPromo((prev) => ({ ...prev, placement: opt.placement }));
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '7px 12px',
+                              borderRadius: 9,
+                              border: selected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                              background: !opt.unlocked ? '#f1f5f9' : selected ? '#eff6ff' : '#ffffff',
+                              color: !opt.unlocked ? '#94a3b8' : selected ? '#1d4ed8' : '#334155',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {!opt.unlocked && <HiOutlineLockClosed size={12} />}
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Ad Format Switcher: Image / Text with Bg / Video */}
                   <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Choose Advertisement Format *</label>
@@ -1618,12 +1775,25 @@ export default function MerchantPortal() {
                         { key: 'text', label: 'Text with Background', icon: <HiOutlineDocumentText size={17} /> },
                         { key: 'video', label: 'Video Advertisement', icon: <HiOutlineVideoCamera size={17} /> },
                       ].map((fmt) => {
+                        const chosenPlace = newPromo.placement || 'Merchant Store';
+                        const fmtAllowed =
+                          chosenPlace === 'Merchant Store'
+                            ? fmt.key === 'video'
+                              ? canStoreVideoAd
+                              : canStoreImageTextAd
+                            : Boolean(merchantGrants[getRequiredAdPermissionKey(chosenPlace, fmt.key)]);
                         const active = newPromo.mediaType === fmt.key;
                         return (
                           <button
                             key={fmt.key}
                             type="button"
-                            onClick={() => setNewPromo((prev) => ({ ...prev, mediaType: fmt.key }))}
+                            onClick={() => {
+                              if (!fmtAllowed) {
+                                navigate('/merchant?tab=subscriptions');
+                                return;
+                              }
+                              setNewPromo((prev) => ({ ...prev, mediaType: fmt.key }));
+                            }}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -1631,16 +1801,16 @@ export default function MerchantPortal() {
                               gap: 8,
                               padding: '11px 12px',
                               borderRadius: 11,
-                              border: `2px solid ${active ? '#2563eb' : '#cbd5e1'}`,
-                              background: active ? '#eff6ff' : '#ffffff',
-                              color: active ? '#1d4ed8' : '#334155',
+                              border: `2px solid ${!fmtAllowed ? '#e2e8f0' : active ? '#2563eb' : '#cbd5e1'}`,
+                              background: !fmtAllowed ? '#f1f5f9' : active ? '#eff6ff' : '#ffffff',
+                              color: !fmtAllowed ? '#94a3b8' : active ? '#1d4ed8' : '#334155',
                               fontSize: 13,
                               fontWeight: 800,
                               cursor: 'pointer',
                             }}
                           >
-                            {fmt.icon}
-                            <span>{fmt.label}</span>
+                            {fmtAllowed ? fmt.icon : <HiOutlineLockClosed size={15} />}
+                            <span>{fmtAllowed ? fmt.label : `${fmt.label} (Locked)`}</span>
                           </button>
                         );
                       })}
@@ -1995,15 +2165,15 @@ export default function MerchantPortal() {
                                     fontWeight: 800,
                                     padding: '2px 8px',
                                     borderRadius: 6,
-                                    background: isLive ? '#dcfce7' : '#f1f5f9',
-                                    color: isLive ? '#166534' : '#475569',
+                                    background: isLive ? '#dcfce7' : st === 'PENDING' ? '#fef3c7' : '#f1f5f9',
+                                    color: isLive ? '#166534' : st === 'PENDING' ? '#92400e' : '#475569',
                                   }}
                                 >
-                                  {isLive ? 'LIVE' : 'PAUSED'}
+                                  {isLive ? 'LIVE' : st === 'PENDING' ? 'PENDING APPROVAL' : 'PAUSED'}
                                 </span>
                               </div>
                               <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                                Format: {mType.toUpperCase()} • {p.start_date || ''} → {p.end_date || ''}
+                                {p.placement || 'Merchant Store'} • {mType.toUpperCase()} • {p.start_date || ''} → {p.end_date || ''}
                               </div>
                             </div>
                           </div>
@@ -2130,9 +2300,28 @@ export default function MerchantPortal() {
 
             {hasActiveMerchantSub && (
               <div style={{ padding: 14, borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#065f46' }}>Active Growth Subscription Unlocked</div>
-                <div style={{ fontSize: 12.5, color: '#047857', marginTop: 2 }}>
-                  Your store growth & promo features are active.
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#065f46' }}>Active Merchant Plan Permissions</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {MERCHANT_PERMISSION_ITEMS.filter((item) => Boolean(merchantGrants[item.key])).map((item) => (
+                    <span
+                      key={item.key}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        padding: '4px 9px',
+                        borderRadius: 8,
+                        background: '#ffffff',
+                        color: '#065f46',
+                        border: '1px solid #6ee7b7',
+                      }}
+                    >
+                      <HiOutlineCheckCircle size={13} />
+                      {item.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -2140,31 +2329,55 @@ export default function MerchantPortal() {
             {subPackages.length === 0 ? (
               <p style={{ fontSize: 13.5, color: '#64748b' }}>No active merchant promotion packages found right now.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
-                {subPackages.map((pkg, idx) => (
-                  <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                        <span style={{ fontSize: 18, fontWeight: 900, color: '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(275px, 1fr))', gap: 14 }}>
+                {subPackages.map((pkg, idx) => {
+                  const unlocked = getUnlockedPermissionItems(pkg);
+                  return (
+                    <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1px solid #cbd5e1', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                          <span style={{ fontSize: 18, fontWeight: 900, color: '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#475569' }}>
+                          {pkg.description || 'Boost store visibility across Kerala directory and home banners.'}
+                        </p>
+                        {pkg.duration_days && (
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>Duration: {pkg.duration_days} Days</div>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {unlocked.map((item) => (
+                            <span
+                              key={item.key}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '3px 7px',
+                                borderRadius: 6,
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                              }}
+                            >
+                              <HiOutlineCheckCircle size={12} />
+                              {item.label}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#475569' }}>
-                        {pkg.description || 'Boost store visibility across Kerala directory and home banners.'}
-                      </p>
-                      {pkg.duration_days && (
-                        <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b' }}>Duration: {pkg.duration_days} Days</div>
-                      )}
+                      <button
+                        type="button"
+                        disabled={subscribingId === (pkg.id || pkg.code)}
+                        onClick={() => handleSubscribePlan(pkg)}
+                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={subscribingId === (pkg.id || pkg.code)}
-                      onClick={() => handleSubscribePlan(pkg)}
-                      style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
