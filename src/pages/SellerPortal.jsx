@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   HiShoppingBag,
   HiPlus,
@@ -48,6 +48,7 @@ const PRODUCT_CATEGORIES = [
 ];
 
 export default function SellerPortal() {
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(() =>
     isCustomerAuthenticated() ? getStoredCustomerUser() : null
   );
@@ -132,6 +133,7 @@ export default function SellerPortal() {
     setActiveSubData(null);
     setMyProducts([]);
     setMyOrders([]);
+    navigate('/', { replace: true });
   };
 
   // Handle Creating New Product

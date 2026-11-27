@@ -908,6 +908,7 @@ export default function ZeashellNavbar({
                           if (onCustomerLogout) await onCustomerLogout();
                           if (isAuthCustomer && authLogout) authLogout();
                         }
+                        navigate('/', { replace: true });
                       }}
                       title="Sign Out"
                     >

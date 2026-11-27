@@ -153,12 +153,13 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
 
   const handleLogout = async () => {
     if (onCloseMobile) onCloseMobile();
+    const shouldGoHome = !isAdminUser || isCustomerUser || isMerchantUser || isSellerUser;
     await Promise.all([
       logoutCustomerSession().catch(() => {}),
       logoutMerchantSession().catch(() => {}),
     ]);
     logout();
-    navigate('/login', { replace: true });
+    navigate(shouldGoHome ? '/' : '/login', { replace: true });
   };
 
   // If Customer (FIELD_STAFF) user: Exact Mobile App Customer Account menu in Sidebar.

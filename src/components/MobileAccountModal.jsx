@@ -19,10 +19,19 @@ import {
   HiChevronRight,
   HiChevronLeft,
   HiPhotograph,
-  HiVideoCamera,
   HiShieldCheck,
   HiCreditCard,
+  HiLockClosed,
 } from 'react-icons/hi';
+import GoogleMapsLocationInput from './UI/GoogleMapsLocationInput';
+import {
+  getStatesList,
+  getDistrictsForState,
+  getCitiesForDistrict,
+  DEFAULT_STATE,
+  DEFAULT_DISTRICT,
+} from '../utils/locations';
+import { fetchCategoriesList } from '../api/categoryApi';
 import {
   customerEmailLogin,
   customerSendOTP,
@@ -186,18 +195,28 @@ export default function MobileAccountModal({
     category: 'Retail',
     phone_number: '',
     whatsapp: '',
+    landline: '',
     email: '',
     password: '',
     confirm_password: '',
-    district: 'Kannur',
+    state: DEFAULT_STATE,
+    district: DEFAULT_DISTRICT,
     city: 'Payyanur',
+    landmark: '',
     address: '',
+    latitude: null,
+    longitude: null,
     service_timing: '09:00 AM - 08:00 PM',
     about: '',
+    website: '',
+    instagram: '',
+    facebook: '',
+    youtube: '',
   });
   const [merchPhotos, setMerchPhotos] = useState(['', '', '', '']);
-  const [merchVideoUrl, setMerchVideoUrl] = useState('');
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [detectingGps, setDetectingGps] = useState(false);
+  const [categoriesList, setCategoriesList] = useState(MERCHANT_CATEGORIES);
 
   // Subscription Package states
   const [subAudience, setSubAudience] = useState('USER');
@@ -236,6 +255,19 @@ export default function MobileAccountModal({
     setError('');
     setSuccess(promptMessage || '');
     syncSessions();
+    fetchCategoriesList()
+      .then((cats) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          const names = Array.from(
+            new Set([
+              ...MERCHANT_CATEGORIES,
+              ...cats.map((c) => c.name || c.title || c.category_name).filter(Boolean),
+            ])
+          );
+          setCategoriesList(names);
+        }
+      })
+      .catch(() => {});
 
     if (initialSection === 'customer-login') {
       setSection('customer-auth');
@@ -633,26 +665,75 @@ export default function MobileAccountModal({
     }
   };
 
+  const handleDetectRegGps = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported in this browser.');
+      return;
+    }
+    setDetectingGps(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        let detectedCity = merchReg.city;
+        let detectedDistrict = merchReg.district;
+        let detectedAddress = merchReg.address;
+        try {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          if (geoRes.ok) {
+            const data = await geoRes.json();
+            const addr = data.address || {};
+            const town = addr.city || addr.town || addr.village || addr.suburb || addr.neighbourhood;
+            const dist = addr.state_district || addr.county;
+            if (town) detectedCity = town;
+            if (dist) detectedDistrict = dist.replace(/ District$/i, '');
+            if (data.display_name) {
+              detectedAddress = data.display_name.split(',').map((s) => s.trim()).slice(0, 4).join(', ');
+            }
+          }
+        } catch (_) {}
+        setMerchReg((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          city: detectedCity,
+          district: detectedDistrict,
+          address: detectedAddress,
+        }));
+        setDetectingGps(false);
+        setSuccess(`GPS Coordinates detected (${lat}, ${lng}).`);
+      },
+      (geoErr) => {
+        setDetectingGps(false);
+        setError(geoErr?.message || 'Unable to detect GPS location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleMerchMediaPick = async (type, index, file) => {
     if (!file) return;
+    if (type === 'video') {
+      setError('Store Tour & Promo Video unlocks via a separate Video Subscription after registration.');
+      return;
+    }
     setUploadingMedia(true);
     setError('');
     try {
       const fd = new FormData();
-      fd.append(type === 'video' ? 'videos' : 'photos', file);
+      fd.append('photos', file);
       const res = await uploadMerchantMedia(fd);
-      if (type === 'video') {
-        const vid = res?.videos?.[0] || res?.all_urls?.[0];
-        if (vid) setMerchVideoUrl(vid);
-      } else {
-        const photo = res?.photos?.[0] || res?.all_urls?.[0];
-        if (photo) {
-          setMerchPhotos((prev) => {
-            const next = [...prev];
-            next[index] = photo;
-            return next;
-          });
-        }
+      const photo = res?.photos?.[0] || res?.all_urls?.[0];
+      if (photo) {
+        setMerchPhotos((prev) => {
+          const next = [...prev];
+          next[index] = photo;
+          return next;
+        });
       }
     } catch (err) {
       setError(err.message || 'Media upload failed');
@@ -738,22 +819,31 @@ export default function MobileAccountModal({
         categories: [merchReg.category],
         phone_number: cleanPhone,
         whatsapp: merchReg.whatsapp.trim() || cleanPhone,
+        landline: merchReg.landline.trim(),
         email: cleanEmail,
         password: merchReg.password.trim(),
-        state: 'Kerala',
+        state: merchReg.state || DEFAULT_STATE,
         district: merchReg.district,
         city: merchReg.city.trim() || merchReg.district,
+        landmark: merchReg.landmark.trim(),
         address: merchReg.address.trim(),
+        location: merchReg.address.trim() || `${merchReg.city.trim() || merchReg.district}, ${merchReg.district}`,
+        latitude: merchReg.latitude,
+        longitude: merchReg.longitude,
         service_timing: merchReg.service_timing.trim(),
         about: merchReg.about.trim(),
+        website: merchReg.website.trim(),
+        instagram: merchReg.instagram.trim(),
+        facebook: merchReg.facebook.trim(),
+        youtube: merchReg.youtube.trim(),
         photos: validPhotos,
         merchant_photos: validPhotos,
         photo_1: validPhotos[0] || null,
         photo_2: validPhotos[1] || null,
         photo_3: validPhotos[2] || null,
         photo_4: validPhotos[3] || null,
-        video_url: merchVideoUrl || null,
-        merchant_videos: merchVideoUrl ? [merchVideoUrl] : [],
+        video_url: null,
+        merchant_videos: [],
         status: 'PENDING',
         ...paymentProof,
       });
@@ -809,13 +899,15 @@ export default function MobileAccountModal({
     await logoutCustomerSession();
     setCustomerUser(null);
     setActiveSubData(null);
-    setSuccess('Signed out of customer account.');
+    if (onClose) onClose();
+    navigate('/', { replace: true });
   };
 
   const handleLogoutMerchant = async () => {
     await logoutMerchantSession();
     setMerchantUser(null);
-    setSuccess('Signed out of merchant account.');
+    if (onClose) onClose();
+    navigate('/', { replace: true });
   };
 
   return (
@@ -839,7 +931,7 @@ export default function MobileAccountModal({
           background: '#FFFFFF',
           borderRadius: 22,
           width: '100%',
-          maxWidth: section === 'merchant-auth' && merchantTab === 'register' ? 680 : 480,
+          maxWidth: section === 'merchant-auth' && merchantTab === 'register' ? 760 : 480,
           maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
@@ -1743,10 +1835,10 @@ export default function MobileAccountModal({
               )}
 
               {merchantTab === 'register' && (
-                <form onSubmit={handleMerchantRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <form onSubmit={handleMerchantRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
-                      <label style={labelStyle}>Business / Shop Name *</label>
+                      <label style={labelStyle}>Merchant / Store Name *</label>
                       <input
                         type="text"
                         required
@@ -1771,7 +1863,10 @@ export default function MobileAccountModal({
                         onChange={(e) => setMerchReg({ ...merchReg, category: e.target.value })}
                         style={inputStyle}
                       >
-                        {MERCHANT_CATEGORIES.map((c) => (
+                        {merchReg.category && !categoriesList.includes(merchReg.category) && (
+                          <option value={merchReg.category}>{merchReg.category}</option>
+                        )}
+                        {categoriesList.map((c) => (
                           <option key={c} value={c}>
                             {c}
                           </option>
@@ -1779,13 +1874,34 @@ export default function MobileAccountModal({
                       </select>
                     </div>
                     <div>
-                      <label style={labelStyle}>Phone Number *</label>
+                      <label style={labelStyle}>Mobile / Contact Number *</label>
                       <input
                         type="tel"
                         maxLength={10}
                         required
                         value={merchReg.phone_number}
                         onChange={(e) => setMerchReg({ ...merchReg, phone_number: e.target.value.replace(/[^0-9]/g, '') })}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>WhatsApp Number</label>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        value={merchReg.whatsapp}
+                        onChange={(e) => setMerchReg({ ...merchReg, whatsapp: e.target.value.replace(/[^0-9]/g, '') })}
+                        placeholder="Same as mobile if blank"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Landline Number</label>
+                      <input
+                        type="text"
+                        value={merchReg.landline}
+                        onChange={(e) => setMerchReg({ ...merchReg, landline: e.target.value })}
+                        placeholder="Optional landline"
                         style={inputStyle}
                       />
                     </div>
@@ -1800,49 +1916,176 @@ export default function MobileAccountModal({
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}>District *</label>
-                      <select
-                        value={merchReg.district}
-                        onChange={(e) => setMerchReg({ ...merchReg, district: e.target.value })}
-                        style={inputStyle}
-                      >
-                        {KERALA_DISTRICTS.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>City / Town *</label>
-                      <input
-                        type="text"
-                        required
-                        value={merchReg.city}
-                        onChange={(e) => setMerchReg({ ...merchReg, city: e.target.value })}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Working Hours</label>
+                      <label style={labelStyle}>Business / Service Hours</label>
                       <input
                         type="text"
                         value={merchReg.service_timing}
                         onChange={(e) => setMerchReg({ ...merchReg, service_timing: e.target.value })}
+                        placeholder="09:00 AM - 09:00 PM"
                         style={inputStyle}
                       />
                     </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Street Address *</label>
-                    <input
-                      type="text"
-                      required
-                      value={merchReg.address}
-                      onChange={(e) => setMerchReg({ ...merchReg, address: e.target.value })}
-                      style={inputStyle}
+
+                  {/* Location & GPS Address Card (Full Edit Store parity) */}
+                  <div style={{ padding: 12, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#0F172A' }}>
+                        <HiLocationMarker size={16} color="#2563EB" />
+                        Location &amp; GPS Address
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDetectRegGps}
+                        disabled={detectingGps}
+                        style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #93C5FD', background: '#EFF6FF', color: '#1D4ED8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        {detectingGps ? 'Detecting GPS...' : 'Auto-Detect Store GPS'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>State</label>
+                        <select
+                          value={merchReg.state}
+                          onChange={(e) => {
+                            const st = e.target.value;
+                            const dists = getDistrictsForState(st);
+                            setMerchReg({ ...merchReg, state: st, district: dists[0] || '', city: '' });
+                          }}
+                          style={inputStyle}
+                        >
+                          {getStatesList().map((st) => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>District *</label>
+                        <select
+                          value={merchReg.district}
+                          onChange={(e) => setMerchReg({ ...merchReg, district: e.target.value })}
+                          style={inputStyle}
+                        >
+                          {getDistrictsForState(merchReg.state || DEFAULT_STATE).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>City / Town *</label>
+                        <input
+                          type="text"
+                          required
+                          list="reg-city-suggestions"
+                          value={merchReg.city}
+                          onChange={(e) => setMerchReg({ ...merchReg, city: e.target.value })}
+                          style={inputStyle}
+                        />
+                        <datalist id="reg-city-suggestions">
+                          {getCitiesForDistrict(merchReg.district || DEFAULT_DISTRICT).map((c) => (
+                            <option key={c} value={c} />
+                          ))}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Landmark</label>
+                        <input
+                          type="text"
+                          value={merchReg.landmark}
+                          onChange={(e) => setMerchReg({ ...merchReg, landmark: e.target.value })}
+                          placeholder="Near landmark..."
+                          style={inputStyle}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Full Address *</label>
+                      <input
+                        type="text"
+                        required
+                        value={merchReg.address}
+                        onChange={(e) => setMerchReg({ ...merchReg, address: e.target.value })}
+                        placeholder="Building, street, area..."
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <GoogleMapsLocationInput
+                      latitude={merchReg.latitude}
+                      longitude={merchReg.longitude}
+                      address={merchReg.address}
+                      onLocationChange={(loc) =>
+                        setMerchReg((prev) => ({
+                          ...prev,
+                          latitude: loc.lat ?? loc.latitude ?? prev.latitude,
+                          longitude: loc.lng ?? loc.longitude ?? prev.longitude,
+                          address: loc.address || prev.address,
+                          city: loc.city || prev.city,
+                          district: loc.district || prev.district,
+                        }))
+                      }
                     />
                   </div>
+
+                  {/* About & Social Links */}
+                  <div>
+                    <label style={labelStyle}>About Business &amp; Services</label>
+                    <textarea
+                      rows={3}
+                      value={merchReg.about}
+                      onChange={(e) => setMerchReg({ ...merchReg, about: e.target.value })}
+                      placeholder="Describe your store, services & highlights..."
+                      style={{ ...inputStyle, resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Website</label>
+                      <input
+                        type="text"
+                        value={merchReg.website}
+                        onChange={(e) => setMerchReg({ ...merchReg, website: e.target.value })}
+                        placeholder="https://..."
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Instagram</label>
+                      <input
+                        type="text"
+                        value={merchReg.instagram}
+                        onChange={(e) => setMerchReg({ ...merchReg, instagram: e.target.value })}
+                        placeholder="https://instagram.com/..."
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Facebook</label>
+                      <input
+                        type="text"
+                        value={merchReg.facebook}
+                        onChange={(e) => setMerchReg({ ...merchReg, facebook: e.target.value })}
+                        placeholder="https://facebook.com/..."
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>YouTube</label>
+                      <input
+                        type="text"
+                        value={merchReg.youtube}
+                        onChange={(e) => setMerchReg({ ...merchReg, youtube: e.target.value })}
+                        placeholder="https://youtube.com/..."
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Passwords */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div>
                       <label style={labelStyle}>Password (min 8 chars) *</label>
@@ -1867,10 +2110,10 @@ export default function MobileAccountModal({
                     </div>
                   </div>
 
-                  {/* Up to 4 Storefront Photos + Promo Video Upload */}
+                  {/* Storefront Photos Only (Video Requires Separate Subscription) */}
                   <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 12, border: '1px solid #E2E8F0' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <HiPhotograph size={16} color="#2563EB" /> Storefront Photos (Up to 4) &amp; Promo Video
+                      <HiPhotograph size={16} color="#2563EB" /> Storefront Photos (Up to 4)
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
                       {[0, 1, 2, 3].map((i) => (
@@ -1905,29 +2148,10 @@ export default function MobileAccountModal({
                       ))}
                     </div>
 
-                    <label
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        borderRadius: 8,
-                        background: merchVideoUrl ? '#DBEAFE' : '#EFF6FF',
-                        color: '#1D4ED8',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <HiVideoCamera size={16} />
-                      <span>{uploadingMedia ? 'Uploading...' : merchVideoUrl ? 'Promo Video Added ✓' : 'Upload Promo Video'}</span>
-                      <input
-                        type="file"
-                        accept="video/*"
-                        style={{ display: 'none' }}
-                        onChange={(e) => handleMerchMediaPick('video', 0, e.target.files?.[0])}
-                      />
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', fontSize: 11.5, fontWeight: 700, color: '#92400E' }}>
+                      <HiLockClosed size={14} color="#D97706" />
+                      <span>Store Tour &amp; Promo Video is locked during registration — unlock it later with a Merchant Video Subscription.</span>
+                    </div>
                   </div>
 
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 12, fontWeight: 700, color: '#1E40AF' }}>
