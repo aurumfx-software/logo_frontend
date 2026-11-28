@@ -29,7 +29,14 @@ import {
   approvePromoAccessRequest,
   rejectPromoAccessRequest,
   togglePromotionAccess,
+  formatMediaUrl,
 } from '../api/merchantApi';
+import {
+  fetchPromotionsList,
+  approvePromotion,
+  rejectPromotion,
+  updatePromotion,
+} from '../api/promotionApi';
 
 export default function RegistrationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,11 +50,15 @@ export default function RegistrationRequests() {
   const [actionLoading, setActionLoading] = useState(false);
   const [successToast, setSuccessToast] = useState('');
 
-  // Promo Access Requests State
+  // Promo Access Requests & Merchant Ad Submission Requests State
+  const [promoSubSection, setPromoSubSection] = useState('ads'); // 'ads' | 'access'
   const [promoRequests, setPromoRequests] = useState([]);
+  const [merchantAdRequests, setMerchantAdRequests] = useState([]);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoActiveTab, setPromoActiveTab] = useState('pending');
   const [promoActionLoading, setPromoActionLoading] = useState(false);
+  const [editingAdModal, setEditingAdModal] = useState(null);
+  const [savingAdEdit, setSavingAdEdit] = useState(false);
 
   // Edit Merchant State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -65,8 +76,17 @@ export default function RegistrationRequests() {
   const loadPromoRequests = async () => {
     try {
       setPromoLoading(true);
-      const list = await fetchPromoAccessRequests({ status: promoActiveTab });
-      setPromoRequests(Array.isArray(list) ? list : []);
+      const [accessList, promosAll] = await Promise.all([
+        fetchPromoAccessRequests({ status: promoActiveTab }).catch(() => []),
+        fetchPromotionsList({ status: 'all' }).catch(() => []),
+      ]);
+      setPromoRequests(Array.isArray(accessList) ? accessList : []);
+      const merchAds = (Array.isArray(promosAll) ? promosAll : []).filter(
+        (p) =>
+          p.merchant_id != null &&
+          String(p.placement || '').trim().toLowerCase() !== 'merchant store'
+      );
+      setMerchantAdRequests(merchAds);
     } catch (err) {
       console.warn('Failed to load promo requests:', err);
       setPromoRequests([]);
@@ -76,9 +96,7 @@ export default function RegistrationRequests() {
   };
 
   useEffect(() => {
-    if (currentSection === 'promo-access') {
-      loadPromoRequests();
-    }
+    loadPromoRequests();
   }, [currentSection, promoActiveTab]);
 
   const loadRequests = async () => {
@@ -603,12 +621,226 @@ export default function RegistrationRequests() {
     rejected: data.filter((r) => (r.status || '').toLowerCase() === 'rejected').length,
   };
 
+  // Merchant Ad Moderation Handlers (inside Promo Access Requests)
+  const handleApproveAdSubmission = async (adRow) => {
+    try {
+      setPromoActionLoading(true);
+      await approvePromotion(adRow.id);
+      setMerchantAdRequests((prev) =>
+        prev.map((a) => (a.id === adRow.id ? { ...a, status: 'active', rejection_reason: '' } : a))
+      );
+      showNotification(`✓ Advertisement "${adRow.title}" accepted and is now live on Landing Page!`);
+    } catch (err) {
+      alert(`Failed to accept advertisement: ${err.message}`);
+    } finally {
+      setPromoActionLoading(false);
+    }
+  };
+
+  const handleRejectAdSubmission = async (adRow) => {
+    const reason = window.prompt(
+      `Reject "${adRow.title}" from ${adRow.merchant_name || 'Merchant'}?\nEnter rejection reason:`,
+      adRow.rejection_reason || 'Ad content/design needs revision'
+    );
+    if (reason === null) return;
+    try {
+      setPromoActionLoading(true);
+      await rejectPromotion(adRow.id, reason);
+      setMerchantAdRequests((prev) =>
+        prev.map((a) => (a.id === adRow.id ? { ...a, status: 'rejected', rejection_reason: reason } : a))
+      );
+      showNotification(`✕ Advertisement "${adRow.title}" rejected.`);
+    } catch (err) {
+      alert(`Failed to reject advertisement: ${err.message}`);
+    } finally {
+      setPromoActionLoading(false);
+    }
+  };
+
+  const handleSaveAdEdit = async (e) => {
+    e.preventDefault();
+    if (!editingAdModal) return;
+    setSavingAdEdit(true);
+    try {
+      const updated = await updatePromotion(editingAdModal.id, {
+        title: editingAdModal.title,
+        description: editingAdModal.description,
+        placement: editingAdModal.placement,
+        category: editingAdModal.category,
+        start_date: editingAdModal.start_date,
+        end_date: editingAdModal.end_date,
+        target_url: editingAdModal.target_url,
+        image_url: editingAdModal.media_type === 'image' ? editingAdModal.image_url : null,
+        video_url: editingAdModal.media_type === 'video' ? editingAdModal.video_url : null,
+      });
+      setMerchantAdRequests((prev) =>
+        prev.map((a) => (a.id === editingAdModal.id ? { ...a, ...updated, ...editingAdModal } : a))
+      );
+      setEditingAdModal(null);
+      showNotification('✓ Advertisement updated! You can now click Accept to publish on Landing Page.');
+    } catch (err) {
+      alert(err.message || 'Failed to save advertisement changes');
+    } finally {
+      setSavingAdEdit(false);
+    }
+  };
+
+  const adCounts = {
+    all: merchantAdRequests.length,
+    pending: merchantAdRequests.filter((a) => String(a.status || '').toLowerCase() === 'pending').length,
+    approved: merchantAdRequests.filter((a) =>
+      ['active', 'approved'].includes(String(a.status || '').toLowerCase())
+    ).length,
+    rejected: merchantAdRequests.filter((a) => String(a.status || '').toLowerCase() === 'rejected').length,
+  };
+
+  const filteredMerchantAds = merchantAdRequests.filter((a) => {
+    const st = String(a.status || '').toLowerCase();
+    if (promoActiveTab === 'all') return true;
+    if (promoActiveTab === 'approved') return st === 'active' || st === 'approved';
+    return st === promoActiveTab;
+  });
+
+  const merchantAdColumns = [
+    {
+      key: 'preview',
+      label: 'Preview',
+      sortable: false,
+      render: (_, row) => {
+        const media = row.media_type || (row.video_url ? 'video' : row.image_url ? 'image' : 'text');
+        if (media === 'video' && row.video_url) {
+          return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, background: '#FAF5FF', color: '#7C3AED', fontSize: 11.5, fontWeight: 800 }}>
+              🎬 Video
+            </span>
+          );
+        }
+        if (media === 'image' && row.image_url) {
+          return (
+            <img
+              src={formatMediaUrl(row.image_url)}
+              alt={row.title}
+              style={{ width: 64, height: 38, objectFit: 'cover', borderRadius: 6, border: '1px solid #E2E8F0' }}
+            />
+          );
+        }
+        return (
+          <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 6, background: '#EFF6FF', color: '#1D4ED8', fontSize: 11, fontWeight: 800 }}>
+            {String(row.placement || '').includes('Moving') ? '📢 Ticker' : '🎨 Text Ad'}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'title',
+      label: 'Ad Details & Store',
+      render: (val, row) => (
+        <div>
+          <div style={{ fontWeight: 800, color: '#0F172A', fontSize: 13 }}>{val}</div>
+          <div style={{ fontSize: 11.5, color: '#2563EB', fontWeight: 700, marginTop: 2 }}>
+            🏪 {row.merchant_name || `Merchant #${row.merchant_id}`}
+          </div>
+          {row.description && (
+            <div style={{ fontSize: 11, color: '#64748B', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {row.description}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'placement',
+      label: 'Placement Section',
+      render: (val) => (
+        <span style={{ padding: '3px 9px', borderRadius: 7, background: '#F5F3FF', color: '#5B21B6', fontSize: 11.5, fontWeight: 800, border: '1px solid #DDD6FE' }}>
+          {val || 'Home Top'}
+        </span>
+      ),
+    },
+    {
+      key: 'dates',
+      label: 'Validity Dates',
+      render: (_, row) => (
+        <div style={{ fontSize: 11.5, color: '#475569', whiteSpace: 'nowrap' }}>
+          <div>{row.start_date || '-'}</div>
+          <div>to {row.end_date || '-'}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (val) => {
+        const st = String(val || 'pending').toLowerCase();
+        return (
+          <StatusBadge
+            status={st === 'active' ? 'approved' : st}
+            label={st === 'active' ? 'Approved (Live)' : st.charAt(0).toUpperCase() + st.slice(1)}
+          />
+        );
+      },
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      render: (_, row) => {
+        const st = String(row.status || '').toLowerCase();
+        const isLive = st === 'active' || st === 'approved';
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              title="Edit Advertisement"
+              onClick={() =>
+                setEditingAdModal({
+                  ...row,
+                  start_date: row.start_date || new Date().toISOString().split('T')[0],
+                  end_date: row.end_date || '2027-12-31',
+                })
+              }
+              style={{ color: '#2563EB', borderColor: '#BFDBFE', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px', fontSize: 11.5 }}
+            >
+              <HiOutlinePencil /> Edit
+            </button>
+            {!isLive && (
+              <button
+                type="button"
+                className="btn btn-success btn-sm"
+                title="Accept & Publish to Landing Page"
+                disabled={promoActionLoading}
+                onClick={() => handleApproveAdSubmission(row)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 11.5 }}
+              >
+                <HiOutlineCheck /> Accept
+              </button>
+            )}
+            {st !== 'rejected' && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                title="Reject Advertisement"
+                disabled={promoActionLoading}
+                onClick={() => handleRejectAdSubmission(row)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 11.5 }}
+              >
+                <HiOutlineX /> Reject
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
   const promoCounts = {
     all: promoRequests.length,
     pending: promoRequests.filter((r) => (r.status || '').toUpperCase() === 'PENDING').length,
     approved: promoRequests.filter((r) => (r.status || '').toUpperCase() === 'APPROVED').length,
     rejected: promoRequests.filter((r) => (r.status || '').toUpperCase() === 'REJECTED').length,
   };
+  const totalPromoPendingBadge = promoCounts.pending + adCounts.pending;
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
@@ -708,15 +940,15 @@ export default function RegistrationRequests() {
           <span>Promo Access Requests</span>
           <span
             style={{
-              background: promoCounts.pending > 0 ? '#EF4444' : (currentSection === 'promo-access' ? '#059669' : '#F3F4F6'),
-              color: promoCounts.pending > 0 || currentSection === 'promo-access' ? '#FFFFFF' : '#6B7280',
+              background: totalPromoPendingBadge > 0 ? '#EF4444' : (currentSection === 'promo-access' ? '#059669' : '#F3F4F6'),
+              color: totalPromoPendingBadge > 0 || currentSection === 'promo-access' ? '#FFFFFF' : '#6B7280',
               padding: '2px 8px',
               borderRadius: 10,
               fontSize: 11,
               fontWeight: 700,
             }}
           >
-            {promoCounts.pending}
+            {totalPromoPendingBadge}
           </span>
         </button>
       </div>
@@ -767,9 +999,46 @@ export default function RegistrationRequests() {
         </>
       )}
 
-      {/* SECTION 2: PROMO ACCESS REQUESTS (SEPARATE SECTION) */}
+      {/* SECTION 2: PROMO ACCESS & SUBMITTED AD APPROVAL REQUESTS */}
       {currentSection === 'promo-access' && (
         <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setPromoSubSection('ads')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 9,
+                  border: promoSubSection === 'ads' ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                  background: promoSubSection === 'ads' ? '#EFF6FF' : '#FFFFFF',
+                  color: promoSubSection === 'ads' ? '#1E40AF' : '#475569',
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                📢 Merchant Ad Requests ({adCounts.pending} Pending)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPromoSubSection('access')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 9,
+                  border: promoSubSection === 'access' ? '2px solid #059669' : '1px solid #E2E8F0',
+                  background: promoSubSection === 'access' ? '#ECFDF5' : '#FFFFFF',
+                  color: promoSubSection === 'access' ? '#065F46' : '#475569',
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                🔑 Store Promo Access ({promoCounts.pending} Pending)
+              </button>
+            </div>
+          </div>
+
           <div className="tabs">
             {['pending', 'approved', 'rejected', 'all'].map((tab) => (
               <button
@@ -777,7 +1046,8 @@ export default function RegistrationRequests() {
                 className={`tab ${promoActiveTab === tab ? 'active' : ''}`}
                 onClick={() => setPromoActiveTab(tab)}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)} ({promoCounts[tab] || 0})
+                {tab.charAt(0).toUpperCase() + tab.slice(1)} (
+                {promoSubSection === 'ads' ? adCounts[tab] || 0 : promoCounts[tab] || 0})
               </button>
             ))}
           </div>
@@ -798,16 +1068,26 @@ export default function RegistrationRequests() {
                   }}
                 >
                   <CircularSpinner size={16} color="#059669" />
-                  <span>Loading promo access requests...</span>
+                  <span>Loading requests...</span>
                 </div>
               )}
-              <DataTable
-                columns={promoColumns}
-                data={promoRequests}
-                loading={promoLoading}
-                searchPlaceholder="Search merchant, owner, city..."
-                emptyText="No promo access requests in this view."
-              />
+              {promoSubSection === 'ads' ? (
+                <DataTable
+                  columns={merchantAdColumns}
+                  data={filteredMerchantAds}
+                  loading={promoLoading}
+                  searchPlaceholder="Search ad title, store name, placement..."
+                  emptyText="No merchant advertisement submissions in this view."
+                />
+              ) : (
+                <DataTable
+                  columns={promoColumns}
+                  data={promoRequests}
+                  loading={promoLoading}
+                  searchPlaceholder="Search merchant, owner, city..."
+                  emptyText="No promo access requests in this view."
+                />
+              )}
             </div>
           </div>
         </>
@@ -1368,6 +1648,129 @@ export default function RegistrationRequests() {
                 onChange={(e) => setEditFormData((prev) => ({ ...prev, about: e.target.value }))}
               />
             </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Admin Edit Merchant Ad Request Modal (before or after accepting to Landing Page) */}
+      <Modal
+        isOpen={Boolean(editingAdModal)}
+        onClose={() => setEditingAdModal(null)}
+        title={`Edit Merchant Advertisement (#${editingAdModal?.id || ''})`}
+        size="md"
+        footer={
+          editingAdModal && (
+            <>
+              <button type="button" className="btn btn-outline" onClick={() => setEditingAdModal(null)} disabled={savingAdEdit}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleSaveAdEdit} disabled={savingAdEdit}>
+                {savingAdEdit ? 'Saving...' : 'Save Ad Changes'}
+              </button>
+            </>
+          )
+        }
+      >
+        {editingAdModal && (
+          <form onSubmit={handleSaveAdEdit}>
+            <div className="form-group">
+              <label className="form-label">Advertisement Title / Announcement Text *</label>
+              <input
+                type="text"
+                className="form-input"
+                required
+                value={editingAdModal.title || ''}
+                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Description / Offer Details</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={editingAdModal.description || ''}
+                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Placement Section</label>
+                <select
+                  className="form-select"
+                  value={editingAdModal.placement || 'Home Top'}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, placement: e.target.value }))}
+                >
+                  <option value="Home Top">Home Top (Top Banners)</option>
+                  <option value="Home Middle">Home Middle (Middle Ads)</option>
+                  <option value="Above Footer">Above Footer</option>
+                  <option value="Featured Offers">Featured Offers</option>
+                  <option value="Special Offer">Special Offer (Special Deals)</option>
+                  <option value="Business Network">Business Network</option>
+                  <option value="Square Poster">Square Poster</option>
+                  <option value="Moving Text">Moving Text (Scrolling Ticker)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingAdModal.category || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, category: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={editingAdModal.start_date || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, start_date: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">End Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={editingAdModal.end_date || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, end_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Target / Action URL</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editingAdModal.target_url || ''}
+                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, target_url: e.target.value }))}
+              />
+            </div>
+            {editingAdModal.media_type === 'image' && (
+              <div className="form-group">
+                <label className="form-label">Image URL</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingAdModal.image_url || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, image_url: e.target.value }))}
+                />
+              </div>
+            )}
+            {editingAdModal.media_type === 'video' && (
+              <div className="form-group">
+                <label className="form-label">Video URL</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editingAdModal.video_url || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, video_url: e.target.value }))}
+                />
+              </div>
+            )}
           </form>
         )}
       </Modal>

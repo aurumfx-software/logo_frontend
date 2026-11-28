@@ -564,10 +564,42 @@ export default function Subscriptions() {
           marginBottom: 22,
         }}
       >
-        <StatsCard title="Total Plans" value={totalPackages} subtitle={`${activeCount} Active Plans`} icon={HiOutlineTag} color="blue" />
-        <StatsCard title="Merchant Permission Plans" value={merchantPackages.length} subtitle="Custom ticked feature bundles" icon={HiOutlineOfficeBuilding} color="emerald" />
-        <StatsCard title="Customer / Seller Plans" value={userPackages.length} subtitle="e.g. USER_SELLER_500" icon={HiOutlineUserGroup} color="purple" />
-        <StatsCard title="Company Wallet Settlement" value="100% Live" subtitle="Razorpay auto-syncs to Wallet" icon={HiOutlineCreditCard} color="amber" />
+        <StatsCard
+          label="Total Subscription Plans"
+          value={totalPackages}
+          trend="up"
+          trendValue={`${activeCount} Active Plans`}
+          icon={<HiOutlineTag />}
+          color="primary"
+          delay={0}
+        />
+        <StatsCard
+          label="Merchant Permission Plans"
+          value={merchantPackages.length}
+          trend="up"
+          trendValue="Store & Ad Tiers"
+          icon={<HiOutlineOfficeBuilding />}
+          color="success"
+          delay={1}
+        />
+        <StatsCard
+          label="Customer / Seller Plans"
+          value={userPackages.length}
+          trend="up"
+          trendValue="Marketplace Selling"
+          icon={<HiOutlineUserGroup />}
+          color="info"
+          delay={2}
+        />
+        <StatsCard
+          label="Company Wallet Sync"
+          value="Automated"
+          trend="up"
+          trendValue="100% Live Settlement"
+          icon={<HiOutlineCreditCard />}
+          color="warning"
+          delay={3}
+        />
       </div>
 
       {/* Platform Wallet Strip */}

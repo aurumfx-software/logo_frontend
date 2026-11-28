@@ -27,6 +27,8 @@ import {
   FaEnvelope,
 } from 'react-icons/fa';
 import { fetchMerchantsList, getMerchantById, formatMediaUrl } from '../api/merchantApi';
+import { getUnlockedPermissionItems } from '../utils/merchantPermissions';
+import { computeDaysRemaining } from '../api/subscriptionApi';
 import { useAuth } from '../context/AuthContext';
 import ZeashellShopModal from '../components/landing/ZeashellShopModal';
 import MerchantAdBanner from '../components/landing/MerchantAdBanner';
@@ -450,6 +452,90 @@ export default function MerchantDetail({ isPublic = false }) {
             </button>
           </div>
         </div>
+
+        {/* ── ADMIN VIEW: SUBSCRIBED PLAN & ACTIVE PERMISSIONS DETAILS ── */}
+        {isAuthenticated && !isPublic && (() => {
+          const subs = Array.isArray(merchant.active_subscriptions) ? merchant.active_subscriptions : [];
+          const grantedList = getUnlockedPermissionItems({ grants: merchant.merchant_grants || {} });
+          const planTitle = merchant.subscription_plan_name || subs.map((s) => s.package_name).filter(Boolean).join(', ');
+          return (
+            <div style={{ padding: '16px 28px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ padding: '14px 18px', borderRadius: 14, background: planTitle ? '#ECFDF5' : '#FFFBEB', border: planTitle ? '1.5px solid #A7F3D0' : '1.5px solid #FDE68A' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: subs.length > 0 || grantedList.length > 0 ? 12 : 0 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: planTitle ? '#047857' : '#92400E' }}>
+                      💳 Subscribed Plan Details (Admin View)
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#0F172A', marginTop: 2 }}>
+                      {planTitle || 'No Active Paid Subscription Plan'}
+                    </div>
+                    {merchant.login_id && (
+                      <div style={{ fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 2 }}>
+                        Merchant Login ID: <strong>{merchant.login_id}</strong> {merchant.email ? `• ${merchant.email}` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/subscribers')}
+                    style={{ padding: '7px 14px', borderRadius: 10, border: '1px solid #10B981', background: '#FFFFFF', color: '#065F46', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Manage in Subscribers →
+                  </button>
+                </div>
+
+                {subs.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 10, marginBottom: grantedList.length > 0 ? 10 : 0 }}>
+                    {subs.map((sub, sIdx) => {
+                      const daysLeft = computeDaysRemaining(sub);
+                      return (
+                        <div key={sub.id || sIdx} style={{ background: '#FFFFFF', borderRadius: 10, padding: '10px 14px', border: '1px solid #D1FAE5' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <strong style={{ fontSize: 13.5, color: '#0F172A' }}>{sub.package_name}</strong>
+                            <span style={{ fontSize: 14, fontWeight: 900, color: '#059669' }}>
+                              ₹{Number(sub.amount_paid ?? sub.price ?? 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.55 }}>
+                            <div>
+                              <strong>Status:</strong> {sub.status || 'ACTIVE'}
+                              {daysLeft !== null ? ` • ⏳ ${daysLeft} Days Left` : ''}
+                            </div>
+                            {sub.started_at && (
+                              <div>
+                                <strong>Subscribed:</strong> {new Date(sub.started_at).toLocaleString('en-IN')}
+                              </div>
+                            )}
+                            {sub.expires_at && (
+                              <div>
+                                <strong>Expires:</strong> {new Date(sub.expires_at).toLocaleString('en-IN')}
+                              </div>
+                            )}
+                            {sub.payment_reference && (
+                              <div>
+                                <strong>Payment Ref:</strong> {sub.payment_reference}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {grantedList.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {grantedList.map((item) => (
+                      <span key={item.key} style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#FFFFFF', color: '#065F46', border: '1px solid #6EE7B7' }}>
+                        ✓ {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── MAIN CONTENT CANVAS ── */}
         <div style={{ padding: '24px 28px 32px', display: 'grid', gap: 28 }}>

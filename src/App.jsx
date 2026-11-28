@@ -31,6 +31,7 @@ import SellerPortal from './pages/SellerPortal';
 import CompanyWallet from './pages/CompanyWallet';
 import Withdrawals from './pages/Withdrawals';
 import Subscriptions from './pages/Subscriptions';
+import Subscribers from './pages/Subscribers';
 import Customers from './pages/Customers';
 import ImpersonationBanner from './components/common/ImpersonationBanner';
 
@@ -275,6 +276,14 @@ function AppRoutes() {
           element={
             <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
               <Subscriptions />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/subscribers"
+          element={
+            <RoleProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <Subscribers />
             </RoleProtectedRoute>
           }
         />

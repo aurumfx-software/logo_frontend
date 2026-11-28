@@ -104,6 +104,99 @@ const AD_BG_PRESETS = [
   { label: 'Festive Gold', value: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', text: '#0f172a' },
 ];
 
+const MERCHANT_AD_SECTIONS = [
+  {
+    id: 'Pending Requests',
+    label: 'Pending Requests',
+    icon: '⏳',
+    permKey: null,
+    headline: 'My Submitted Ad Requests Pending Admin Approval',
+    description: 'Track landing-page advertisements submitted to Admin. Approved ads immediately go live on the Logo Landing Page.',
+    spec: 'Admin Moderation Queue',
+  },
+  {
+    id: 'Merchant Store',
+    label: 'Store Page',
+    icon: '🏪',
+    permKey: 'merchant_store_ad',
+    headline: 'Store Detail Page Banner / Video Showcase',
+    description: 'Displayed prominently right above Location on your dedicated Store Detail Page.',
+    spec: 'Recommended: 16:9 (1280×720 px) | Text Banner | Video Ad',
+  },
+  {
+    id: 'Home Top',
+    label: 'Top Banners',
+    icon: '🎯',
+    permKey: 'ad_home_top',
+    headline: 'Top Landing Page Banner Slider',
+    description: 'Full-width auto-sliding advertisement banner or video displayed at the top Hero section of the Landing Page.',
+    spec: 'Recommended: Panoramic 16:5 (1920×600 px) or 1:1 (1080×1080 px) | Video 16:9',
+  },
+  {
+    id: 'Home Middle',
+    label: 'Middle Ads',
+    icon: '📢',
+    permKey: 'ad_home_middle',
+    headline: 'In-Between Sponsored Showcase (Middle Ads)',
+    description: 'Split-layout sponsored showcase banner placed between merchant directory rows on the Landing Page.',
+    spec: 'Recommended: Widescreen 16:9 (1280×720 px) or 4:3 / 1:1',
+  },
+  {
+    id: 'Above Footer',
+    label: 'Above Footer',
+    icon: '🎬',
+    permKey: 'ad_above_footer',
+    headline: 'Above Footer Showcase Banner & Video',
+    description: 'High-impact split-layout banner/video showcase placed directly above the homepage footer.',
+    spec: 'Recommended: Widescreen 16:9 (1920×1080 px Full HD)',
+  },
+  {
+    id: 'Featured Offers',
+    label: 'Featured Offers',
+    icon: '🔥',
+    permKey: 'ad_featured_offers',
+    headline: 'Featured Offers & Discounts Carousel',
+    description: 'Interactive deals carousel with offer headlines, validity dates, and store link.',
+    spec: 'Recommended: Card 3:2 (600×400 px) or Square 1:1 (500×500 px)',
+  },
+  {
+    id: 'Special Offer',
+    label: 'Special Deals',
+    icon: '⚡',
+    permKey: 'ad_special_deals',
+    headline: 'Floating Special Offer Widget',
+    description: 'High-conversion deals displayed inside the floating flame popup widget on the Landing Page.',
+    spec: 'Recommended: Compact Widget 4:3 (600×450 px) or Square 1:1 (500×500 px)',
+  },
+  {
+    id: 'Business Network',
+    label: 'Business Network',
+    icon: '💼',
+    permKey: 'ad_business_network',
+    headline: 'LOGO Business Network Posters',
+    description: 'Multi-poster business network showcase & news updates carousel on the Landing Page.',
+    spec: 'Recommended: Poster 3:4 (900×1200 px) or Square 1:1 (1080×1080 px)',
+  },
+  {
+    id: 'Square Poster',
+    label: 'Square Poster',
+    icon: '🟩',
+    permKey: 'ad_square_poster',
+    headline: 'Square Poster & Product Showcase Ads',
+    description: 'High-visibility 1:1 square posters for showcase sliders and Ads page.',
+    spec: 'Recommended: Square 1:1 (1080×1080 px)',
+  },
+  {
+    id: 'Moving Text',
+    label: 'Moving Text',
+    icon: '📢',
+    permKey: 'ad_special_deals',
+    headline: 'Scrolling Announcement Ticker Bar',
+    description: 'Continuous marquee announcement ticker displayed below the top navbar on the Landing Page.',
+    spec: 'Text Announcement Only (No image or video required)',
+  },
+];
+
 const INITIAL_PROMO = {
   id: null,
   title: '',
@@ -717,11 +810,14 @@ export default function MerchantPortal() {
       setErrorMsg('Please enter an advertisement headline / title.');
       return;
     }
-    if (newPromo.mediaType === 'image' && !String(newPromo.imageUrl || '').trim()) {
+    const chosenPlacement = newPromo.placement || 'Merchant Store';
+    const isMovingTextPlacement = chosenPlacement === 'Moving Text';
+    const chosenMedia = isMovingTextPlacement ? 'text' : (newPromo.mediaType || 'image');
+    if (!isMovingTextPlacement && chosenMedia === 'image' && !String(newPromo.imageUrl || '').trim()) {
       setErrorMsg('Please upload or paste an advertisement image.');
       return;
     }
-    if (newPromo.mediaType === 'video' && !String(newPromo.videoUrl || '').trim()) {
+    if (!isMovingTextPlacement && chosenMedia === 'video' && !String(newPromo.videoUrl || '').trim()) {
       setErrorMsg('Please upload or paste an advertisement video URL.');
       return;
     }
@@ -729,8 +825,6 @@ export default function MerchantPortal() {
     setErrorMsg('');
     try {
       const targetId = formData.id || selectedShop?.id;
-      const chosenPlacement = newPromo.placement || 'Merchant Store';
-      const chosenMedia = newPromo.mediaType || 'image';
       const isStorePlacement = String(chosenPlacement).trim().toLowerCase() === 'merchant store';
       const reqPermKey = getRequiredAdPermissionKey(chosenPlacement, chosenMedia);
       if (!merchantGrants?.[reqPermKey]) {
@@ -744,9 +838,9 @@ export default function MerchantPortal() {
         description: String(newPromo.description || '').trim(),
         placement: chosenPlacement,
         media_type: chosenMedia,
-        type: chosenMedia === 'text' ? 'Text Banner' : 'Featured',
-        image_url: chosenMedia === 'image' ? String(newPromo.imageUrl || '').trim() : null,
-        video_url: chosenMedia === 'video' ? String(newPromo.videoUrl || '').trim() : null,
+        type: isMovingTextPlacement ? 'Text Carousel' : chosenMedia === 'text' ? 'Text Banner' : 'Featured',
+        image_url: !isMovingTextPlacement && chosenMedia === 'image' ? String(newPromo.imageUrl || '').trim() : null,
+        video_url: !isMovingTextPlacement && chosenMedia === 'video' ? String(newPromo.videoUrl || '').trim() : null,
         bg_color: chosenMedia === 'text' ? newPromo.bgColor : null,
         text_color: chosenMedia === 'text' ? newPromo.textColor : null,
         target_url: String(newPromo.targetUrl || '').trim() || null,
@@ -1906,7 +2000,7 @@ export default function MerchantPortal() {
                 <form onSubmit={handleCreatePromo} style={{ padding: 20, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 24 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                     <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>
-                      {newPromo.id ? 'Edit Advertisement' : 'Create Advertisement'}
+                      {newPromo.id ? 'Edit Advertisement' : 'Create Advertisement (Admin Studio Parity)'}
                     </h4>
                     {newPromo.id && (
                       <button
@@ -1919,77 +2013,120 @@ export default function MerchantPortal() {
                     )}
                   </div>
 
-                  {/* Placement Selector driven by Admin subscription ticks */}
+                  {/* Admin-Exact Placement Tabs Strip with Live Counts & Lock Indicators */}
                   <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Choose Ad Placement Section *</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {[
-                        { placement: 'Merchant Store', label: 'Store Page', unlocked: canStoreImageTextAd || canStoreVideoAd },
-                        ...MERCHANT_PERMISSION_ITEMS.filter((i) => i.placement).map((i) => ({
-                          placement: i.placement,
-                          label: i.label.replace(/ Ad$/, ''),
-                          unlocked: Boolean(merchantGrants[i.key]),
-                        })),
-                      ].map((opt) => {
-                        const selected = (newPromo.placement || 'Merchant Store') === opt.placement;
+                      {MERCHANT_AD_SECTIONS.map((sec) => {
+                        const unlocked =
+                          sec.id === 'Pending Requests'
+                            ? true
+                            : sec.id === 'Merchant Store'
+                            ? canStoreImageTextAd || canStoreVideoAd
+                            : Boolean(merchantGrants[sec.permKey]);
+                        const count =
+                          sec.id === 'Pending Requests'
+                            ? promotions.filter((p) => String(p.status || '').toLowerCase() === 'pending').length
+                            : promotions.filter(
+                                (p) => String(p.placement || 'Merchant Store').toLowerCase() === sec.id.toLowerCase()
+                              ).length;
+                        const selected =
+                          sec.id !== 'Pending Requests' &&
+                          (newPromo.placement || 'Merchant Store') === sec.id;
                         return (
                           <button
-                            key={opt.placement}
+                            key={sec.id}
                             type="button"
                             onClick={() => {
-                              if (!opt.unlocked) {
+                              if (sec.id === 'Pending Requests') {
+                                const el = document.getElementById('merchant-ads-list-section');
+                                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                return;
+                              }
+                              if (!unlocked) {
                                 setPlanActionModal('upgrade');
                                 return;
                               }
-                              setNewPromo((prev) => ({ ...prev, placement: opt.placement }));
+                              setNewPromo((prev) => ({
+                                ...prev,
+                                placement: sec.id,
+                                mediaType: sec.id === 'Moving Text' ? 'text' : prev.mediaType,
+                                type: sec.id === 'Moving Text' ? 'Text Carousel' : prev.type,
+                              }));
                             }}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 7,
-                              padding: opt.unlocked ? '8px 13px' : '7px 12px',
-                              borderRadius: 10,
-                              border: !opt.unlocked
+                              padding: '8px 13px',
+                              borderRadius: 11,
+                              border: !unlocked
                                 ? '1.5px solid #f59e0b'
                                 : selected
                                 ? '2px solid #2563eb'
                                 : '1px solid #cbd5e1',
-                              background: !opt.unlocked ? '#fffbeb' : selected ? '#eff6ff' : '#ffffff',
-                              color: !opt.unlocked ? '#78350f' : selected ? '#1d4ed8' : '#334155',
+                              background: !unlocked ? '#fffbeb' : selected ? '#eff6ff' : '#ffffff',
+                              color: !unlocked ? '#78350f' : selected ? '#1d4ed8' : '#334155',
                               fontSize: 12.5,
                               fontWeight: 800,
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
+                              boxShadow: selected ? '0 3px 10px rgba(37, 99, 235, 0.14)' : 'none',
                             }}
                           >
-                            {!opt.unlocked && (
+                            {unlocked ? (
+                              <span style={{ fontSize: 15 }}>{sec.icon}</span>
+                            ) : (
                               <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
                                 <HiOutlineLockClosed size={14} />
                               </span>
                             )}
-                            <span>{opt.label}</span>
-                            {!opt.unlocked && (
-                              <span
-                                style={{
-                                  fontSize: 9.5,
-                                  fontWeight: 900,
-                                  padding: '2px 5px',
-                                  borderRadius: 5,
-                                  background: '#fde68a',
-                                  color: '#92400e',
-                                  letterSpacing: '0.03em',
-                                }}
-                              >
-                                LOCKED
-                              </span>
-                            )}
+                            <span>{sec.label}</span>
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 900,
+                                padding: '2px 7px',
+                                borderRadius: 999,
+                                background: !unlocked ? '#fde68a' : selected ? '#2563eb' : '#f1f5f9',
+                                color: !unlocked ? '#92400e' : selected ? '#ffffff' : '#475569',
+                              }}
+                            >
+                              {!unlocked ? 'LOCKED' : count}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Ad Format Switcher: Image / Text with Bg / Video */}
+                  {/* Admin-Exact Active Section Banner Guide */}
+                  {(() => {
+                    const activeSec =
+                      MERCHANT_AD_SECTIONS.find((s) => s.id === (newPromo.placement || 'Merchant Store')) ||
+                      MERCHANT_AD_SECTIONS[1];
+                    return (
+                      <div
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: 12,
+                          background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+                          color: '#ffffff',
+                          marginBottom: 16,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 18 }}>{activeSec.icon}</span>
+                          <span style={{ fontSize: 14, fontWeight: 900 }}>{activeSec.headline}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#dbeafe', marginBottom: 4 }}>{activeSec.description}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#fef08a' }}>📐 {activeSec.spec}</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Ad Format Switcher (Hidden in Moving Text ticker mode) */}
+                  {newPromo.placement !== 'Moving Text' ? (
                   <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Choose Advertisement Format *</label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
@@ -2059,6 +2196,30 @@ export default function MerchantPortal() {
                       })}
                     </div>
                   </div>
+                  ) : (
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        padding: '14px 16px',
+                        borderRadius: 12,
+                        background: 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)',
+                        color: '#ffffff',
+                        border: '1px solid rgba(59, 130, 246, 0.35)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span style={{ background: '#ef4444', color: '#fff', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 900 }}>
+                          ⚡ LIVE TICKER PREVIEW
+                        </span>
+                        <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 700 }}>
+                          No image or video upload needed for Moving Text
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        📢 {newPromo.title || 'Your scrolling moving announcement text will appear across the Landing Page top ticker bar...'}
+                      </div>
+                    </div>
+                  )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
                     <div>
@@ -2173,7 +2334,7 @@ export default function MerchantPortal() {
                   </div>
 
                   {/* IMAGE UPLOAD / PREVIEW */}
-                  {newPromo.mediaType === 'image' && (
+                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'image' && (
                     <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
                       <label style={labelStyle}>Advertisement Image *</label>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
@@ -2237,7 +2398,7 @@ export default function MerchantPortal() {
                   )}
 
                   {/* TEXT WITH BACKGROUND PICKER & LIVE PREVIEW */}
-                  {newPromo.mediaType === 'text' && (
+                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'text' && (
                     <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
                       <label style={labelStyle}>Background Color / Gradient Presets</label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -2300,7 +2461,7 @@ export default function MerchantPortal() {
                   )}
 
                   {/* VIDEO UPLOAD / URL PREVIEW */}
-                  {newPromo.mediaType === 'video' && (
+                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'video' && (
                     <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
                       <label style={labelStyle}>Advertisement Video *</label>
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
@@ -2381,7 +2542,7 @@ export default function MerchantPortal() {
                   </div>
                 </form>
 
-                <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                <h3 id="merchant-ads-list-section" style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
                   My Store Advertisements ({promotions.length})
                 </h3>
                 {loadingPromos ? (
@@ -2879,7 +3040,7 @@ export default function MerchantPortal() {
         isOpen={imageCropState.isOpen}
         onClose={() => setImageCropState({ isOpen: false, src: '', rawFile: null })}
         imageSrc={imageCropState.src}
-        placement="Free"
+        placement={newPromo.placement || 'Merchant Store'}
         onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
         onUseOriginal={imageCropState.rawFile ? () => handlePromoMediaUpload(imageCropState.rawFile) : undefined}
       />
@@ -2903,214 +3064,250 @@ export default function MerchantPortal() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.58)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(15, 23, 42, 0.62)',
+            backdropFilter: 'blur(6px)',
             zIndex: 1200,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16,
+            padding: 18,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: 860,
+              maxWidth: 900,
               maxHeight: '88vh',
               overflowY: 'auto',
               background: '#ffffff',
-              borderRadius: 18,
-              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)',
+              borderRadius: 20,
+              boxShadow: '0 28px 70px rgba(15, 23, 42, 0.35)',
               border: '1px solid #e2e8f0',
-              padding: 22,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+            {/* Polished Gradient Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                background:
+                  planActionModal === 'upgrade'
+                    ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                    : 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+                color: '#ffffff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: 12,
+              }}
+            >
               <div>
-                <h3 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 20, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 9 }}>
                   {planActionModal === 'upgrade' ? (
                     <>
-                      <HiOutlineSparkles size={20} color="#7c3aed" />
+                      <HiOutlineSparkles size={22} />
                       <span>Upgrade Your Merchant Plan</span>
                     </>
                   ) : (
                     <>
-                      <HiOutlineRefresh size={20} color="#059669" />
+                      <HiOutlineRefresh size={22} />
                       <span>Renew Plan &amp; View All Plans</span>
                     </>
                   )}
                 </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.88)' }}>
                   {planActionModal === 'upgrade'
-                    ? 'Showing only plans above your current active plan tier (current & lower plans are hidden).'
-                    : 'Check your current active plan validity days left, extend your active plan, or switch across all available plans.'}
+                    ? 'Only higher-tier plans above your current plan are shown below.'
+                    : 'Check remaining validity days, renew your active plan, or subscribe to another plan.'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setPlanActionModal(null)}
-                style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.16)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
               >
                 <HiOutlineX size={18} />
               </button>
             </div>
 
-            {planActionModal === 'upgrade' ? (
-              <div>
-                {primaryActivePlanLabel && (
-                  <div style={{ padding: '10px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: '#334155' }}>
-                    Current Plan: <strong style={{ color: '#0f172a' }}>{primaryActivePlanLabel}</strong> (₹{maxSubscribedPrice.toLocaleString('en-IN')})
-                  </div>
-                )}
-
-                {upgradePackages.length === 0 ? (
-                  <div style={{ padding: '32px 20px', textAlign: 'center', borderRadius: 14, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: '#166534', marginBottom: 6 }}>
-                      You are already on our highest plan tier!
-                    </div>
-                    <p style={{ margin: '0 0 14px', fontSize: 13, color: '#15803d' }}>
-                      There are no plans higher than ₹{maxSubscribedPrice.toLocaleString('en-IN')} at the moment.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setPlanActionModal('renew')}
-                      style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      Open Renew &amp; All Plans
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
-                    {upgradePackages.map((pkg, idx) => {
-                      const unlocked = getUnlockedPermissionItems(pkg);
-                      return (
-                        <div key={pkg.id || idx} style={{ padding: 16, borderRadius: 14, border: '1.5px solid #c4b5fd', background: '#faf5ff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                              <span style={{ fontSize: 18, fontWeight: 900, color: '#6d28d9' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
-                            </div>
-                            {pkg.description && (
-                              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#475569' }}>{pkg.description}</p>
-                            )}
-                            {pkg.duration_days && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>Duration: {pkg.duration_days} Days</div>
-                            )}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {unlocked.map((item) => (
-                                <span key={item.key} style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: '#ede9fe', color: '#5b21b6' }}>
-                                  ✓ {item.label}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={subscribingId === (pkg.id || pkg.code)}
-                            onClick={() => handleSubscribePlan(pkg)}
-                            className="logo-upgrade-btn"
-                            style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
-                          >
-                            {subscribingId === (pkg.id || pkg.code)
-                              ? 'Processing...'
-                              : `Upgrade to ${pkg.name} (₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')})`}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                {/* Section 1: Currently Active Plans + Remaining Days */}
-                <div style={{ padding: 14, borderRadius: 14, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 900, color: '#065f46', marginBottom: 10 }}>
-                    Current Active Subscription(s) &amp; Remaining Validity
-                  </div>
-                  {activePlanSummaryList.length === 0 ? (
-                    <div style={{ fontSize: 13, color: '#047857', fontWeight: 600 }}>
-                      You don&apos;t have an active subscription yet. Choose any plan below to subscribe!
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
-                      {activePlanSummaryList.map((sub) => (
-                        <div key={sub.id || sub.package_id} style={{ padding: 12, borderRadius: 12, background: '#ffffff', border: '1px solid #6ee7b7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{sub.planName}</div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 2 }}>
-                              {sub.daysLeft !== null ? `⏳ ${sub.daysLeft} Days Remaining` : 'Active Validity'}
-                              {sub.expires_at ? ` • Expires ${new Date(sub.expires_at).toLocaleDateString('en-IN')}` : ''}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            disabled={subscribingId === (sub.pkg?.id || sub.package_id)}
-                            onClick={() => handleSubscribePlan(sub.pkg, { renew: true })}
-                            style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
-                          >
-                            {subscribingId === (sub.pkg?.id || sub.package_id) ? 'Extending...' : 'Renew Now'}
-                          </button>
-                        </div>
-                      ))}
+            <div style={{ padding: 24, overflowY: 'auto' }}>
+              {planActionModal === 'upgrade' ? (
+                <div>
+                  {primaryActivePlanLabel && (
+                    <div style={{ padding: '12px 16px', borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
+                        Current Active Plan: <strong style={{ color: '#0f172a', fontSize: 14 }}>{primaryActivePlanLabel}</strong>
+                      </div>
+                      <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dcfce7', color: '#166534', fontSize: 12, fontWeight: 800 }}>
+                        ₹{maxSubscribedPrice.toLocaleString('en-IN')} Tier
+                      </span>
                     </div>
                   )}
-                </div>
 
-                {/* Section 2: All Available Merchant Plans */}
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>
-                    All Available Merchant Plans
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12 }}>
-                    {merchantFeaturePackages.map((pkg, idx) => {
-                      const unlocked = getUnlockedPermissionItems(pkg);
-                      const subscribed = isPkgSubscribed(pkg);
-                      return (
-                        <div key={pkg.id || idx} style={{ padding: 15, borderRadius: 12, border: subscribed ? '2px solid #16a34a' : '1px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                              <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                              <span style={{ fontSize: 16, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                  {upgradePackages.length === 0 ? (
+                    <div style={{ padding: '36px 24px', textAlign: 'center', borderRadius: 16, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                      <div style={{ fontSize: 17, fontWeight: 900, color: '#166534', marginBottom: 6 }}>
+                        You are already on our highest plan tier!
+                      </div>
+                      <p style={{ margin: '0 0 16px', fontSize: 13.5, color: '#15803d' }}>
+                        There are no plans higher than ₹{maxSubscribedPrice.toLocaleString('en-IN')} at the moment.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setPlanActionModal('renew')}
+                        style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        Open Renew &amp; All Plans
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 16 }}>
+                      {upgradePackages.map((pkg, idx) => {
+                        const unlocked = getUnlockedPermissionItems(pkg);
+                        const pPrice = Number(pkg.price ?? pkg.amount ?? 0);
+                        return (
+                          <div key={pkg.id || idx} style={{ padding: 20, borderRadius: 16, border: '1.5px solid #ddd6fe', background: '#ffffff', boxShadow: '0 6px 20px rgba(79, 70, 229, 0.08)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14 }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid #f1f5f9' }}>
+                                <div>
+                                  <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a', lineHeight: 1.3 }}>{pkg.name}</div>
+                                  {pkg.duration_days && (
+                                    <span style={{ display: 'inline-block', marginTop: 4, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: '#f1f5f9', color: '#475569' }}>
+                                      Validity: {pkg.duration_days} Days
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                  <span style={{ fontSize: 22, fontWeight: 900, color: '#4f46e5' }}>₹{pPrice.toLocaleString('en-IN')}</span>
+                                </div>
+                              </div>
+                              {pkg.description && (
+                                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#475569', lineHeight: 1.5 }}>{pkg.description}</p>
+                              )}
+                              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: '#64748b', marginBottom: 7, letterSpacing: '0.04em' }}>
+                                Included Unlocks ({unlocked.length})
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {unlocked.map((item) => (
+                                  <span key={item.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: '#f5f3ff', color: '#5b21b6', border: '1px solid #e9d5ff' }}>
+                                    ✓ {item.label}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                            {pkg.duration_days && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Duration: {pkg.duration_days} Days</div>
-                            )}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {unlocked.map((item) => (
-                                <span key={item.key} style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: subscribed ? '#dcfce7' : '#eff6ff', color: subscribed ? '#166534' : '#1d4ed8' }}>
-                                  ✓ {item.label}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          {subscribed ? (
-                            <button
-                              type="button"
-                              disabled
-                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-                            >
-                              <HiOutlineCheckCircle size={16} />
-                              <span>Subscribed</span>
-                            </button>
-                          ) : (
                             <button
                               type="button"
                               disabled={subscribingId === (pkg.id || pkg.code)}
                               onClick={() => handleSubscribePlan(pkg)}
-                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                              className="logo-upgrade-btn"
+                              style={{ width: '100%', justifyContent: 'center', padding: '12px 16px', fontSize: 13.5, whiteSpace: 'nowrap' }}
                             >
-                              {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
+                              <HiOutlineSparkles size={16} />
+                              <span>
+                                {subscribingId === (pkg.id || pkg.code)
+                                  ? 'Processing Razorpay...'
+                                  : `Upgrade Plan • ₹${pPrice.toLocaleString('en-IN')} →`}
+                              </span>
                             </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Section 1: Currently Active Plans + Remaining Days */}
+                  <div style={{ padding: 16, borderRadius: 14, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#065f46', marginBottom: 10 }}>
+                      Current Active Subscription(s) &amp; Remaining Validity
+                    </div>
+                    {activePlanSummaryList.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#047857', fontWeight: 600 }}>
+                        You don&apos;t have an active subscription yet. Choose any plan below to subscribe!
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                        {activePlanSummaryList.map((sub) => (
+                          <div key={sub.id || sub.package_id} style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #6ee7b7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a' }}>{sub.planName}</div>
+                              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#059669', marginTop: 3 }}>
+                                {sub.daysLeft !== null ? `⏳ ${sub.daysLeft} Days Remaining` : 'Active Validity'}
+                                {sub.expires_at ? ` • Expires ${new Date(sub.expires_at).toLocaleDateString('en-IN')}` : ''}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={subscribingId === (sub.pkg?.id || sub.package_id)}
+                              onClick={() => handleSubscribePlan(sub.pkg, { renew: true })}
+                              style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: '#059669', color: '#fff', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+                            >
+                              {subscribingId === (sub.pkg?.id || sub.package_id) ? 'Extending...' : 'Renew Now'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 2: All Available Merchant Plans */}
+                  <div>
+                    <div style={{ fontSize: 14.5, fontWeight: 900, color: '#0f172a', marginBottom: 12 }}>
+                      All Available Merchant Plans
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
+                      {merchantFeaturePackages.map((pkg, idx) => {
+                        const unlocked = getUnlockedPermissionItems(pkg);
+                        const subscribed = isPkgSubscribed(pkg);
+                        return (
+                          <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: subscribed ? '2px solid #16a34a' : '1px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                                <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                                <span style={{ fontSize: 17, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb', flexShrink: 0 }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              {pkg.duration_days && (
+                                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>Duration: {pkg.duration_days} Days</div>
+                              )}
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                {unlocked.map((item) => (
+                                  <span key={item.key} style={{ fontSize: 11, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: subscribed ? '#dcfce7' : '#eff6ff', color: subscribed ? '#166534' : '#1d4ed8' }}>
+                                    ✓ {item.label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {subscribed ? (
+                              <button
+                                type="button"
+                                disabled
+                                style={{ width: '100%', padding: '10px', borderRadius: 9, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                              >
+                                <HiOutlineCheckCircle size={16} />
+                                <span>Subscribed</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={subscribingId === (pkg.id || pkg.code)}
+                                onClick={() => handleSubscribePlan(pkg)}
+                                style={{ width: '100%', padding: '10px', borderRadius: 9, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                              >
+                                {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}

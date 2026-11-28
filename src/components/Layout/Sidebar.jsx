@@ -26,6 +26,7 @@ import {
   HiOutlineHome,
   HiOutlineChevronDown,
   HiOutlineChevronRight,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeRole, getRoleDisplayTitle, ROLES, getStaffPermissions } from '../../utils/rbac';
@@ -56,6 +57,7 @@ const ALL_NAV_ITEMS = [
     items: [
       { key: 'promotions', path: '/promotions', icon: HiOutlineSpeakerphone, label: 'Promotions' },
       { key: 'subscriptions', path: '/subscriptions', icon: HiOutlineTag, label: 'Subscriptions', adminOnly: true },
+      { key: 'subscribers', path: '/subscribers', icon: HiOutlineShieldCheck, label: 'Subscribers', adminOnly: true },
       { key: 'wallet', path: '/wallet', icon: HiOutlineCreditCard, label: 'Platform Wallet' },
       { key: 'withdrawals', path: '/withdrawals', icon: HiOutlineCreditCard, label: 'Withdrawals', adminOnly: true },
       { key: 'complaints', path: '/complaints', icon: HiOutlineExclamationCircle, label: 'Complaints' },

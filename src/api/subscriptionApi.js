@@ -97,6 +97,50 @@ export async function deleteAdminSubscriptionPackage(packageId) {
 }
 
 /**
+ * Admin: Fetch all merchant & customer subscribers with plan & timestamp details
+ */
+export async function fetchAdminSubscribers({ audience = '', status = '', search = '' } = {}) {
+  const query = new URLSearchParams();
+  if (audience && audience !== 'ALL') query.append('audience', audience);
+  if (status && status !== 'ALL') query.append('status', status);
+  if (search && search.trim()) query.append('search', search.trim());
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const response = await apiFetch(`/api/v1/subscriptions/admin/subscribers${qs}`, {
+    method: 'GET',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to load subscribers');
+  }
+  return {
+    items: data.data || [],
+    summary: data.summary || {
+      total: 0,
+      active_merchants: 0,
+      active_customers: 0,
+      stopped_or_expired: 0,
+      total_revenue: 0,
+    },
+  };
+}
+
+/**
+ * Admin: Stop an active user/merchant subscription immediately
+ */
+export async function stopAdminSubscription(subscriptionId, reason = '') {
+  const response = await apiFetch(`/api/v1/subscriptions/admin/subscriptions/${subscriptionId}/stop`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || undefined }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to stop subscription');
+  }
+  return data.data || data;
+}
+
+/**
  * Admin: Manually assign a subscription to a user or merchant shop
  */
 export async function assignAdminSubscription(payload) {

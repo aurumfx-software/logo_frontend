@@ -925,6 +925,15 @@ export async function getMerchantById(merchantId) {
     description: m.about || m.description || '',
     can_create_promotions: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
     promotion_access: Boolean(m.can_create_promotions ?? m.promotion_access ?? false),
+    login_id: m.login_id || m.linked_user?.login_id || m.user?.login_id || null,
+    active_subscriptions: Array.isArray(m.active_subscriptions) ? m.active_subscriptions : [],
+    subscription_plan_name: m.subscription_plan_name || null,
+    subscription_amount_paid:
+      m.subscription_amount_paid !== undefined && m.subscription_amount_paid !== null
+        ? Number(m.subscription_amount_paid)
+        : null,
+    has_active_subscription: Boolean(m.has_active_subscription),
+    merchant_grants: m.merchant_grants || {},
   };
 }
 
