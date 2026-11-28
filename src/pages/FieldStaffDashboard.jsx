@@ -24,6 +24,7 @@ import {
   HiPhotograph,
   HiGift,
   HiCash,
+  HiX,
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch, getAccessToken } from '../api/apiClient';
@@ -46,6 +47,7 @@ import {
   hasActiveSellerSubscription,
   startCustomerRazorpaySubscription,
   cancelMySubscription,
+  computeDaysRemaining,
 } from '../api/subscriptionApi';
 import {
   getBuyerOrders,
@@ -155,6 +157,7 @@ export default function FieldStaffDashboard() {
   // Subscriptions State
   const [subPackages, setSubPackages] = useState([]);
   const [subscribingId, setSubscribingId] = useState(null);
+  const [planActionModal, setPlanActionModal] = useState(null); // null | 'upgrade' | 'renew'
 
   // Grievance / Support State
   const [complaints, setComplaints] = useState([]);
@@ -191,9 +194,10 @@ export default function FieldStaffDashboard() {
     }
 
     const headers = buildCustomerHeaders();
-    const [profileRes, subRes] = await Promise.all([
+    const [profileRes, subRes, pkgsRes] = await Promise.all([
       apiFetch('/api/v1/auth/me', { method: 'GET', headers }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetchMyActiveSubscriptions().catch(() => null),
+      fetchAdminSubscriptionPackages({ audience: 'USER', activeOnly: true }).catch(() => []),
     ]);
 
     if (profileRes) {
@@ -209,6 +213,7 @@ export default function FieldStaffDashboard() {
     }
 
     if (subRes) setActiveSubData(subRes);
+    if (Array.isArray(pkgsRes) && pkgsRes.length > 0) setSubPackages(pkgsRes);
   };
 
   const loadWalletData = async () => {
@@ -517,7 +522,7 @@ export default function FieldStaffDashboard() {
   };
 
   // Subscriptions Handler
-  const handleSubscribePlan = async (pkg) => {
+  const handleSubscribePlan = async (pkg, { renew = false } = {}) => {
     setSubscribingId(pkg.id || pkg.code);
     setErrorMsg('');
     setNoticeMsg('');
@@ -525,11 +530,18 @@ export default function FieldStaffDashboard() {
       await startCustomerRazorpaySubscription({
         packageItem: pkg,
         customerUser,
-        onSuccess: async () => {
-          setNoticeMsg('₹500 Seller Plan activated! Product creation & incoming orders are now unlocked.');
+        renew: Boolean(renew),
+        onSuccess: async (subRes) => {
+          if (subRes?.cancelled) return;
+          setNoticeMsg(
+            renew
+              ? `"${pkg.name}" renewed & validity extended!`
+              : `${pkg.name || 'Subscription Plan'} activated! Features are now unlocked.`
+          );
           await syncCustomerAuthAndOverview();
           const summary = await fetchMyActiveSubscriptions().catch(() => null);
           if (summary) setActiveSubData(summary);
+          await loadPanel(activePanel);
         },
         onError: (payErr) => setErrorMsg(payErr?.message || 'Subscription activation failed'),
       });
@@ -573,9 +585,9 @@ export default function FieldStaffDashboard() {
   };
 
   const renderPlanLockCard = (title) => (
-    <div style={{ textAlign: 'center', padding: '44px 24px', background: '#f8fafc', borderRadius: 16, border: '1.5px dashed #cbd5e1' }}>
-      <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-        <HiLockClosed size={26} />
+    <div style={{ textAlign: 'center', padding: '44px 24px', background: '#fffbeb', borderRadius: 16, border: '1.5px dashed #f59e0b' }}>
+      <div className="logo-lock-badge-anim" style={{ width: 64, height: 64, margin: '0 auto 14px' }}>
+        <HiLockClosed size={30} />
       </div>
       <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{title} Requires ₹500 Seller Plan</h3>
       <p style={{ margin: '0 auto 20px', maxWidth: 440, fontSize: 13.5, color: '#475569', lineHeight: 1.6 }}>
@@ -591,8 +603,133 @@ export default function FieldStaffDashboard() {
     </div>
   );
 
+  const customerPlanList =
+    subPackages.length > 0
+      ? subPackages
+      : [
+          {
+            id: 'default-500',
+            code: 'USER_SELLER_500',
+            name: '₹500 Seller Plan',
+            price: 500,
+            duration_days: 30,
+            description: 'Unlock product creation & incoming customer orders on Logo Marketplace.',
+          },
+        ];
+  const activeCustomerSubs = (activeSubData?.user_subscriptions || activeSubData?.subscriptions || []).filter((s) => {
+    const st = String(s.status || 'ACTIVE').toUpperCase();
+    if (st !== 'ACTIVE') return false;
+    if (s.expires_at && new Date(s.expires_at).getTime() < Date.now()) return false;
+    return true;
+  });
+  const isCustPkgSubscribed = (pkg) =>
+    activeCustomerSubs.some(
+      (s) =>
+        String(s.package_id || '') === String(pkg?.id || '') ||
+        (pkg?.code && String(s.package_code || '').toUpperCase() === String(pkg.code).toUpperCase())
+    );
+  const maxCustSubPrice = activeCustomerSubs.reduce((mx, s) => {
+    const matched = customerPlanList.find(
+      (p) =>
+        String(p.id) === String(s.package_id) ||
+        (s.package_code && String(p.code || '').toUpperCase() === String(s.package_code).toUpperCase())
+    );
+    const val = Number(matched?.price ?? s.price ?? s.amount_paid ?? 0);
+    return val > mx ? val : mx;
+  }, 0);
+  const custUpgradePackages = customerPlanList.filter((pkg) => {
+    if (isCustPkgSubscribed(pkg)) return false;
+    return Number(pkg.price ?? pkg.amount ?? 0) > maxCustSubPrice;
+  });
+  const activeCustSubSummaries = activeCustomerSubs.map((s) => {
+    const matched = customerPlanList.find(
+      (p) =>
+        String(p.id) === String(s.package_id) ||
+        (s.package_code && String(p.code || '').toUpperCase() === String(s.package_code).toUpperCase())
+    );
+    return {
+      ...s,
+      pkg: matched || {
+        id: s.package_id,
+        code: s.package_code,
+        name: s.package_name || 'Seller Plan',
+        price: s.price ?? s.amount_paid ?? 500,
+        duration_days: s.duration_days || 30,
+      },
+      planName: s.package_name || matched?.name || s.package_code || 'Seller Plan',
+      daysLeft: computeDaysRemaining(s),
+    };
+  });
+  const primaryCustPlanLabel =
+    activeCustSubSummaries.length > 0
+      ? activeCustSubSummaries.map((s) => s.planName).join(', ')
+      : isSellerSubscribed
+      ? '₹500 Seller Plan'
+      : '';
+  const minCustDaysLeft = activeCustSubSummaries.reduce((mn, s) => {
+    if (s.daysLeft === null || s.daysLeft === undefined) return mn;
+    return mn === null ? s.daysLeft : Math.min(mn, s.daysLeft);
+  }, null);
+
   return (
     <div style={{ maxWidth: 1120, margin: '0 auto', paddingBottom: 32 }}>
+      {/* Top Active Plan Summary Strip across Customer Profile & Workspace */}
+      <div
+        style={{
+          background: primaryCustPlanLabel ? 'linear-gradient(135deg, #ecfdf5 0%, #eff6ff 100%)' : '#ffffff',
+          borderRadius: 14,
+          border: primaryCustPlanLabel ? '1px solid #a7f3d0' : '1px solid #e2e8f0',
+          padding: '12px 18px',
+          marginBottom: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: primaryCustPlanLabel ? '#065f46' : '#475569' }}>
+            {primaryCustPlanLabel ? `👑 Subscribed Plan: ${primaryCustPlanLabel}` : '🔒 Current Plan: Free (No Active Paid Plan)'}
+          </span>
+          {minCustDaysLeft !== null && (
+            <span style={{ padding: '2px 9px', borderRadius: 999, background: '#16a34a', color: '#fff', fontSize: 11.5, fontWeight: 800 }}>
+              {minCustDaysLeft} Days Left
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setPlanActionModal('upgrade')}
+            className="logo-upgrade-btn"
+          >
+            <HiSparkles size={14} />
+            <span>Upgrade Plan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPlanActionModal('renew')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '7px 13px',
+              borderRadius: 9,
+              border: '1.5px solid #059669',
+              background: '#ffffff',
+              color: '#047857',
+              fontSize: 12.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            <HiRefresh size={14} />
+            <span>Renew</span>
+          </button>
+        </div>
+      </div>
+
       <div style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 24, minHeight: 460 }}>
         {errorMsg && (
           <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, color: '#991b1b', fontSize: 13, fontWeight: 700, marginBottom: 16 }}>
@@ -725,7 +862,7 @@ export default function FieldStaffDashboard() {
                   { label: 'Login ID', value: customerUser?.login_id || '-' },
                   { label: 'District / City', value: [customerUser?.city, customerUser?.district].filter(Boolean).join(', ') || 'Not set' },
                   { label: 'Address', value: customerUser?.address || 'Not set' },
-                  { label: '₹500 Seller Plan', value: isSellerSubscribed ? 'Active (Unlocked)' : 'Not Subscribed' },
+                  { label: 'Active Subscription', value: primaryCustPlanLabel ? `${primaryCustPlanLabel}${minCustDaysLeft !== null ? ` (${minCustDaysLeft}d left)` : ' (Unlocked)'}` : 'Not Subscribed' },
                 ].map((field) => (
                   <div key={field.label} style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #f1f5f9' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 3 }}>{field.label}</div>
@@ -1029,56 +1166,112 @@ export default function FieldStaffDashboard() {
           )
         ) : activePanel === 'subscriptions' ? (
           <div>
-            <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Seller Plan & Subscriptions</h2>
-            <p style={{ margin: '0 0 18px', fontSize: 13, color: '#64748b' }}>
-              Subscribe to the ₹500 Seller Plan using the exact same Razorpay subscription API as the mobile app.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Seller Plan &amp; Subscriptions</h2>
+                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                  Subscribe to Admin-configured Customer / Seller Plans using Razorpay.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setPlanActionModal('upgrade')}
+                  className="logo-upgrade-btn"
+                >
+                  <HiSparkles size={14} />
+                  <span>Upgrade Plan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlanActionModal('renew')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '7px 13px',
+                    borderRadius: 9,
+                    border: '1.5px solid #059669',
+                    background: '#ffffff',
+                    color: '#047857',
+                    fontSize: 12.5,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <HiRefresh size={14} />
+                  <span>Renew</span>
+                </button>
+              </div>
+            </div>
 
-            {isSellerSubscribed && (
+            {(isSellerSubscribed || activeCustSubSummaries.length > 0) && (
               <div style={{ padding: 14, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#166534' }}>₹500 Seller Plan Active</div>
-                  <div style={{ fontSize: 12, color: '#15803d' }}>You have full access to Create Products, My Products & Customer Orders.</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#166534' }}>
+                    {primaryCustPlanLabel || 'Active Seller Plan'}
+                    {minCustDaysLeft !== null ? ` • ${minCustDaysLeft} Days Left` : ''}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#15803d' }}>You have active access according to your subscribed plan permissions.</div>
                 </div>
-                {(activeSubData?.user_subscriptions || []).map((sub) => (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={async () => {
-                      if (!window.confirm('Cancel active subscription?')) return;
-                      await cancelMySubscription(sub.id);
-                      await loadPanel('subscriptions');
-                    }}
-                    style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Cancel Plan
-                  </button>
-                ))}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {activeCustSubSummaries.map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Cancel active subscription?')) return;
+                        await cancelMySubscription(sub.id);
+                        await loadPanel('subscriptions');
+                      }}
+                      style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Cancel {sub.planName}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-              {(subPackages.length > 0
-                ? subPackages
-                : [{ id: 'default-500', code: 'USER_SELLER_500', name: '₹500 Seller Plan', price: 500, duration_days: 30, description: 'Unlock product creation & incoming customer orders on Logo Marketplace.' }]
-              ).map((pkg) => {
+              {customerPlanList.map((pkg) => {
                 const pkgAmt = Number(pkg.price ?? pkg.amount ?? 500);
+                const subscribed = isCustPkgSubscribed(pkg);
+                const matchedSub = activeCustSubSummaries.find(
+                  (s) =>
+                    String(s.package_id || '') === String(pkg.id || '') ||
+                    (pkg.code && String(s.package_code || '').toUpperCase() === String(pkg.code).toUpperCase())
+                );
                 return (
-                  <div key={pkg.id || pkg.code} style={{ border: '1.5px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
+                  <div key={pkg.id || pkg.code} style={{ border: subscribed ? '2px solid #16a34a' : '1.5px solid #e2e8f0', background: subscribed ? '#f0fdf4' : '#ffffff', borderRadius: 14, padding: 18 }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</div>
-                    <div style={{ fontSize: 26, fontWeight: 900, color: '#2563eb', margin: '8px 0' }}>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb', margin: '8px 0' }}>
                       ₹{pkgAmt.toLocaleString('en-IN')}
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}> / {pkg.duration_days || 30} days</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
+                        {' '}/ {pkg.duration_days || 30} days
+                        {subscribed && matchedSub?.daysLeft !== null && matchedSub?.daysLeft !== undefined ? ` • ${matchedSub.daysLeft}d left` : ''}
+                      </span>
                     </div>
                     <p style={{ fontSize: 12.5, color: '#475569', minHeight: 36 }}>{pkg.description || 'Create & sell products directly to buyers across Kerala.'}</p>
-                    <button
-                      type="button"
-                      disabled={subscribingId === (pkg.id || pkg.code)}
-                      onClick={() => handleSubscribePlan(pkg)}
-                      style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : isSellerSubscribed ? 'Extend / Renew Plan' : 'Subscribe Now via Razorpay'}
-                    </button>
+                    {subscribed ? (
+                      <button
+                        type="button"
+                        disabled
+                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                      >
+                        <HiCheckCircle size={17} />
+                        <span>Subscribed</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={subscribingId === (pkg.id || pkg.code)}
+                        onClick={() => handleSubscribePlan(pkg)}
+                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe Now via Razorpay'}
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -1139,6 +1332,203 @@ export default function FieldStaffDashboard() {
           </div>
         )}
       </div>
+
+      {/* Customer Upgrade Plan / Renew & All Plans Modal */}
+      {planActionModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPlanActionModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.58)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 780,
+              maxHeight: '86vh',
+              overflowY: 'auto',
+              background: '#ffffff',
+              borderRadius: 18,
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)',
+              border: '1px solid #e2e8f0',
+              padding: 22,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {planActionModal === 'upgrade' ? (
+                    <>
+                      <HiSparkles size={20} color="#7c3aed" />
+                      <span>Upgrade Your Plan</span>
+                    </>
+                  ) : (
+                    <>
+                      <HiRefresh size={20} color="#059669" />
+                      <span>Renew Plan &amp; All Plans</span>
+                    </>
+                  )}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                  {planActionModal === 'upgrade'
+                    ? 'Showing only plans above your current active plan (current & lower plans are hidden).'
+                    : 'View your active plan remaining validity days, extend your active plan, or browse all available plans.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanActionModal(null)}
+                style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <HiX size={18} />
+              </button>
+            </div>
+
+            {planActionModal === 'upgrade' ? (
+              <div>
+                {primaryCustPlanLabel && (
+                  <div style={{ padding: '10px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: '#334155' }}>
+                    Current Plan: <strong style={{ color: '#0f172a' }}>{primaryCustPlanLabel}</strong> (₹{maxCustSubPrice.toLocaleString('en-IN')})
+                  </div>
+                )}
+
+                {custUpgradePackages.length === 0 ? (
+                  <div style={{ padding: '28px 20px', textAlign: 'center', borderRadius: 14, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#166534', marginBottom: 6 }}>
+                      You are already on our highest plan tier!
+                    </div>
+                    <p style={{ margin: '0 0 14px', fontSize: 13, color: '#15803d' }}>
+                      No higher plans are available right now above ₹{maxCustSubPrice.toLocaleString('en-IN')}.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPlanActionModal('renew')}
+                      style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      Open Renew &amp; All Plans
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+                    {custUpgradePackages.map((pkg) => (
+                      <div key={pkg.id || pkg.code} style={{ padding: 16, borderRadius: 14, border: '1.5px solid #c4b5fd', background: '#faf5ff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</div>
+                          <div style={{ fontSize: 22, fontWeight: 900, color: '#6d28d9', margin: '6px 0' }}>
+                            ₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}> / {pkg.duration_days || 30} days</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: 12.5, color: '#475569' }}>{pkg.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={subscribingId === (pkg.id || pkg.code)}
+                          onClick={() => handleSubscribePlan(pkg)}
+                          className="logo-upgrade-btn"
+                          style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
+                        >
+                          {subscribingId === (pkg.id || pkg.code)
+                            ? 'Processing...'
+                            : `Upgrade to ${pkg.name} (₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')})`}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ padding: 14, borderRadius: 14, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: '#065f46', marginBottom: 10 }}>
+                    Current Active Subscription(s) &amp; Remaining Days
+                  </div>
+                  {activeCustSubSummaries.length === 0 ? (
+                    <div style={{ fontSize: 13, color: '#047857', fontWeight: 600 }}>
+                      No active paid subscription yet. Select a plan below!
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 10 }}>
+                      {activeCustSubSummaries.map((sub) => (
+                        <div key={sub.id || sub.package_id} style={{ padding: 12, borderRadius: 12, background: '#ffffff', border: '1px solid #6ee7b7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{sub.planName}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 2 }}>
+                              {sub.daysLeft !== null ? `⏳ ${sub.daysLeft} Days Remaining` : 'Active Validity'}
+                              {sub.expires_at ? ` • Expires ${new Date(sub.expires_at).toLocaleDateString('en-IN')}` : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={subscribingId === (sub.pkg?.id || sub.package_id)}
+                            onClick={() => handleSubscribePlan(sub.pkg, { renew: true })}
+                            style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
+                          >
+                            {subscribingId === (sub.pkg?.id || sub.package_id) ? 'Extending...' : 'Renew Now'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>
+                    All Available Plans
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                    {customerPlanList.map((pkg) => {
+                      const subscribed = isCustPkgSubscribed(pkg);
+                      const pkgAmt = Number(pkg.price ?? pkg.amount ?? 500);
+                      return (
+                        <div key={pkg.id || pkg.code} style={{ padding: 15, borderRadius: 12, border: subscribed ? '2px solid #16a34a' : '1px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                              <span style={{ fontSize: 16, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb' }}>₹{pkgAmt.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Duration: {pkg.duration_days || 30} Days</div>
+                            <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>{pkg.description}</p>
+                          </div>
+                          {subscribed ? (
+                            <button
+                              type="button"
+                              disabled
+                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                            >
+                              <HiCheckCircle size={16} />
+                              <span>Subscribed</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={subscribingId === (pkg.id || pkg.code)}
+                              onClick={() => handleSubscribePlan(pkg)}
+                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe Now via Razorpay'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -879,6 +879,32 @@ export default function Merchants() {
     },
     { key: 'category', label: 'Category' },
     {
+      key: 'subscription_plan_name',
+      label: 'Plan',
+      render: (val, row) => {
+        const title = val || row?.raw?.subscription_plan_name || '';
+        if (!title) {
+          return <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>No Plan</span>;
+        }
+        return (
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '3px 8px',
+              borderRadius: 6,
+              background: '#ECFDF5',
+              color: '#065F46',
+              border: '1px solid #A7F3D0',
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          >
+            {title}
+          </span>
+        );
+      },
+    },
+    {
       key: 'cashback_rates',
       label: 'Cashback Split',
       render: (_, row) => {

@@ -129,6 +129,19 @@ export async function fetchMyActiveSubscriptions(audience = 'USER', merchantProf
   return data?.data || data;
 }
 
+export function computeDaysRemaining(sub) {
+  if (!sub) return null;
+  if (sub.days_remaining !== undefined && sub.days_remaining !== null && Number.isFinite(Number(sub.days_remaining))) {
+    return Math.max(0, Number(sub.days_remaining));
+  }
+  if (!sub.expires_at) return null;
+  const expMs = new Date(sub.expires_at).getTime();
+  if (!Number.isFinite(expMs)) return null;
+  const diff = expMs - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / 86400000);
+}
+
 /**
  * Customer/Merchant: Subscribe to package
  */
@@ -137,8 +150,9 @@ export async function subscribeToPackage({
   merchant_profile_id = null,
   payment_reference = null,
   audience = 'USER',
+  renew = false,
 }) {
-  const body = { package_id: Number(package_id) };
+  const body = { package_id: Number(package_id), renew: Boolean(renew) };
   if (merchant_profile_id) body.merchant_profile_id = Number(merchant_profile_id);
   if (payment_reference) body.payment_reference = String(payment_reference);
 
@@ -217,6 +231,7 @@ export async function startCustomerRazorpaySubscription({
   customerUser,
   audience = 'USER',
   merchantProfileId = null,
+  renew = false,
   onSuccess,
   onError,
   onDismiss,
@@ -271,6 +286,7 @@ export async function startCustomerRazorpaySubscription({
       package_id: targetPackageId,
       package_code: pkg.code || undefined,
       merchant_profile_id: merchantProfileId ? Number(merchantProfileId) : undefined,
+      renew: Boolean(renew),
     }),
   });
   if (orderRes.status === 404) {
@@ -297,6 +313,7 @@ export async function startCustomerRazorpaySubscription({
         package_id: orderData.package_id || targetPackageId,
         package_code: orderData.package_code || pkg.code || undefined,
         merchant_profile_id: orderData.merchant_profile_id || (merchantProfileId ? Number(merchantProfileId) : undefined),
+        renew: Boolean(renew),
         razorpay_order_id: rzpPayload.razorpay_order_id,
         razorpay_payment_id: rzpPayload.razorpay_payment_id,
         razorpay_signature: rzpPayload.razorpay_signature,
@@ -315,6 +332,7 @@ export async function startCustomerRazorpaySubscription({
         merchant_profile_id: merchantProfileId,
         payment_reference: rzpPayload.razorpay_payment_id || rzpPayload.razorpay_order_id,
         audience,
+        renew: Boolean(renew),
       });
     }
     const vErr = await verifyRes.json().catch(() => ({}));

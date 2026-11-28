@@ -299,6 +299,11 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       company_fee_percent: m.company_fee_percent !== undefined && m.company_fee_percent !== null ? Number(m.company_fee_percent) : 2.0,
       total_deduction_percent: m.total_deduction_percent !== undefined && m.total_deduction_percent !== null ? Number(m.total_deduction_percent) : 5.0,
       login_id: m.login_id || m.linked_user?.login_id || m.user?.login_id || m.raw?.login_id || null,
+      active_subscriptions: Array.isArray(m.active_subscriptions) ? m.active_subscriptions : [],
+      subscription_plan_name: m.subscription_plan_name || null,
+      subscription_amount_paid: m.subscription_amount_paid !== undefined && m.subscription_amount_paid !== null ? Number(m.subscription_amount_paid) : null,
+      has_active_subscription: Boolean(m.has_active_subscription),
+      merchant_grants: m.merchant_grants || {},
     };
   });
 
@@ -503,6 +508,18 @@ export async function fetchRegistrationRequests(filters = {}) {
           created_at: m.created_at,
           updated_at: m.updated_at,
           photos: (Array.isArray(m.photos) ? m.photos : Array.isArray(m.merchant_photos) ? m.merchant_photos : [m.photo_1, m.image]).map(sanitizeMerchantPhoto).filter(Boolean),
+          active_subscriptions: Array.isArray(m.active_subscriptions) ? m.active_subscriptions : [],
+          subscription_plan_name: m.subscription_plan_name || null,
+          subscription_amount_paid: m.subscription_amount_paid !== undefined && m.subscription_amount_paid !== null ? Number(m.subscription_amount_paid) : null,
+          merchant_grants: m.merchant_grants || {},
+          login_id: m.login_id || m.linked_user?.login_id || m.user?.login_id || null,
+          latitude: m.latitude ?? null,
+          longitude: m.longitude ?? null,
+          owner: m.owner_name || m.owner || 'N/A',
+          phone: m.phone_number || m.phone || m.contact_number || '',
+          whatsapp: m.whatsapp || m.phone_number || m.phone || '',
+          service_timing: m.service_timing || 'General Store Hours',
+          user_code: m.user_code || '',
           raw: m,
         }));
       }
@@ -1121,7 +1138,7 @@ export async function logoutMerchantSession() {
   clearMerchantSession();
 }
 
-export async function createMerchantRegistrationOrder({ email, phone_number, business_name } = {}) {
+export async function createMerchantRegistrationOrder({ email, phone_number, business_name, package_id, package_code } = {}) {
   const response = await apiFetch('/api/v1/merchants/register/razorpay-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1129,6 +1146,8 @@ export async function createMerchantRegistrationOrder({ email, phone_number, bus
       email: String(email || '').trim().toLowerCase() || undefined,
       phone_number: String(phone_number || '').trim() || undefined,
       business_name: String(business_name || '').trim() || undefined,
+      package_id: package_id ? Number(package_id) : undefined,
+      package_code: package_code ? String(package_code).trim() : undefined,
     }),
   });
   const resData = await response.json().catch(() => ({}));
@@ -1136,7 +1155,7 @@ export async function createMerchantRegistrationOrder({ email, phone_number, bus
     throw new Error(
       typeof resData.detail === 'string'
         ? resData.detail
-        : resData.message || 'Failed to initialize ₹1,000 merchant registration payment'
+        : resData.message || 'Failed to initialize merchant subscription payment'
     );
   }
   return resData?.data || resData;

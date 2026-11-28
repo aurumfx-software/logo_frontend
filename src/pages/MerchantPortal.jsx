@@ -20,6 +20,7 @@ import {
   HiOutlineDocumentText,
   HiOutlinePencil,
   HiOutlineExternalLink,
+  HiOutlineX,
 } from 'react-icons/hi';
 import CircularSpinner from '../components/UI/CircularSpinner';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
@@ -68,6 +69,7 @@ import {
   hasActiveSellerSubscription,
   startCustomerRazorpaySubscription,
   cancelMySubscription,
+  computeDaysRemaining,
 } from '../api/subscriptionApi';
 import {
   getStatesList,
@@ -236,6 +238,7 @@ export default function MerchantPortal() {
   const [userSubData, setUserSubData] = useState(null);
   const [sellerAccountUser, setSellerAccountUser] = useState(() => user || null);
   const [subscribingId, setSubscribingId] = useState(null);
+  const [planActionModal, setPlanActionModal] = useState(null); // null | 'upgrade' | 'renew'
 
   // Merchant Product Selling State (Exact Customer Dashboard Parity)
   const [ordersSubTab, setOrdersSubTab] = useState('seller');
@@ -851,7 +854,7 @@ export default function MerchantPortal() {
   };
 
   // Growth Subscription Handler (Mobile audience=MERCHANT)
-  const handleSubscribePlan = async (pkg) => {
+  const handleSubscribePlan = async (pkg, { renew = false } = {}) => {
     const targetShop = selectedShop || formData;
     setSubscribingId(pkg.id || pkg.code);
     setErrorMsg('');
@@ -865,8 +868,14 @@ export default function MerchantPortal() {
         },
         audience: 'MERCHANT',
         merchantProfileId: targetShop?.id ? Number(targetShop.id) : null,
-        onSuccess: async () => {
-          showNotice('Merchant Growth Subscription activated!');
+        renew: Boolean(renew),
+        onSuccess: async (subRes) => {
+          if (subRes?.cancelled) return;
+          showNotice(
+            renew
+              ? `"${pkg.name}" renewed & validity extended!`
+              : 'Merchant Growth Subscription activated!'
+          );
           await loadMerchantWorkspace(true);
         },
         onError: (payErr) => setErrorMsg(payErr?.message || 'Subscription activation failed.'),
@@ -1057,6 +1066,67 @@ export default function MerchantPortal() {
   const merchantFeaturePackages = subPackages.filter(
     (p) => String(p.code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
   );
+  const rawMerchantSubs =
+    Array.isArray(activeSubData?.merchant_subscriptions) && activeSubData.merchant_subscriptions.length > 0
+      ? activeSubData.merchant_subscriptions
+      : Array.isArray(selectedShop?.active_subscriptions)
+      ? selectedShop.active_subscriptions
+      : [];
+  const activeMerchantSubs = rawMerchantSubs.filter((s) => {
+    const code = String(s.package_code || '').toUpperCase();
+    const st = String(s.status || 'ACTIVE').toUpperCase();
+    if (code === 'MERCHANT_REGISTER_1000' || st !== 'ACTIVE') return false;
+    if (s.expires_at && new Date(s.expires_at).getTime() < Date.now()) return false;
+    return true;
+  });
+  const isPkgSubscribed = (pkg) =>
+    activeMerchantSubs.some(
+      (s) =>
+        String(s.package_id || '') === String(pkg?.id || '') ||
+        (pkg?.code && String(s.package_code || '').toUpperCase() === String(pkg.code).toUpperCase())
+    );
+  const maxSubscribedPrice = activeMerchantSubs.reduce((mx, s) => {
+    const matchedPkg = merchantFeaturePackages.find(
+      (p) =>
+        String(p.id) === String(s.package_id) ||
+        (s.package_code && String(p.code || '').toUpperCase() === String(s.package_code).toUpperCase())
+    );
+    const val = Number(matchedPkg?.price ?? matchedPkg?.amount ?? s.price ?? s.amount_paid ?? 0);
+    return val > mx ? val : mx;
+  }, 0);
+  const upgradePackages = merchantFeaturePackages.filter((pkg) => {
+    if (isPkgSubscribed(pkg)) return false;
+    const price = Number(pkg.price ?? pkg.amount ?? 0);
+    return price > maxSubscribedPrice;
+  });
+  const activePlanSummaryList = activeMerchantSubs.map((s) => {
+    const matchedPkg = merchantFeaturePackages.find(
+      (p) =>
+        String(p.id) === String(s.package_id) ||
+        (s.package_code && String(p.code || '').toUpperCase() === String(s.package_code).toUpperCase())
+    );
+    return {
+      ...s,
+      pkg: matchedPkg || {
+        id: s.package_id,
+        code: s.package_code,
+        name: s.package_name || 'Merchant Plan',
+        price: s.price ?? s.amount_paid ?? 0,
+        duration_days: s.duration_days || 30,
+      },
+      planName: s.package_name || matchedPkg?.name || 'Merchant Plan',
+      daysLeft: computeDaysRemaining(s),
+    };
+  });
+  const primaryActivePlanLabel =
+    activePlanSummaryList.length > 0
+      ? activePlanSummaryList.map((item) => item.planName).join(', ')
+      : selectedShop?.subscription_plan_name || '';
+  const minDaysRemaining = activePlanSummaryList.reduce((mn, item) => {
+    if (item.daysLeft === null || item.daysLeft === undefined) return mn;
+    return mn === null ? item.daysLeft : Math.min(mn, item.daysLeft);
+  }, null);
+
   const productUnlockPkg = merchantFeaturePackages.find((p) =>
     getUnlockedPermissionItems(p).some((item) => item.key === 'merchant_product_section')
   );
@@ -1099,6 +1169,56 @@ export default function MerchantPortal() {
           >
             {formData.business_name || 'Merchant Store'} • {String(formData.approval_status || 'PENDING').toUpperCase()}
           </span>
+
+          {primaryActivePlanLabel ? (
+            <button
+              type="button"
+              onClick={() => setPlanActionModal('renew')}
+              title="Click to view remaining days or renew subscription"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 999,
+                border: '1px solid #6ee7b7',
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                color: '#065f46',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              <HiOutlineSparkles size={14} color="#059669" />
+              <span>Plan: {primaryActivePlanLabel}</span>
+              {minDaysRemaining !== null && (
+                <span style={{ padding: '1px 7px', borderRadius: 999, background: '#059669', color: '#fff', fontSize: 11, fontWeight: 800 }}>
+                  {minDaysRemaining}d left
+                </span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setTab('subscriptions')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 12px',
+                borderRadius: 999,
+                border: '1px solid #fcd34d',
+                background: '#fffbeb',
+                color: '#92400e',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              <HiOutlineLockClosed size={13} />
+              <span>No Active Plan — Subscribe</span>
+            </button>
+          )}
         </div>
 
         <button
@@ -1195,6 +1315,66 @@ export default function MerchantPortal() {
                 >
                   {saving ? 'Saving...' : 'Save Store Changes'}
                 </button>
+              </div>
+
+              {/* Current Active Plan Top Banner inside Merchant Profile */}
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: primaryActivePlanLabel ? 'linear-gradient(135deg, #ecfdf5 0%, #f0f9ff 100%)' : '#fffbeb',
+                  border: primaryActivePlanLabel ? '1px solid #a7f3d0' : '1px solid #fde68a',
+                  marginBottom: 18,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: primaryActivePlanLabel ? '#047857' : '#92400e' }}>
+                    {primaryActivePlanLabel ? 'Your Subscribed Plan' : 'Subscription Status'}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span>{primaryActivePlanLabel || 'No Active Subscription Plan'}</span>
+                    {minDaysRemaining !== null && (
+                      <span style={{ padding: '2px 9px', borderRadius: 999, background: '#16a34a', color: '#fff', fontSize: 11.5, fontWeight: 800 }}>
+                        {minDaysRemaining} Days Remaining
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPlanActionModal('upgrade')}
+                    className="logo-upgrade-btn"
+                  >
+                    <HiOutlineSparkles size={15} />
+                    <span>Upgrade Plan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanActionModal('renew')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '7px 13px',
+                      borderRadius: 9,
+                      border: '1.5px solid #059669',
+                      background: '#ffffff',
+                      color: '#047857',
+                      fontSize: 12.5,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <HiOutlineRefresh size={14} />
+                    <span>Renew</span>
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 16 }}>
@@ -1483,9 +1663,12 @@ export default function MerchantPortal() {
                         <button
                           type="button"
                           onClick={() => navigate('/merchant?tab=subscriptions')}
-                          style={{ textAlign: 'center', padding: '6px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, border: '1.5px solid #f59e0b', background: '#fffbeb', color: '#92400e', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
                         >
-                          🔒 Subscription Required
+                          <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
+                            <HiOutlineLockClosed size={13} />
+                          </span>
+                          <span>Locked</span>
                         </button>
                       )}
                     </div>
@@ -1502,10 +1685,12 @@ export default function MerchantPortal() {
                     <button
                       type="button"
                       onClick={() => navigate('/merchant?tab=subscriptions')}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fcd34d', fontSize: 12.5, fontWeight: 700, color: '#92400e', cursor: 'pointer' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, background: '#fffbeb', border: '1.5px solid #f59e0b', fontSize: 12.5, fontWeight: 800, color: '#92400e', cursor: 'pointer' }}
                     >
-                      <HiOutlineLockClosed size={14} />
-                      Store Tour Video Locked — Subscribe to Unlock
+                      <span className="logo-lock-badge-anim" style={{ width: 24, height: 24 }}>
+                        <HiOutlineLockClosed size={15} />
+                      </span>
+                      <span>Store Tour Video Locked — Subscribe to Unlock</span>
                     </button>
                   )}
                   {formData.videoUrl && (
@@ -1614,12 +1799,13 @@ export default function MerchantPortal() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(275px, 1fr))', gap: 14 }}>
                     {merchantFeaturePackages.map((pkg, idx) => {
                       const unlocked = getUnlockedPermissionItems(pkg);
+                      const subscribed = isPkgSubscribed(pkg);
                       return (
-                        <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1.5px solid #cbd5e1', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                        <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: subscribed ? '2px solid #16a34a' : '1.5px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                               <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                              <span style={{ fontSize: 18, fontWeight: 900, color: '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
                             </div>
                             <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#475569' }}>
                               {pkg.description || 'Admin-configured Merchant Plan with granular permissions.'}
@@ -1641,8 +1827,8 @@ export default function MerchantPortal() {
                                     fontWeight: 700,
                                     padding: '3px 7px',
                                     borderRadius: 6,
-                                    background: '#eff6ff',
-                                    color: '#1d4ed8',
+                                    background: subscribed ? '#dcfce7' : '#eff6ff',
+                                    color: subscribed ? '#166534' : '#1d4ed8',
                                   }}
                                 >
                                   <HiOutlineCheckCircle size={12} />
@@ -1651,16 +1837,27 @@ export default function MerchantPortal() {
                               ))}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            disabled={subscribingId === (pkg.id || pkg.code)}
-                            onClick={() => handleSubscribePlan(pkg)}
-                            style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                          >
-                            {subscribingId === (pkg.id || pkg.code)
-                              ? 'Processing...'
-                              : `Pay ₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')} & Unlock via Razorpay`}
-                          </button>
+                          {subscribed ? (
+                            <button
+                              type="button"
+                              disabled
+                              style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                            >
+                              <HiOutlineCheckCircle size={17} />
+                              <span>Subscribed</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={subscribingId === (pkg.id || pkg.code)}
+                              onClick={() => handleSubscribePlan(pkg)}
+                              style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              {subscribingId === (pkg.id || pkg.code)
+                                ? 'Processing...'
+                                : `Pay ₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')} & Unlock via Razorpay`}
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -1669,18 +1866,41 @@ export default function MerchantPortal() {
               </div>
             ) : (
               <>
-                <div style={{ padding: '10px 14px', borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 13, fontWeight: 700, color: '#065f46' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ padding: '12px 15px', borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, fontSize: 13, fontWeight: 700, color: '#065f46' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <HiOutlineCheckCircle size={18} />
                     <span>Advertisement Permissions Active — Select from your unlocked placements and formats below.</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/merchant?tab=subscriptions')}
-                    style={{ border: 'none', background: '#059669', color: '#fff', borderRadius: 8, padding: '5px 11px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                  >
-                    Upgrade / Add Permissions
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPlanActionModal('upgrade')}
+                      className="logo-upgrade-btn"
+                    >
+                      <HiOutlineSparkles size={15} />
+                      <span>Upgrade Plan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlanActionModal('renew')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        border: '1.5px solid #059669',
+                        background: '#ffffff',
+                        color: '#047857',
+                        borderRadius: 9,
+                        padding: '7px 14px',
+                        fontSize: 12.5,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <HiOutlineRefresh size={14} />
+                      <span>Renew</span>
+                    </button>
+                  </div>
                 </div>
 
                 <form onSubmit={handleCreatePromo} style={{ padding: 20, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 24 }}>
@@ -1718,7 +1938,7 @@ export default function MerchantPortal() {
                             type="button"
                             onClick={() => {
                               if (!opt.unlocked) {
-                                navigate('/merchant?tab=subscriptions');
+                                setPlanActionModal('upgrade');
                                 return;
                               }
                               setNewPromo((prev) => ({ ...prev, placement: opt.placement }));
@@ -1726,19 +1946,43 @@ export default function MerchantPortal() {
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 5,
-                              padding: '7px 12px',
-                              borderRadius: 9,
-                              border: selected ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                              background: !opt.unlocked ? '#f1f5f9' : selected ? '#eff6ff' : '#ffffff',
-                              color: !opt.unlocked ? '#94a3b8' : selected ? '#1d4ed8' : '#334155',
-                              fontSize: 12,
+                              gap: 7,
+                              padding: opt.unlocked ? '8px 13px' : '7px 12px',
+                              borderRadius: 10,
+                              border: !opt.unlocked
+                                ? '1.5px solid #f59e0b'
+                                : selected
+                                ? '2px solid #2563eb'
+                                : '1px solid #cbd5e1',
+                              background: !opt.unlocked ? '#fffbeb' : selected ? '#eff6ff' : '#ffffff',
+                              color: !opt.unlocked ? '#78350f' : selected ? '#1d4ed8' : '#334155',
+                              fontSize: 12.5,
                               fontWeight: 800,
                               cursor: 'pointer',
+                              transition: 'all 0.15s ease',
                             }}
                           >
-                            {!opt.unlocked && <HiOutlineLockClosed size={12} />}
+                            {!opt.unlocked && (
+                              <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
+                                <HiOutlineLockClosed size={14} />
+                              </span>
+                            )}
                             <span>{opt.label}</span>
+                            {!opt.unlocked && (
+                              <span
+                                style={{
+                                  fontSize: 9.5,
+                                  fontWeight: 900,
+                                  padding: '2px 5px',
+                                  borderRadius: 5,
+                                  background: '#fde68a',
+                                  color: '#92400e',
+                                  letterSpacing: '0.03em',
+                                }}
+                              >
+                                LOCKED
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -1748,7 +1992,7 @@ export default function MerchantPortal() {
                   {/* Ad Format Switcher: Image / Text with Bg / Video */}
                   <div style={{ marginBottom: 16 }}>
                     <label style={labelStyle}>Choose Advertisement Format *</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
                       {[
                         { key: 'image', label: 'Image Banner', icon: <HiOutlinePhotograph size={17} /> },
                         { key: 'text', label: 'Text with Background', icon: <HiOutlineDocumentText size={17} /> },
@@ -1768,7 +2012,7 @@ export default function MerchantPortal() {
                             type="button"
                             onClick={() => {
                               if (!fmtAllowed) {
-                                navigate('/merchant?tab=subscriptions');
+                                setPlanActionModal('upgrade');
                                 return;
                               }
                               setNewPromo((prev) => ({ ...prev, mediaType: fmt.key }));
@@ -1777,19 +2021,39 @@ export default function MerchantPortal() {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: 8,
+                              gap: 9,
                               padding: '11px 12px',
                               borderRadius: 11,
-                              border: `2px solid ${!fmtAllowed ? '#e2e8f0' : active ? '#2563eb' : '#cbd5e1'}`,
-                              background: !fmtAllowed ? '#f1f5f9' : active ? '#eff6ff' : '#ffffff',
-                              color: !fmtAllowed ? '#94a3b8' : active ? '#1d4ed8' : '#334155',
+                              border: `2px solid ${!fmtAllowed ? '#f59e0b' : active ? '#2563eb' : '#cbd5e1'}`,
+                              background: !fmtAllowed ? '#fffbeb' : active ? '#eff6ff' : '#ffffff',
+                              color: !fmtAllowed ? '#78350f' : active ? '#1d4ed8' : '#334155',
                               fontSize: 13,
                               fontWeight: 800,
                               cursor: 'pointer',
                             }}
                           >
-                            {fmtAllowed ? fmt.icon : <HiOutlineLockClosed size={15} />}
-                            <span>{fmtAllowed ? fmt.label : `${fmt.label} (Locked)`}</span>
+                            {fmtAllowed ? (
+                              fmt.icon
+                            ) : (
+                              <span className="logo-lock-badge-anim" style={{ width: 26, height: 26 }}>
+                                <HiOutlineLockClosed size={16} />
+                              </span>
+                            )}
+                            <span>{fmt.label}</span>
+                            {!fmtAllowed && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 900,
+                                  padding: '2px 6px',
+                                  borderRadius: 6,
+                                  background: '#fde68a',
+                                  color: '#92400e',
+                                }}
+                              >
+                                LOCKED
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -2204,15 +2468,82 @@ export default function MerchantPortal() {
 
         {activePanel === 'subscriptions' && (
           <div>
-            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Merchant Subscription Plans</h2>
-            <p style={{ margin: '0 0 18px', fontSize: 13, color: '#64748b' }}>
-              Subscribe to Admin-configured Merchant Plans to unlock Photos, Store Tour Video, Product Selling, and Banner Placements for your business.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Merchant Subscription Plans</h2>
+                <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                  Subscribe to Admin-configured Merchant Plans to unlock Photos, Store Tour Video, Product Selling, and Banner Placements for your business.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setPlanActionModal('upgrade')}
+                  className="logo-upgrade-btn"
+                >
+                  <HiOutlineSparkles size={15} />
+                  <span>Upgrade Plan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlanActionModal('renew')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '7px 14px',
+                    borderRadius: 9,
+                    border: '1.5px solid #059669',
+                    background: '#ffffff',
+                    color: '#047857',
+                    fontSize: 12.5,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <HiOutlineRefresh size={14} />
+                  <span>Renew</span>
+                </button>
+              </div>
+            </div>
 
-            {hasActiveMerchantSub && (
-              <div style={{ padding: 14, borderRadius: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#065f46' }}>Active Merchant Plan Permissions</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {(hasActiveMerchantSub || activePlanSummaryList.length > 0) && (
+              <div style={{ padding: 16, borderRadius: 14, background: '#ecfdf5', border: '1px solid #a7f3d0', marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Your Current Active Plan(s)
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#065f46', marginTop: 2 }}>
+                      {primaryActivePlanLabel || 'Active Merchant Plan'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {activePlanSummaryList.map((sub) => (
+                      <div
+                        key={sub.id || sub.package_id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '6px 12px',
+                          borderRadius: 10,
+                          background: '#ffffff',
+                          border: '1px solid #6ee7b7',
+                        }}
+                      >
+                        <span style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>{sub.planName}</span>
+                        {sub.daysLeft !== null && (
+                          <span style={{ fontSize: 11.5, fontWeight: 800, padding: '2px 8px', borderRadius: 999, background: '#16a34a', color: '#fff' }}>
+                            {sub.daysLeft} days left
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#065f46', marginBottom: 6 }}>Active Merchant Plan Permissions</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {MERCHANT_PERMISSION_ITEMS.filter((item) => Boolean(merchantGrants[item.key])).map((item) => (
                     <span
                       key={item.key}
@@ -2243,18 +2574,27 @@ export default function MerchantPortal() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(275px, 1fr))', gap: 14 }}>
                 {merchantFeaturePackages.map((pkg, idx) => {
                   const unlocked = getUnlockedPermissionItems(pkg);
+                  const subscribed = isPkgSubscribed(pkg);
+                  const activeSub = activePlanSummaryList.find(
+                    (s) =>
+                      String(s.package_id || '') === String(pkg.id || '') ||
+                      (pkg.code && String(s.package_code || '').toUpperCase() === String(pkg.code).toUpperCase())
+                  );
                   return (
-                    <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: '1px solid #cbd5e1', background: '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                    <div key={pkg.id || idx} style={{ padding: 18, borderRadius: 14, border: subscribed ? '2px solid #16a34a' : '1px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
-                          <span style={{ fontSize: 18, fontWeight: 900, color: '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                          <span style={{ fontSize: 18, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
                         </div>
                         <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#475569' }}>
                           {pkg.description || 'Boost store visibility across Kerala directory and home banners.'}
                         </p>
                         {pkg.duration_days && (
-                          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>Duration: {pkg.duration_days} Days</div>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>
+                            Duration: {pkg.duration_days} Days
+                            {subscribed && activeSub?.daysLeft !== null && activeSub?.daysLeft !== undefined ? ` • ${activeSub.daysLeft} days left` : ''}
+                          </div>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                           {unlocked.map((item) => (
@@ -2268,8 +2608,8 @@ export default function MerchantPortal() {
                                 fontWeight: 700,
                                 padding: '3px 7px',
                                 borderRadius: 6,
-                                background: '#eff6ff',
-                                color: '#1d4ed8',
+                                background: subscribed ? '#dcfce7' : '#eff6ff',
+                                color: subscribed ? '#166534' : '#1d4ed8',
                               }}
                             >
                               <HiOutlineCheckCircle size={12} />
@@ -2278,14 +2618,39 @@ export default function MerchantPortal() {
                           ))}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        disabled={subscribingId === (pkg.id || pkg.code)}
-                        onClick={() => handleSubscribePlan(pkg)}
-                        style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
-                      </button>
+                      {subscribed ? (
+                        <button
+                          type="button"
+                          disabled
+                          style={{
+                            width: '100%',
+                            padding: '11px',
+                            borderRadius: 10,
+                            border: 'none',
+                            background: '#16a34a',
+                            color: '#fff',
+                            fontSize: 13.5,
+                            fontWeight: 800,
+                            cursor: 'not-allowed',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <HiOutlineCheckCircle size={17} />
+                          <span>Subscribed</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={subscribingId === (pkg.id || pkg.code)}
+                          onClick={() => handleSubscribePlan(pkg)}
+                          style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
+                        >
+                          {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -2528,6 +2893,227 @@ export default function MerchantPortal() {
         onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
         onUseOriginal={videoCropState.rawFile ? () => handlePromoMediaUpload(videoCropState.rawFile) : undefined}
       />
+
+      {/* Upgrade Plan / Renew & All Plans Modal */}
+      {planActionModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPlanActionModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.58)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 860,
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              background: '#ffffff',
+              borderRadius: 18,
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)',
+              border: '1px solid #e2e8f0',
+              padding: 22,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {planActionModal === 'upgrade' ? (
+                    <>
+                      <HiOutlineSparkles size={20} color="#7c3aed" />
+                      <span>Upgrade Your Merchant Plan</span>
+                    </>
+                  ) : (
+                    <>
+                      <HiOutlineRefresh size={20} color="#059669" />
+                      <span>Renew Plan &amp; View All Plans</span>
+                    </>
+                  )}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>
+                  {planActionModal === 'upgrade'
+                    ? 'Showing only plans above your current active plan tier (current & lower plans are hidden).'
+                    : 'Check your current active plan validity days left, extend your active plan, or switch across all available plans.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanActionModal(null)}
+                style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <HiOutlineX size={18} />
+              </button>
+            </div>
+
+            {planActionModal === 'upgrade' ? (
+              <div>
+                {primaryActivePlanLabel && (
+                  <div style={{ padding: '10px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: '#334155' }}>
+                    Current Plan: <strong style={{ color: '#0f172a' }}>{primaryActivePlanLabel}</strong> (₹{maxSubscribedPrice.toLocaleString('en-IN')})
+                  </div>
+                )}
+
+                {upgradePackages.length === 0 ? (
+                  <div style={{ padding: '32px 20px', textAlign: 'center', borderRadius: 14, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#166534', marginBottom: 6 }}>
+                      You are already on our highest plan tier!
+                    </div>
+                    <p style={{ margin: '0 0 14px', fontSize: 13, color: '#15803d' }}>
+                      There are no plans higher than ₹{maxSubscribedPrice.toLocaleString('en-IN')} at the moment.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPlanActionModal('renew')}
+                      style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      Open Renew &amp; All Plans
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
+                    {upgradePackages.map((pkg, idx) => {
+                      const unlocked = getUnlockedPermissionItems(pkg);
+                      return (
+                        <div key={pkg.id || idx} style={{ padding: 16, borderRadius: 14, border: '1.5px solid #c4b5fd', background: '#faf5ff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                              <span style={{ fontSize: 18, fontWeight: 900, color: '#6d28d9' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            {pkg.description && (
+                              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#475569' }}>{pkg.description}</p>
+                            )}
+                            {pkg.duration_days && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>Duration: {pkg.duration_days} Days</div>
+                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {unlocked.map((item) => (
+                                <span key={item.key} style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: '#ede9fe', color: '#5b21b6' }}>
+                                  ✓ {item.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={subscribingId === (pkg.id || pkg.code)}
+                            onClick={() => handleSubscribePlan(pkg)}
+                            className="logo-upgrade-btn"
+                            style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
+                          >
+                            {subscribingId === (pkg.id || pkg.code)
+                              ? 'Processing...'
+                              : `Upgrade to ${pkg.name} (₹${Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')})`}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {/* Section 1: Currently Active Plans + Remaining Days */}
+                <div style={{ padding: 14, borderRadius: 14, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: '#065f46', marginBottom: 10 }}>
+                    Current Active Subscription(s) &amp; Remaining Validity
+                  </div>
+                  {activePlanSummaryList.length === 0 ? (
+                    <div style={{ fontSize: 13, color: '#047857', fontWeight: 600 }}>
+                      You don&apos;t have an active subscription yet. Choose any plan below to subscribe!
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+                      {activePlanSummaryList.map((sub) => (
+                        <div key={sub.id || sub.package_id} style={{ padding: 12, borderRadius: 12, background: '#ffffff', border: '1px solid #6ee7b7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{sub.planName}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginTop: 2 }}>
+                              {sub.daysLeft !== null ? `⏳ ${sub.daysLeft} Days Remaining` : 'Active Validity'}
+                              {sub.expires_at ? ` • Expires ${new Date(sub.expires_at).toLocaleDateString('en-IN')}` : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={subscribingId === (sub.pkg?.id || sub.package_id)}
+                            onClick={() => handleSubscribePlan(sub.pkg, { renew: true })}
+                            style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}
+                          >
+                            {subscribingId === (sub.pkg?.id || sub.package_id) ? 'Extending...' : 'Renew Now'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: All Available Merchant Plans */}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>
+                    All Available Merchant Plans
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12 }}>
+                    {merchantFeaturePackages.map((pkg, idx) => {
+                      const unlocked = getUnlockedPermissionItems(pkg);
+                      const subscribed = isPkgSubscribed(pkg);
+                      return (
+                        <div key={pkg.id || idx} style={{ padding: 15, borderRadius: 12, border: subscribed ? '2px solid #16a34a' : '1px solid #cbd5e1', background: subscribed ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 10 }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                              <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{pkg.name}</span>
+                              <span style={{ fontSize: 16, fontWeight: 900, color: subscribed ? '#16a34a' : '#2563eb' }}>₹{Number(pkg.price ?? pkg.amount ?? 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            {pkg.duration_days && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Duration: {pkg.duration_days} Days</div>
+                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {unlocked.map((item) => (
+                                <span key={item.key} style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: subscribed ? '#dcfce7' : '#eff6ff', color: subscribed ? '#166534' : '#1d4ed8' }}>
+                                  ✓ {item.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          {subscribed ? (
+                            <button
+                              type="button"
+                              disabled
+                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                            >
+                              <HiOutlineCheckCircle size={16} />
+                              <span>Subscribed</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={subscribingId === (pkg.id || pkg.code)}
+                              onClick={() => handleSubscribePlan(pkg)}
+                              style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              {subscribingId === (pkg.id || pkg.code) ? 'Processing...' : 'Subscribe via Razorpay'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

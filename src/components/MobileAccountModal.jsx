@@ -64,7 +64,9 @@ import {
   cancelMySubscription,
   hasActiveSellerSubscription,
   startCustomerRazorpaySubscription,
+  computeDaysRemaining,
 } from '../api/subscriptionApi';
+import { getUnlockedPermissionItems } from '../utils/merchantPermissions';
 import { useAuth } from '../context/AuthContext';
 
 const KERALA_DISTRICTS = [
@@ -224,8 +226,29 @@ export default function MobileAccountModal({
   const [activeSubData, setActiveSubData] = useState(null);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [subscribingId, setSubscribingId] = useState(null);
+  const [regPackages, setRegPackages] = useState([]);
+  const [loadingRegPkgs, setLoadingRegPkgs] = useState(false);
+  const [selectedRegPkgId, setSelectedRegPkgId] = useState(null);
 
   const timerRef = useRef(null);
+
+  const loadRegMerchantPackages = async () => {
+    setLoadingRegPkgs(true);
+    try {
+      const pkgs = await fetchAdminSubscriptionPackages({ audience: 'MERCHANT', activeOnly: true }).catch(() => []);
+      const filtered = (Array.isArray(pkgs) ? pkgs : []).filter(
+        (p) => String(p.code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
+      );
+      setRegPackages(filtered);
+      if (filtered.length > 0) {
+        setSelectedRegPkgId((prev) =>
+          prev && filtered.some((p) => String(p.id) === String(prev)) ? prev : filtered[0].id
+        );
+      }
+    } finally {
+      setLoadingRegPkgs(false);
+    }
+  };
 
   const syncSessions = async () => {
     const cAuth = isCustomerAuthenticated();
@@ -244,7 +267,13 @@ export default function MobileAccountModal({
       setCustomerUser(null);
     }
     if (getMerchantToken()) {
-      setMerchantUser(getStoredMerchantUser());
+      const localM = getStoredMerchantUser();
+      setMerchantUser(localM);
+      fetchMyActiveSubscriptions('MERCHANT', localM?.id || null)
+        .then((subs) => {
+          if (subs) setActiveSubData(subs);
+        })
+        .catch(() => {});
     } else {
       setMerchantUser(null);
     }
@@ -255,6 +284,7 @@ export default function MobileAccountModal({
     setError('');
     setSuccess(promptMessage || '');
     syncSessions();
+    loadRegMerchantPackages();
     fetchCategoriesList()
       .then((cats) => {
         if (Array.isArray(cats) && cats.length > 0) {
@@ -756,19 +786,34 @@ export default function MobileAccountModal({
     if (merchReg.password !== merchReg.confirm_password) return setError('Passwords do not match');
     if (!merchReg.address.trim()) return setError('Please enter Street Address');
 
-    const validPhotos = merchPhotos.filter((p) => p && p.trim() !== '');
+    const selectedRegPkg =
+      regPackages.find((p) => String(p.id) === String(selectedRegPkgId)) || regPackages[0] || null;
+    if (!selectedRegPkg) {
+      return setError('Please select a Merchant Subscription Plan to continue registration.');
+    }
+
+    const planPrice = Number(selectedRegPkg.price ?? selectedRegPkg.amount ?? 0);
     setLoading(true);
     try {
       const regOrder = await createMerchantRegistrationOrder({
         email: cleanEmail,
         phone_number: cleanPhone,
         business_name: storeName,
+        package_id: selectedRegPkg.id,
+        package_code: selectedRegPkg.code,
       });
 
       let paymentProof = null;
-      if (regOrder?.razorpay_order_id && String(regOrder.razorpay_order_id).startsWith('order_dev_')) {
+      const oid = String(regOrder?.razorpay_order_id || '');
+      if (planPrice <= 0 || oid.startsWith('order_free_mreg_')) {
         paymentProof = {
-          razorpay_order_id: regOrder.razorpay_order_id,
+          razorpay_order_id: oid || `order_free_mreg_${selectedRegPkg.id}`,
+          razorpay_payment_id: `pay_free_${selectedRegPkg.code || selectedRegPkg.id}`,
+          razorpay_signature: 'free_plan_signature',
+        };
+      } else if (oid.startsWith('order_dev_')) {
+        paymentProof = {
+          razorpay_order_id: oid,
           razorpay_payment_id: `pay_dev_mreg_${Date.now()}`,
           razorpay_signature: 'dev_signature_ok',
         };
@@ -785,11 +830,11 @@ export default function MobileAccountModal({
         paymentProof = await new Promise((resolve, reject) => {
           const rzp = new window.Razorpay({
             key: regOrder.razorpay_key_id,
-            amount: regOrder.amount_paise || 100000,
+            amount: regOrder.amount_paise || Math.round(planPrice * 100),
             currency: regOrder.currency || 'INR',
             name: 'Logo Kerala',
-            description: 'Mandatory ₹1,000 Merchant Registration Plan',
-            order_id: regOrder.razorpay_order_id,
+            description: `${selectedRegPkg.name} — Merchant Registration`,
+            order_id: oid,
             prefill: {
               name: merchReg.owner_name.trim() || storeName,
               email: cleanEmail,
@@ -798,13 +843,17 @@ export default function MobileAccountModal({
             theme: { color: '#2563EB' },
             handler: (rsp) =>
               resolve({
-                razorpay_order_id: rsp.razorpay_order_id || regOrder.razorpay_order_id,
+                razorpay_order_id: rsp.razorpay_order_id || oid,
                 razorpay_payment_id: rsp.razorpay_payment_id,
                 razorpay_signature: rsp.razorpay_signature || 'verified_sdk_sig',
               }),
             modal: {
               ondismiss: () =>
-                reject(new Error('₹1,000 registration payment is required to register as a Merchant.')),
+                reject(
+                  new Error(
+                    `Subscription payment for "${selectedRegPkg.name}" is required to submit your registration request.`
+                  )
+                ),
             },
           });
           rzp.open();
@@ -836,22 +885,24 @@ export default function MobileAccountModal({
         instagram: merchReg.instagram.trim(),
         facebook: merchReg.facebook.trim(),
         youtube: merchReg.youtube.trim(),
-        photos: validPhotos,
-        merchant_photos: validPhotos,
-        photo_1: validPhotos[0] || null,
-        photo_2: validPhotos[1] || null,
-        photo_3: validPhotos[2] || null,
-        photo_4: validPhotos[3] || null,
+        photos: [],
+        merchant_photos: [],
+        photo_1: null,
+        photo_2: null,
+        photo_3: null,
+        photo_4: null,
         video_url: null,
         merchant_videos: [],
+        package_id: selectedRegPkg.id,
+        package_code: selectedRegPkg.code,
         status: 'PENDING',
         ...paymentProof,
       });
       const assignedLoginId = onbRes?.login_id || onbRes?.merchant?.login_id || '';
       setSuccess(
         assignedLoginId
-          ? `Merchant registered & ₹1,000 subscription paid! Your Login ID is ${assignedLoginId}. Sign in once approved by Admin.`
-          : 'Merchant registered & ₹1,000 subscription paid! Pending admin approval.'
+          ? `Merchant registered with ${selectedRegPkg.name}! Your Login ID is ${assignedLoginId}. Your application is Pending Admin Approval — plan features unlock once approved.`
+          : `Merchant registered with ${selectedRegPkg.name}! Pending admin approval.`
       );
       setMerchEmail(assignedLoginId);
       setMerchPassword(merchReg.password.trim());
@@ -1041,9 +1092,24 @@ export default function MobileAccountModal({
           <p style={{ margin: '4px 0 0', fontSize: 12.5, opacity: 0.9 }}>
             {section === 'hub'
               ? customerUser
-                ? `${customerUser.email || customerUser.phone || ''}`
+                ? `${customerUser.email || customerUser.phone || ''}${
+                    activeSubData?.user_subscriptions?.length
+                      ? ` • Plan: ${activeSubData.user_subscriptions.map((s) => s.package_name || s.package_code).join(', ')}`
+                      : isSeller
+                      ? ' • ₹500 Seller Plan Active'
+                      : ''
+                  }`
                 : merchantUser
-                ? `${merchantUser.email || ''} • Verified Storefront`
+                ? `${merchantUser.email || ''}${
+                    activeSubData?.merchant_subscriptions?.filter(
+                      (s) => String(s.package_code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
+                    )?.length
+                      ? ` • Plan: ${activeSubData.merchant_subscriptions
+                          .filter((s) => String(s.package_code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000')
+                          .map((s) => s.package_name || s.package_code)
+                          .join(', ')}`
+                      : ' • Verified Storefront'
+                  }`
                 : "Kerala's local store discovery & marketplace platform"
               : section === 'customer-auth'
               ? 'Sign in or register using the same credentials across Mobile App & Web'
@@ -2110,57 +2176,128 @@ export default function MobileAccountModal({
                     </div>
                   </div>
 
-                  {/* Storefront Photos Only (Video Requires Separate Subscription) */}
+                  {/* Select Admin Subscription Plan to Register (Photos/Videos can be added inside Profile after approval) */}
                   <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 12, border: '1px solid #E2E8F0' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <HiPhotograph size={16} color="#2563EB" /> Storefront Photos (Up to 4)
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
-                      {[0, 1, 2, 3].map((i) => (
-                        <label
-                          key={i}
-                          style={{
-                            border: '1.5px dashed #CBD5E1',
-                            borderRadius: 8,
-                            padding: 6,
-                            textAlign: 'center',
-                            cursor: 'pointer',
-                            background: '#FFFFFF',
-                            fontSize: 11,
-                          }}
-                        >
-                          {merchPhotos[i] ? (
-                            <img
-                              src={merchPhotos[i]}
-                              alt={`Shop ${i + 1}`}
-                              style={{ width: '100%', height: 48, objectFit: 'cover', borderRadius: 4 }}
-                            />
-                          ) : (
-                            <span style={{ color: '#64748B', fontWeight: 600 }}>+ Photo {i + 1}</span>
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            onChange={(e) => handleMerchMediaPick('photo', i, e.target.files?.[0])}
-                          />
-                        </label>
-                      ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 6, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <HiSparkles size={16} color="#2563EB" /> Choose Merchant Subscription Plan *
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>
+                        Photos &amp; Videos unlock inside Store Profile
+                      </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', fontSize: 11.5, fontWeight: 700, color: '#92400E' }}>
-                      <HiLockClosed size={14} color="#D97706" />
-                      <span>Store Tour &amp; Promo Video is locked during registration — unlock it later with a Merchant Video Subscription.</span>
-                    </div>
+                    {loadingRegPkgs ? (
+                      <div style={{ fontSize: 12, color: '#64748B', padding: '12px 6px', textAlign: 'center' }}>
+                        Loading Admin-configured subscription plans...
+                      </div>
+                    ) : regPackages.length === 0 ? (
+                      <div style={{ padding: '10px 12px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FECACA', fontSize: 12, fontWeight: 700, color: '#991B1B' }}>
+                        No active merchant subscription plans found. Please contact Admin.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto', paddingRight: 2 }}>
+                        {regPackages.map((pkg) => {
+                          const isSelected = String(selectedRegPkgId) === String(pkg.id);
+                          const unlocked = getUnlockedPermissionItems(pkg);
+                          const priceNum = Number(pkg.price ?? pkg.amount ?? 0);
+                          return (
+                            <div
+                              key={pkg.id || pkg.code}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setSelectedRegPkgId(pkg.id)}
+                              onKeyDown={(ev) => {
+                                if (ev.key === 'Enter' || ev.key === ' ') {
+                                  ev.preventDefault();
+                                  setSelectedRegPkgId(pkg.id);
+                                }
+                              }}
+                              style={{
+                                padding: 11,
+                                borderRadius: 10,
+                                border: isSelected ? '2px solid #2563EB' : '1px solid #CBD5E1',
+                                background: isSelected ? '#EFF6FF' : '#FFFFFF',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                  <span
+                                    style={{
+                                      width: 16,
+                                      height: 16,
+                                      borderRadius: '50%',
+                                      border: isSelected ? '5px solid #2563EB' : '2px solid #94A3B8',
+                                      background: '#FFFFFF',
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>{pkg.name}</span>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <span style={{ fontSize: 15, fontWeight: 900, color: '#2563EB' }}>
+                                    ₹{priceNum.toLocaleString('en-IN')}
+                                  </span>
+                                  {pkg.duration_days && (
+                                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748B', marginLeft: 4 }}>
+                                      / {pkg.duration_days}d
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {pkg.description && (
+                                <div style={{ fontSize: 11.5, color: '#475569', marginBottom: 6, paddingLeft: 23 }}>
+                                  {pkg.description}
+                                </div>
+                              )}
+                              {unlocked.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingLeft: 23 }}>
+                                  {unlocked.map((item) => (
+                                    <span
+                                      key={item.key}
+                                      style={{
+                                        fontSize: 10.5,
+                                        fontWeight: 700,
+                                        padding: '2px 7px',
+                                        borderRadius: 6,
+                                        background: isSelected ? '#DBEAFE' : '#F1F5F9',
+                                        color: isSelected ? '#1E40AF' : '#334155',
+                                      }}
+                                    >
+                                      ✓ {item.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ padding: '10px 12px', borderRadius: 10, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 12, fontWeight: 700, color: '#1E40AF' }}>
-                    💳 Mandatory ₹1,000 Merchant Registration Plan applies via Razorpay before shop creation.
+                  <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: 11.5, fontWeight: 700, color: '#065F46' }}>
+                    ⏳ After subscribing &amp; paying, your profile goes to Admin for approval. Selected plan features unlock once Admin approves your store.
                   </div>
 
-                  <button type="submit" disabled={loading || uploadingMedia} style={primaryBtnStyle}>
-                    {loading ? 'Processing ₹1,000 Payment...' : 'Pay ₹1,000 & Register Business Account'}
-                  </button>
+                  {(() => {
+                    const chosen =
+                      regPackages.find((p) => String(p.id) === String(selectedRegPkgId)) || regPackages[0];
+                    const chosenPrice = Number(chosen?.price ?? chosen?.amount ?? 0);
+                    return (
+                      <button type="submit" disabled={loading || loadingRegPkgs || !chosen} style={primaryBtnStyle}>
+                        {loading
+                          ? 'Processing Subscription & Registering...'
+                          : !chosen
+                          ? 'Select a Subscription Plan to Register'
+                          : chosenPrice > 0
+                          ? `Pay ₹${chosenPrice.toLocaleString('en-IN')} (${chosen.name}) & Register Store`
+                          : `Register Store with ${chosen.name}`}
+                      </button>
+                    );
+                  })()}
                 </form>
               )}
 
@@ -2286,55 +2423,73 @@ export default function MobileAccountModal({
                     subPackages.map((pkg) => {
                       const activeList =
                         subAudience === 'MERCHANT'
-                          ? activeSubData?.merchant_subscriptions || []
+                          ? (activeSubData?.merchant_subscriptions || []).filter(
+                              (s) => String(s.package_code || '').toUpperCase() !== 'MERCHANT_REGISTER_1000'
+                            )
                           : activeSubData?.user_subscriptions || activeSubData?.subscriptions || [];
                       const activeSub = activeList.find(
-                        (s) => String(s.package_id || s.package?.id) === String(pkg.id)
+                        (s) =>
+                          String(s.package_id || s.package?.id) === String(pkg.id) &&
+                          String(s.status || 'ACTIVE').toUpperCase() === 'ACTIVE' &&
+                          (!s.expires_at || new Date(s.expires_at).getTime() >= Date.now())
                       );
+                      const daysLeft = activeSub ? computeDaysRemaining(activeSub) : null;
                       return (
                         <div
                           key={pkg.id}
                           style={{
-                            border: activeSub ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                            background: activeSub ? '#EFF6FF' : '#FFFFFF',
+                            border: activeSub ? '2px solid #16A34A' : '1px solid #E2E8F0',
+                            background: activeSub ? '#F0FDF4' : '#FFFFFF',
                             borderRadius: 14,
                             padding: 14,
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <strong style={{ fontSize: 15, color: '#0F172A' }}>{pkg.name}</strong>
-                            <span style={{ fontWeight: 900, fontSize: 16, color: '#2563EB' }}>
-                              ₹{Number(pkg.price || 500)}
+                            <span style={{ fontWeight: 900, fontSize: 16, color: activeSub ? '#16A34A' : '#2563EB' }}>
+                              ₹{Number(pkg.price || 0)}
                             </span>
                           </div>
                           {pkg.description && (
                             <p style={{ margin: '0 0 10px', fontSize: 12.5, color: '#475569' }}>{pkg.description}</p>
                           )}
                           {activeSub ? (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: 12, fontWeight: 800, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <HiShieldCheck size={16} /> Active Plan
-                              </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                               <button
                                 type="button"
-                                onClick={async () => {
-                                  await cancelMySubscription(activeSub.id, subAudience);
-                                  await syncSessions();
-                                  await loadSubscriptionData(subAudience);
-                                }}
+                                disabled
                                 style={{
-                                  border: '1px solid #FCA5A5',
-                                  background: '#FEF2F2',
-                                  color: '#DC2626',
-                                  borderRadius: 6,
-                                  padding: '4px 10px',
-                                  fontSize: 11.5,
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
+                                  ...primaryBtnStyle,
+                                  background: '#16A34A',
+                                  cursor: 'default',
+                                  opacity: 1,
                                 }}
                               >
-                                Cancel
+                                <HiShieldCheck size={16} />
+                                <span>Subscribed{daysLeft !== null ? ` (${daysLeft}d left)` : ''}</span>
                               </button>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await cancelMySubscription(activeSub.id, subAudience);
+                                    await syncSessions();
+                                    await loadSubscriptionData(subAudience);
+                                  }}
+                                  style={{
+                                    border: '1px solid #FCA5A5',
+                                    background: '#FEF2F2',
+                                    color: '#DC2626',
+                                    borderRadius: 6,
+                                    padding: '4px 10px',
+                                    fontSize: 11.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Cancel Plan
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <button
@@ -2343,7 +2498,7 @@ export default function MobileAccountModal({
                               onClick={() => handleSubscribePkg(pkg)}
                               style={primaryBtnStyle}
                             >
-                              {subscribingId === pkg.id ? 'Processing...' : `Subscribe ₹${Number(pkg.price || 500)}`}
+                              {subscribingId === pkg.id ? 'Processing...' : `Subscribe ₹${Number(pkg.price || 0)}`}
                             </button>
                           )}
                         </div>

@@ -319,6 +319,38 @@ export default function RegistrationRequests() {
     },
     { key: 'category', label: 'Category' },
     { key: 'city', label: 'City' },
+    {
+      key: 'subscription_plan_name',
+      label: 'Subscribed Plan',
+      render: (val, row) => {
+        const subs = Array.isArray(row.active_subscriptions) && row.active_subscriptions.length > 0
+          ? row.active_subscriptions
+          : Array.isArray(row.raw?.active_subscriptions)
+          ? row.raw.active_subscriptions
+          : [];
+        const planTitle = val || row.raw?.subscription_plan_name || subs.map((s) => s.package_name).filter(Boolean).join(', ');
+        const paidAmt = row.subscription_amount_paid ?? row.raw?.subscription_amount_paid ?? subs[0]?.amount_paid;
+        if (!planTitle) {
+          return (
+            <span style={{ fontSize: 11.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#FEF3C7', color: '#92400E' }}>
+              No Plan
+            </span>
+          );
+        }
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#065F46', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '2px 8px', borderRadius: 6, display: 'inline-block', width: 'fit-content' }}>
+              {planTitle}
+            </span>
+            {paidAmt !== null && paidAmt !== undefined && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#2563EB' }}>
+                Paid: ₹{Number(paidAmt).toLocaleString('en-IN')}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
     { key: 'joined', label: 'Date' },
     {
       key: 'status',
@@ -891,6 +923,111 @@ export default function RegistrationRequests() {
                 {selectedRequest.rejection_reason || 'Application rejected by administration.'}
               </div>
             )}
+
+            {/* Subscription Plan Details Selected by Merchant */}
+            {(() => {
+              const subs =
+                Array.isArray(selectedRequest.active_subscriptions) && selectedRequest.active_subscriptions.length > 0
+                  ? selectedRequest.active_subscriptions
+                  : Array.isArray(selectedRequest.raw?.active_subscriptions)
+                  ? selectedRequest.raw.active_subscriptions
+                  : [];
+              const planName =
+                selectedRequest.subscription_plan_name ||
+                selectedRequest.raw?.subscription_plan_name ||
+                subs.map((s) => s.package_name).filter(Boolean).join(', ');
+              const isApproved =
+                (selectedRequest.status || '').toLowerCase() === 'approved' ||
+                (selectedRequest.status || '').toLowerCase() === 'active';
+              return (
+                <div
+                  style={{
+                    marginBottom: 22,
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    background: planName ? '#ECFDF5' : '#FFFBEB',
+                    border: planName ? '1.5px solid #A7F3D0' : '1.5px solid #FDE68A',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: subs.length > 0 ? 10 : 0 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: planName ? '#047857' : '#92400E', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        💳 Subscribed Plan Selected at Registration
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: '#0F172A', marginTop: 2 }}>
+                        {planName || 'No Subscription Plan Recorded'}
+                      </div>
+                    </div>
+                    {planName && (
+                      <span
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          background: isApproved ? '#16A34A' : '#D97706',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        {isApproved ? 'Features Active ✓' : 'Features Unlock on Approval'}
+                      </span>
+                    )}
+                  </div>
+
+                  {subs.map((sub, idx) => (
+                    <div
+                      key={sub.id || idx}
+                      style={{
+                        background: '#FFFFFF',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        border: '1px solid #D1FAE5',
+                        marginTop: idx > 0 ? 8 : 0,
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12.5, color: '#334155', marginBottom: sub.features?.length ? 8 : 0 }}>
+                        <span>
+                          <strong>Plan:</strong> {sub.package_name}
+                        </span>
+                        <span>
+                          <strong>Amount Paid:</strong> ₹{Number(sub.amount_paid ?? sub.price ?? 0).toLocaleString('en-IN')}
+                        </span>
+                        {sub.duration_days && (
+                          <span>
+                            <strong>Duration:</strong> {sub.duration_days} Days
+                            {sub.days_remaining !== null && sub.days_remaining !== undefined ? ` (${sub.days_remaining}d left)` : ''}
+                          </span>
+                        )}
+                        {sub.payment_reference && (
+                          <span>
+                            <strong>Payment Ref:</strong> {sub.payment_reference}
+                          </span>
+                        )}
+                      </div>
+                      {Array.isArray(sub.features) && sub.features.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {sub.features.map((feat, fIdx) => (
+                            <span
+                              key={fIdx}
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '3px 8px',
+                                borderRadius: 6,
+                                background: '#EFF6FF',
+                                color: '#1D4ED8',
+                              }}
+                            >
+                              ✓ {feat}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Section 1: Business & Owner Details */}
             <div style={{ marginBottom: 22 }}>
