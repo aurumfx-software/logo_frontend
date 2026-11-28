@@ -34,7 +34,6 @@ import {
   deleteMerchant,
   approveMerchant,
   rejectMerchant,
-  togglePromotionAccess,
   EMPTY_MERCHANT_IMAGE,
 } from '../api/merchantApi';
 import { adminAdjustWallet } from '../api/walletApi';
@@ -746,35 +745,6 @@ export default function Merchants() {
     }
   };
 
-  // --- Promotion Access Toggle Handler ---
-  const handleTogglePromoAccess = async (row) => {
-    const currentVal = !!(row.can_create_promotions || row.promotion_access);
-    const newVal = !currentVal;
-    try {
-      setData((prev) =>
-        prev.map((m) =>
-          m.id === row.id ? { ...m, can_create_promotions: newVal, promotion_access: newVal } : m
-        )
-      );
-      if (selectedMerchant && selectedMerchant.id === row.id) {
-        setSelectedMerchant((prev) => (prev ? { ...prev, can_create_promotions: newVal, promotion_access: newVal } : null));
-      }
-      await togglePromotionAccess(row.id, newVal);
-      window.dispatchEvent(new Event('merchant-promo-access-updated'));
-      window.dispatchEvent(new Event('registration-count-updated'));
-    } catch (err) {
-      console.error('Failed to toggle promotion access:', err);
-      setData((prev) =>
-        prev.map((m) =>
-          m.id === row.id ? { ...m, can_create_promotions: currentVal, promotion_access: currentVal } : m
-        )
-      );
-      if (selectedMerchant && selectedMerchant.id === row.id) {
-        setSelectedMerchant((prev) => (prev ? { ...prev, can_create_promotions: currentVal, promotion_access: currentVal } : null));
-      }
-    }
-  };
-
   useEffect(() => {
     async function loadData() {
       try {
@@ -963,58 +933,6 @@ export default function Merchants() {
           <span style={{ fontWeight: 600 }}>{val}</span>
         </div>
       ),
-    },
-    {
-      key: 'promotion_access',
-      label: 'Promo Access',
-      render: (val, row) => {
-        const isEnabled = !!(row.can_create_promotions || row.promotion_access);
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => handleTogglePromoAccess(row)}
-              style={{
-                position: 'relative',
-                display: 'inline-flex',
-                alignItems: 'center',
-                width: 42,
-                height: 22,
-                borderRadius: 12,
-                background: isEnabled ? '#10B981' : '#D1D5DB',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                padding: 2,
-              }}
-              title={isEnabled ? 'Promotion access is ON. Click to turn OFF' : 'Promotion access is OFF. Click to turn ON'}
-            >
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: 'white',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-                  transform: isEnabled ? 'translateX(20px)' : 'translateX(0)',
-                  transition: 'transform 0.2s',
-                }}
-              />
-            </button>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: isEnabled ? '#059669' : '#6B7280',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {isEnabled ? 'ON' : 'OFF'}
-            </span>
-          </div>
-        );
-      },
     },
     {
       key: 'status',
