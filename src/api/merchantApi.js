@@ -195,6 +195,8 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
   if (city && city !== 'all') params.set('city', city);
   if (plan && plan !== 'all') params.set('plan', plan);
   if (businessType && businessType !== 'all') params.set('business_type', businessType);
+  if (filterObj.limit) params.set('limit', filterObj.limit);
+  if (filterObj.skip !== undefined) params.set('skip', filterObj.skip);
 
   if (searchVal && String(searchVal).trim()) {
     const q = String(searchVal).trim();
@@ -257,9 +259,20 @@ export async function fetchMerchantsList(arg1, arg2, arg3, arg4) {
       longitude: m.longitude || m.lon || m.lng || null,
       rating: m.rating || m.avg_rating || 4.5,
       reviews: m.reviews_count || m.reviews || 0,
-      status: (m.approval_status || '').toUpperCase() === 'APPROVED' || (m.status || '').toUpperCase() === 'APPROVED'
-        ? 'approved'
-        : (m.status ? m.status.toLowerCase() : (m.is_approved || m.is_active ? 'active' : 'pending')),
+      status: (() => {
+        const rawSt = (m.status || '').toUpperCase();
+        const rawAppr = (m.approval_status || '').toUpperCase();
+        if (rawSt === 'SUSPENDED' || rawSt === 'INACTIVE' || rawSt === 'REJECTED') {
+          return rawSt.toLowerCase();
+        }
+        if (m.is_active === false && rawAppr === 'APPROVED') {
+          return 'suspended';
+        }
+        if (rawAppr === 'APPROVED' || rawSt === 'APPROVED' || rawSt === 'ACTIVE') {
+          return 'approved';
+        }
+        return m.status ? m.status.toLowerCase() : (m.is_approved || m.is_active ? 'active' : 'pending');
+      })(),
       approval_status: m.approval_status || (m.status ? m.status.toUpperCase() : 'APPROVED'),
       owner: m.owner_name || m.contact_person || m.owner || 'N/A',
       owner_name: m.owner_name || m.contact_person || m.owner || 'N/A',

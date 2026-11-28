@@ -1073,7 +1073,7 @@ export default function MobileAccountModal({
                 : 'Welcome to Logo App'
               : section === 'customer-auth'
               ? customerTab === 'register'
-                ? 'New Customer Registration'
+                ? 'New Customer Subscribe'
                 : customerTab === 'otp'
                 ? 'Instant Email OTP Sign In'
                 : customerTab === 'forgot'
@@ -1112,7 +1112,7 @@ export default function MobileAccountModal({
                   }`
                 : "Kerala's local store discovery & marketplace platform"
               : section === 'customer-auth'
-              ? 'Sign in or register using the same credentials across Mobile App & Web'
+              ? 'Sign in or subscribe using the same credentials across Mobile App & Web'
               : section === 'merchant-auth'
               ? 'Manage storefront photos, promo video, promotions & wallet'
               : 'Unlock product creation & marketplace selling with ₹500 Seller Plan'}
@@ -1193,7 +1193,7 @@ export default function MobileAccountModal({
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <HiUser size={20} />
-                      <span>Customer Sign In / Register</span>
+                      <span>Customer Sign In / Subscribe</span>
                     </span>
                     <HiChevronRight size={18} />
                   </button>
@@ -1495,7 +1495,7 @@ export default function MobileAccountModal({
                       setSuccess('');
                     }}
                   >
-                    <HiUserAdd size={14} /> New User
+                    <HiUserAdd size={14} /> Subscribe
                   </button>
                 </div>
               )}
@@ -1704,7 +1704,7 @@ export default function MobileAccountModal({
                     <span>{detectingLoc ? 'Detecting GPS...' : 'Auto-Detect GPS Location'}</span>
                   </button>
                   <button type="submit" disabled={loading} style={primaryBtnStyle}>
-                    {loading ? 'Creating Account...' : 'Create Customer Account & Sign In'}
+                    {loading ? 'Subscribing...' : 'Subscribe & Create Customer Account'}
                   </button>
                 </form>
               )}

@@ -21,6 +21,7 @@ import CircularSpinner from '../components/UI/CircularSpinner';
 import {
   fetchAdminSubscribers,
   stopAdminSubscription,
+  unstopAdminSubscription,
 } from '../api/subscriptionApi';
 
 function formatDateTime(value) {
@@ -38,7 +39,7 @@ function formatDateTime(value) {
 }
 
 export default function Subscribers() {
-  const [audienceTab, setAudienceTab] = useState('MERCHANT'); // 'MERCHANT' | 'USER'
+  const [audienceTab, setAudienceTab] = useState('MERCHANT'); // 'MERCHANT' | 'USER' | 'STOPPED'
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'CANCELLED' | 'EXPIRED'
   const [searchQuery, setSearchQuery] = useState('');
   const [subscribers, setSubscribers] = useState([]);
@@ -52,6 +53,8 @@ export default function Subscribers() {
   const [loading, setLoading] = useState(true);
   const [selectedSub, setSelectedSub] = useState(null);
   const [stoppingId, setStoppingId] = useState(null);
+  const [unstoppingId, setUnstoppingId] = useState(null);
+  const [stopModalState, setStopModalState] = useState(null); // { targetName, plans: [], selectedIds: [], reason: '' }
   const [toastMsg, setToastMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -64,9 +67,11 @@ export default function Subscribers() {
     setLoading(true);
     setErrorMsg('');
     try {
+      const effectiveAudience = audienceTab === 'STOPPED' ? 'ALL' : audienceTab;
+      const effectiveStatus = audienceTab === 'STOPPED' ? 'CANCELLED' : statusFilter;
       const res = await fetchAdminSubscribers({
-        audience: audienceTab,
-        status: statusFilter,
+        audience: effectiveAudience,
+        status: effectiveStatus,
         search: searchQuery,
       });
       setSubscribers(Array.isArray(res.items) ? res.items : []);
@@ -82,20 +87,58 @@ export default function Subscribers() {
     loadSubscribers();
   }, [loadSubscribers]);
 
-  const handleStopSubscription = async (row) => {
+  const handleOpenStopModal = (row) => {
     const targetName =
       row.merchant_business_name || row.user_name || row.user_email || `User #${row.user_id}`;
-    const reason = window.prompt(
-      `Stop "${row.package_name}" subscription for ${targetName}?\nEnter stop reason (optional):`,
-      'Stopped by Administrator'
-    );
-    if (reason === null) return;
+    const sameUserActivePlans = subscribers.filter((item) => {
+      if (item.status !== 'ACTIVE') return false;
+      if (row.merchant_profile_id && item.merchant_profile_id) {
+        return String(item.merchant_profile_id) === String(row.merchant_profile_id);
+      }
+      return String(item.user_id) === String(row.user_id) && item.audience === row.audience;
+    });
+    const plansList = sameUserActivePlans.length > 0 ? sameUserActivePlans : [row];
+    setStopModalState({
+      targetName,
+      plans: plansList,
+      selectedIds: [row.subscription_id],
+      reason: 'Stopped by Administrator',
+    });
+  };
 
-    setStoppingId(row.subscription_id);
+  const handleConfirmStopPlans = async (e) => {
+    e.preventDefault();
+    if (!stopModalState || stopModalState.selectedIds.length === 0) return;
+    setStoppingId(stopModalState.selectedIds[0]);
     setErrorMsg('');
     try {
-      const updated = await stopAdminSubscription(row.subscription_id, reason);
-      showToast(`Subscription "${row.package_name}" stopped for ${targetName}.`);
+      for (const subId of stopModalState.selectedIds) {
+        await stopAdminSubscription(subId, stopModalState.reason);
+      }
+      const count = stopModalState.selectedIds.length;
+      showToast(
+        `${count} subscription plan${count > 1 ? 's' : ''} stopped for ${stopModalState.targetName}.`
+      );
+      if (selectedSub && stopModalState.selectedIds.includes(selectedSub.subscription_id)) {
+        setSelectedSub(null);
+      }
+      setStopModalState(null);
+      await loadSubscribers();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to stop subscription');
+    } finally {
+      setStoppingId(null);
+    }
+  };
+
+  const handleUnstopSubscription = async (row) => {
+    const targetName =
+      row.merchant_business_name || row.user_name || row.user_email || `User #${row.user_id}`;
+    setUnstoppingId(row.subscription_id);
+    setErrorMsg('');
+    try {
+      const updated = await unstopAdminSubscription(row.subscription_id);
+      showToast(`Subscription "${row.package_name}" un-stopped & reactivated for ${targetName}.`);
       setSubscribers((prev) =>
         prev.map((item) =>
           item.subscription_id === row.subscription_id ? { ...item, ...updated } : item
@@ -106,9 +149,9 @@ export default function Subscribers() {
       }
       await loadSubscribers();
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to stop subscription');
+      setErrorMsg(err.message || 'Failed to un-stop subscription');
     } finally {
-      setStoppingId(null);
+      setUnstoppingId(null);
     }
   };
 
@@ -216,6 +259,7 @@ export default function Subscribers() {
       sortable: false,
       render: (_, row) => {
         const isActive = row.status === 'ACTIVE';
+        const isStopped = row.status === 'CANCELLED';
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(e) => e.stopPropagation()}>
             <button
@@ -231,11 +275,23 @@ export default function Subscribers() {
                 type="button"
                 className="btn btn-danger btn-sm"
                 disabled={stoppingId === row.subscription_id}
-                onClick={() => handleStopSubscription(row)}
+                onClick={() => handleOpenStopModal(row)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 700 }}
               >
                 <HiOutlineBan size={14} />
                 {stoppingId === row.subscription_id ? 'Stopping...' : 'Stop'}
+              </button>
+            )}
+            {isStopped && (
+              <button
+                type="button"
+                className="btn btn-success btn-sm"
+                disabled={unstoppingId === row.subscription_id}
+                onClick={() => handleUnstopSubscription(row)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 700 }}
+              >
+                <HiOutlineCheckCircle size={14} />
+                {unstoppingId === row.subscription_id ? 'Restoring...' : 'Un-stop'}
               </button>
             )}
           </div>
@@ -391,11 +447,35 @@ export default function Subscribers() {
               {summary.active_customers || 0} Active
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setAudienceTab('STOPPED')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 20px',
+              borderRadius: 10,
+              border: audienceTab === 'STOPPED' ? '2px solid #DC2626' : '1px solid #E2E8F0',
+              background: audienceTab === 'STOPPED' ? '#FEF2F2' : '#FFFFFF',
+              color: audienceTab === 'STOPPED' ? '#991B1B' : '#475569',
+              fontWeight: 800,
+              fontSize: 13.5,
+              cursor: 'pointer',
+            }}
+          >
+            <HiOutlineBan size={18} />
+            <span>Stopped List</span>
+            <span style={{ padding: '2px 8px', borderRadius: 999, background: audienceTab === 'STOPPED' ? '#DC2626' : '#F1F5F9', color: audienceTab === 'STOPPED' ? '#fff' : '#475569', fontSize: 11.5 }}>
+              {summary.stopped_or_expired || 0}
+            </span>
+          </button>
         </div>
 
         {/* Status Filter Pills + Search */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          {['ALL', 'ACTIVE', 'CANCELLED', 'EXPIRED'].map((st) => (
+          {audienceTab !== 'STOPPED' && ['ALL', 'ACTIVE', 'CANCELLED', 'EXPIRED'].map((st) => (
             <button
               key={st}
               type="button"
@@ -473,11 +553,23 @@ export default function Subscribers() {
                     type="button"
                     className="btn btn-danger"
                     disabled={stoppingId === selectedSub.subscription_id}
-                    onClick={() => handleStopSubscription(selectedSub)}
+                    onClick={() => handleOpenStopModal(selectedSub)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
                     <HiOutlineBan />
-                    {stoppingId === selectedSub.subscription_id ? 'Stopping...' : 'Stop This Subscription'}
+                    {stoppingId === selectedSub.subscription_id ? 'Stopping...' : 'Stop Subscription'}
+                  </button>
+                )}
+                {selectedSub.status === 'CANCELLED' && (
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    disabled={unstoppingId === selectedSub.subscription_id}
+                    onClick={() => handleUnstopSubscription(selectedSub)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <HiOutlineCheckCircle />
+                    {unstoppingId === selectedSub.subscription_id ? 'Restoring...' : 'Un-stop Subscription'}
                   </button>
                 )}
               </div>
@@ -569,6 +661,109 @@ export default function Subscribers() {
               </div>
             )}
           </div>
+        )}
+      </Modal>
+
+      {/* Select Plan(s) to Stop Modal */}
+      <Modal
+        isOpen={Boolean(stopModalState)}
+        onClose={() => !stoppingId && setStopModalState(null)}
+        title={`Stop Subscription Plan — ${stopModalState?.targetName || ''}`}
+        size="md"
+        footer={
+          stopModalState && (
+            <>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={Boolean(stoppingId)}
+                onClick={() => setStopModalState(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={Boolean(stoppingId) || stopModalState.selectedIds.length === 0}
+                onClick={handleConfirmStopPlans}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <HiOutlineBan />
+                {stoppingId
+                  ? 'Stopping...'
+                  : `Stop ${stopModalState.selectedIds.length} Selected Plan${stopModalState.selectedIds.length > 1 ? 's' : ''}`}
+              </button>
+            </>
+          )
+        }
+      >
+        {stopModalState && (
+          <form onSubmit={handleConfirmStopPlans}>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: '#475569' }}>
+              Choose which active subscription plan(s) of <strong>{stopModalState.targetName}</strong> you want to stop:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {stopModalState.plans.map((plan) => {
+                const checked = stopModalState.selectedIds.includes(plan.subscription_id);
+                return (
+                  <label
+                    key={plan.subscription_id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: checked ? '2px solid #DC2626' : '1px solid #CBD5E1',
+                      background: checked ? '#FEF2F2' : '#F8FAFC',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setStopModalState((prev) => ({
+                            ...prev,
+                            selectedIds: isChecked
+                              ? [...prev.selectedIds, plan.subscription_id]
+                              : prev.selectedIds.filter((id) => id !== plan.subscription_id),
+                          }));
+                        }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>
+                          {plan.package_name}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: '#64748B' }}>
+                          Paid ₹{Number(plan.amount_paid ?? plan.package_price ?? 0).toLocaleString('en-IN')}
+                          {plan.days_remaining !== null && plan.days_remaining !== undefined
+                            ? ` • ${plan.days_remaining}d left`
+                            : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#059669' }}>ACTIVE</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Stop Reason (Optional)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={stopModalState.reason}
+                onChange={(e) =>
+                  setStopModalState((prev) => ({ ...prev, reason: e.target.value }))
+                }
+                placeholder="Reason for stopping subscription"
+              />
+            </div>
+          </form>
         )}
       </Modal>
     </motion.div>

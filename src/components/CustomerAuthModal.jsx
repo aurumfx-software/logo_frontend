@@ -265,7 +265,7 @@ export default function CustomerAuthModal({
                 {mode === 'location'
                   ? 'Update My Location'
                   : mode === 'register'
-                  ? 'Customer Registration'
+                  ? 'New Customer Subscribe'
                   : 'Customer Login'}
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, opacity: 0.9 }}>
@@ -323,7 +323,7 @@ export default function CustomerAuthModal({
                   transition: 'all 0.2s',
                 }}
               >
-                Register (New Customer)
+                Subscribe (New Customer)
               </button>
             </div>
           )}
@@ -595,7 +595,7 @@ export default function CustomerAuthModal({
               : mode === 'location'
               ? 'Save Location & Discover Nearby'
               : mode === 'register'
-              ? 'Create Customer Account & Set Location'
+              ? 'Subscribe & Set Location'
               : 'Log In'}
           </button>
         </form>

@@ -52,7 +52,7 @@ export async function createPromotion(promoData) {
     start_date: promoData.startDate || promoData.start_date || new Date().toISOString().split('T')[0],
     end_date: promoData.endDate || promoData.end_date || '2027-12-31',
     status: (promoData.status || 'ACTIVE').toLowerCase(),
-    image_url: mediaType === 'image' ? (promoData.image_url || promoData.imageUrl || promoData.banner_url || promoData.bannerUrl || promoData.image || null) : null,
+    image_url: (mediaType === 'image' || mediaType === 'video') ? (promoData.image_url || promoData.imageUrl || promoData.banner_url || promoData.bannerUrl || promoData.image || null) : null,
     video_url: mediaType === 'video' ? (promoData.video_url || promoData.videoUrl || null) : null,
     media_type: mediaType,
     bg_color: promoData.bg_color !== undefined ? promoData.bg_color : (promoData.bgColor || null),

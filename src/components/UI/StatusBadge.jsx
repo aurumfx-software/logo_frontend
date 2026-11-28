@@ -16,9 +16,11 @@ const statusConfig = {
   low: 'badge-active',
 };
 
-export default function StatusBadge({ status }) {
+export default function StatusBadge({ status, label: customLabel }) {
   const className = statusConfig[status?.toLowerCase()] || 'badge-inactive';
-  const label = status ? status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ') : 'Unknown';
+  const label =
+    customLabel ||
+    (status ? status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ') : 'Unknown');
 
   return (
     <span className={`badge ${className}`}>

@@ -12,12 +12,16 @@ import {
   HiOutlineOfficeBuilding,
   HiOutlineSparkles,
   HiOutlineKey,
+  HiOutlinePhotograph,
+  HiOutlineVideoCamera,
 } from 'react-icons/hi';
 import PageHeader from '../components/UI/PageHeader';
 import DataTable from '../components/UI/DataTable';
 import StatusBadge from '../components/UI/StatusBadge';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
+import PromotionImageCropperModal, { PLACEMENT_SPECS } from '../components/UI/PromotionImageCropperModal';
+import VideoAdCropModal from '../components/UI/VideoAdCropModal';
 import adminService from '../services/adminService';
 import {
   fetchRegistrationRequests,
@@ -36,7 +40,31 @@ import {
   approvePromotion,
   rejectPromotion,
   updatePromotion,
+  uploadPromotionMedia,
 } from '../api/promotionApi';
+import { fetchCategoriesList } from '../api/categoryApi';
+
+const FALLBACK_AD_CATEGORIES = [
+  'Retail & Shopping',
+  'Solar & Electricals',
+  'Automobile & Spares',
+  'Shopping & Fashion',
+  'Hotels & Dining',
+  'Healthcare & Medicals',
+  'Interiors & Furniture',
+  'Education & Training',
+  'Aluminium Fabrication',
+  'Travels & Transport',
+];
+
+const AD_BG_PRESETS = [
+  { label: 'Royal Blue', value: 'linear-gradient(135deg, #1d4ed8 0%, #6d28d9 100%)', text: '#ffffff' },
+  { label: 'Sunset Pink', value: 'linear-gradient(135deg, #ea580c 0%, #db2777 100%)', text: '#ffffff' },
+  { label: 'Emerald', value: 'linear-gradient(135deg, #047857 0%, #0d9488 100%)', text: '#ffffff' },
+  { label: 'Midnight Dark', value: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)', text: '#ffffff' },
+  { label: 'Crimson Red', value: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)', text: '#ffffff' },
+  { label: 'Festive Gold', value: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', text: '#0f172a' },
+];
 
 export default function RegistrationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,6 +87,35 @@ export default function RegistrationRequests() {
   const [promoActionLoading, setPromoActionLoading] = useState(false);
   const [editingAdModal, setEditingAdModal] = useState(null);
   const [savingAdEdit, setSavingAdEdit] = useState(false);
+  const [adCategories, setAdCategories] = useState(FALLBACK_AD_CATEGORIES);
+  const [adEditError, setAdEditError] = useState('');
+  const [adMediaUploading, setAdMediaUploading] = useState(false);
+  const [adImageCropState, setAdImageCropState] = useState({
+    isOpen: false,
+    src: '',
+    rawFile: null,
+    isPoster: false,
+  });
+  const [adVideoCropState, setAdVideoCropState] = useState({
+    isOpen: false,
+    src: '',
+    rawFile: null,
+  });
+
+  useEffect(() => {
+    fetchCategoriesList()
+      .then((apiCats) => {
+        if (Array.isArray(apiCats) && apiCats.length > 0) {
+          const catNames = apiCats
+            .map((c) => (typeof c === 'string' ? c : c?.name || c?.category_name || c?.title))
+            .filter((name) => name && !String(name).startsWith('http'));
+          if (catNames.length > 0) {
+            setAdCategories(Array.from(new Set([...FALLBACK_AD_CATEGORIES, ...catNames])));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Edit Merchant State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -657,29 +714,245 @@ export default function RegistrationRequests() {
     }
   };
 
-  const handleSaveAdEdit = async (e) => {
-    e.preventDefault();
-    if (!editingAdModal) return;
-    setSavingAdEdit(true);
+  const openEditAdModal = (row) => {
+    if (!row) return;
+    const detectedPlacement = row.placement || 'Home Top';
+    const detectedMedia =
+      detectedPlacement === 'Moving Text'
+        ? 'text'
+        : row.media_type || (row.video_url ? 'video' : row.image_url ? 'image' : 'image');
+    setAdEditError('');
+    setEditingAdModal({
+      ...row,
+      title: row.title || '',
+      description: row.description || '',
+      placement: detectedPlacement,
+      category: row.category || 'Retail & Shopping',
+      location: row.location || 'Kerala',
+      start_date: row.start_date || new Date().toISOString().split('T')[0],
+      end_date: row.end_date || '2027-12-31',
+      target_url: row.target_url || '',
+      media_type: detectedMedia,
+      type:
+        row.type ||
+        (detectedPlacement === 'Moving Text'
+          ? 'Text Carousel'
+          : detectedMedia === 'text'
+          ? 'Text Banner'
+          : 'Banner'),
+      image_url: row.image_url || row.banner_url || row.image || '',
+      video_url: row.video_url || '',
+      bg_color: row.bg_color || AD_BG_PRESETS[0].value,
+      text_color: row.text_color || '#ffffff',
+      status: String(row.status || 'pending').toLowerCase(),
+    });
+  };
+
+  const handleAdEditMediaUpload = async (file, asVideoPoster = false) => {
+    if (!file) return;
+    setAdMediaUploading(true);
+    setAdEditError('');
     try {
-      const updated = await updatePromotion(editingAdModal.id, {
-        title: editingAdModal.title,
-        description: editingAdModal.description,
-        placement: editingAdModal.placement,
-        category: editingAdModal.category,
-        start_date: editingAdModal.start_date,
-        end_date: editingAdModal.end_date,
-        target_url: editingAdModal.target_url,
-        image_url: editingAdModal.media_type === 'image' ? editingAdModal.image_url : null,
-        video_url: editingAdModal.media_type === 'video' ? editingAdModal.video_url : null,
-      });
+      const res = await uploadPromotionMedia(file);
+      const isVid =
+        !asVideoPoster &&
+        (file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name));
+      const url =
+        res?.url || res?.media_url || res?.image_url || res?.video_url || res?.photos?.[0] || res?.videos?.[0];
+      if (!url) throw new Error('Upload succeeded but returned no media URL.');
+
+      if (asVideoPoster) {
+        setEditingAdModal((prev) => (prev ? { ...prev, image_url: url } : null));
+        showNotification('✓ Video cover poster uploaded!');
+      } else {
+        setEditingAdModal((prev) =>
+          prev
+            ? {
+                ...prev,
+                media_type: isVid ? 'video' : 'image',
+                type:
+                  prev.placement === 'Moving Text'
+                    ? 'Text Carousel'
+                    : 'Banner',
+                image_url: isVid ? prev.image_url || '' : url,
+                video_url: isVid ? url : '',
+              }
+            : null
+        );
+        showNotification(`✓ Advertisement ${isVid ? 'video' : 'image'} uploaded! Click Save Ad Changes to persist.`);
+      }
+    } catch (err) {
+      setAdEditError(err?.message || 'Media upload failed. Please try a valid image or video file.');
+    } finally {
+      setAdMediaUploading(false);
+    }
+  };
+
+  const handlePickAdEditFile = (file, mode = 'image', isPoster = false) => {
+    if (!file) return;
+    const isVid =
+      !isPoster &&
+      (mode === 'video' || file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name));
+    const localUrl = URL.createObjectURL(file);
+    if (isVid) {
+      setAdVideoCropState({ isOpen: true, src: localUrl, rawFile: file });
+    } else {
+      setAdImageCropState({ isOpen: true, src: localUrl, rawFile: file, isPoster: Boolean(isPoster) });
+    }
+  };
+
+  const handleOpenAdCropperForExisting = (imageUrl, isPoster = false) => {
+    if (!imageUrl) return;
+    setAdImageCropState({
+      isOpen: true,
+      src: formatMediaUrl(imageUrl),
+      rawFile: null,
+      isPoster: Boolean(isPoster),
+    });
+  };
+
+  const handleOpenAdVideoCropperForExisting = (videoUrl) => {
+    if (!videoUrl) return;
+    setAdVideoCropState({
+      isOpen: true,
+      src: formatMediaUrl(videoUrl),
+      rawFile: null,
+    });
+  };
+
+  const renderAdPlacementSizingGuide = (placement, mediaType = 'image') => {
+    if (!placement || placement === 'Moving Text') return null;
+    const spec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS['Home Top'];
+    return (
+      <div
+        style={{
+          background: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>📐</div>
+        <div style={{ flex: 1, fontSize: 12.5, color: '#1e3a8a', lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+            <strong style={{ fontSize: 13, color: '#1e40af' }}>
+              {spec.label} — Optimal Fit Dimensions Guide
+            </strong>
+            <span style={{ background: '#2563eb', color: '#ffffff', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6 }}>
+              {mediaType === 'video' ? '16:9 Full HD' : spec.ratioLabel}
+            </span>
+          </div>
+          <div style={{ color: '#0f172a', marginBottom: 2 }}>
+            <strong>Recommended Size:</strong>{' '}
+            <span style={{ color: '#2563eb', fontWeight: 800, fontSize: 13 }}>
+              {mediaType === 'video' ? '1920 × 1080 px (16:9 MP4/WebM)' : `${spec.idealWidth} × ${spec.idealHeight} px`}
+            </span>
+            {mediaType !== 'video' && placement === 'Home Top' && (
+              <span style={{ color: '#64748b', fontSize: 11.5, marginLeft: 6 }}>
+                (or 1080 × 1080 px for square poster)
+              </span>
+            )}
+          </div>
+          <div style={{ color: '#475569', fontSize: 12 }}>💡 {spec.tips}</div>
+          {mediaType === 'video' && spec.videoSpecs && (
+            <div style={{ color: '#7c3aed', fontSize: 11.5, marginTop: 3 }}>
+              🎬 <strong>Video Specification:</strong> {spec.videoSpecs}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const handleSaveAdEdit = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingAdModal) return;
+
+    const cleanTitle = String(editingAdModal.title || '').trim();
+    if (!cleanTitle) {
+      setAdEditError('Please enter an advertisement title or announcement text.');
+      return;
+    }
+    if (adMediaUploading) {
+      setAdEditError('Media upload is in progress. Please wait until it finishes.');
+      return;
+    }
+
+    const chosenPlacement = editingAdModal.placement || 'Home Top';
+    const isMovingText = chosenPlacement === 'Moving Text';
+    const chosenMediaType = isMovingText ? 'text' : editingAdModal.media_type || 'image';
+
+    if (!isMovingText && chosenMediaType === 'image' && !String(editingAdModal.image_url || '').trim()) {
+      setAdEditError(`Please upload or enter an image URL for "${chosenPlacement}".`);
+      return;
+    }
+    if (!isMovingText && chosenMediaType === 'video' && !String(editingAdModal.video_url || '').trim()) {
+      setAdEditError(`Please upload or enter a video URL for "${chosenPlacement}".`);
+      return;
+    }
+
+    setSavingAdEdit(true);
+    setAdEditError('');
+    try {
+      const resolvedImageUrl =
+        !isMovingText && (chosenMediaType === 'image' || chosenMediaType === 'video')
+          ? String(editingAdModal.image_url || '').trim()
+          : '';
+      const resolvedVideoUrl =
+        !isMovingText && chosenMediaType === 'video'
+          ? String(editingAdModal.video_url || '').trim()
+          : '';
+      const resolvedType = isMovingText
+        ? 'Text Carousel'
+        : chosenMediaType === 'text'
+        ? 'Text Banner'
+        : chosenPlacement === 'Merchant Store'
+        ? 'Featured'
+        : 'Banner';
+
+      const payload = {
+        title: cleanTitle,
+        description: String(editingAdModal.description || '').trim(),
+        placement: chosenPlacement,
+        category: editingAdModal.category || 'Retail & Shopping',
+        location: String(editingAdModal.location || '').trim() || 'Kerala',
+        start_date: editingAdModal.start_date || new Date().toISOString().split('T')[0],
+        end_date: editingAdModal.end_date || '2027-12-31',
+        target_url: String(editingAdModal.target_url || '').trim(),
+        media_type: chosenMediaType,
+        type: resolvedType,
+        image_url: resolvedImageUrl,
+        video_url: resolvedVideoUrl,
+        bg_color: chosenMediaType === 'text' && !isMovingText ? editingAdModal.bg_color || '' : '',
+        text_color: chosenMediaType === 'text' && !isMovingText ? editingAdModal.text_color || '#ffffff' : '',
+        status: String(editingAdModal.status || 'pending').toLowerCase(),
+      };
+
+      const updated = await updatePromotion(editingAdModal.id, payload);
       setMerchantAdRequests((prev) =>
-        prev.map((a) => (a.id === editingAdModal.id ? { ...a, ...updated, ...editingAdModal } : a))
+        prev.map((a) =>
+          a.id === editingAdModal.id
+            ? {
+                ...a,
+                ...editingAdModal,
+                ...payload,
+                ...(updated && typeof updated === 'object' ? updated : {}),
+              }
+            : a
+        )
       );
       setEditingAdModal(null);
-      showNotification('✓ Advertisement updated! You can now click Accept to publish on Landing Page.');
+      showNotification(
+        payload.status === 'active'
+          ? '✓ Advertisement updated and is live on the Landing Page!'
+          : '✓ Advertisement updated! You can now click Accept to publish on Landing Page.'
+      );
     } catch (err) {
-      alert(err.message || 'Failed to save advertisement changes');
+      setAdEditError(err?.message || 'Failed to save advertisement changes');
     } finally {
       setSavingAdEdit(false);
     }
@@ -793,13 +1066,7 @@ export default function RegistrationRequests() {
               type="button"
               className="btn btn-outline btn-sm"
               title="Edit Advertisement"
-              onClick={() =>
-                setEditingAdModal({
-                  ...row,
-                  start_date: row.start_date || new Date().toISOString().split('T')[0],
-                  end_date: row.end_date || '2027-12-31',
-                })
-              }
+              onClick={() => openEditAdModal(row)}
               style={{ color: '#2563EB', borderColor: '#BFDBFE', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px', fontSize: 11.5 }}
             >
               <HiOutlinePencil /> Edit
@@ -1655,125 +1922,727 @@ export default function RegistrationRequests() {
       {/* Admin Edit Merchant Ad Request Modal (before or after accepting to Landing Page) */}
       <Modal
         isOpen={Boolean(editingAdModal)}
-        onClose={() => setEditingAdModal(null)}
-        title={`Edit Merchant Advertisement (#${editingAdModal?.id || ''})`}
-        size="md"
+        onClose={() => {
+          setEditingAdModal(null);
+          setAdEditError('');
+        }}
+        title={
+          editingAdModal?.placement === 'Moving Text'
+            ? `Edit Moving Text Announcement (#${editingAdModal?.id || ''})`
+            : `Edit Merchant Advertisement (#${editingAdModal?.id || ''})`
+        }
+        size="lg"
         footer={
           editingAdModal && (
             <>
-              <button type="button" className="btn btn-outline" onClick={() => setEditingAdModal(null)} disabled={savingAdEdit}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  setEditingAdModal(null);
+                  setAdEditError('');
+                }}
+                disabled={savingAdEdit || adMediaUploading}
+              >
                 Cancel
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSaveAdEdit} disabled={savingAdEdit}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveAdEdit}
+                disabled={savingAdEdit || adMediaUploading}
+              >
                 {savingAdEdit ? 'Saving...' : 'Save Ad Changes'}
               </button>
             </>
           )
         }
       >
-        {editingAdModal && (
-          <form onSubmit={handleSaveAdEdit}>
-            <div className="form-group">
-              <label className="form-label">Advertisement Title / Announcement Text *</label>
-              <input
-                type="text"
-                className="form-input"
-                required
-                value={editingAdModal.title || ''}
-                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, title: e.target.value }))}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Description / Offer Details</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                value={editingAdModal.description || ''}
-                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Placement Section</label>
-                <select
-                  className="form-select"
-                  value={editingAdModal.placement || 'Home Top'}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, placement: e.target.value }))}
+        {editingAdModal && (() => {
+          const curPlacement = editingAdModal.placement || 'Home Top';
+          const isMovingText = curPlacement === 'Moving Text';
+          const curMedia = isMovingText ? 'text' : editingAdModal.media_type || 'image';
+          const categoryOptions = Array.from(
+            new Set([
+              ...adCategories,
+              ...(editingAdModal.category ? [editingAdModal.category] : []),
+            ])
+          );
+
+          return (
+            <form onSubmit={handleSaveAdEdit} style={{ maxHeight: '72vh', overflowY: 'auto', paddingRight: 4 }}>
+              {adEditError && (
+                <div
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#DC2626',
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    marginBottom: 14,
+                  }}
                 >
-                  <option value="Home Top">Home Top (Top Banners)</option>
-                  <option value="Home Middle">Home Middle (Middle Ads)</option>
-                  <option value="Above Footer">Above Footer</option>
-                  <option value="Featured Offers">Featured Offers</option>
-                  <option value="Special Offer">Special Offer (Special Deals)</option>
-                  <option value="Business Network">Business Network</option>
-                  <option value="Square Poster">Square Poster</option>
-                  <option value="Moving Text">Moving Text (Scrolling Ticker)</option>
-                </select>
+                  ⚠️ {adEditError}
+                </div>
+              )}
+
+              {/* Merchant Owner Strip */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  marginBottom: 14,
+                  fontSize: 12.5,
+                }}
+              >
+                <span style={{ fontWeight: 800, color: '#1E293B' }}>
+                  🏪 {editingAdModal.merchant_name || `Merchant #${editingAdModal.merchant_id || ''}`}
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>
+                  Current Status: <strong style={{ color: '#2563EB' }}>{String(editingAdModal.status || 'pending').toUpperCase()}</strong>
+                </span>
               </div>
+
               <div className="form-group">
-                <label className="form-label">Category</label>
+                <label className="form-label">
+                  {isMovingText ? 'Moving Announcement Text' : 'Advertisement Title / Announcement Text'}{' '}
+                  <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <input
                   type="text"
                   className="form-input"
-                  value={editingAdModal.category || ''}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, category: e.target.value }))}
+                  required
+                  placeholder={
+                    isMovingText
+                      ? 'e.g. ⚡ Festive Season Offers — Check Out Exclusive Deals Near You'
+                      : 'Advertisement Title'
+                  }
+                  value={editingAdModal.title || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, title: e.target.value }))}
                 />
               </div>
-            </div>
-            <div className="grid-2">
+
               <div className="form-group">
-                <label className="form-label">Start Date</label>
-                <input
-                  type="date"
+                <label className="form-label">
+                  {isMovingText ? 'Additional Details / Note (Optional)' : 'Description / Offer Details'}
+                </label>
+                <textarea
                   className="form-input"
-                  value={editingAdModal.start_date || ''}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, start_date: e.target.value }))}
+                  rows={2}
+                  placeholder={
+                    isMovingText
+                      ? 'Optional details or note for this scrolling announcement'
+                      : 'Short description of the deal or promotion'
+                  }
+                  value={editingAdModal.description || ''}
+                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, description: e.target.value }))}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">End Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={editingAdModal.end_date || ''}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, end_date: e.target.value }))}
-                />
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Placement Section</label>
+                  <select
+                    className="form-select"
+                    value={curPlacement}
+                    onChange={(e) => {
+                      const nextPlacement = e.target.value;
+                      setEditingAdModal((prev) => ({
+                        ...prev,
+                        placement: nextPlacement,
+                        media_type:
+                          nextPlacement === 'Moving Text'
+                            ? 'text'
+                            : prev.media_type === 'text' && nextPlacement !== 'Merchant Store'
+                            ? 'image'
+                            : prev.media_type || 'image',
+                        type:
+                          nextPlacement === 'Moving Text'
+                            ? 'Text Carousel'
+                            : nextPlacement === 'Merchant Store'
+                            ? 'Featured'
+                            : 'Banner',
+                      }));
+                    }}
+                  >
+                    <option value="Home Top">Home Top (Top Banners)</option>
+                    <option value="Home Middle">Home Middle (Middle Ads)</option>
+                    <option value="Above Footer">Above Footer</option>
+                    <option value="Featured Offers">Featured Offers</option>
+                    <option value="Special Offer">Special Offer (Special Deals)</option>
+                    <option value="Business Network">Business Network</option>
+                    <option value="Square Poster">Square Poster</option>
+                    <option value="Moving Text">Moving Text (Scrolling Ticker)</option>
+                    {curPlacement === 'Merchant Store' && (
+                      <option value="Merchant Store">Merchant Store</option>
+                    )}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Category</label>
+                  <select
+                    className="form-select"
+                    value={editingAdModal.category || 'Retail & Shopping'}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, category: e.target.value }))}
+                  >
+                    {categoryOptions.map((catName, idx) => (
+                      <option key={idx} value={catName}>
+                        {catName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Target / Action URL</label>
-              <input
-                type="text"
-                className="form-input"
-                value={editingAdModal.target_url || ''}
-                onChange={(e) => setEditingAdModal((prev) => ({ ...prev, target_url: e.target.value }))}
-              />
-            </div>
-            {editingAdModal.media_type === 'image' && (
-              <div className="form-group">
-                <label className="form-label">Image URL</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editingAdModal.image_url || ''}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, image_url: e.target.value }))}
-                />
+
+              {isMovingText ? (
+                <div
+                  style={{
+                    padding: '14px 16px',
+                    background: 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)',
+                    borderRadius: 12,
+                    color: '#ffffff',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ background: '#ef4444', color: '#fff', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 900 }}>
+                      ⚡ LIVE TICKER PREVIEW
+                    </span>
+                    <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 700 }}>
+                      Scrolling Announcement Mode — No image or video upload needed!
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    📢 {editingAdModal.title || 'Scrolling announcement text preview...'}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {renderAdPlacementSizingGuide(curPlacement, curMedia)}
+
+                  {/* Media Format Switcher */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
+                      Media Format
+                    </label>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          curPlacement === 'Merchant Store' || curMedia === 'text'
+                            ? 'repeat(3, 1fr)'
+                            : '1fr 1fr',
+                        gap: 10,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setEditingAdModal((prev) => ({ ...prev, media_type: 'image' }))}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: 8,
+                          border: curMedia === 'image' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                          background: curMedia === 'image' ? '#eff6ff' : '#ffffff',
+                          color: curMedia === 'image' ? '#2563eb' : '#475569',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <HiOutlinePhotograph size={16} />
+                        <span>Static Image Banner</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingAdModal((prev) => ({ ...prev, media_type: 'video' }))}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: 8,
+                          border: curMedia === 'video' ? '2px solid #9333ea' : '1px solid #cbd5e1',
+                          background: curMedia === 'video' ? '#faf5ff' : '#ffffff',
+                          color: curMedia === 'video' ? '#9333ea' : '#475569',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <HiOutlineVideoCamera size={16} />
+                        <span>Video Showcase Ad</span>
+                      </button>
+                      {(curPlacement === 'Merchant Store' || curMedia === 'text') && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingAdModal((prev) => ({ ...prev, media_type: 'text' }))}
+                          style={{
+                            padding: '9px 12px',
+                            borderRadius: 8,
+                            border: curMedia === 'text' ? '2px solid #059669' : '1px solid #cbd5e1',
+                            background: curMedia === 'text' ? '#ecfdf5' : '#ffffff',
+                            color: curMedia === 'text' ? '#047857' : '#475569',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <HiOutlineDocumentText size={16} />
+                          <span>Text with Background</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* IMAGE EDITOR & PREVIEW */}
+                  {curMedia === 'image' && (
+                    <div
+                      style={{
+                        background: '#f8fafc',
+                        border: '1.5px dashed #cbd5e1',
+                        borderRadius: 12,
+                        padding: 16,
+                        marginBottom: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
+                        📸 Update Banner Image (JPG, PNG, WebP)
+                      </label>
+                      <p style={{ fontSize: 11.5, color: '#64748b', margin: '0 0 12px' }}>
+                        Upload new image, crop/adjust existing image, or update the image URL directly.
+                      </p>
+
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <label
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            color: '#1d4ed8',
+                            fontSize: 12.5,
+                            fontWeight: 700,
+                            cursor: adMediaUploading ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {adMediaUploading ? 'Uploading...' : '📁 Choose & Crop Image'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={adMediaUploading}
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = '';
+                              if (picked) handlePickAdEditFile(picked, 'image', false);
+                            }}
+                          />
+                        </label>
+                        {editingAdModal.image_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdCropperForExisting(editingAdModal.image_url, false)}
+                            disabled={adMediaUploading}
+                            style={{
+                              padding: '7px 14px',
+                              borderRadius: 8,
+                              border: '1px solid #2563eb',
+                              background: '#ffffff',
+                              color: '#2563eb',
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✂️ Recrop / Adjust View
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'left', marginBottom: editingAdModal.image_url ? 12 : 0 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>Or update Image URL:</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ marginTop: 4, fontSize: 12, padding: '7px 10px' }}
+                          placeholder="https://.../banner.png"
+                          value={editingAdModal.image_url || ''}
+                          onChange={(e) => setEditingAdModal((prev) => ({ ...prev, image_url: e.target.value }))}
+                        />
+                      </div>
+
+                      {editingAdModal.image_url && (
+                        curPlacement === 'Home Middle' ? (
+                          <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', border: '1px solid #cbd5e1', background: '#ffffff', minHeight: 150, textAlign: 'left' }}>
+                            <div style={{ flex: 1, background: '#0b1329', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
+                              <img
+                                src={formatMediaUrl(editingAdModal.image_url)}
+                                alt="Middle Showcase Preview"
+                                style={{ maxWidth: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8 }}
+                              />
+                            </div>
+                            <div style={{ flex: 1.1, padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                              <span style={{ alignSelf: 'flex-start', padding: '2px 8px', borderRadius: 99, background: '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 800, marginBottom: 6 }}>
+                                📢 {(editingAdModal.category || 'SPONSORED SPOTLIGHT').toUpperCase()}
+                              </span>
+                              <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                                {editingAdModal.title || 'Home Middle Showcase Title'}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                                {editingAdModal.description || 'Full-view uncropped split showcase banner.'}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              background: '#0f172a',
+                              borderRadius: 10,
+                              border: '1px solid #e2e8f0',
+                              overflow: 'hidden',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <img
+                              src={formatMediaUrl(editingAdModal.image_url)}
+                              alt="Current Banner"
+                              style={{ maxHeight: 190, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                            />
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  {/* VIDEO EDITOR, COVER POSTER & PREVIEW */}
+                  {curMedia === 'video' && (
+                    <div
+                      style={{
+                        background: '#faf5ff',
+                        border: '1.5px dashed #c084fc',
+                        borderRadius: 12,
+                        padding: 16,
+                        marginBottom: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#581c87', marginBottom: 4 }}>
+                        🎬 Update Ad Video &amp; Cover Poster (MP4, WebM, MOV)
+                      </label>
+                      <p style={{ fontSize: 11.5, color: '#6b21a8', margin: '0 0 12px' }}>
+                        Upload &amp; crop/trim a new commercial video, edit the cover poster image, or update the video link.
+                      </p>
+
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <label
+                          style={{
+                            padding: '7px 13px',
+                            borderRadius: 8,
+                            background: '#ffffff',
+                            border: '1px solid #c084fc',
+                            color: '#7e22ce',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: adMediaUploading ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {adMediaUploading ? 'Uploading...' : '📁 Upload & Crop Video'}
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/mkv"
+                            hidden
+                            disabled={adMediaUploading}
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = '';
+                              if (picked) handlePickAdEditFile(picked, 'video', false);
+                            }}
+                          />
+                        </label>
+                        <label
+                          style={{
+                            padding: '7px 13px',
+                            borderRadius: 8,
+                            background: '#ffffff',
+                            border: '1px solid #d8b4fe',
+                            color: '#6d28d9',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: adMediaUploading ? 'wait' : 'pointer',
+                          }}
+                        >
+                          📸 Set &amp; Crop Cover Poster
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={adMediaUploading}
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = '';
+                              if (picked) handlePickAdEditFile(picked, 'image', true);
+                            }}
+                          />
+                        </label>
+                        {editingAdModal.video_url && !/youtu/i.test(editingAdModal.video_url) && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAdVideoCropperForExisting(editingAdModal.video_url)}
+                            disabled={adMediaUploading}
+                            style={{
+                              padding: '7px 13px',
+                              borderRadius: 8,
+                              border: '1px solid #9333ea',
+                              background: '#f3e8ff',
+                              color: '#7e22ce',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✂️ Crop / Trim Video
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'left', marginBottom: 8 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#6b21a8' }}>Or update Video URL:</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ marginTop: 4, fontSize: 12, padding: '7px 10px' }}
+                          placeholder="https://.../video.mp4 or YouTube URL"
+                          value={editingAdModal.video_url || ''}
+                          onChange={(e) => setEditingAdModal((prev) => ({ ...prev, video_url: e.target.value }))}
+                        />
+                      </div>
+
+                      <div style={{ textAlign: 'left', marginBottom: editingAdModal.video_url ? 10 : 0 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#6b21a8' }}>Video Cover Poster URL (Optional):</label>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4, alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ fontSize: 12, padding: '6px 10px', flex: 1 }}
+                            placeholder="Optional cover thumbnail image URL..."
+                            value={editingAdModal.image_url || ''}
+                            onChange={(e) => setEditingAdModal((prev) => ({ ...prev, image_url: e.target.value }))}
+                          />
+                          {editingAdModal.image_url && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAdCropperForExisting(editingAdModal.image_url, true)}
+                                style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #c084fc', background: '#ffffff', color: '#7e22ce', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                              >
+                                ✂️ Crop Poster
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingAdModal((prev) => ({ ...prev, image_url: '' }))}
+                                style={{ padding: '6px 9px', borderRadius: 7, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                                title="Remove Cover Poster"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {editingAdModal.video_url && !/youtu/i.test(editingAdModal.video_url) ? (
+                        <video
+                          src={formatMediaUrl(editingAdModal.video_url)}
+                          poster={editingAdModal.image_url ? formatMediaUrl(editingAdModal.image_url) : undefined}
+                          controls
+                          autoPlay
+                          muted
+                          loop
+                          style={{
+                            width: '100%',
+                            maxHeight: 200,
+                            borderRadius: 10,
+                            background: '#000',
+                            border: '1px solid #c084fc',
+                          }}
+                        />
+                      ) : editingAdModal.video_url ? (
+                        <div style={{ fontSize: 12, color: '#6b21a8', fontWeight: 700, padding: '8px 10px', background: '#ffffff', borderRadius: 8, border: '1px solid #e9d5ff' }}>
+                          🎬 External Video Link Ready: <a href={editingAdModal.video_url} target="_blank" rel="noopener noreferrer">{editingAdModal.video_url}</a>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* TEXT WITH BACKGROUND EDITOR (if Store Text Banner) */}
+                  {curMedia === 'text' && (
+                    <div
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 12,
+                        padding: 14,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <label className="form-label">Background Color / Gradient Presets</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                        {AD_BG_PRESETS.map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() =>
+                              setEditingAdModal((prev) => ({
+                                ...prev,
+                                bg_color: preset.value,
+                                text_color: preset.text,
+                              }))
+                            }
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 8,
+                              border: editingAdModal.bg_color === preset.value ? '2px solid #0f172a' : '1px solid #cbd5e1',
+                              background: preset.value,
+                              color: preset.text,
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div
+                        style={{
+                          background: editingAdModal.bg_color || AD_BG_PRESETS[0].value,
+                          color: editingAdModal.text_color || '#ffffff',
+                          padding: '18px 16px',
+                          borderRadius: 10,
+                        }}
+                      >
+                        <div style={{ fontSize: 17, fontWeight: 900 }}>{editingAdModal.title || 'Headline Preview'}</div>
+                        {editingAdModal.description && (
+                          <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 4 }}>{editingAdModal.description}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Target URL & Location */}
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Target / Action URL</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="https://... or leave blank"
+                    value={editingAdModal.target_url || ''}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, target_url: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Location</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Kerala / Kannur / Kochi"
+                    value={editingAdModal.location || ''}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, location: e.target.value }))}
+                  />
+                </div>
               </div>
-            )}
-            {editingAdModal.media_type === 'video' && (
-              <div className="form-group">
-                <label className="form-label">Video URL</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={editingAdModal.video_url || ''}
-                  onChange={(e) => setEditingAdModal((prev) => ({ ...prev, video_url: e.target.value }))}
-                />
+
+              {/* Start Date, End Date & Approval Status */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Start Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={editingAdModal.start_date || ''}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, start_date: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">End Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={editingAdModal.end_date || ''}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, end_date: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    value={editingAdModal.status === 'approved' ? 'active' : editingAdModal.status || 'pending'}
+                    onChange={(e) => setEditingAdModal((prev) => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="pending">Pending Admin Approval</option>
+                    <option value="active">Approved (Live on Landing Page)</option>
+                    <option value="inactive">Inactive (Paused)</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
               </div>
-            )}
-          </form>
-        )}
+            </form>
+          );
+        })()}
       </Modal>
+
+      {/* Image Crop Modal for Admin Edit Merchant Advertisement */}
+      <PromotionImageCropperModal
+        isOpen={adImageCropState.isOpen}
+        onClose={() => setAdImageCropState({ isOpen: false, src: '', rawFile: null, isPoster: false })}
+        imageSrc={adImageCropState.src}
+        placement={editingAdModal?.placement || 'Home Top'}
+        onCropSave={(croppedFile) => handleAdEditMediaUpload(croppedFile, Boolean(adImageCropState.isPoster))}
+        onUseOriginal={
+          adImageCropState.rawFile
+            ? () => handleAdEditMediaUpload(adImageCropState.rawFile, Boolean(adImageCropState.isPoster))
+            : undefined
+        }
+      />
+
+      {/* Video Crop & Trim Modal for Admin Edit Merchant Advertisement */}
+      <VideoAdCropModal
+        isOpen={adVideoCropState.isOpen}
+        onClose={() => setAdVideoCropState({ isOpen: false, src: '', rawFile: null })}
+        videoSrc={adVideoCropState.src}
+        videoFile={adVideoCropState.rawFile}
+        onCropSave={(croppedFile) => handleAdEditMediaUpload(croppedFile, false)}
+        onUseOriginal={
+          adVideoCropState.rawFile
+            ? () => handleAdEditMediaUpload(adVideoCropState.rawFile, false)
+            : undefined
+        }
+      />
     </motion.div>
   );
 }

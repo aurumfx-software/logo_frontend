@@ -696,24 +696,53 @@ export default function Merchants() {
   };
 
   // --- Status Toggle Handler ---
-  const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus, merchantName = '') => {
+    const normalized = String(newStatus || '').toLowerCase();
+    const targetName =
+      merchantName ||
+      data.find((m) => m.id === id)?.business_name ||
+      data.find((m) => m.id === id)?.name ||
+      `Merchant #${id}`;
+    const actionLabel =
+      normalized === 'suspended'
+        ? 'suspend'
+        : normalized === 'inactive'
+        ? 'deactivate'
+        : 'un-suspend & activate';
+    if (!window.confirm(`Are you sure you want to ${actionLabel} "${targetName}"?`)) {
+      return;
+    }
+
+    const apiStatus = normalized === 'suspended' ? 'SUSPENDED' : normalized === 'inactive' ? 'INACTIVE' : 'ACTIVE';
     try {
-      if (newStatus === 'active' || newStatus === 'approved') {
-        await approveMerchant(id);
-      } else {
-        await rejectMerchant(id, `Merchant status updated to ${newStatus}`);
-      }
+      await updateMerchant(id, { status: apiStatus });
+      const nextAppStatus = apiStatus === 'ACTIVE' ? 'APPROVED' : undefined;
       setData((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                status: normalized === 'active' ? 'approved' : normalized,
+                ...(nextAppStatus ? { approval_status: nextAppStatus } : {}),
+              }
+            : m
+        )
       );
       if (selectedMerchant && selectedMerchant.id === id) {
-        setSelectedMerchant((prev) => (prev ? { ...prev, status: newStatus } : null));
+        setSelectedMerchant((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: normalized === 'active' ? 'approved' : normalized,
+                ...(nextAppStatus ? { approval_status: nextAppStatus } : {}),
+              }
+            : null
+        );
       }
+      window.dispatchEvent(new Event('merchants-updated'));
     } catch (err) {
-      console.warn('Status API notice, updating local state:', err);
-      setData((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, status: newStatus } : m))
-      );
+      console.error('Status update failed:', err);
+      alert(`Failed to update merchant status: ${err.message || 'Server error'}`);
     }
   };
 
@@ -753,14 +782,18 @@ export default function Merchants() {
         const role = (user?.role || '').toUpperCase();
         const isStaff = role === 'FIELD_STAFF' || role === 'STAFF';
         const currentUserCode = user?.user_code || user?.userCode;
-        // For Admins, fetch ALL approved merchants without user_code scoping
-        const apiMerchants = await fetchMerchantsList(isStaff ? { user_code: currentUserCode } : {});
+        // For Admins, fetch ALL merchants including suspended/inactive without public_only filter
+        const apiMerchants = await fetchMerchantsList(
+          isStaff ? { user_code: currentUserCode, status: 'all', limit: 2000 } : { status: 'all', limit: 2000 }
+        );
         if (Array.isArray(apiMerchants)) {
-          // Only show approved / active merchants in the Merchants directory (pending registrations stay in Registrations section)
+          // Only show approved / suspended / inactive merchants in the Merchants directory (pending registrations stay in Registrations section)
           const approvedMerchants = apiMerchants.filter((m) => {
+            const st = String(m.status || '').toLowerCase();
+            if (st === 'suspended' || st === 'inactive' || st === 'rejected') return true;
             const approval = String(m.approval_status || m.raw?.approval_status || '').toUpperCase();
             if (approval === 'APPROVED') return true;
-            return (m.status || '').toLowerCase() !== 'pending';
+            return st !== 'pending';
           });
           approvedMerchants.sort((a, b) => {
             const timeA = new Date(a.created_at || a.createdAt || a.joined || 0).getTime();
@@ -834,10 +867,14 @@ export default function Merchants() {
     activeTab === 'all'
       ? data
       : data.filter((m) => {
+          const st = String(m.status || '').toLowerCase();
           if (activeTab === 'active') {
-            return m.status === 'active' || m.status === 'approved' || String(m.approval_status).toUpperCase() === 'APPROVED';
+            return st === 'active' || st === 'approved';
           }
-          return m.status === activeTab;
+          if (activeTab === 'inactive') {
+            return st === 'inactive' || st === 'rejected';
+          }
+          return st === activeTab;
         });
 
   const columns = [
@@ -1039,16 +1076,16 @@ export default function Merchants() {
               className="btn btn-outline btn-sm btn-icon"
               title="Suspend Merchant"
               style={{ color: 'var(--danger)' }}
-              onClick={() => handleStatusChange(row.id, 'suspended')}
+              onClick={() => handleStatusChange(row.id, 'suspended', row.business_name || row.name)}
             >
               <HiOutlineBan />
             </button>
           ) : (
             <button
               className="btn btn-outline btn-sm btn-icon"
-              title="Activate Merchant"
+              title={row.status === 'suspended' ? 'Un-suspend Merchant' : 'Activate Merchant'}
               style={{ color: 'var(--success)' }}
-              onClick={() => handleStatusChange(row.id, 'active')}
+              onClick={() => handleStatusChange(row.id, 'active', row.business_name || row.name)}
             >
               <HiOutlineCheckCircle />
             </button>
@@ -1068,9 +1105,15 @@ export default function Merchants() {
 
   const counts = {
     all: data.length,
-    active: data.filter((m) => m.status === 'active' || m.status === 'approved' || String(m.approval_status).toUpperCase() === 'APPROVED').length,
-    suspended: data.filter((m) => m.status === 'suspended').length,
-    inactive: data.filter((m) => m.status === 'inactive' || m.status === 'rejected').length,
+    active: data.filter((m) => {
+      const st = String(m.status || '').toLowerCase();
+      return st === 'active' || st === 'approved';
+    }).length,
+    suspended: data.filter((m) => String(m.status || '').toLowerCase() === 'suspended').length,
+    inactive: data.filter((m) => {
+      const st = String(m.status || '').toLowerCase();
+      return st === 'inactive' || st === 'rejected';
+    }).length,
   };
 
   return (

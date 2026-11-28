@@ -25,7 +25,7 @@ import {
 import CircularSpinner from '../components/UI/CircularSpinner';
 import GoogleMapsLocationInput from '../components/UI/GoogleMapsLocationInput';
 import ChangePasswordCard from '../components/UI/ChangePasswordCard';
-import PromotionImageCropperModal from '../components/UI/PromotionImageCropperModal';
+import PromotionImageCropperModal, { PLACEMENT_SPECS } from '../components/UI/PromotionImageCropperModal';
 import VideoAdCropModal from '../components/UI/VideoAdCropModal';
 import CustomerAddProductModal from '../components/products/CustomerAddProductModal';
 import MyProductsPanel from '../components/products/MyProductsPanel';
@@ -306,6 +306,8 @@ export default function MerchantPortal() {
   // Promotions & Store Advertisement State
   const [promotions, setPromotions] = useState([]);
   const [loadingPromos, setLoadingPromos] = useState(false);
+  const [activeAdSection, setActiveAdSection] = useState('Merchant Store');
+  const [showAllAdSectionsInList, setShowAllAdSectionsInList] = useState(false);
   const [newPromo, setNewPromo] = useState(INITIAL_PROMO);
   const [promoUploading, setPromoUploading] = useState(false);
   const [promoSubmitting, setPromoSubmitting] = useState(false);
@@ -317,6 +319,7 @@ export default function MerchantPortal() {
     isOpen: false,
     src: '',
     rawFile: null,
+    isPoster: false,
   });
   const [videoCropState, setVideoCropState] = useState({
     isOpen: false,
@@ -761,31 +764,43 @@ export default function MerchantPortal() {
   };
 
   // Store Advertisement Handlers (Image / Text with Bg / Video)
-  const resetPromoDraft = () => {
+  const resetPromoDraft = (keepPlacement = null) => {
+    const nextPlace = keepPlacement || (activeAdSection !== 'Pending Requests' ? activeAdSection : 'Merchant Store');
     setNewPromo({
       ...INITIAL_PROMO,
+      placement: nextPlace,
+      mediaType: nextPlace === 'Moving Text' ? 'text' : 'image',
+      type: nextPlace === 'Moving Text' ? 'Text Carousel' : nextPlace === 'Merchant Store' ? 'Featured' : 'Banner',
       category: formData.category || 'Retail & Shopping',
       location: `${formData.city || ''}${formData.city && formData.district ? ', ' : ''}${formData.district || 'Kerala'}`,
     });
   };
 
-  const handlePromoMediaUpload = async (file) => {
+  const handlePromoMediaUpload = async (file, asVideoPoster = false) => {
     if (!file) return;
     setPromoUploading(true);
     setErrorMsg('');
     try {
       const res = await uploadPromotionMedia(file);
-      const isVid = file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name);
+      const isVid = !asVideoPoster && (file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name));
       const url = res?.url || res?.image_url || res?.video_url || res?.photos?.[0] || res?.videos?.[0];
       if (!url) throw new Error('Upload failed.');
-      setNewPromo((prev) => ({
-        ...prev,
-        mediaType: isVid ? 'video' : 'image',
-        type: 'Featured',
-        imageUrl: isVid ? '' : url,
-        videoUrl: isVid ? url : '',
-      }));
-      showNotice(`Advertisement ${isVid ? 'video' : 'image'} uploaded!`);
+      if (asVideoPoster) {
+        setNewPromo((prev) => ({
+          ...prev,
+          imageUrl: url,
+        }));
+        showNotice('Video cover poster uploaded!');
+      } else {
+        setNewPromo((prev) => ({
+          ...prev,
+          mediaType: isVid ? 'video' : 'image',
+          type: prev.placement === 'Moving Text' ? 'Text Carousel' : prev.placement === 'Merchant Store' ? 'Featured' : 'Banner',
+          imageUrl: isVid ? prev.imageUrl : url,
+          videoUrl: isVid ? url : '',
+        }));
+        showNotice(`Advertisement ${isVid ? 'video' : 'image'} uploaded!`);
+      }
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to upload advertisement media.');
     } finally {
@@ -793,14 +808,14 @@ export default function MerchantPortal() {
     }
   };
 
-  const handlePickPromoFileWithCrop = (file, mode = 'image') => {
+  const handlePickPromoFileWithCrop = (file, mode = 'image', isPoster = false) => {
     if (!file) return;
-    const isVid = mode === 'video' || file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name);
+    const isVid = !isPoster && (mode === 'video' || file.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name));
     const localUrl = URL.createObjectURL(file);
     if (isVid) {
       setVideoCropState({ isOpen: true, src: localUrl, rawFile: file });
     } else {
-      setImageCropState({ isOpen: true, src: localUrl, rawFile: file });
+      setImageCropState({ isOpen: true, src: localUrl, rawFile: file, isPoster: Boolean(isPoster) });
     }
   };
 
@@ -810,43 +825,53 @@ export default function MerchantPortal() {
       setErrorMsg('Please enter an advertisement headline / title.');
       return;
     }
-    const chosenPlacement = newPromo.placement || 'Merchant Store';
-    const isMovingTextPlacement = chosenPlacement === 'Moving Text';
-    const chosenMedia = isMovingTextPlacement ? 'text' : (newPromo.mediaType || 'image');
-    if (!isMovingTextPlacement && chosenMedia === 'image' && !String(newPromo.imageUrl || '').trim()) {
-      setErrorMsg('Please upload or paste an advertisement image.');
-      return;
-    }
-    if (!isMovingTextPlacement && chosenMedia === 'video' && !String(newPromo.videoUrl || '').trim()) {
-      setErrorMsg('Please upload or paste an advertisement video URL.');
-      return;
-    }
-    setPromoSubmitting(true);
-    setErrorMsg('');
-    try {
-      const targetId = formData.id || selectedShop?.id;
-      const isStorePlacement = String(chosenPlacement).trim().toLowerCase() === 'merchant store';
-      const reqPermKey = getRequiredAdPermissionKey(chosenPlacement, chosenMedia);
-      if (!merchantGrants?.[reqPermKey]) {
-        setErrorMsg(`Your current plan does not unlock ${chosenPlacement} (${chosenMedia}). Please subscribe to a plan with this permission.`);
-        setPromoSubmitting(false);
+      const chosenPlacement =
+        activeAdSection && activeAdSection !== 'Pending Requests' && isAdSectionUnlocked(activeAdSection)
+          ? activeAdSection
+          : newPromo.placement && isAdSectionUnlocked(newPromo.placement)
+          ? newPromo.placement
+          : firstUnlockedAdSection || 'Merchant Store';
+      const isMovingTextPlacement = chosenPlacement === 'Moving Text';
+      const chosenMedia = isMovingTextPlacement ? 'text' : (newPromo.mediaType || 'image');
+      if (!isMovingTextPlacement && chosenMedia === 'image' && !String(newPromo.imageUrl || '').trim()) {
+        setErrorMsg('Please upload or paste an advertisement image.');
         return;
       }
-      const payload = {
-        ...newPromo,
-        title: newPromo.title.trim(),
-        description: String(newPromo.description || '').trim(),
-        placement: chosenPlacement,
-        media_type: chosenMedia,
-        type: isMovingTextPlacement ? 'Text Carousel' : chosenMedia === 'text' ? 'Text Banner' : 'Featured',
-        image_url: !isMovingTextPlacement && chosenMedia === 'image' ? String(newPromo.imageUrl || '').trim() : null,
-        video_url: !isMovingTextPlacement && chosenMedia === 'video' ? String(newPromo.videoUrl || '').trim() : null,
-        bg_color: chosenMedia === 'text' ? newPromo.bgColor : null,
-        text_color: chosenMedia === 'text' ? newPromo.textColor : null,
-        target_url: String(newPromo.targetUrl || '').trim() || null,
-        merchant_id: Number(targetId),
-        status: isStorePlacement ? (newPromo.status || 'active') : 'pending',
-      };
+      if (!isMovingTextPlacement && chosenMedia === 'video' && !String(newPromo.videoUrl || '').trim()) {
+        setErrorMsg('Please upload or paste an advertisement video URL.');
+        return;
+      }
+      setPromoSubmitting(true);
+      setErrorMsg('');
+      try {
+        const targetId = formData.id || selectedShop?.id;
+        const isStorePlacement = String(chosenPlacement).trim().toLowerCase() === 'merchant store';
+        const reqPermKey = getRequiredAdPermissionKey(chosenPlacement, chosenMedia);
+        if (!merchantGrants?.[reqPermKey]) {
+          setErrorMsg(`Your current plan does not unlock ${chosenPlacement} (${chosenMedia}). Please subscribe to a plan with this permission.`);
+          setPromoSubmitting(false);
+          return;
+        }
+        const emptyVal = newPromo.id ? '' : null;
+        const payload = {
+          ...newPromo,
+          title: newPromo.title.trim(),
+          description: String(newPromo.description || '').trim(),
+          placement: chosenPlacement,
+          category: newPromo.category || formData.category || 'Retail & Shopping',
+          location:
+            String(newPromo.location || '').trim() ||
+            `${formData.city || ''}${formData.city && formData.district ? ', ' : ''}${formData.district || 'Kerala'}`,
+          media_type: chosenMedia,
+          type: isMovingTextPlacement ? 'Text Carousel' : chosenMedia === 'text' ? 'Text Banner' : isStorePlacement ? 'Featured' : 'Banner',
+          image_url: !isMovingTextPlacement && (chosenMedia === 'image' || chosenMedia === 'video') ? String(newPromo.imageUrl || '').trim() || emptyVal : emptyVal,
+          video_url: !isMovingTextPlacement && chosenMedia === 'video' ? String(newPromo.videoUrl || '').trim() || emptyVal : emptyVal,
+          bg_color: chosenMedia === 'text' ? newPromo.bgColor : emptyVal,
+          text_color: chosenMedia === 'text' ? newPromo.textColor : emptyVal,
+          target_url: String(newPromo.targetUrl || '').trim() || emptyVal,
+          merchant_id: Number(targetId),
+          status: isStorePlacement ? (newPromo.status || 'active') : 'pending',
+        };
       const cleanSwipeSec = Math.max(2, Math.min(60, Math.round(Number(promoSwipeSeconds) || 4)));
       if (targetId) {
         try {
@@ -869,7 +894,7 @@ export default function MerchantPortal() {
             : 'Advertisement submitted to Admin Pending Requests! It will appear on the Landing Page once Admin approves.'
         );
       }
-      resetPromoDraft();
+      resetPromoDraft(chosenPlacement);
       const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
       setPromotions(Array.isArray(updatedPromos) ? updatedPromos : []);
     } catch (err) {
@@ -898,17 +923,31 @@ export default function MerchantPortal() {
   };
 
   const handleEditPromo = (promo) => {
+    const editPlacement = promo.placement || 'Merchant Store';
+    const detectedMedia =
+      editPlacement === 'Moving Text'
+        ? 'text'
+        : promo.media_type || (promo.video_url ? 'video' : promo.image_url ? 'image' : 'text');
+    setActiveAdSection(editPlacement);
+    setShowAllAdSectionsInList(false);
     setNewPromo({
       id: promo.id,
       title: promo.title || '',
       description: promo.description || '',
-      type: promo.type || 'Featured',
-      placement: promo.placement || 'Merchant Store',
+      type: promo.type || (editPlacement === 'Moving Text' ? 'Text Carousel' : editPlacement === 'Merchant Store' ? 'Featured' : 'Banner'),
+      placement: editPlacement,
       category: promo.category || formData.category || 'Retail & Shopping',
       location: promo.location || `${formData.city || ''}${formData.city && formData.district ? ', ' : ''}${formData.district || 'Kerala'}`,
       startDate: promo.start_date || INITIAL_PROMO.startDate,
       endDate: promo.end_date || '2027-12-31',
-      mediaType: promo.media_type || (promo.video_url ? 'video' : promo.image_url ? 'image' : 'text'),
+      mediaType:
+        editPlacement === 'Moving Text'
+          ? 'text'
+          : editPlacement === 'Merchant Store'
+          ? detectedMedia
+          : detectedMedia === 'video'
+          ? 'video'
+          : 'image',
       imageUrl: promo.image_url || promo.imageUrl || '',
       videoUrl: promo.video_url || promo.videoUrl || '',
       bgColor: promo.bg_color || AD_BG_PRESETS[0].value,
@@ -921,13 +960,18 @@ export default function MerchantPortal() {
 
   const handleTogglePromoStatus = async (promo) => {
     const targetId = formData.id || selectedShop?.id;
-    const isCurrentlyActive = ['active', 'approved'].includes(String(promo.status || '').toLowerCase());
+    const rawSt = String(promo.status || '').toLowerCase();
+    if (rawSt === 'pending') {
+      setErrorMsg('This landing page ad is awaiting Admin approval before going live.');
+      return;
+    }
+    const isCurrentlyActive = ['active', 'approved'].includes(rawSt);
     const nextStatus = isCurrentlyActive ? 'inactive' : 'active';
     try {
       await updatePromotion(promo.id, { status: nextStatus });
       const updatedPromos = await fetchMerchantPromotions(targetId).catch(() => []);
       setPromotions(Array.isArray(updatedPromos) ? updatedPromos : []);
-      showNotice(nextStatus === 'active' ? 'Advertisement set Live on Store page!' : 'Advertisement paused.');
+      showNotice(nextStatus === 'active' ? 'Advertisement set Live!' : 'Advertisement paused.');
     } catch (err) {
       setErrorMsg(err?.message || 'Failed to update advertisement status.');
     }
@@ -1137,6 +1181,114 @@ export default function MerchantPortal() {
   const canStoreImageTextAd = Boolean(merchantGrants.merchant_store_ad);
   const canStoreVideoAd = Boolean(merchantGrants.merchant_store_video_ad);
   const hasAnyMerchantAdPerm = hasAnyAdGrant(merchantGrants);
+
+  const isAdSectionUnlocked = (secId) => {
+    if (secId === 'Pending Requests') return true;
+    if (secId === 'Merchant Store') return canStoreImageTextAd || canStoreVideoAd;
+    const sec = MERCHANT_AD_SECTIONS.find((s) => s.id === secId);
+    return sec?.permKey ? Boolean(merchantGrants[sec.permKey]) : false;
+  };
+
+  const firstUnlockedAdSection =
+    MERCHANT_AD_SECTIONS.find((s) => s.id !== 'Pending Requests' && isAdSectionUnlocked(s.id))?.id ||
+    'Merchant Store';
+
+  const effectiveAdSection =
+    activeAdSection === 'Pending Requests' || isAdSectionUnlocked(activeAdSection)
+      ? activeAdSection
+      : firstUnlockedAdSection;
+
+  const selectAdSection = (secId) => {
+    if (secId === 'Pending Requests') {
+      setActiveAdSection('Pending Requests');
+      setShowAllAdSectionsInList(false);
+      return;
+    }
+    if (!isAdSectionUnlocked(secId)) {
+      setPlanActionModal('upgrade');
+      return;
+    }
+    setActiveAdSection(secId);
+    setShowAllAdSectionsInList(false);
+    setNewPromo((prev) => {
+      const leavingEdit = Boolean(prev.id && prev.placement !== secId);
+      let nextMedia = leavingEdit ? 'image' : (prev.mediaType || 'image');
+      if (secId === 'Moving Text') {
+        nextMedia = 'text';
+      } else if (secId === 'Merchant Store') {
+        if (nextMedia === 'video' && !canStoreVideoAd) nextMedia = 'image';
+        if (nextMedia !== 'video' && !canStoreImageTextAd && canStoreVideoAd) nextMedia = 'video';
+      } else {
+        nextMedia = !leavingEdit && prev.placement !== 'Moving Text' && prev.mediaType === 'video' ? 'video' : 'image';
+      }
+      return {
+        ...prev,
+        id: prev.placement === secId ? prev.id : null,
+        title: leavingEdit ? '' : prev.title,
+        description: leavingEdit ? '' : prev.description,
+        imageUrl: leavingEdit ? '' : prev.imageUrl,
+        videoUrl: leavingEdit ? '' : prev.videoUrl,
+        targetUrl: leavingEdit ? '' : prev.targetUrl,
+        placement: secId,
+        mediaType: nextMedia,
+        type: secId === 'Moving Text' ? 'Text Carousel' : secId === 'Merchant Store' ? 'Featured' : 'Banner',
+        category: prev.category || formData.category || 'Retail & Shopping',
+        location:
+          prev.location ||
+          `${formData.city || ''}${formData.city && formData.district ? ', ' : ''}${formData.district || 'Kerala'}`,
+      };
+    });
+  };
+
+  const renderMerchantPlacementSizingGuide = (placement, mediaType = 'image') => {
+    if (!placement || placement === 'Moving Text' || placement === 'Pending Requests') return null;
+    const spec = PLACEMENT_SPECS[placement] || PLACEMENT_SPECS['Merchant Store'] || PLACEMENT_SPECS['Home Top'];
+    return (
+      <div
+        style={{
+          background: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+        }}
+      >
+        <div style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>📐</div>
+        <div style={{ flex: 1, fontSize: 12.5, color: '#1e3a8a', lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+            <strong style={{ fontSize: 13, color: '#1e40af' }}>
+              {spec.label} — Optimal Fit Dimensions Guide
+            </strong>
+            <span style={{ background: '#2563eb', color: '#ffffff', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6 }}>
+              {mediaType === 'video' ? '16:9 Full HD' : spec.ratioLabel}
+            </span>
+          </div>
+          <div style={{ color: '#0f172a', marginBottom: 2 }}>
+            <strong>Recommended Size:</strong>{' '}
+            <span style={{ color: '#2563eb', fontWeight: 800, fontSize: 13 }}>
+              {mediaType === 'video' ? '1920 × 1080 px (16:9 MP4/WebM)' : `${spec.idealWidth} × ${spec.idealHeight} px`}
+            </span>
+            {mediaType !== 'video' && placement === 'Home Top' && (
+              <span style={{ color: '#64748b', fontSize: 11.5, marginLeft: 6 }}>
+                (or 1080 × 1080 px for square poster)
+              </span>
+            )}
+          </div>
+          <div style={{ color: '#475569', fontSize: 12 }}>
+            💡 {spec.tips}
+          </div>
+          {mediaType === 'video' && spec.videoSpecs && (
+            <div style={{ color: '#7c3aed', fontSize: 11.5, marginTop: 3 }}>
+              🎬 <strong>Video Specification:</strong> {spec.videoSpecs}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const hasActiveMerchantSub = MERCHANT_PERMISSION_ITEMS.some((item) => Boolean(merchantGrants[item.key]));
   const isSellerSubscribed =
@@ -1997,631 +2149,922 @@ export default function MerchantPortal() {
                   </div>
                 </div>
 
-                <form onSubmit={handleCreatePromo} style={{ padding: 20, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                    <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: '#0f172a' }}>
-                      {newPromo.id ? 'Edit Advertisement' : 'Create Advertisement (Admin Studio Parity)'}
-                    </h4>
-                    {newPromo.id && (
-                      <button
-                        type="button"
-                        onClick={resetPromoDraft}
-                        style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 700, color: '#475569', cursor: 'pointer' }}
-                      >
-                        Cancel Edit
-                      </button>
-                    )}
-                  </div>
+                {(() => {
+                  const selectedSecId = effectiveAdSection;
+                  const isPendingTab = selectedSecId === 'Pending Requests';
+                  const currentPlacement = isPendingTab
+                    ? newPromo.placement || firstUnlockedAdSection
+                    : selectedSecId;
+                  const activeSecObj =
+                    MERCHANT_AD_SECTIONS.find((s) => s.id === selectedSecId) ||
+                    MERCHANT_AD_SECTIONS[1];
+                  const activeSpec =
+                    PLACEMENT_SPECS[currentPlacement] || PLACEMENT_SPECS['Merchant Store'] || PLACEMENT_SPECS['Home Top'];
+                  const isMovingText = !isPendingTab && currentPlacement === 'Moving Text';
+                  const isStoreSec = !isPendingTab && currentPlacement === 'Merchant Store';
+                  const unlockedPlacementOptions = MERCHANT_AD_SECTIONS.filter(
+                    (s) => s.id !== 'Pending Requests' && isAdSectionUnlocked(s.id)
+                  );
+                  const allCategoryOpts = Array.from(
+                    new Set([
+                      ...(categoriesList || []),
+                      ...(formData.category ? [formData.category] : []),
+                      ...(newPromo.category ? [newPromo.category] : []),
+                      'Retail & Shopping',
+                    ])
+                  );
+                  const currentFormat = isMovingText
+                    ? 'text'
+                    : isStoreSec
+                    ? newPromo.mediaType || (canStoreImageTextAd ? 'image' : 'video')
+                    : newPromo.mediaType === 'video'
+                    ? 'video'
+                    : 'image';
 
-                  {/* Admin-Exact Placement Tabs Strip with Live Counts & Lock Indicators */}
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={labelStyle}>Choose Ad Placement Section *</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {MERCHANT_AD_SECTIONS.map((sec) => {
-                        const unlocked =
-                          sec.id === 'Pending Requests'
-                            ? true
-                            : sec.id === 'Merchant Store'
-                            ? canStoreImageTextAd || canStoreVideoAd
-                            : Boolean(merchantGrants[sec.permKey]);
-                        const count =
-                          sec.id === 'Pending Requests'
-                            ? promotions.filter((p) => String(p.status || '').toLowerCase() === 'pending').length
-                            : promotions.filter(
-                                (p) => String(p.placement || 'Merchant Store').toLowerCase() === sec.id.toLowerCase()
-                              ).length;
-                        const selected =
-                          sec.id !== 'Pending Requests' &&
-                          (newPromo.placement || 'Merchant Store') === sec.id;
-                        return (
-                          <button
-                            key={sec.id}
-                            type="button"
-                            onClick={() => {
-                              if (sec.id === 'Pending Requests') {
-                                const el = document.getElementById('merchant-ads-list-section');
-                                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                                return;
-                              }
-                              if (!unlocked) {
-                                setPlanActionModal('upgrade');
-                                return;
-                              }
-                              setNewPromo((prev) => ({
-                                ...prev,
-                                placement: sec.id,
-                                mediaType: sec.id === 'Moving Text' ? 'text' : prev.mediaType,
-                                type: sec.id === 'Moving Text' ? 'Text Carousel' : prev.type,
-                              }));
-                            }}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 7,
-                              padding: '8px 13px',
-                              borderRadius: 11,
-                              border: !unlocked
-                                ? '1.5px solid #f59e0b'
-                                : selected
-                                ? '2px solid #2563eb'
-                                : '1px solid #cbd5e1',
-                              background: !unlocked ? '#fffbeb' : selected ? '#eff6ff' : '#ffffff',
-                              color: !unlocked ? '#78350f' : selected ? '#1d4ed8' : '#334155',
-                              fontSize: 12.5,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                              boxShadow: selected ? '0 3px 10px rgba(37, 99, 235, 0.14)' : 'none',
-                            }}
-                          >
-                            {unlocked ? (
-                              <span style={{ fontSize: 15 }}>{sec.icon}</span>
-                            ) : (
-                              <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
-                                <HiOutlineLockClosed size={14} />
-                              </span>
-                            )}
-                            <span>{sec.label}</span>
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                fontWeight: 900,
-                                padding: '2px 7px',
-                                borderRadius: 999,
-                                background: !unlocked ? '#fde68a' : selected ? '#2563eb' : '#f1f5f9',
-                                color: !unlocked ? '#92400e' : selected ? '#ffffff' : '#475569',
-                              }}
-                            >
-                              {!unlocked ? 'LOCKED' : count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  const filteredSectionAds = showAllAdSectionsInList
+                    ? promotions
+                    : isPendingTab
+                    ? promotions.filter((p) => String(p.status || '').toLowerCase() === 'pending')
+                    : promotions.filter(
+                        (p) => String(p.placement || 'Merchant Store').toLowerCase() === currentPlacement.toLowerCase()
+                      );
 
-                  {/* Admin-Exact Active Section Banner Guide */}
-                  {(() => {
-                    const activeSec =
-                      MERCHANT_AD_SECTIONS.find((s) => s.id === (newPromo.placement || 'Merchant Store')) ||
-                      MERCHANT_AD_SECTIONS[1];
-                    return (
-                      <div
-                        style={{
-                          padding: '14px 18px',
-                          borderRadius: 12,
-                          background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
-                          color: '#ffffff',
-                          marginBottom: 16,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 18 }}>{activeSec.icon}</span>
-                          <span style={{ fontSize: 14, fontWeight: 900 }}>{activeSec.headline}</span>
-                        </div>
-                        <div style={{ fontSize: 12, color: '#dbeafe', marginBottom: 4 }}>{activeSec.description}</div>
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#fef08a' }}>📐 {activeSec.spec}</div>
-                      </div>
-                    );
-                  })()}
+                  const pendingAdsList = promotions.filter((p) => String(p.status || '').toLowerCase() === 'pending');
 
-                  {/* Ad Format Switcher (Hidden in Moving Text ticker mode) */}
-                  {newPromo.placement !== 'Moving Text' ? (
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={labelStyle}>Choose Advertisement Format *</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
-                      {[
-                        { key: 'image', label: 'Image Banner', icon: <HiOutlinePhotograph size={17} /> },
-                        { key: 'text', label: 'Text with Background', icon: <HiOutlineDocumentText size={17} /> },
-                        { key: 'video', label: 'Video Advertisement', icon: <HiOutlineVideoCamera size={17} /> },
-                      ].map((fmt) => {
-                        const chosenPlace = newPromo.placement || 'Merchant Store';
-                        const fmtAllowed =
-                          chosenPlace === 'Merchant Store'
-                            ? fmt.key === 'video'
-                              ? canStoreVideoAd
-                              : canStoreImageTextAd
-                            : Boolean(merchantGrants[getRequiredAdPermissionKey(chosenPlace, fmt.key)]);
-                        const active = newPromo.mediaType === fmt.key;
-                        return (
-                          <button
-                            key={fmt.key}
-                            type="button"
-                            onClick={() => {
-                              if (!fmtAllowed) {
-                                setPlanActionModal('upgrade');
-                                return;
-                              }
-                              setNewPromo((prev) => ({ ...prev, mediaType: fmt.key }));
-                            }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: 9,
-                              padding: '11px 12px',
-                              borderRadius: 11,
-                              border: `2px solid ${!fmtAllowed ? '#f59e0b' : active ? '#2563eb' : '#cbd5e1'}`,
-                              background: !fmtAllowed ? '#fffbeb' : active ? '#eff6ff' : '#ffffff',
-                              color: !fmtAllowed ? '#78350f' : active ? '#1d4ed8' : '#334155',
-                              fontSize: 13,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {fmtAllowed ? (
-                              fmt.icon
-                            ) : (
-                              <span className="logo-lock-badge-anim" style={{ width: 26, height: 26 }}>
-                                <HiOutlineLockClosed size={16} />
-                              </span>
-                            )}
-                            <span>{fmt.label}</span>
-                            {!fmtAllowed && (
-                              <span
+                  return (
+                    <>
+                      {/* Admin-Exact Placement Tabs Strip with Live Counts & Lock Indicators */}
+                      <div style={{ padding: '16px 18px', borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 18 }}>
+                        <label style={labelStyle}>Choose Ad Placement Section *</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                          {MERCHANT_AD_SECTIONS.map((sec) => {
+                            const unlocked = isAdSectionUnlocked(sec.id);
+                            const count =
+                              sec.id === 'Pending Requests'
+                                ? pendingAdsList.length
+                                : promotions.filter(
+                                    (p) => String(p.placement || 'Merchant Store').toLowerCase() === sec.id.toLowerCase()
+                                  ).length;
+                            const selected = selectedSecId === sec.id;
+                            return (
+                              <button
+                                key={sec.id}
+                                type="button"
+                                onClick={() => selectAdSection(sec.id)}
                                 style={{
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  padding: '2px 6px',
-                                  borderRadius: 6,
-                                  background: '#fde68a',
-                                  color: '#92400e',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 7,
+                                  padding: '8px 13px',
+                                  borderRadius: 11,
+                                  border: !unlocked
+                                    ? '1.5px solid #f59e0b'
+                                    : selected
+                                    ? '2px solid #2563eb'
+                                    : '1px solid #cbd5e1',
+                                  background: !unlocked ? '#fffbeb' : selected ? '#eff6ff' : '#ffffff',
+                                  color: !unlocked ? '#78350f' : selected ? '#1d4ed8' : '#334155',
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: selected ? '0 3px 10px rgba(37, 99, 235, 0.14)' : 'none',
                                 }}
                               >
-                                LOCKED
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  ) : (
-                    <div
-                      style={{
-                        marginBottom: 16,
-                        padding: '14px 16px',
-                        borderRadius: 12,
-                        background: 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)',
-                        color: '#ffffff',
-                        border: '1px solid rgba(59, 130, 246, 0.35)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <span style={{ background: '#ef4444', color: '#fff', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 900 }}>
-                          ⚡ LIVE TICKER PREVIEW
-                        </span>
-                        <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 700 }}>
-                          No image or video upload needed for Moving Text
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        📢 {newPromo.title || 'Your scrolling moving announcement text will appear across the Landing Page top ticker bar...'}
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-                    <div>
-                      <label style={labelStyle}>
-                        {newPromo.mediaType === 'text' ? 'Offer Headline / Main Text *' : 'Advertisement Title *'}
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newPromo.title}
-                        onChange={(e) => setNewPromo({ ...newPromo, title: e.target.value })}
-                        placeholder={newPromo.mediaType === 'text' ? 'e.g. Flat 25% OFF This Weekend!' : 'e.g. Grand Festival Mega Offer'}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Action / Link URL (optional)</label>
-                      <input
-                        type="text"
-                        value={newPromo.targetUrl}
-                        onChange={(e) => setNewPromo({ ...newPromo, targetUrl: e.target.value })}
-                        placeholder="https://... or leave blank"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Start Date</label>
-                      <input type="date" value={newPromo.startDate} onChange={(e) => setNewPromo({ ...newPromo, startDate: e.target.value })} style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>End Date</label>
-                      <input type="date" value={newPromo.endDate} onChange={(e) => setNewPromo({ ...newPromo, endDate: e.target.value })} style={inputStyle} />
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={labelStyle}>Description / Offer Details</label>
-                    <textarea
-                      rows={2}
-                      value={newPromo.description}
-                      onChange={(e) => setNewPromo({ ...newPromo, description: e.target.value })}
-                      placeholder="Short offer message shown to visitors on your store page..."
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  {/* Auto-Swipe Speed Control (Seconds) right inside Create/Edit Ad */}
-                  <div style={{ padding: '12px 14px', borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
-                        ⏱️ Ad Auto-Swipe Speed (Seconds)
-                      </div>
-                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                        Choose after how many seconds store ads automatically swipe on your Store page (2s – 60s).
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      {[2, 3, 4, 5, 8, 10].map((secOpt) => {
-                        const activeSec = Number(promoSwipeSeconds) === secOpt;
-                        return (
-                          <button
-                            key={secOpt}
-                            type="button"
-                            onClick={() => setPromoSwipeSeconds(secOpt)}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: 8,
-                              border: `1.5px solid ${activeSec ? '#2563eb' : '#cbd5e1'}`,
-                              background: activeSec ? '#eff6ff' : '#f8fafc',
-                              color: activeSec ? '#1d4ed8' : '#334155',
-                              fontSize: 12,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {secOpt}s
-                          </button>
-                        );
-                      })}
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
-                        <input
-                          type="number"
-                          min={2}
-                          max={60}
-                          value={promoSwipeSeconds}
-                          onChange={(e) => {
-                            const v = parseInt(e.target.value, 10);
-                            setPromoSwipeSeconds(Number.isNaN(v) ? '' : Math.max(1, Math.min(60, v)));
-                          }}
-                          style={{ ...inputStyle, width: 64, padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}
-                        />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>sec</span>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={savingSwipeSpeed}
-                        onClick={handleSavePromoSwipeSpeed}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 8,
-                          border: '1px solid #bfdbfe',
-                          background: '#eff6ff',
-                          color: '#1d4ed8',
-                          fontSize: 12,
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {savingSwipeSpeed ? 'Saving...' : 'Save Speed'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* IMAGE UPLOAD / PREVIEW */}
-                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'image' && (
-                    <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
-                      <label style={labelStyle}>Advertisement Image *</label>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-                        <label style={{ padding: '9px 14px', borderRadius: 9, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                          {promoUploading ? 'Uploading Image...' : 'Upload & Crop Ad Image'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={(e) => {
-                              const picked = e.target.files?.[0];
-                              e.target.value = '';
-                              if (picked) handlePickPromoFileWithCrop(picked, 'image');
-                            }}
-                          />
-                        </label>
-                        <input
-                          type="text"
-                          value={newPromo.imageUrl}
-                          onChange={(e) => setNewPromo({ ...newPromo, imageUrl: e.target.value })}
-                          placeholder="Or paste image URL..."
-                          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
-                        />
-                        {newPromo.imageUrl && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setImageCropState({
-                                isOpen: true,
-                                src: formatMediaUrl(newPromo.imageUrl),
-                                rawFile: null,
-                              })
-                            }
-                            style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #bfdbfe', background: '#f0f9ff', color: '#0369a1', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                          >
-                            ✂️ Crop Image
-                          </button>
-                        )}
-                      </div>
-                      {newPromo.imageUrl && (
-                        <div
-                          style={{
-                            width: '100%',
-                            background: '#0f172a',
-                            borderRadius: 10,
-                            border: '1px solid #e2e8f0',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <img
-                            src={formatMediaUrl(newPromo.imageUrl)}
-                            alt="Ad Preview"
-                            style={{ width: '100%', height: 'auto', maxHeight: 320, objectFit: 'contain', display: 'block' }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* TEXT WITH BACKGROUND PICKER & LIVE PREVIEW */}
-                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'text' && (
-                    <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
-                      <label style={labelStyle}>Background Color / Gradient Presets</label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                        {AD_BG_PRESETS.map((preset) => (
-                          <button
-                            key={preset.label}
-                            type="button"
-                            onClick={() => setNewPromo((prev) => ({ ...prev, bgColor: preset.value, textColor: preset.text }))}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: 8,
-                              border: newPromo.bgColor === preset.value ? '2px solid #0f172a' : '1px solid #cbd5e1',
-                              background: preset.value,
-                              color: preset.text,
-                              fontSize: 11.5,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155', marginLeft: 4 }}>
-                          <span>Custom Bg:</span>
-                          <input
-                            type="color"
-                            value={String(newPromo.bgColor || '').startsWith('#') ? newPromo.bgColor : '#1d4ed8'}
-                            onChange={(e) => setNewPromo((prev) => ({ ...prev, bgColor: e.target.value }))}
-                            style={{ width: 32, height: 28, border: '1px solid #cbd5e1', borderRadius: 6, padding: 1, cursor: 'pointer' }}
-                          />
-                        </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                          <span>Text Color:</span>
-                          <input
-                            type="color"
-                            value={newPromo.textColor || '#ffffff'}
-                            onChange={(e) => setNewPromo((prev) => ({ ...prev, textColor: e.target.value }))}
-                            style={{ width: 32, height: 28, border: '1px solid #cbd5e1', borderRadius: 6, padding: 1, cursor: 'pointer' }}
-                          />
-                        </label>
-                      </div>
-
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Live Banner Preview:</div>
-                      <div
-                        style={{
-                          background: newPromo.bgColor || AD_BG_PRESETS[0].value,
-                          color: newPromo.textColor || '#ffffff',
-                          padding: '24px 20px',
-                          borderRadius: 12,
-                        }}
-                      >
-                        <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>
-                          {newPromo.title || 'Your Headline Will Appear Here'}
-                        </div>
-                        <div style={{ fontSize: 13.5, opacity: 0.92 }}>
-                          {newPromo.description || 'Your offer details and promotional message will appear in this banner right above Location.'}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* VIDEO UPLOAD / URL PREVIEW */}
-                  {newPromo.placement !== 'Moving Text' && newPromo.mediaType === 'video' && (
-                    <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
-                      <label style={labelStyle}>Advertisement Video *</label>
-                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-                        <label style={{ padding: '9px 14px', borderRadius: 9, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
-                          {promoUploading ? 'Uploading Video...' : 'Upload & Crop Video (MP4/WEBM)'}
-                          <input
-                            type="file"
-                            accept="video/*"
-                            hidden
-                            onChange={(e) => {
-                              const picked = e.target.files?.[0];
-                              e.target.value = '';
-                              if (picked) handlePickPromoFileWithCrop(picked, 'video');
-                            }}
-                          />
-                        </label>
-                        <input
-                          type="text"
-                          value={newPromo.videoUrl}
-                          onChange={(e) => setNewPromo({ ...newPromo, videoUrl: e.target.value })}
-                          placeholder="Or paste MP4 / YouTube video URL..."
-                          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
-                        />
-                        {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setVideoCropState({
-                                isOpen: true,
-                                src: formatMediaUrl(newPromo.videoUrl),
-                                rawFile: null,
-                              })
-                            }
-                            style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #bfdbfe', background: '#f0f9ff', color: '#0369a1', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                          >
-                            ✂️ Crop / Trim Video
-                          </button>
-                        )}
-                      </div>
-                      {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
-                        <video
-                          src={formatMediaUrl(newPromo.videoUrl)}
-                          controls
-                          style={{ width: '100%', maxHeight: 240, borderRadius: 10, background: '#000' }}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                    {(newPromo.placement || 'Merchant Store') === 'Merchant Store' ? (
-                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={newPromo.status !== 'inactive'}
-                          onChange={(e) => setNewPromo((prev) => ({ ...prev, status: e.target.checked ? 'active' : 'inactive' }))}
-                        />
-                        <span>Publish Live Immediately on Store Page</span>
-                      </label>
-                    ) : (
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '6px 12px', borderRadius: 8, border: '1px solid #fde68a' }}>
-                        ⏳ Goes to Admin Approval Requests before Landing Page display
-                      </span>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={promoSubmitting || promoUploading}
-                      style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      {promoSubmitting
-                        ? 'Saving...'
-                        : newPromo.id
-                        ? 'Update Advertisement'
-                        : (newPromo.placement || 'Merchant Store') === 'Merchant Store'
-                        ? 'Publish Store Advertisement'
-                        : 'Submit Ad for Admin Approval'}
-                    </button>
-                  </div>
-                </form>
-
-                <h3 id="merchant-ads-list-section" style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
-                  My Store Advertisements ({promotions.length})
-                </h3>
-                {loadingPromos ? (
-                  <CircularSpinner />
-                ) : promotions.length === 0 ? (
-                  <p style={{ fontSize: 13, color: '#64748b' }}>No store advertisements created yet. Create your first Image, Text, or Video ad above.</p>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 14 }}>
-                    {promotions.map((p, idx) => {
-                      const st = String(p.status || 'active').toUpperCase();
-                      const mType = String(p.media_type || (p.video_url ? 'video' : p.image_url ? 'image' : 'text')).toLowerCase();
-                      const isLive = st === 'ACTIVE' || st === 'APPROVED';
-                      return (
-                        <div key={p.id || idx} style={{ borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div>
-                            {mType === 'text' ? (
-                              <div style={{ background: p.bg_color || AD_BG_PRESETS[0].value, color: p.text_color || '#fff', padding: '18px 14px', minHeight: 96, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                <div style={{ fontSize: 15, fontWeight: 900 }}>{p.title}</div>
-                                {p.description && <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{p.description}</div>}
-                              </div>
-                            ) : mType === 'video' ? (
-                              <div style={{ background: '#0f172a', height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0', gap: 8, fontSize: 13, fontWeight: 700 }}>
-                                <HiOutlineVideoCamera size={22} />
-                                <span>Video Advertisement</span>
-                              </div>
-                            ) : (p.image_url || p.imageUrl) ? (
-                              <img src={formatMediaUrl(p.image_url || p.imageUrl)} alt={p.title} style={{ width: '100%', height: 130, objectFit: 'cover' }} />
-                            ) : null}
-
-                            <div style={{ padding: 12 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                <strong style={{ fontSize: 13.5, color: '#0f172a' }}>{p.title}</strong>
+                                {unlocked ? (
+                                  <span style={{ fontSize: 15 }}>{sec.icon}</span>
+                                ) : (
+                                  <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
+                                    <HiOutlineLockClosed size={14} />
+                                  </span>
+                                )}
+                                <span>{sec.label}</span>
                                 <span
                                   style={{
                                     fontSize: 10.5,
-                                    fontWeight: 800,
-                                    padding: '2px 8px',
-                                    borderRadius: 6,
-                                    background: isLive ? '#dcfce7' : st === 'PENDING' ? '#fef3c7' : '#f1f5f9',
-                                    color: isLive ? '#166534' : st === 'PENDING' ? '#92400e' : '#475569',
+                                    fontWeight: 900,
+                                    padding: '2px 7px',
+                                    borderRadius: 999,
+                                    background: !unlocked ? '#fde68a' : selected ? '#2563eb' : '#f1f5f9',
+                                    color: !unlocked ? '#92400e' : selected ? '#ffffff' : '#475569',
                                   }}
                                 >
-                                  {isLive ? 'LIVE' : st === 'PENDING' ? 'PENDING APPROVAL' : 'PAUSED'}
+                                  {!unlocked ? 'LOCKED' : count}
                                 </span>
-                              </div>
-                              <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                                {p.placement || 'Merchant Store'} • {mType.toUpperCase()} • {p.start_date || ''} → {p.end_date || ''}
-                              </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Active Section Hero Banner Guide (Changes dynamically per tab) */}
+                        <div
+                          style={{
+                            padding: '14px 18px',
+                            borderRadius: 12,
+                            background: isPendingTab
+                              ? 'linear-gradient(135deg, #b45309 0%, #d97706 100%)'
+                              : 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+                            color: '#ffffff',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 18 }}>{activeSecObj.icon}</span>
+                              <span style={{ fontSize: 14.5, fontWeight: 900 }}>{activeSecObj.headline}</span>
+                            </div>
+                            <span style={{ padding: '2px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', fontSize: 11, fontWeight: 800 }}>
+                              {activeSecObj.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: isPendingTab ? '#fef3c7' : '#dbeafe', marginBottom: 4 }}>
+                            {activeSecObj.description}
+                          </div>
+                          <div style={{ fontSize: 11.5, fontWeight: 800, color: '#fef08a' }}>📐 {activeSecObj.spec}</div>
+                        </div>
+                      </div>
+
+                      {isPendingTab ? (
+                        <div style={{ padding: 20, borderRadius: 14, background: '#fffbeb', border: '1px solid #fde68a', marginBottom: 24 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: 15.5, fontWeight: 900, color: '#78350f' }}>
+                                ⏳ Pending Admin Approval ({pendingAdsList.length})
+                              </h4>
+                              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#92400e' }}>
+                                Landing-page advertisements submitted by you appear in Admin&apos;s Promo Access Requests queue and go live on approval.
+                              </p>
+                            </div>
+                            {unlockedPlacementOptions.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => selectAdSection(unlockedPlacementOptions[0].id)}
+                                style={{
+                                  padding: '8px 14px',
+                                  borderRadius: 9,
+                                  border: 'none',
+                                  background: '#2563eb',
+                                  color: '#ffffff',
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                + Create New Ad in {unlockedPlacementOptions[0].label}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <form key={currentPlacement} onSubmit={handleCreatePromo} style={{ padding: 20, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: 24 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span>
+                                {newPromo.id
+                                  ? `Edit Advertisement (${currentPlacement})`
+                                  : isMovingText
+                                  ? '+ Add Moving Text Announcement'
+                                  : isStoreSec
+                                  ? 'Store Page Advertisement Studio'
+                                  : `+ Add Advertisement (${currentPlacement})`}
+                              </span>
+                            </h4>
+                            {newPromo.id && (
+                              <button
+                                type="button"
+                                onClick={() => resetPromoDraft(currentPlacement)}
+                                style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 700, color: '#475569', cursor: 'pointer' }}
+                              >
+                                Cancel Edit
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Title Field (Section Specific Label & Placeholder) */}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={labelStyle}>
+                              {isMovingText
+                                ? 'Moving Announcement Text *'
+                                : currentFormat === 'text'
+                                ? 'Offer Headline / Main Text *'
+                                : 'Advertisement Title *'}
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={newPromo.title}
+                              onChange={(e) => setNewPromo({ ...newPromo, title: e.target.value })}
+                              placeholder={
+                                isMovingText
+                                  ? 'e.g. ⚡ Festive Season Offers — Check Out Exclusive Deals Near You'
+                                  : currentPlacement === 'Home Top'
+                                  ? 'e.g. Kerala Festive Electronics Mega Sale Banner'
+                                  : currentPlacement === 'Home Middle'
+                                  ? 'e.g. Sponsored Storefront Showcase Deal'
+                                  : currentPlacement === 'Business Network'
+                                  ? 'e.g. Grand Store Launch / Business Network Update'
+                                  : currentPlacement === 'Square Poster'
+                                  ? 'e.g. Onam Festival 1:1 Poster Deal'
+                                  : 'e.g. Grand Festival Mega Offer'
+                              }
+                              style={inputStyle}
+                            />
+                          </div>
+
+                          {/* Description / Tagline */}
+                          <div style={{ marginBottom: 14 }}>
+                            <label style={labelStyle}>
+                              {isMovingText
+                                ? 'Additional Details / Note (Optional)'
+                                : isStoreSec
+                                ? 'Description / Offer Details'
+                                : 'Description / Tagline (Optional)'}
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={newPromo.description}
+                              onChange={(e) => setNewPromo({ ...newPromo, description: e.target.value })}
+                              placeholder={
+                                isMovingText
+                                  ? 'Optional details or note for this scrolling announcement'
+                                  : isStoreSec
+                                  ? 'Short offer message shown above Location on your store page...'
+                                  : 'Short description of the deal or promotion displayed with your banner'
+                              }
+                              style={inputStyle}
+                            />
+                          </div>
+
+                          {/* Admin-Exact Row: Ad Placement / Position + Category */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
+                            <div>
+                              <label style={labelStyle}>Ad Placement / Position</label>
+                              <select
+                                value={currentPlacement}
+                                onChange={(e) => selectAdSection(e.target.value)}
+                                style={inputStyle}
+                              >
+                                {unlockedPlacementOptions.map((opt) => (
+                                  <option key={opt.id} value={opt.id}>
+                                    {opt.label} ({opt.id})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Category</label>
+                              <select
+                                value={newPromo.category || formData.category || 'Retail & Shopping'}
+                                onChange={(e) => setNewPromo({ ...newPromo, category: e.target.value })}
+                                style={inputStyle}
+                              >
+                                {allCategoryOpts.map((catName, idx) => (
+                                  <option key={idx} value={catName}>
+                                    {catName}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
 
-                          <div style={{ padding: '0 12px 12px', display: 'flex', gap: 8 }}>
-                            <button
-                              type="button"
-                              onClick={() => handleTogglePromoStatus(p)}
-                              style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}
+                          {/* Optimal Fit Dimensions Guide Card OR Moving Ticker Mode */}
+                          {isMovingText ? (
+                            <div
+                              style={{
+                                marginBottom: 16,
+                                padding: '14px 16px',
+                                borderRadius: 12,
+                                background: 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(59, 130, 246, 0.35)',
+                              }}
                             >
-                              {isLive ? 'Pause' : 'Go Live'}
-                            </button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                                <span style={{ background: '#ef4444', color: '#fff', padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 900 }}>
+                                  ⚡ LIVE TICKER PREVIEW
+                                </span>
+                                <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 700 }}>
+                                  Scrolling Announcement Mode — No image or video upload needed!
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                📢 {newPromo.title || 'Your scrolling announcement text will slide across the Landing Page top ticker bar...'}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {renderMerchantPlacementSizingGuide(currentPlacement, currentFormat)}
+
+                              {/* Media Format Switcher (Store has 3 options; Admin Landing sections match Admin's Image & Video formats) */}
+                              <div style={{ marginBottom: 16 }}>
+                                <label style={labelStyle}>Media Format *</label>
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: isStoreSec
+                                      ? 'repeat(auto-fit, minmax(170px, 1fr))'
+                                      : 'repeat(auto-fit, minmax(220px, 1fr))',
+                                    gap: 10,
+                                  }}
+                                >
+                                  {(isStoreSec
+                                    ? [
+                                        { key: 'image', label: 'Image Banner', icon: <HiOutlinePhotograph size={17} /> },
+                                        { key: 'text', label: 'Text with Background', icon: <HiOutlineDocumentText size={17} /> },
+                                        { key: 'video', label: 'Video Advertisement', icon: <HiOutlineVideoCamera size={17} /> },
+                                      ]
+                                    : [
+                                        { key: 'image', label: '🖼️ Static Image Banner', icon: null },
+                                        { key: 'video', label: '🎬 Video Showcase Ad', icon: null },
+                                      ]
+                                  ).map((fmt) => {
+                                    const fmtAllowed = isStoreSec
+                                      ? fmt.key === 'video'
+                                        ? canStoreVideoAd
+                                        : canStoreImageTextAd
+                                      : Boolean(merchantGrants[getRequiredAdPermissionKey(currentPlacement, fmt.key)]);
+                                    const active = currentFormat === fmt.key;
+                                    const isVidBtn = fmt.key === 'video';
+                                    return (
+                                      <button
+                                        key={fmt.key}
+                                        type="button"
+                                        onClick={() => {
+                                          if (!fmtAllowed) {
+                                            setPlanActionModal('upgrade');
+                                            return;
+                                          }
+                                          setNewPromo((prev) => ({
+                                            ...prev,
+                                            placement: currentPlacement,
+                                            mediaType: fmt.key,
+                                          }));
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: 8,
+                                          padding: '10px 12px',
+                                          borderRadius: 10,
+                                          border: `2px solid ${
+                                            !fmtAllowed
+                                              ? '#f59e0b'
+                                              : active
+                                              ? isVidBtn
+                                                ? '#9333ea'
+                                                : '#2563eb'
+                                              : '#cbd5e1'
+                                          }`,
+                                          background: !fmtAllowed
+                                            ? '#fffbeb'
+                                            : active
+                                            ? isVidBtn
+                                              ? '#faf5ff'
+                                              : '#eff6ff'
+                                            : '#ffffff',
+                                          color: !fmtAllowed
+                                            ? '#78350f'
+                                            : active
+                                            ? isVidBtn
+                                              ? '#9333ea'
+                                              : '#2563eb'
+                                            : '#475569',
+                                          fontSize: 13,
+                                          fontWeight: 800,
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        {fmtAllowed ? (
+                                          fmt.icon
+                                        ) : (
+                                          <span className="logo-lock-badge-anim" style={{ width: 22, height: 22 }}>
+                                            <HiOutlineLockClosed size={14} />
+                                          </span>
+                                        )}
+                                        <span>{fmt.label}</span>
+                                        {!fmtAllowed && (
+                                          <span
+                                            style={{
+                                              fontSize: 10,
+                                              fontWeight: 900,
+                                              padding: '2px 6px',
+                                              borderRadius: 6,
+                                              background: '#fde68a',
+                                              color: '#92400e',
+                                            }}
+                                          >
+                                            LOCKED
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {/* Store Auto-Swipe Speed Control (Shown ONLY when editing Store Page) */}
+                          {isStoreSec && (
+                            <div style={{ padding: '12px 14px', borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                              <div>
+                                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
+                                  ⏱️ Ad Auto-Swipe Speed (Seconds)
+                                </div>
+                                <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                                  Choose after how many seconds store ads automatically swipe on your Store page (2s – 60s).
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                {[2, 3, 4, 5, 8, 10].map((secOpt) => {
+                                  const activeSec = Number(promoSwipeSeconds) === secOpt;
+                                  return (
+                                    <button
+                                      key={secOpt}
+                                      type="button"
+                                      onClick={() => setPromoSwipeSeconds(secOpt)}
+                                      style={{
+                                        padding: '5px 10px',
+                                        borderRadius: 8,
+                                        border: `1.5px solid ${activeSec ? '#2563eb' : '#cbd5e1'}`,
+                                        background: activeSec ? '#eff6ff' : '#f8fafc',
+                                        color: activeSec ? '#1d4ed8' : '#334155',
+                                        fontSize: 12,
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      {secOpt}s
+                                    </button>
+                                  );
+                                })}
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                                  <input
+                                    type="number"
+                                    min={2}
+                                    max={60}
+                                    value={promoSwipeSeconds}
+                                    onChange={(e) => {
+                                      const v = parseInt(e.target.value, 10);
+                                      setPromoSwipeSeconds(Number.isNaN(v) ? '' : Math.max(1, Math.min(60, v)));
+                                    }}
+                                    style={{ ...inputStyle, width: 64, padding: '6px 8px', textAlign: 'center', fontWeight: 800 }}
+                                  />
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>sec</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={savingSwipeSpeed}
+                                  onClick={handleSavePromoSwipeSpeed}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: 8,
+                                    border: '1px solid #bfdbfe',
+                                    background: '#eff6ff',
+                                    color: '#1d4ed8',
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {savingSwipeSpeed ? 'Saving...' : 'Save Speed'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* IMAGE UPLOAD / CROP / SECTION-SPECIFIC PREVIEW */}
+                          {!isMovingText && currentFormat === 'image' && (
+                            <div style={{ padding: 16, borderRadius: 12, background: '#ffffff', border: '1.5px dashed #cbd5e1', marginBottom: 14, textAlign: 'center' }}>
+                              <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#1e293b', marginBottom: 4 }}>
+                                📸 {activeSpec.label} Image (JPG, PNG, WebP) *
+                              </label>
+                              <p style={{ fontSize: 11.5, color: '#64748b', margin: '0 0 12px' }}>
+                                Upload &amp; crop to {activeSpec.idealWidth} × {activeSpec.idealHeight} px ({activeSpec.ratioLabel}) or paste CDN/image URL.
+                              </p>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                                <label style={{ padding: '9px 14px', borderRadius: 9, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+                                  {promoUploading ? 'Uploading Image...' : `📁 Upload & Crop Image (${activeSpec.idealWidth}×${activeSpec.idealHeight})`}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    hidden
+                                    onChange={(e) => {
+                                      const picked = e.target.files?.[0];
+                                      e.target.value = '';
+                                      if (picked) handlePickPromoFileWithCrop(picked, 'image', false);
+                                    }}
+                                  />
+                                </label>
+                                {newPromo.imageUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setImageCropState({
+                                        isOpen: true,
+                                        src: formatMediaUrl(newPromo.imageUrl),
+                                        rawFile: null,
+                                        isPoster: false,
+                                      })
+                                    }
+                                    style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #2563eb', background: '#f0f9ff', color: '#2563eb', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  >
+                                    ✂️ Recrop / Adjust View
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ textAlign: 'left', marginBottom: newPromo.imageUrl ? 12 : 0 }}>
+                                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>Or enter Image URL:</label>
+                                <input
+                                  type="text"
+                                  value={newPromo.imageUrl}
+                                  onChange={(e) => setNewPromo({ ...newPromo, imageUrl: e.target.value, placement: currentPlacement })}
+                                  placeholder="https://.../banner.png"
+                                  style={{ ...inputStyle, marginTop: 4, fontSize: 12.5 }}
+                                />
+                              </div>
+
+                              {newPromo.imageUrl && (
+                                currentPlacement === 'Home Middle' ? (
+                                  <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', border: '1px solid #cbd5e1', background: '#ffffff', minHeight: 165, textAlign: 'left' }}>
+                                    <div style={{ flex: 1, background: '#0b1329', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
+                                      <img
+                                        src={formatMediaUrl(newPromo.imageUrl)}
+                                        alt="Middle Showcase Preview"
+                                        style={{ maxWidth: '100%', maxHeight: 155, objectFit: 'contain', borderRadius: 8 }}
+                                      />
+                                    </div>
+                                    <div style={{ flex: 1.1, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                      <span style={{ alignSelf: 'flex-start', padding: '2px 8px', borderRadius: 99, background: '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 800, marginBottom: 6 }}>
+                                        📢 {(newPromo.category || 'SPONSORED SPOTLIGHT').toUpperCase()}
+                                      </span>
+                                      <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                                        {newPromo.title || 'Home Middle Showcase Title'}
+                                      </div>
+                                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                                        {newPromo.description || 'Full-view uncropped split showcase banner.'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: '100%',
+                                      background: '#0f172a',
+                                      borderRadius: 10,
+                                      border: '1px solid #e2e8f0',
+                                      overflow: 'hidden',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
+                                  >
+                                    <img
+                                      src={formatMediaUrl(newPromo.imageUrl)}
+                                      alt="Ad Preview"
+                                      style={{
+                                        width: currentPlacement === 'Square Poster' || currentPlacement === 'Business Network' ? 'auto' : '100%',
+                                        height: 'auto',
+                                        maxHeight: 280,
+                                        objectFit: 'contain',
+                                        display: 'block',
+                                      }}
+                                    />
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+
+                          {/* TEXT WITH BACKGROUND PICKER & LIVE PREVIEW (Store Page only) */}
+                          {!isMovingText && isStoreSec && currentFormat === 'text' && (
+                            <div style={{ padding: 14, borderRadius: 12, background: '#ffffff', border: '1px solid #cbd5e1', marginBottom: 14 }}>
+                              <label style={labelStyle}>Background Color / Gradient Presets</label>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                                {AD_BG_PRESETS.map((preset) => (
+                                  <button
+                                    key={preset.label}
+                                    type="button"
+                                    onClick={() => setNewPromo((prev) => ({ ...prev, bgColor: preset.value, textColor: preset.text }))}
+                                    style={{
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      border: newPromo.bgColor === preset.value ? '2px solid #0f172a' : '1px solid #cbd5e1',
+                                      background: preset.value,
+                                      color: preset.text,
+                                      fontSize: 11.5,
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                ))}
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155', marginLeft: 4 }}>
+                                  <span>Custom Bg:</span>
+                                  <input
+                                    type="color"
+                                    value={String(newPromo.bgColor || '').startsWith('#') ? newPromo.bgColor : '#1d4ed8'}
+                                    onChange={(e) => setNewPromo((prev) => ({ ...prev, bgColor: e.target.value }))}
+                                    style={{ width: 32, height: 28, border: '1px solid #cbd5e1', borderRadius: 6, padding: 1, cursor: 'pointer' }}
+                                  />
+                                </label>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>
+                                  <span>Text Color:</span>
+                                  <input
+                                    type="color"
+                                    value={newPromo.textColor || '#ffffff'}
+                                    onChange={(e) => setNewPromo((prev) => ({ ...prev, textColor: e.target.value }))}
+                                    style={{ width: 32, height: 28, border: '1px solid #cbd5e1', borderRadius: 6, padding: 1, cursor: 'pointer' }}
+                                  />
+                                </label>
+                              </div>
+
+                              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>Live Banner Preview:</div>
+                              <div
+                                style={{
+                                  background: newPromo.bgColor || AD_BG_PRESETS[0].value,
+                                  color: newPromo.textColor || '#ffffff',
+                                  padding: '24px 20px',
+                                  borderRadius: 12,
+                                }}
+                              >
+                                <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>
+                                  {newPromo.title || 'Your Headline Will Appear Here'}
+                                </div>
+                                <div style={{ fontSize: 13.5, opacity: 0.92 }}>
+                                  {newPromo.description || 'Your offer details and promotional message will appear in this banner right above Location.'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* VIDEO UPLOAD / CROP / COVER POSTER / URL PREVIEW */}
+                          {!isMovingText && currentFormat === 'video' && (
+                            <div style={{ padding: 16, borderRadius: 12, background: '#faf5ff', border: '1.5px dashed #c084fc', marginBottom: 14, textAlign: 'center' }}>
+                              <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#581c87', marginBottom: 4 }}>
+                                🎬 {activeSpec.label} Video (MP4, WebM, MOV) *
+                              </label>
+                              <p style={{ fontSize: 11.5, color: '#6b21a8', margin: '0 0 12px' }}>
+                                {activeSpec.videoSpecs || 'Upload commercial video clip or paste direct MP4 / YouTube link.'}
+                              </p>
+                              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                                <label style={{ padding: '9px 14px', borderRadius: 9, background: '#ffffff', border: '1px solid #c084fc', color: '#7e22ce', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+                                  {promoUploading ? 'Uploading Video...' : '📁 Upload & Crop Video'}
+                                  <input
+                                    type="file"
+                                    accept="video/mp4,video/webm,video/quicktime,video/mkv"
+                                    hidden
+                                    onChange={(e) => {
+                                      const picked = e.target.files?.[0];
+                                      e.target.value = '';
+                                      if (picked) handlePickPromoFileWithCrop(picked, 'video', false);
+                                    }}
+                                  />
+                                </label>
+                                <label style={{ padding: '9px 14px', borderRadius: 9, background: '#ffffff', border: '1px solid #d8b4fe', color: '#6d28d9', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+                                  📸 Set &amp; Crop Cover Poster
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    hidden
+                                    onChange={(e) => {
+                                      const picked = e.target.files?.[0];
+                                      e.target.value = '';
+                                      if (picked) handlePickPromoFileWithCrop(picked, 'image', true);
+                                    }}
+                                  />
+                                </label>
+                                {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVideoCropState({
+                                        isOpen: true,
+                                        src: formatMediaUrl(newPromo.videoUrl),
+                                        rawFile: null,
+                                      })
+                                    }
+                                    style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #9333ea', background: '#f3e8ff', color: '#7e22ce', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  >
+                                    ✂️ Crop / Trim Video
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ textAlign: 'left', marginBottom: newPromo.videoUrl ? 10 : 0 }}>
+                                <label style={{ fontSize: 11, fontWeight: 600, color: '#6b21a8' }}>Or enter Video URL:</label>
+                                <input
+                                  type="text"
+                                  value={newPromo.videoUrl}
+                                  onChange={(e) => setNewPromo({ ...newPromo, videoUrl: e.target.value, placement: currentPlacement })}
+                                  placeholder="https://.../video.mp4 or YouTube URL"
+                                  style={{ ...inputStyle, marginTop: 4, fontSize: 12.5 }}
+                                />
+                              </div>
+                              {newPromo.imageUrl && (
+                                <div style={{ fontSize: 11.5, color: '#6b21a8', fontWeight: 700, marginBottom: 8 }}>
+                                  ✓ Cover Poster attached: {newPromo.imageUrl.slice(0, 48)}
+                                </div>
+                              )}
+                              {newPromo.videoUrl && !/youtu/i.test(newPromo.videoUrl) && (
+                                <video
+                                  src={formatMediaUrl(newPromo.videoUrl)}
+                                  poster={newPromo.imageUrl ? formatMediaUrl(newPromo.imageUrl) : undefined}
+                                  controls
+                                  style={{ width: '100%', maxHeight: 240, borderRadius: 10, background: '#000', border: '1px solid #c084fc' }}
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Admin-Exact Target URL & Location + Dates Row */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
+                            <div>
+                              <label style={labelStyle}>Target URL / External Link</label>
+                              <input
+                                type="text"
+                                value={newPromo.targetUrl}
+                                onChange={(e) => setNewPromo({ ...newPromo, targetUrl: e.target.value })}
+                                placeholder="https://... or leave blank"
+                                style={inputStyle}
+                              />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Location</label>
+                              <input
+                                type="text"
+                                value={newPromo.location}
+                                onChange={(e) => setNewPromo({ ...newPromo, location: e.target.value })}
+                                placeholder="Kerala / Kannur / Kochi"
+                                style={inputStyle}
+                              />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Start Date</label>
+                              <input type="date" value={newPromo.startDate} onChange={(e) => setNewPromo({ ...newPromo, startDate: e.target.value })} style={inputStyle} />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>End Date</label>
+                              <input type="date" value={newPromo.endDate} onChange={(e) => setNewPromo({ ...newPromo, endDate: e.target.value })} style={inputStyle} />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                            {isStoreSec ? (
+                              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={newPromo.status !== 'inactive'}
+                                  onChange={(e) => setNewPromo((prev) => ({ ...prev, status: e.target.checked ? 'active' : 'inactive' }))}
+                                />
+                                <span>Publish Live Immediately on Store Page</span>
+                              </label>
+                            ) : (
+                              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '6px 12px', borderRadius: 8, border: '1px solid #fde68a' }}>
+                                ⏳ Goes to Admin Registrations &rarr; Promo Access Requests before Landing Page display
+                              </span>
+                            )}
                             <button
-                              type="button"
-                              onClick={() => handleEditPromo(p)}
-                              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #bfdbfe', background: '#eff6ff', fontSize: 11.5, fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              type="submit"
+                              disabled={promoSubmitting || promoUploading}
+                              style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13.5, fontWeight: 800, cursor: 'pointer' }}
                             >
-                              <HiOutlinePencil size={13} /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePromo(p)}
-                              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 11.5, fontWeight: 700, color: '#dc2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            >
-                              <HiOutlineTrash size={13} />
+                              {promoSubmitting
+                                ? 'Saving...'
+                                : newPromo.id
+                                ? 'Update Advertisement'
+                                : isStoreSec
+                                ? 'Publish Store Advertisement'
+                                : `Submit ${activeSecObj.label} Ad for Approval`}
                             </button>
                           </div>
+                        </form>
+                      )}
+
+                      <div id="merchant-ads-list-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+                          {showAllAdSectionsInList
+                            ? `All My Advertisements (${promotions.length})`
+                            : `${activeSecObj.label} Advertisements (${filteredSectionAds.length})`}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllAdSectionsInList((v) => !v)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: 999,
+                            border: '1px solid #cbd5e1',
+                            background: showAllAdSectionsInList ? '#eff6ff' : '#ffffff',
+                            color: showAllAdSectionsInList ? '#1d4ed8' : '#475569',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {showAllAdSectionsInList ? `Filter to ${activeSecObj.label}` : `View All Sections (${promotions.length})`}
+                        </button>
+                      </div>
+
+                      {loadingPromos ? (
+                        <CircularSpinner />
+                      ) : filteredSectionAds.length === 0 ? (
+                        <p style={{ fontSize: 13, color: '#64748b' }}>
+                          {isPendingTab
+                            ? 'No pending advertisements waiting for Admin approval.'
+                            : `No advertisements created in ${activeSecObj.label} yet.`}
+                        </p>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 14 }}>
+                          {filteredSectionAds.map((p, idx) => {
+                            const st = String(p.status || 'active').toUpperCase();
+                            const mType = String(p.media_type || (p.video_url ? 'video' : p.image_url ? 'image' : 'text')).toLowerCase();
+                            const isLive = st === 'ACTIVE' || st === 'APPROVED';
+                            return (
+                              <div key={p.id || idx} style={{ borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                <div>
+                                  {String(p.placement || '').toLowerCase() === 'moving text' ? (
+                                    <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', color: '#fff', padding: '18px 14px', minHeight: 96, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#38bdf8', marginBottom: 4 }}>⚡ MOVING TICKER TEXT</div>
+                                      <div style={{ fontSize: 14, fontWeight: 800 }}>{p.title}</div>
+                                    </div>
+                                  ) : mType === 'text' ? (
+                                    <div style={{ background: p.bg_color || AD_BG_PRESETS[0].value, color: p.text_color || '#fff', padding: '18px 14px', minHeight: 96, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                      <div style={{ fontSize: 15, fontWeight: 900 }}>{p.title}</div>
+                                      {p.description && <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{p.description}</div>}
+                                    </div>
+                                  ) : mType === 'video' ? (
+                                    <div style={{ background: '#0f172a', height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0', gap: 8, fontSize: 13, fontWeight: 700, position: 'relative' }}>
+                                      {(p.image_url || p.imageUrl) ? (
+                                        <img src={formatMediaUrl(p.image_url || p.imageUrl)} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.72 }} />
+                                      ) : null}
+                                      <span style={{ position: 'absolute', background: 'rgba(15,23,42,0.78)', padding: '5px 10px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                        <HiOutlineVideoCamera size={18} /> Video Ad
+                                      </span>
+                                    </div>
+                                  ) : (p.image_url || p.imageUrl) ? (
+                                    <img src={formatMediaUrl(p.image_url || p.imageUrl)} alt={p.title} style={{ width: '100%', height: 130, objectFit: 'cover' }} />
+                                  ) : null}
+
+                                  <div style={{ padding: 12 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                      <strong style={{ fontSize: 13.5, color: '#0f172a' }}>{p.title}</strong>
+                                      <span
+                                        style={{
+                                          fontSize: 10.5,
+                                          fontWeight: 800,
+                                          padding: '2px 8px',
+                                          borderRadius: 6,
+                                          background: isLive ? '#dcfce7' : st === 'PENDING' ? '#fef3c7' : st === 'REJECTED' ? '#fee2e2' : '#f1f5f9',
+                                          color: isLive ? '#166534' : st === 'PENDING' ? '#92400e' : st === 'REJECTED' ? '#dc2626' : '#475569',
+                                        }}
+                                      >
+                                        {isLive ? 'LIVE' : st === 'PENDING' ? 'PENDING APPROVAL' : st === 'REJECTED' ? 'REJECTED' : 'PAUSED'}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                                      {p.placement || 'Merchant Store'} • {mType.toUpperCase()} • {p.start_date || ''} → {p.end_date || ''}
+                                    </div>
+                                    {p.rejection_reason && st === 'REJECTED' && (
+                                      <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+                                        Reason: {p.rejection_reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div style={{ padding: '0 12px 12px', display: 'flex', gap: 8 }}>
+                                  {st !== 'PENDING' && st !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTogglePromoStatus(p)}
+                                      style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11.5, fontWeight: 700, color: '#334155', cursor: 'pointer' }}
+                                    >
+                                      {isLive ? 'Pause' : 'Go Live'}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditPromo(p)}
+                                    style={{ flex: st === 'PENDING' || st === 'REJECTED' ? 1 : undefined, padding: '6px 10px', borderRadius: 8, border: '1px solid #bfdbfe', background: '#eff6ff', fontSize: 11.5, fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                  >
+                                    <HiOutlinePencil size={13} /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePromo(p)}
+                                    style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 11.5, fontWeight: 700, color: '#dc2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    <HiOutlineTrash size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -3038,11 +3481,15 @@ export default function MerchantPortal() {
       {/* Image Crop Modal for Merchant Advertisements */}
       <PromotionImageCropperModal
         isOpen={imageCropState.isOpen}
-        onClose={() => setImageCropState({ isOpen: false, src: '', rawFile: null })}
+        onClose={() => setImageCropState({ isOpen: false, src: '', rawFile: null, isPoster: false })}
         imageSrc={imageCropState.src}
-        placement={newPromo.placement || 'Merchant Store'}
-        onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile)}
-        onUseOriginal={imageCropState.rawFile ? () => handlePromoMediaUpload(imageCropState.rawFile) : undefined}
+        placement={
+          effectiveAdSection && effectiveAdSection !== 'Pending Requests'
+            ? effectiveAdSection
+            : newPromo.placement || firstUnlockedAdSection || 'Merchant Store'
+        }
+        onCropSave={(croppedFile) => handlePromoMediaUpload(croppedFile, Boolean(imageCropState.isPoster))}
+        onUseOriginal={imageCropState.rawFile ? () => handlePromoMediaUpload(imageCropState.rawFile, Boolean(imageCropState.isPoster)) : undefined}
       />
 
       {/* Video Crop & Trim Modal for Merchant Advertisements */}

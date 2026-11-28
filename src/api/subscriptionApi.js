@@ -141,6 +141,20 @@ export async function stopAdminSubscription(subscriptionId, reason = '') {
 }
 
 /**
+ * Admin: Un-stop / reactivate a stopped user/merchant subscription
+ */
+export async function unstopAdminSubscription(subscriptionId) {
+  const response = await apiFetch(`/api/v1/subscriptions/admin/subscriptions/${subscriptionId}/unstop`, {
+    method: 'POST',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || 'Failed to un-stop subscription');
+  }
+  return data.data || data;
+}
+
+/**
  * Admin: Manually assign a subscription to a user or merchant shop
  */
 export async function assignAdminSubscription(payload) {
