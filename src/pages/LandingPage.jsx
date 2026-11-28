@@ -40,6 +40,7 @@ import {
   getMerchantById,
   searchMerchants,
   uploadMerchantMedia,
+  formatMediaUrl,
 } from '../api/merchantApi';
 import { fetchCategoriesList } from '../api/categoryApi';
 import { fetchPromotionsList } from '../api/promotionApi';
@@ -465,8 +466,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
 
           const formatted = apiPromos.map((item, idx) => {
             const theme = colorThemes[idx % colorThemes.length];
-            const img = item.image_url || item.banner_url || item.bannerUrl || item.image || '';
-            const vid = item.video_url || item.videoUrl || '';
+            const rawImg = item.image_url || item.banner_url || item.bannerUrl || item.image || '';
+            const rawVid = item.video_url || item.videoUrl || '';
+            const img = rawImg ? formatMediaUrl(rawImg) : '';
+            const vid = rawVid ? formatMediaUrl(rawVid) : '';
             const mType = item.media_type || (vid ? 'video' : 'image');
             const tgt = item.target_url || item.targetUrl || '#';
             return {
@@ -623,9 +626,10 @@ export default function LandingPage({ defaultTab = 'home' }) {
       const feat = livePromotions.filter(
         (p) =>
           isEligiblePromotion(p) &&
-          ((p.placement && (p.placement === 'Featured Offers' || p.placement.toLowerCase().includes('offer'))) ||
-            p.type === 'Featured' ||
-            p.type === 'Promotion') &&
+          p.placement &&
+          (p.placement === 'Featured Offers' ||
+            p.placement.toLowerCase().includes('featured') ||
+            p.placement.toLowerCase().includes('offer')) &&
           (p.imageUrl || p.bannerUrl || p.image_url)
       );
       if (feat.length > 0) return feat;

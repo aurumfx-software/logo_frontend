@@ -23,6 +23,7 @@ import PageHeader from '../components/UI/PageHeader';
 import Modal from '../components/UI/Modal';
 import CircularSpinner from '../components/UI/CircularSpinner';
 import PromotionImageCropperModal, { PLACEMENT_SPECS } from '../components/UI/PromotionImageCropperModal';
+import { formatMediaUrl } from '../api/merchantApi';
 import {
   fetchPromotionsList,
   createPromotion,
@@ -351,8 +352,8 @@ export default function Promotions() {
           status: (item.status || 'ACTIVE').toLowerCase(),
           impressions: item.impressions || item.views || 0,
           clicks: item.clicks || 0,
-          imageUrl: item.image_url || item.banner_url || item.bannerUrl || item.image || '',
-          videoUrl: item.video_url || item.videoUrl || '',
+          imageUrl: formatMediaUrl(item.image_url || item.banner_url || item.bannerUrl || item.image || ''),
+          videoUrl: formatMediaUrl(item.video_url || item.videoUrl || ''),
           mediaType: item.media_type || (item.video_url || item.videoUrl ? 'video' : 'image'),
           targetUrl: item.target_url || item.targetUrl || '#',
           phone: item.phone || '',
@@ -592,8 +593,8 @@ export default function Promotions() {
         status: (createdItem.status || 'active').toLowerCase(),
         impressions: 0,
         clicks: 0,
-        imageUrl: createdItem.image_url || newPromo.imageUrl || '',
-        videoUrl: createdItem.video_url || newPromo.videoUrl || '',
+        imageUrl: formatMediaUrl(createdItem.image_url || newPromo.imageUrl || ''),
+        videoUrl: formatMediaUrl(createdItem.video_url || newPromo.videoUrl || ''),
         mediaType: createdItem.media_type || newPromo.mediaType || (newPromo.videoUrl ? 'video' : 'image'),
         targetUrl: createdItem.target_url || newPromo.targetUrl || '#',
       };
@@ -672,8 +673,8 @@ export default function Promotions() {
                 startDate: updated.start_date || editFormData.startDate,
                 endDate: updated.end_date || editFormData.endDate,
                 status: (updated.status || editFormData.status).toLowerCase(),
-                imageUrl: updated.image_url || editFormData.imageUrl,
-                videoUrl: updated.video_url || editFormData.videoUrl,
+                imageUrl: formatMediaUrl(updated.image_url || editFormData.imageUrl || ''),
+                videoUrl: formatMediaUrl(updated.video_url || editFormData.videoUrl || ''),
                 mediaType: updated.media_type || editFormData.mediaType || (editFormData.videoUrl ? 'video' : 'image'),
                 targetUrl: updated.target_url || editFormData.targetUrl,
               }
